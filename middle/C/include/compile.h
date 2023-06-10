@@ -160,4 +160,6 @@ void  Debug_off(void);                                                          
 short Debug_on(cstring *param);                                                 // turn on/modify debug
 short Debug(int savasp, int savssp, int dot);                                   // drop into debug
 
+int operator(void);
+
 #endif                                                                          // !_RSM_COMPILE_H_
