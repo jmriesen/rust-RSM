@@ -1,23 +1,51 @@
 extern crate bindgen;
-extern crate cmake;
-use cmake::Config;
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 
+extern crate cbindgen;
+
 fn main() {
-    println!("cargo:rerun-if-changed=C/compile/");
-    println!("cargo:rerun-if-changed=C/database/");
-    println!("cargo:rerun-if-changed=C/include/");
-    println!("cargo:rerun-if-changed=C/init/");
-    println!("cargo:rerun-if-changed=C/runtime/");
-    println!("cargo:rerun-if-changed=C/seqio/");
-    println!("cargo:rerun-if-changed=C/symbol/");
-    println!("cargo:rerun-if-changed=C/util/");
-    println!("cargo:rerun-if-changed=C/xcall/");
+    // 1) c's header files exist.
+    // 2) generate header files from rust code.
+    // 3) build c object files.
+    // 4) generate rust code from C headers.
+    // 4) build rust code.
+    // 5) link (cc handles telling cargo that it needs to link the c files.)
+    let rust_header = Path::new("../target");
+
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    cbindgen::Builder::new()
+        .with_crate(crate_dir)
+        .with_no_includes()
+        .with_language(cbindgen::Language::C)
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(&rust_header.join("rust.h"));
+
+    let c_src = glob::glob("C/*/*.c")
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    cc::Build::new()
+        .include(&"C/include")
+        .include(rust_header)
+        .files(&c_src)
+        .flag("-Wno-deprecated")
+        .compile("myLog");
+
+    for file in c_src {
+        println!(
+            "cargo:rerun-if-changed={}",
+            file.as_path().to_str().unwrap()
+        );
+    }
+
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate bindings for.
+        // note order matters so I cant just pull all .h files from that folder.
         .header("sys/types.h")
-        //.header("C/include/*")
         .header("C/include/rsm.h")
         .header("C/include/compile.h")
         .header("C/include/database.h")
@@ -27,10 +55,10 @@ fn main() {
         .header("C/include/proto.h")
         .header("C/include/seqio.h")
         .header("C/include/symbol.h")
-    // Tell cargo to invalidate the built crate whenever any of the
-    // included header files changed.
+        // Tell cargo to invalidate the built crate whenever any of the
+        // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
-    // Finish the builder and generate the bindings.
+        // Finish the builder and generate the bindings.
         .generate()
         .expect("Unable to generate bindings");
 
@@ -39,18 +67,4 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-
-    // Build static library
-    use std::process::Command;
-    println!("{:?}",Command::new("make")
-             .current_dir("./C")
-             .arg("lib")
-             .output()
-             .expect("Failed to execute command"));
-    println!("cargo:rustc-link-search=native=./middle/C");
-    println!("cargo:rustc-link-lib=mylib");
-    println!("cargo:rustc-link-lib=framework=CoreServices");
-    println!("cargo:rustc-link-lib=framework=DirectoryService");
-    println!("cargo:rustc-link-lib=framework=Security");
-
 }

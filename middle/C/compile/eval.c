@@ -39,6 +39,7 @@
 #include "error.h"                                                              // and the error defs
 #include "opcode.h"                                                             // and the opcodes
 #include "compile.h"                                                            // compiler stuff
+#include "rust.h"
 
 u_char *source_ptr;                                                             // pointer to source code
 u_char *comp_ptr;                                                               // pointer to compiled code
@@ -220,6 +221,7 @@ void atom(void)                                                                 
 
 int operator(void)                                                              // extract an operator
 {
+  opp();//Call into rust
     char c;                                                                     // the character
     int  not = 0;                                                               // not flag
 
