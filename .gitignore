@@ -1,5 +1,4 @@
 **/*.o
-./rsm
 **/daemon*.log
 RSM_CRASH
 *core
@@ -9,3 +8,5 @@ tags
 TODO
 .cppcheckrc
 **/.*.sw[ponx]
+/target/
+/middle/C/rsm
