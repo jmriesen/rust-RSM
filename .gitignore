@@ -10,3 +10,4 @@ TODO
 **/.*.sw[ponx]
 /target/
 /middle/C/rsm
+/middle/C/libmylib.a

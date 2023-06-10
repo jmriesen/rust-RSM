@@ -71,6 +71,9 @@ endif
 all: ${OBJ}
 	${CC} -o ${PROG} $^ ${LDFLAGS}
 
+lib: ${OBJ}
+	ar rcs libmylib.a ${OBJ}
+
 debug: ${OBJ}
 	${CC} -o ${PROG} $^ ${LDFLAGS}
 
