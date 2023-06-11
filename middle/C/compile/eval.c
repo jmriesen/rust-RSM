@@ -221,8 +221,8 @@ void atom(void)                                                                 
 
 int operator(void)                                                              // extract an operator
 {
-  opp();//Call into rust
-    char c;                                                                     // the character
+  return opp();//Call into rust
+  /* char c;                                                                     // the character
     int  not = 0;                                                               // not flag
 
     c = *source_ptr++;                                                          // get next char
@@ -299,6 +299,7 @@ int operator(void)                                                              
     default:                                                                    // stuffed up
         return 0;                                                               // clear op
     }                                                                           // end of switch for operators
+  */
 }
 
 /*

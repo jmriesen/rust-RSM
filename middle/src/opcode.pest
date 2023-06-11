@@ -1,0 +1,27 @@
+OPADD= {"+"}
+OPSUB = {"-"}
+OPMUL = {"*"}
+OPDIV= {"/"}
+OPINT= {"\\"}
+OPMOD= {"#"}
+OPPOW= {"**"}
+OPCAT= {"_"}
+OPGTR = {">"}
+OPAND = {"&"}
+OPCON = {"["}
+OPFOL = {"]"}
+OPPAT = {"?"}
+OPEQL = {"="}
+OPLES = {"<"}
+
+OPNEQL =  {"'="}
+OPNLES =  {"'<"}
+OPNGTR =  {"'>"}
+OPNAND =  {"'&"}
+OPNCON =  {"'["}
+OPNFOL =  {"']"}
+OPNSAF =  {"']]"}
+OPSAF = {"]]"}
+OPNPAT =  {"'?"}
+
+PestOpcode = {OPADD| OPSUB |OPMUL |OPDIV|OPINT|OPMOD|OPPOW|OPCAT|OPEQL |OPNEQL |OPLES |OPNLES |OPGTR |OPNGTR |OPAND |OPNAND |OPCON |OPNCON |OPFOL |OPNFOL |OPSAF |OPNSAF |OPPAT |OPNPAT }

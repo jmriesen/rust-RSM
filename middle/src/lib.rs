@@ -7,16 +7,18 @@
 mod bindings;
 use crate::bindings::*;
 
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+
 pub mod temp;
 
 use std::ffi::CStr;
 use std::ffi::CString;
 
-
 #[test]
 pub fn parse_op_code_test() {
     parse_op_code("+", bindings::OPADD);
-    todo!();
     parse_op_code("-", bindings::OPSUB);
     parse_op_code("*", bindings::OPMUL);
     parse_op_code("/", bindings::OPDIV);
