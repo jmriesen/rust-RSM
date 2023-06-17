@@ -29,7 +29,7 @@ fn main() {
         .unwrap();
 
     cc::Build::new()
-        .include(&"C/include")
+        .include("C/include")
         .include(rust_header)
         .files(&c_src)
         .flag("-Wno-deprecated")

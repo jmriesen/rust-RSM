@@ -32,13 +32,12 @@ fn compile_string(value:&CStr)->Vec<u8>{
     once(crate::bindings::OPSTR as u8)
         //length does not include null bite.
         .chain(((bytes.len()-1) as u_short).to_le_bytes())
-        .chain(bytes.iter().map(|x| *x))
+        .chain(bytes.iter().copied())
         .collect()
 }
 
 #[cfg(test)]
 mod test{
-    use std::ptr::null;
 
     use crate::{bindings::u_char};
     fn test_eval(src: &str){
@@ -89,10 +88,12 @@ mod test{
         {
             let source_temp = &mut source as *mut *mut u_char;
             let comp_temp = &mut compile_new_ptr as *mut *mut u_char;
-            unsafe {crate::bindings::eval_temp(source_temp,comp_temp,partab_ptr as* mut PARTAB) }
+            use crate::bindings::eval_temp;
+            unsafe {eval_temp(source_temp,comp_temp,partab_ptr as* mut PARTAB) }
         }
         assert_eq!(compiled_original,compiled_new);
-        unsafe{assert_eq!(any_as_u8_slice(&crate::bindings::partab),any_as_u8_slice(&par_tab_new))};
+        use crate::bindings::partab;
+        unsafe{assert_eq!(any_as_u8_slice(&partab),any_as_u8_slice(&par_tab_new))};
     }
     #[test]
     fn pattern_match(){

@@ -10,7 +10,7 @@ pub unsafe extern "C" fn opp(
         .unwrap();
     let (offset, value) = operator(source);
     unsafe { (*src) = (*src).add(offset) };
-    return value;
+    value
 }
 
 use pest::Parser;
