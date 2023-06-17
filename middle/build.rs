@@ -48,6 +48,7 @@ fn main() {
         .header("sys/types.h")
         .header("C/include/rsm.h")
         .header("C/include/compile.h")
+        .header("C/include/compile_temp.h")
         .header("C/include/database.h")
         .header("C/include/error.h")
         .header("C/include/init.h")

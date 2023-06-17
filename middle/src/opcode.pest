@@ -4,7 +4,6 @@ OPMUL = {"*"}
 OPDIV= {"/"}
 OPINT= {"\\"}
 OPMOD= {"#"}
-OPPOW= {"**"}
 OPCAT= {"_"}
 OPGTR = {">"}
 OPAND = {"&"}
@@ -14,14 +13,19 @@ OPPAT = {"?"}
 OPEQL = {"="}
 OPLES = {"<"}
 
+OneChar = _{OPADD|OPSUB |OPMUL |OPDIV|OPINT|OPMOD|OPCAT|OPGTR |OPAND |OPCON |OPFOL |OPPAT |OPEQL |OPLES}
+
+OPPOW= {"**"}
 OPNEQL =  {"'="}
 OPNLES =  {"'<"}
 OPNGTR =  {"'>"}
 OPNAND =  {"'&"}
 OPNCON =  {"'["}
 OPNFOL =  {"']"}
-OPNSAF =  {"']]"}
 OPSAF = {"]]"}
 OPNPAT =  {"'?"}
 
-PestOpcode = {OPADD| OPSUB |OPMUL |OPDIV|OPINT|OPMOD|OPPOW|OPCAT|OPEQL |OPNEQL |OPLES |OPNLES |OPGTR |OPNGTR |OPAND |OPNAND |OPCON |OPNCON |OPFOL |OPNFOL |OPSAF |OPNSAF |OPPAT |OPNPAT }
+TwoChar = _{ OPPOW|OPNEQL |OPNLES |OPNGTR |OPNAND |OPNCON |OPNFOL |OPSAF |OPNPAT}
+
+OPNSAF =  {"']]"}
+PestOpcode = {OPNSAF|TwoChar |OneChar}
