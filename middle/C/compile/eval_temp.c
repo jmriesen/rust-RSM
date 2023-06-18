@@ -123,14 +123,7 @@ void  atom_temp(u_char **src,u_char **comp,partab_struct *partition_tab)        
 
     if ((isalpha((int) c) != 0) || (c == '%') || (c == '^')) {                  // check for local variable or a global var
         --(*src);                                                           // backup to first character
-
-        s = localvar_temp(src,comp,partition_tab);                                                         // parse the variable
-
-        if (s < 0) {                                                            // if we got an error
-          comperror_temp(src,comp,partition_tab,s);                                                       // compile it
-            return;                                                             // and exit
-        }
-
+        parse_local_var_ffi(src,comp,partition_tab);
 
         return;                                                                 // and exit
     }                                                                           // end variable parse
@@ -251,7 +244,7 @@ void eval_temp(u_char **src,u_char **comp,partab_struct *partition_tab)         
         }
 
         if (pattern) {                                                          // normal (not @) pattern match
-          parse_pattern(src,comp);
+          parse_pattern_ffi(src,comp);
         } else {
           atom_temp(src,comp,partition_tab);                                                             // else get next operand
         }
