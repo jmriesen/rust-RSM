@@ -1,7 +1,8 @@
 extern crate bindgen;
-use std::env;
-use std::path::Path;
-use std::path::PathBuf;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 extern crate cbindgen;
 

@@ -1,10 +1,8 @@
-use std::ffi::CStr;
 use crate::bindings::u_char;
+use std::ffi::CStr;
 
 #[no_mangle]
-pub unsafe extern "C" fn opp(
-    src: *mut *mut u_char
-)-> u32 {
+pub unsafe extern "C" fn opp(src: *mut *mut u_char) -> u32 {
     let source = unsafe { CStr::from_ptr(*src as *const i8) }
         .to_str()
         .unwrap();
@@ -23,8 +21,8 @@ pub fn operator(source: &str) -> (usize, u32) {
     if let Ok(mut code) = OpCodeParser::parse(Rule::PestOpcode, source) {
         let code = code.next().unwrap().into_inner().next().unwrap();
         (code.as_str().len(), opcode_as_num(code.as_rule()))
-    }else{
-        (0,0)
+    } else {
+        (0, 0)
     }
 }
 
@@ -61,19 +59,19 @@ fn opcode_as_num(opcode: Rule) -> u32 {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use super::*;
-    use std::ffi::CString;
     use crate::bindings::*;
+    use std::ffi::CString;
     #[test]
     pub fn parse_op_code_test() {
         parse_op_code("+", OPADD);
         parse_op_code("-", OPSUB);
         parse_op_code("*", OPMUL);
         parse_op_code("/", OPDIV);
-        parse_op_code("\\",OPINT);
+        parse_op_code("\\", OPINT);
         parse_op_code("#", OPMOD);
-        parse_op_code("**",OPPOW);
+        parse_op_code("**", OPPOW);
         parse_op_code("_", OPCAT);
         parse_not_able_op_code("=", OPEQL, OPNEQL);
         parse_not_able_op_code("<", OPLES, OPNLES);
@@ -91,7 +89,9 @@ mod test{
     }
 
     pub fn parse_op_code(src: &str, opcode: u32) {
-        let source = CString::new(format!("{}extra", dbg!(src))).unwrap().into_raw();
+        let source = CString::new(format!("{}extra", dbg!(src)))
+            .unwrap()
+            .into_raw();
         //TODO this is being leaked.
         let mut source = source as *mut u8;
         {

@@ -10,9 +10,7 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-mod op_code;
 mod eval;
 mod ffi;
 mod localvar;
-
-
+mod op_code;
