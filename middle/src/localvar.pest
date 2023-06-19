@@ -1,18 +1,19 @@
-exp = {ANY*} //TODO placeholder
+//note currently need to exclue those charactors to prevent exp from consuming the rest of the src.
+exp = { (!("]" | "," | "|" |")") ~ ANY)* }//TODO placeholder
 
 //IntrinsicPrefix = {"^D"|"^E"|"^H"|"^I"|"^J"|"^K"|"^P"|"^Q"|"^R"|"^S"|"^T"|"^X"|"^Y"|"^Z"}
 
 VarName = { &("%" | "$" | "$&" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{,32}}
 
 
-GlobalVariable = { "^" ~ VarName }
+NakedVariable = { "^"~&"(" }
 LocalVariable = { VarName }
-NakedVariable = { &"(" }
-GlobalUciVariable = {"|" ~ exp ~ "|"~VarName}
-GlobalUciEnvVariable = { "["~ exp ~ exp ~"]" ~ VarName}
+GlobalVariable = { "^" ~ VarName }
+GlobalUciVariable = {"^|" ~ exp ~ "|"~VarName}
+GlobalUciEnvVariable = { "^["~ exp ~(","~ exp)? ~"]" ~ VarName}
 
 
 VariableSubscripts  = { "(" ~ exp ~("," ~ exp)* ~ ")" }
 
 
-Variable = { (GlobalVariable | LocalVariable | NakedVariable | GlobalUciVariable | GlobalUciEnvVariable)~VariableSubscripts? }
+Variable = { (GlobalVariable | LocalVariable  | GlobalUciVariable | GlobalUciEnvVariable| NakedVariable)~VariableSubscripts? }

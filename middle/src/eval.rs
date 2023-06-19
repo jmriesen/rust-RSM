@@ -1,9 +1,31 @@
 use std::ffi::{CStr, CString};
 
+use crate::bindings::{PARTAB,MVAR,VAR_U};
+
 use crate::bindings::u_char;
 use crate::ffi::*;
 
 use pest::Parser;
+use pest::iterators::Pair;
+
+pub fn parse_eval_ffi(src:&str, partab: &mut PARTAB,comp:&mut Vec<u8>){
+    let tmp = CString::new(src).unwrap();
+    let mut source = tmp.as_ptr() as *mut u_char;
+    let source_ptr = &mut source as *mut *mut u_char;
+
+    let mut buff = [0u8;100];
+    let mut comp_c = &mut buff as * mut u_char;
+    let comp_ptr = &mut comp_c as *mut *mut u_char;
+
+    unsafe {crate::bindings::eval_temp(source_ptr,comp_ptr,partab as* mut PARTAB) }
+
+    let num = unsafe{comp_c.offset_from(buff.as_ptr())};
+
+    comp.extend(buff.into_iter().take(num as usize));
+}
+
+
+
 
 #[derive(Parser)]
 #[grammar = "pattern.pest"]
@@ -18,7 +40,7 @@ pub extern "C" fn parse_pattern_ffi(
     .to_str()
         .unwrap();
     let (offset,byte_code) = parse_pattern(source);
-    unsafe{sync_with_c(src, comp, offset, byte_code);}
+    unsafe{sync_with_c(src, comp, offset, &byte_code);}
 }
 
 fn parse_pattern(src: &str)->(usize,Vec<u8>){
@@ -34,7 +56,7 @@ fn parse_pattern(src: &str)->(usize,Vec<u8>){
 
 #[cfg(test)]
 pub mod test{
-
+    use super::*;
     use crate::{bindings::u_char,ffi::test::*};
     pub fn test_eval(src: &str){
         use std::ffi::CString;
@@ -55,7 +77,6 @@ pub mod test{
 
         let mut compiled_new = [0u8;100];
         let mut compile_new_ptr = compiled_new.as_mut_ptr();
-        use crate::bindings::{PARTAB,MVAR,VAR_U};
         use core::ptr::null_mut;
         let mut par_tab_new = PARTAB{
             jobtab: null_mut(),

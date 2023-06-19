@@ -111,13 +111,7 @@ void  atom_temp(u_char **src,u_char **comp,partab_struct *partition_tab)        
         }
 
         *(*comp)++ = INDMVAR;                                                  // make an mvar out of it
-        s = localvar_temp(src,comp,partition_tab);                                                         // parse the rest of it
-
-        if (s < 0) {                                                            // if we got an error
-          comperror_temp(src,comp,partition_tab,s);                                                       // compile it
-            return;                                                             // and exit
-        }
-
+        parse_local_var_ffi(src,comp,partition_tab);
         return;                                                                 // and exit
     }
 

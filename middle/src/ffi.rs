@@ -5,11 +5,11 @@ pub unsafe fn sync_with_c(
     src: *mut *mut u_char,
     comp: *mut *mut u_char,
     offset:usize,
-    byte_code:Vec<u8>,
+    byte_code:&[u8],
 ){
     use std::ptr::copy_nonoverlapping;
     // Copy over byte_code
-    unsafe {copy_nonoverlapping(byte_code.as_ptr(),*comp,byte_code.len())}
+    unsafe {copy_nonoverlapping((*byte_code).as_ptr(),*comp,byte_code.len())}
     unsafe { *comp = (*comp).add(byte_code.len()) };
 
     //Move source ptr;

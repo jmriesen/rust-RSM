@@ -23,7 +23,6 @@ void  parse_use_temp(u_char **src,u_char **comp);                               
 void  parse_write_temp(u_char **src,u_char **comp);                                                        // WRITE
 void  parse_xecute_temp(u_char **src,u_char **comp);                                                       // XECUTE
 void  parse_temp(u_char **src,u_char **comp);                                                              // parse - main loop
-short localvar_temp(u_char **src,u_char **comp,partab_struct *partab_ptr);                                                           // evaluate local variable
 void  eval_temp(u_char **src,u_char **comp,partab_struct *partab_ptr);                                                               // eval a string
 void  atom_temp(u_char **src,u_char **comp,partab_struct *partab_ptr);                                                               // evaluate source
 
