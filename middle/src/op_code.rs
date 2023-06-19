@@ -1,4 +1,5 @@
-use crate::bindings::u_char;
+use super::*;
+use crate::{bindings::u_char, pest::Parser};
 use std::ffi::CStr;
 
 #[no_mangle]
@@ -11,14 +12,8 @@ pub unsafe extern "C" fn opp(src: *mut *mut u_char) -> u32 {
     value
 }
 
-use pest::Parser;
-
-#[derive(Parser)]
-#[grammar = "opcode.pest"]
-pub struct OpCodeParser;
-
 pub fn operator(source: &str) -> (usize, u32) {
-    if let Ok(mut code) = OpCodeParser::parse(Rule::PestOpcode, source) {
+    if let Ok(mut code) = SyntaxParser::parse(Rule::PestOpcode, source) {
         let code = code.next().unwrap().into_inner().next().unwrap();
         (code.as_str().len(), opcode_as_num(code.as_rule()))
     } else {
@@ -27,7 +22,6 @@ pub fn operator(source: &str) -> (usize, u32) {
 }
 
 fn opcode_as_num(opcode: Rule) -> u32 {
-    use crate::bindings;
     use Rule::*;
     match opcode {
         OPADD => bindings::OPADD,

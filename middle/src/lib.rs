@@ -14,3 +14,9 @@ mod eval;
 mod ffi;
 mod localvar;
 mod op_code;
+
+#[derive(Parser)]
+#[grammar = "localvar.pest"]
+#[grammar = "opcode.pest"]
+#[grammar = "pattern.pest"]
+pub struct SyntaxParser;

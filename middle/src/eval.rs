@@ -1,3 +1,4 @@
+use super::*;
 use std::ffi::{CStr, CString};
 
 use crate::{
@@ -22,10 +23,6 @@ pub fn parse_eval_ffi(src: &str, partab: &mut PARTAB, comp: &mut Vec<u8>) {
     comp.extend(buff.into_iter().take(num as usize));
 }
 
-#[derive(Parser)]
-#[grammar = "pattern.pest"]
-pub struct PatternParser;
-
 #[no_mangle]
 pub extern "C" fn parse_pattern_ffi(src: *mut *mut u_char, comp: *mut *mut u_char) {
     let source = unsafe { CStr::from_ptr(*src as *const i8) }
@@ -38,7 +35,7 @@ pub extern "C" fn parse_pattern_ffi(src: *mut *mut u_char, comp: *mut *mut u_cha
 }
 
 fn parse_pattern(src: &str) -> (usize, Vec<u8>) {
-    if let Ok(code) = PatternParser::parse(Rule::atom, src) {
+    if let Ok(code) = SyntaxParser::parse(Rule::atom, src) {
         let code = code.as_str();
         let cstr = CString::new(code).unwrap();
         (code.len(), compile_string(&cstr))

@@ -1,3 +1,4 @@
+use super::*;
 use crate::{
     bindings::{partab_struct, u_char},
     eval::parse_eval_ffi,
@@ -7,10 +8,6 @@ use core::ffi::CStr;
 use libc::c_short;
 use pest::{iterators::Pair, Parser};
 use std::ffi::CString;
-
-#[derive(Parser)]
-#[grammar = "localvar.pest"]
-pub struct LocalVar;
 
 #[no_mangle]
 pub unsafe extern "C" fn parse_local_var_ffi(
@@ -22,7 +19,7 @@ pub unsafe extern "C" fn parse_local_var_ffi(
         .to_str()
         .unwrap();
 
-    let variable = LocalVar::parse(Rule::Variable, source)
+    let variable = SyntaxParser::parse(Rule::Variable, source)
         .unwrap()
         .next()
         .unwrap();
