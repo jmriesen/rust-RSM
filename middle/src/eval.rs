@@ -47,6 +47,8 @@ fn parse_pattern(src: &str) -> (usize, Vec<u8>) {
 
 #[cfg(test)]
 pub mod test {
+    use std::sync::Mutex;
+    static guard:Mutex::<()> = Mutex::new(());
     use super::*;
     use crate::{bindings::u_char, ffi::test::*};
     pub fn test_eval(src: &str) {
@@ -59,6 +61,7 @@ pub mod test {
         let mut compiled_original = [0u8; 100];
 
         {
+            let _lock = guard.lock();
             unsafe { source_ptr = source };
             unsafe { comp_ptr = compiled_original.as_mut_ptr() };
             unsafe { crate::bindings::eval() }
