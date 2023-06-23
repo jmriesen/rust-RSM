@@ -1,26 +1,14 @@
 use super::*;
-use std::ffi::{CStr, CString};
-
 use crate::{
-    bindings::{u_char, PARTAB},
+    bindings::{partab_struct, u_char, PARTAB},
     ffi::*,
     pest::Parser,
 };
+use pest::iterators::Pair;
+use std::ffi::{CStr, CString};
 
 pub fn parse_eval_ffi(src: &str, partab: &mut PARTAB, comp: &mut Vec<u8>) {
-    let tmp = CString::new(src).unwrap();
-    let mut source = tmp.as_ptr() as *mut u_char;
-    let source_ptr = &mut source as *mut *mut u_char;
-
-    let mut buff = [0u8; 100];
-    let mut comp_c = &mut buff as *mut u_char;
-    let comp_ptr = &mut comp_c as *mut *mut u_char;
-
-    unsafe { crate::bindings::eval_temp(source_ptr, comp_ptr, partab as *mut PARTAB) }
-
-    let num = unsafe { comp_c.offset_from(buff.as_ptr()) };
-
-    comp.extend(buff.into_iter().take(num as usize));
+    parse_rust_to_c_ffi(src, partab, comp, crate::bindings::eval_temp)
 }
 
 #[no_mangle]
@@ -45,10 +33,36 @@ fn parse_pattern(src: &str) -> (usize, Vec<u8>) {
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn ncopy_ffi(
+    src: *mut *mut u_char,
+    comp: *mut *mut u_char,
+    par_tab: *mut partab_struct,
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, rust_ncopy)
+}
+fn rust_ncopy(number: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    let number = number.as_str();
+    let sign = if number.chars().filter(|x| *x == '-').count() % 2 == 0 {
+        ""
+    } else {
+        "-"
+    };
+
+    let mut number = number
+        .trim_start_matches(['+', '-'])
+        .trim_start_matches('0');
+    if number.contains('.') {
+        number = number.trim_end_matches('0').trim_end_matches('.');
+    }
+    let num = CString::new(format!("{}{}", sign, number)).unwrap();
+    comp.extend(compile_string(&num))
+}
+
 #[cfg(test)]
 pub mod test {
     use std::sync::Mutex;
-    static guard:Mutex::<()> = Mutex::new(());
+    static guard: Mutex<()> = Mutex::new(());
     use super::*;
     use crate::{bindings::u_char, ffi::test::*};
     pub fn test_eval(src: &str) {
