@@ -2,11 +2,9 @@ use super::*;
 use crate::{
     bindings::{partab_struct, u_char},
     eval::parse_eval_ffi,
-    ffi::sync_with_c,
+    ffi::parse_c_to_rust_ffi,
 };
-use core::ffi::CStr;
-use libc::c_short;
-use pest::{iterators::Pair, Parser};
+use pest::iterators::Pair;
 use std::ffi::CString;
 
 #[no_mangle]
@@ -14,23 +12,8 @@ pub unsafe extern "C" fn parse_local_var_ffi(
     src: *mut *mut u_char,
     comp: *mut *mut u_char,
     par_tab: *mut partab_struct,
-) -> c_short {
-    let source = unsafe { CStr::from_ptr(*src as *const i8) }
-        .to_str()
-        .unwrap();
-
-    let variable = SyntaxParser::parse(Rule::Variable, source)
-        .unwrap()
-        .next()
-        .unwrap();
-    let offset = variable.as_str().len();
-    let mut byte_code = vec![];
-    parse_local_var(variable, &mut *par_tab, &mut byte_code);
-
-    unsafe {
-        sync_with_c(src, comp, offset, &byte_code);
-    }
-    byte_code.len() as c_short
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Variable, parse_local_var)
 }
 
 pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
