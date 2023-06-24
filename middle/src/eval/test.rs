@@ -135,3 +135,19 @@ fn parse_number(#[case] num: &str) {
     test_eval(num);
 }
 
+#[rstest]
+#[case("\"Some string\"")]
+#[case("\"Some numbers89097\"")]
+#[case("\" string with quote\"\"quote\"\"\" some text\"")]
+fn parse_string(#[case] num: &str) {
+    test_eval(num);
+}
+
+
+#[rstest]
+#[case("-98")]
+#[case("'98")]
+#[case("/98")]
+fn parse_unary_exp(#[case] num: &str) {
+    test_eval(num);
+}

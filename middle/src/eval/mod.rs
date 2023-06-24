@@ -62,6 +62,50 @@ fn rust_ncopy(number: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8
     let num = CString::new(format!("{}{}", sign, number)).unwrap();
     comp.extend(compile_string(&num))
 }
+#[no_mangle]
+pub unsafe extern "C" fn unary_op_ffi(
+    src: *mut *mut u_char,
+    comp: *mut *mut u_char,
+    par_tab: *mut partab_struct,
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::UnaryOperator, unary_op)
+}
+
+fn unary_op(unaryExp : Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    let mut unaryExp = unaryExp.into_inner();
+    let op = unaryExp.next().unwrap();
+    let op = match op.as_rule(){
+        Rule::OPNOT   => bindings::OPNOT,
+        Rule::OPPLUS  => bindings::OPPLUS,
+        Rule::OPMINUS => bindings::OPMINUS,
+        _ => unreachable!(),
+    } as u8;
+
+    let exp = unaryExp.next().unwrap();
+
+    parse_rust_to_c_ffi(exp.as_str(), partab, comp, crate::bindings::atom_temp);
+
+    comp.push(op);
+}
+#[no_mangle]
+pub unsafe extern "C" fn parse_string_literal_ffi(
+    src: *mut *mut u_char,
+    comp: *mut *mut u_char,
+    par_tab: *mut partab_struct,
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::String, literal)
+}
+
+fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    let literal = literal.as_str()
+        .strip_prefix("\"").unwrap()
+        .strip_suffix("\"").unwrap()
+    //replace "" with " quote.
+        .replace("\"\"","\"");
+    //strip off outer quotes.
+    let inner = CString::new(literal).unwrap();
+    comp.extend(compile_string(&inner))
+}
 
 
 #[cfg(test)]

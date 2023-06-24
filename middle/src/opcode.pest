@@ -1,10 +1,10 @@
-OPADD= {"+"}
+OPADD = {"+"}
 OPSUB = {"-"}
 OPMUL = {"*"}
-OPDIV= {"/"}
-OPINT= {"\\"}
-OPMOD= {"#"}
-OPCAT= {"_"}
+OPDIV = {"/"}
+OPINT = {"\\"}
+OPMOD = {"#"}
+OPCAT = {"_"}
 OPGTR = {">"}
 OPAND = {"&"}
 OPCON = {"["}
@@ -28,4 +28,10 @@ OPNPAT =  {"'?"}
 TwoChar = _{ OPPOW|OPNEQL |OPNLES |OPNGTR |OPNAND |OPNCON |OPNFOL |OPSAF |OPNPAT}
 
 OPNSAF =  {"']]"}
-PestOpcode = {OPNSAF|TwoChar |OneChar}
+BinaryOperator = { OPNSAF | TwoChar | OneChar }
+
+OPNOT   = {"'"}
+OPPLUS  = {"+"}
+OPMINUS = {"-"}
+
+UnaryOperator = { (OPNOT | OPPLUS | OPMINUS) ~ exp }

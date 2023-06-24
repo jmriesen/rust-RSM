@@ -13,7 +13,7 @@ pub unsafe extern "C" fn opp(src: *mut *mut u_char) -> u32 {
 }
 
 pub fn operator(source: &str) -> (usize, u32) {
-    if let Ok(mut code) = SyntaxParser::parse(Rule::PestOpcode, source) {
+    if let Ok(mut code) = SyntaxParser::parse(Rule::BinaryOperator, source) {
         let code = code.next().unwrap().into_inner().next().unwrap();
         (code.as_str().len(), opcode_as_num(code.as_rule()))
     } else {

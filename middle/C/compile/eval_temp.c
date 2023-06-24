@@ -135,49 +135,14 @@ void  atom_temp(u_char **src,u_char **comp,partab_struct *partition_tab)        
     }                                                                           // end numeric parse
 
     if (c == '"') {                                                             // rabbit ear
-        int    j = sizeof(u_short);                                             // point at p->buf[0]
-        u_char *p;                                                              // a pointer
-
-        *(*comp)++ = OPSTR;                                                    // say string following
-        p = (*comp);                                                           // possible destination
-
-        while (TRUE) {                                                          // scan the string
-            if (*(*src) == '\0') {                                          // check for end of string
-                (*comp)--;                                                     // remove the OPSTR
-                comperror_temp(src,comp,partition_tab,-(ERRZ12 + ERRMLAST));                                // compile an error
-                return;                                                         // and exit
-            }                                                                   // end of error bit
-
-            if ((*(*src) == '"') && ((*src)[1] != '"')) {               // check end of literal
-                p[j] = '\0';                                                    // null terminate it
-                (*src)++;                                                   // point past it
-                break;                                                          // and exit
-            }                                                                   // end 'end of str' code
-
-            p[j++] = *(*src)++;                                             // copy the character
-            if ((*((*src) - 1) == '"') && (*(*src) == '"')) (*src)++; // got rabbit ears? then point past the second one
-        }                                                                       // end of copy loop
-
-        *((u_short *) p) = (u_short) (j - sizeof(u_short));                     // store cstring count
-        (*comp) += j + 1;                                                      // point past str and null
-        return;
+      (*src)--;                                                           // back up the source ptr
+      parse_string_literal_ffi(src,comp,partition_tab);
+      return;
     }                                                                           // end string literal
 
-    if (c == '\'') {                                                            // check for single quote
-      atom_temp(src,comp,partition_tab);                                                                 // get the following
-        *(*comp)++ = OPNOT;                                                    // do the NOT
-        return;
-    }                                                                           // end NOT parsing
-
-    if (c == '+') {                                                             // check for plus
-      atom_temp(src,comp,partition_tab);                                                                 // get the following
-        *(*comp)++ = OPPLUS;                                                   // do the plus
-        return;
-    }                                                                           // end NOT parsing
-
-    if (c == '-') {                                                             // check for unary minus
-      atom_temp(src,comp,partition_tab);                                                                 // get the following
-        *(*comp)++ = OPMINUS;                                                  // do the minus
+    if (c == '\'' | c == '+' | c == '-') {                                                            // check for single quote
+      (*src)--;                                                           // back up the source ptr
+      unary_op_ffi(src,comp,partition_tab);                                                                 // get the following
         return;
     }                                                                           // end NOT parsing
 
