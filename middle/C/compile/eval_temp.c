@@ -99,7 +99,6 @@ scan:
 void  atom_temp(u_char **src,u_char **comp,partab_struct *partition_tab)                                                               // evaluate source
 {
     char   c;                                                                   // current character
-    short  s;                                                                   // for function returns
 
     c = *(*src)++;                                                          // get a character
     if (c == '@') {                                                             // indirection?
@@ -129,17 +128,9 @@ void  atom_temp(u_char **src,u_char **comp,partab_struct *partition_tab)        
 
     if ((isdigit((int) c) != 0) || (c == '.')) {                                // check for number or dot
         (*src)--;                                                           // back up the source ptr
-        *(*comp)++ = OPSTR;                                                    // say string following
-        s = ncopy(&(*src), (*comp) + sizeof(u_short));                     // copy as number
+        ncopy_ffi(src,comp,partition_tab);
 
-        if (s < 0) {                                                            // if we got an error
-          (*comp)--;                                                           // remove the OPSTR
-          comperror_temp(src,comp,partition_tab,s);                                                         // compile it
-          return;                                                               // and exit
-        }
 
-        *((u_short *) (*comp)) = s;                                            // store string count
-        (*comp) += sizeof(u_short) + s + 1;                                    // allow for null byte
         return;
     }                                                                           // end numeric parse
 

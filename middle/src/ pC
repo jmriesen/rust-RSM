@@ -1,6 +1,0 @@
-  /Users/jacobriesen/ExplorationCode/rsm/middle/src:
-  total used in directory 16 available 42.2 GiB
-  drwxr-xr-x  4 jacobriesen  staff  128 Jun  9 22:46   .
-  drwxr-xr-x  6 jacobriesen  staff  192 Jun  9 22:19   ..
-C -rw-r--r--  1 jacobriesen  staff  311 Jun  9 22:43   bindings.rs
-  -rw-r--r--  1 jacobriesen  staff  322 Jun  9 22:43   main.rs
