@@ -141,6 +141,7 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let atom = atom.into_inner().next().unwrap();
 
     //TODO will need to deal with inderection
+    //TODO will need to deal dollar()
     match atom.as_rule(){
         Rule::Variable => parse_local_var(atom, partab, comp),
         Rule::UnaryOperator => unary_op(atom, partab, comp),
@@ -151,6 +152,16 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     }
 }
 
+
+
+#[no_mangle]
+pub unsafe extern "C" fn atom_ffi(
+    src: *mut *mut u_char,
+    comp: *mut *mut u_char,
+    par_tab: *mut partab_struct,
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, atom)
+}
 
 #[cfg(test)]
 pub mod test;

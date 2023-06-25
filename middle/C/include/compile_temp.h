@@ -36,4 +36,6 @@ void  Debug_off_temp(void);                                                     
 short Debug_on_temp(cstring *param);                                                 // turn on/modify debug
 short Debug_temp(int savasp, int savssp, int dot);                                   // drop into debug
 
+
+short routine_temp(int runtime,u_char **src,u_char **comp,partab_struct *partab_ptr);                                                     // parse routine ref
 #endif                                                                          // !_RSM_COMPILE_TEMP_H_
