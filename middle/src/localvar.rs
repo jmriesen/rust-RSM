@@ -1,7 +1,8 @@
 use super::*;
+use crate::eval::atom;
+use crate::eval::eval;
 use crate::{
     bindings::{partab_struct, u_char},
-    eval::parse_eval_ffi,
     ffi::parse_c_to_rust_ffi,
 };
 use pest::iterators::Pair;
@@ -25,7 +26,7 @@ pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &
     let subscripts = variable.next().unwrap();
     let number_of_subscripts = subscripts
         .into_inner()
-        .inspect(|i| parse_eval_ffi(i.as_str(), partab, comp))
+        .inspect(|i| eval(i.clone(), partab, comp))
         .count();
 
     comp.push(crate::bindings::OPVAR as u8);
@@ -65,10 +66,10 @@ pub fn parse_var_descriptor(
 
     let (exps, name): (Vec<_>, Vec<_>) = descriptor
         .into_inner()
-        .partition(|x| x.as_rule() == Rule::exp);
+        .partition(|x| x.as_rule() == Rule::Atom);
 
     for exp in exps {
-        parse_eval_ffi(exp.as_str(), partab, comp);
+        atom(exp, partab, comp);
     }
 
     let name = name
@@ -86,6 +87,7 @@ mod test {
     #[rstest]
     #[case("SomeString")]
     #[case("^SomeString")]
+    #[case("^[atom]varName")]
     #[case("^|atom|varName")]
     #[case("^[atom1,atom2]varName")]
     //TODO there seems to be special handling for intrinsics

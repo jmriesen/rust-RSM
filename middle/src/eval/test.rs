@@ -1,7 +1,8 @@
 use std::sync::Mutex;
 static guard: Mutex<()> = Mutex::new(());
 use super::*;
-use crate::{bindings::u_char, ffi::test::*};
+use crate::{ffi::test::*};
+use crate::bindings::PARTAB;
 pub fn test_eval(src: &str) {
     use std::io::Write;
     use crate::bindings::{comp_ptr, source_ptr, MVAR, VAR_U};
@@ -12,7 +13,7 @@ pub fn test_eval(src: &str) {
 
     //TODO this is being leaked.
     let source = CString::new(dbg!(src)).unwrap();
-    let mut source = source.into_raw() as *mut u8;
+    let source = source.into_raw() as *mut u8;
 
     let mut par_tab = PARTAB {
         jobtab: null_mut(),
@@ -84,20 +85,12 @@ pub fn test_eval(src: &str) {
         unsafe{comp_ptr.offset_from(compiled_original.as_ptr())}
     };
 
-    let mut compiled_new = [0u8; buffer_len];
-    let mut compile_new_ptr = compiled_new.as_mut_ptr();
     use core::ptr::null_mut;
-    let partab_ptr = &mut par_tab;
-    let _ = std::io::stdout().flush();
-    let compile_stack_len_new = {
-        let source_temp = &mut source as *mut *mut u_char;
-        let comp_temp = &mut compile_new_ptr as *mut *mut u_char;
-        use crate::bindings::eval_temp;
-        unsafe { eval_temp(source_temp, comp_temp, partab_ptr as *mut PARTAB) }
-        unsafe{compile_new_ptr.offset_from(compiled_new.as_ptr())}
-    };
 
-    assert_eq!(compiled_original[..compile_stack_len as usize], compiled_new[..compile_stack_len_new as usize]);
+    let mut byte_code = vec![];
+    eval(dbg!(SyntaxParser::parse(Rule::Exp, src)).unwrap().next().unwrap(),&mut par_tab,&mut byte_code);
+
+    assert_eq!(compiled_original[..compile_stack_len as usize], byte_code[..]);
     use crate::bindings::partab;
     unsafe { assert_eq!(any_as_u8_slice(&partab), any_as_u8_slice(&par_tab)) };
 }
@@ -147,7 +140,15 @@ fn parse_string(#[case] num: &str) {
 #[rstest]
 #[case("-98")]
 #[case("'98")]
-#[case("/98")]
+#[case("+98")]
 fn parse_unary_exp(#[case] num: &str) {
+    test_eval(num);
+}
+
+#[rstest]
+#[case("98+9")]
+#[case("-98\\var(7,9)")]
+#[case("98+(something+9)")]
+fn parse_exp(#[case] num: &str) {
     test_eval(num);
 }

@@ -1,15 +1,11 @@
 use super::*;
 use crate::{
-    bindings::{partab_struct, u_char, PARTAB},
+    bindings::{partab_struct, u_char},
     ffi::*,
-    pest::Parser,
+    pest::Parser, op_code::operator, localvar::parse_local_var,
 };
 use pest::iterators::Pair;
 use std::ffi::{CStr, CString};
-
-pub fn parse_eval_ffi(src: &str, partab: &mut PARTAB, comp: &mut Vec<u8>) {
-    parse_rust_to_c_ffi(src, partab, comp, crate::bindings::eval_temp)
-}
 
 #[no_mangle]
 pub extern "C" fn parse_pattern_ffi(src: *mut *mut u_char, comp: *mut *mut u_char) {
@@ -23,7 +19,7 @@ pub extern "C" fn parse_pattern_ffi(src: *mut *mut u_char, comp: *mut *mut u_cha
 }
 
 fn parse_pattern(src: &str) -> (usize, Vec<u8>) {
-    if let Ok(code) = SyntaxParser::parse(Rule::atom, src) {
+    if let Ok(code) = SyntaxParser::parse(Rule::Pattern, src) {
         let code = code.as_str();
         let cstr = CString::new(code).unwrap();
         (code.len(), compile_string(&cstr))
@@ -83,10 +79,11 @@ fn unary_op(unaryExp : Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8
 
     let exp = unaryExp.next().unwrap();
 
-    parse_rust_to_c_ffi(exp.as_str(), partab, comp, crate::bindings::atom_temp);
+    atom(exp,partab,comp);
 
     comp.push(op);
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn parse_string_literal_ffi(
     src: *mut *mut u_char,
@@ -105,6 +102,53 @@ fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>)
     //strip off outer quotes.
     let inner = CString::new(literal).unwrap();
     comp.extend(compile_string(&inner))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn eval_ffi(
+    src: *mut *mut u_char,
+    comp: *mut *mut u_char,
+    par_tab: *mut partab_struct,
+) {
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Exp, eval)
+}
+
+pub fn eval(eval: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    dbg!(&eval);
+    let mut eval = eval.into_inner();
+    let exp = eval.next().unwrap();
+    atom(exp,partab,comp);
+
+    while let (Some(op),Some(exp)) = (eval.next(),eval.next()){
+        let (_,op) = operator(op.as_str());
+        match exp.as_rule(){
+            Rule::Atom => {
+                atom(exp,partab,comp);
+            },
+            Rule::Pattern => {
+                let (_,byte_code) = parse_pattern(exp.as_str());
+                comp.extend(byte_code);
+            }
+            _=> unreachable!()
+        }
+
+        comp.push(op as u8);
+    }
+}
+
+
+pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    let atom = atom.into_inner().next().unwrap();
+
+    //TODO will need to deal with inderection
+    match atom.as_rule(){
+        Rule::Variable => parse_local_var(atom, partab, comp),
+        Rule::UnaryOperator => unary_op(atom, partab, comp),
+        Rule::String => literal(atom,partab,comp),
+        Rule::Number => rust_ncopy(atom, partab, comp),
+        Rule::Exp => eval(atom, partab, comp),
+        _=> unreachable!()
+    }
 }
 
 

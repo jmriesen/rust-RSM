@@ -1,4 +1,5 @@
 RepetitionCount = _{ ASCII_DIGIT*~"."~ASCII_DIGIT*|ASCII_DIGIT*}
-PatternElement = _{quote~((!quote~ANY) | (quote~quote))* ~quote | "("~atom~(","~atom)*~")" |^"A"|^"C"|^"E"|^"L"|^"N"|^"P"|^"U"}
+PatternElement = _{quote~((!quote~ANY) | (quote~quote))* ~quote | "("~Pattern~(","~Pattern)*~")" |^"A"|^"C"|^"E"|^"L"|^"N"|^"P"|^"U"}
 quote = _{"\""}
-atom = {RepetitionCount ~ PatternElement+}
+
+Pattern = {RepetitionCount ~ PatternElement+}

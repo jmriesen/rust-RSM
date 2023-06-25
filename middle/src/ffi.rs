@@ -62,7 +62,7 @@ pub fn parse_rust_to_c_ffi(
     let mut source = tmp.as_ptr() as *mut u_char;
     let source_ptr = &mut source as *mut *mut u_char;
 
-    let mut buff = [0u8; 100];
+    let mut buff = [0u8; 200];
     let mut comp_c = &mut buff as *mut u_char;
     let comp_ptr = &mut comp_c as *mut *mut u_char;
 

@@ -34,4 +34,4 @@ OPNOT   = {"'"}
 OPPLUS  = {"+"}
 OPMINUS = {"-"}
 
-UnaryOperator = { (OPNOT | OPPLUS | OPMINUS) ~ exp }
+UnaryOperator = { (OPNOT | OPPLUS | OPMINUS) ~ Atom }

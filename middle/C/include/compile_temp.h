@@ -23,9 +23,6 @@ void  parse_use_temp(u_char **src,u_char **comp);                               
 void  parse_write_temp(u_char **src,u_char **comp);                                                        // WRITE
 void  parse_xecute_temp(u_char **src,u_char **comp);                                                       // XECUTE
 void  parse_temp(u_char **src,u_char **comp);                                                              // parse - main loop
-void  eval_temp(u_char **src,u_char **comp,partab_struct *partab_ptr);                                                               // eval a string
-void  atom_temp(u_char **src,u_char **comp,partab_struct *partab_ptr);                                                               // evaluate source
-
 void comperror_temp(u_char **src,u_char **comp,partab_struct *partab_ptr,short err);                                                       // compile error
 
 // Debug prototypes
