@@ -1,15 +1,11 @@
 use std::sync::Mutex;
 static guard: Mutex<()> = Mutex::new(());
 use super::*;
-use crate::{ffi::test::*};
-use crate::bindings::PARTAB;
-pub fn test_eval(src: &str) {
-    use std::io::Write;
-    use crate::bindings::{comp_ptr, source_ptr, MVAR, VAR_U};
-    use crate::bindings::systab;
-    use crate::bindings::TRANTAB;
+use crate::{bindings::PARTAB, ffi::test::*};
 
-    use crate::bindings::SYSTAB;
+pub fn test_eval(src: &str) {
+    use crate::bindings::{comp_ptr, source_ptr, systab, MVAR, SYSTAB, TRANTAB, VAR_U};
+    use std::io::Write;
 
     //TODO this is being leaked.
     let source = CString::new(dbg!(src)).unwrap();
@@ -38,7 +34,7 @@ pub fn test_eval(src: &str) {
     };
     //TODO Figure out how these different fields actually work.
     //Zeroing out for now so that I can avoid seg faults
-    let mut sys_tab = SYSTAB{
+    let mut sys_tab = SYSTAB {
         address: null_mut(),
         jobtab: null_mut(),
         maxjob: 0,
@@ -46,17 +42,13 @@ pub fn test_eval(src: &str) {
         historic: 0,
         precision: 0,
         max_tt: 0,
-        tt: [TRANTAB{
-            from_global: VAR_U{
-                var_cu: [0; 32],
-            },
-            from_vol:0,
-            from_uci:0,
-            to_global:VAR_U{
-                var_cu: [0; 32],
-            },
-            to_vol:0,
-            to_uci:0,
+        tt: [TRANTAB {
+            from_global: VAR_U { var_cu: [0; 32] },
+            from_vol: 0,
+            from_uci: 0,
+            to_global: VAR_U { var_cu: [0; 32] },
+            to_vol: 0,
+            to_uci: 0,
         }; 8],
         start_user: 0,
         lockstart: null_mut(),
@@ -72,25 +64,36 @@ pub fn test_eval(src: &str) {
     //TODO something about the value of 100 can cause the len to be calculated incorrectly.
     //attributing to some of the unsafe code in this test harness.
     //I think it should be fine for now, after all my end goal is to remove the unsafe C all together.
-    const buffer_len:usize = 600;
+    const buffer_len: usize = 600;
     let mut compiled_original = [0u8; buffer_len];
     let _ = std::io::stdout().flush();
-    let compile_stack_len ={
+    let compile_stack_len = {
         let _lock = guard.lock();
         unsafe { source_ptr = source };
         unsafe { comp_ptr = compiled_original.as_mut_ptr() };
-        unsafe { partab = par_tab.clone()};
-        unsafe { systab = & mut sys_tab as *mut SYSTAB};
+        unsafe { partab = par_tab.clone() };
+        unsafe { systab = &mut sys_tab as *mut SYSTAB };
         unsafe { crate::bindings::eval() }
-        unsafe{comp_ptr.offset_from(compiled_original.as_ptr())}
+        unsafe { comp_ptr.offset_from(compiled_original.as_ptr()) }
     };
 
     use core::ptr::null_mut;
 
     let mut byte_code = vec![];
-    eval(dbg!(SyntaxParser::parse(Rule::Exp, src)).unwrap().next().unwrap(),&mut par_tab,&mut byte_code);
+    use crate::pest::Parser;
+    eval(
+        dbg!(SyntaxParser::parse(Rule::Exp, src))
+            .unwrap()
+            .next()
+            .unwrap(),
+        &mut par_tab,
+        &mut byte_code,
+    );
 
-    assert_eq!(compiled_original[..compile_stack_len as usize], byte_code[..]);
+    assert_eq!(
+        compiled_original[..compile_stack_len as usize],
+        byte_code[..]
+    );
     use crate::bindings::partab;
     unsafe { assert_eq!(any_as_u8_slice(&partab), any_as_u8_slice(&par_tab)) };
 }
@@ -135,7 +138,6 @@ fn parse_number(#[case] num: &str) {
 fn parse_string(#[case] num: &str) {
     test_eval(num);
 }
-
 
 #[rstest]
 #[case("-98")]

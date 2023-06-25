@@ -43,9 +43,7 @@ fn main() {
         );
     }
 
-    println!(
-        "cargo:rerun-if-changed=C/include",
-    );
+    println!("cargo:rerun-if-changed=C/include",);
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate bindings for.
         // note order matters so I cant just pull all .h files from that folder.

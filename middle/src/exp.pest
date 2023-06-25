@@ -8,6 +8,6 @@ Atom = {  Variable | UnaryOperator | String | Number |   "("~Exp~")" }
 
 PatternOpCode = _{ OPPAT | OPNPAT }
 
-Exp = { Atom ~ (PatternOpCode~Pattern | !PatternOpCode ~ BinaryOperator ~Atom)*}
+Exp = { Atom ~ (&PatternOpCode~BinaryOperator~Pattern | !PatternOpCode ~ BinaryOperator ~Atom)*}
 
 Eval = {Exp}

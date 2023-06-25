@@ -1,24 +1,9 @@
 use super::*;
-use crate::{bindings::u_char, pest::Parser};
-use std::ffi::CStr;
+use pest::iterators::Pair;
 
-#[no_mangle]
-pub unsafe extern "C" fn opp(src: *mut *mut u_char) -> u32 {
-    let source = unsafe { CStr::from_ptr(*src as *const i8) }
-        .to_str()
-        .unwrap();
-    let (offset, value) = operator(source);
-    unsafe { (*src) = (*src).add(offset) };
-    value
-}
-
-pub fn operator(source: &str) -> (usize, u32) {
-    if let Ok(mut code) = SyntaxParser::parse(Rule::BinaryOperator, source) {
-        let code = code.next().unwrap().into_inner().next().unwrap();
-        (code.as_str().len(), opcode_as_num(code.as_rule()))
-    } else {
-        (0, 0)
-    }
+pub fn operator(operator: Pair<Rule>, comp: &mut Vec<u8>) {
+    let code = operator.into_inner().next().unwrap();
+    comp.push(opcode_as_num(code.as_rule()) as u8)
 }
 
 fn opcode_as_num(opcode: Rule) -> u32 {
@@ -56,7 +41,6 @@ fn opcode_as_num(opcode: Rule) -> u32 {
 mod test {
     use super::*;
     use crate::bindings::*;
-    use std::ffi::CString;
     #[test]
     pub fn parse_op_code_test() {
         parse_op_code("+", OPADD);
@@ -83,18 +67,13 @@ mod test {
     }
 
     pub fn parse_op_code(src: &str, opcode: u32) {
-        let source = CString::new(format!("{}extra", dbg!(src)))
+        use crate::pest::Parser;
+        let mut comp = vec![];
+        let temp = SyntaxParser::parse(Rule::BinaryOperator, src)
             .unwrap()
-            .into_raw();
-        //TODO this is being leaked.
-        let mut source = source as *mut u8;
-        {
-            let source_temp = &mut source as *mut *mut u_char;
-            assert_eq!(opcode, unsafe { opp(source_temp) } as u32);
-            assert_eq!(
-                Ok("extra"),
-                unsafe { CStr::from_ptr(source as *const i8) }.to_str()
-            );
-        }
+            .next()
+            .unwrap();
+        operator(temp, &mut comp);
+        assert_eq!(opcode as u8, comp[0]);
     }
 }

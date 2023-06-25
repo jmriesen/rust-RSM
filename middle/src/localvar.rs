@@ -1,8 +1,7 @@
 use super::*;
-use crate::eval::atom;
-use crate::eval::eval;
 use crate::{
     bindings::{partab_struct, u_char},
+    eval::{atom, eval},
     ffi::parse_c_to_rust_ffi,
 };
 use pest::iterators::Pair;
@@ -50,7 +49,7 @@ pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &
     }
 }
 
-pub fn parse_var_descriptor(
+fn parse_var_descriptor(
     descriptor: Pair<Rule>,
     partab: &mut partab_struct,
     comp: &mut Vec<u8>,

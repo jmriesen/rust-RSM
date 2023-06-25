@@ -39,6 +39,7 @@
 #include "error.h"                                                              // and the error defs
 #include "opcode.h"                                                             // and the opcodes
 #include "compile.h"                                                            // compile stuff
+#include "rust.h"                                                            // compile stuff
 /*
  * Function routine entered with source_ptr pointing at the source
  * to evaluate and comp_ptr pointing at where to put the code.
@@ -81,7 +82,7 @@ short routine_temp(int runtime,u_char **src_ptr,u_char **comp,partab_struct *par
     if (c == '@') {                                                             // if it's indirect
         isinder = 1;                                                            // say indirect
         if (runtime == -2) ptr = (*comp);                                      // save compile pointer if $TEXT compile
-        atom();                                                                 // stack it
+        atom_ffi(src_ptr,comp,partab_ptr);                                                                 // stack it
 
         if ((runtime == -2) && (*ptr == OPSTR) && (*((u_short *) (ptr + 1)) == 0)) { // check for empty indirection string
             return -(ERRZ12 + ERRMLAST);                                        // not allowed, so pass compiler error
@@ -154,7 +155,7 @@ short routine_temp(int runtime,u_char **src_ptr,u_char **comp,partab_struct *par
             *(*comp)++ = '+';                                                  // add the plus
             *(*comp)++ = '\0';                                                 // and null terminate
             if (!var_empty(tag) || p1indirect) *(*comp)++ = OPCAT;             // tag or 1st piece is indirect? then concatenate
-            eval();                                                             // get the value
+            eval_ffi(src_ptr,comp,partab_ptr);                                                             // get the value
             *(*comp)++ = OPPLUS;                                               // force evaluation
             *(*comp)++ = OPCAT;                                                // concatenate
         } else {                                                                // it is runtime
@@ -248,7 +249,7 @@ short routine_temp(int runtime,u_char **src_ptr,u_char **comp,partab_struct *par
                 *(*comp)++ = '+';                                              // add the plus
                 *(*comp)++ = '\0';                                             // and null terminate
                 if (!var_empty(tag)) *(*comp)++ = OPCAT;                       // if we have a tag then concatenate
-                eval();                                                         // get the value
+                eval_ffi(src_ptr,comp,partab_ptr);                                                         // get the value
                 *(*comp)++ = OPPLUS;                                           // force evaluation
                 *(*comp)++ = OPCAT;                                            // concatenate
             }
@@ -261,7 +262,7 @@ short routine_temp(int runtime,u_char **src_ptr,u_char **comp,partab_struct *par
             *(*comp)++ = '^';                                                  // the caret
             *(*comp)++ = '\0';                                                 // and null terminate
             if ((!var_empty(tag)) || (gotplus) || p1indirect) *(*comp)++ = OPCAT; // concatenate it
-            atom();                                                             // get routine name
+            atom_ffi(src_ptr,comp,partab_ptr);                                                             // get routine name
             *(*comp)++ = OPCAT;                                                // concatenate it
         }
     } else {                                                                    // end routineref - no ^ has been found.
