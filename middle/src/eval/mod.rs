@@ -1,4 +1,5 @@
 use super::*;
+use crate::dollar::intrinsic_var_op_code;
 use crate::{
     bindings::{partab_struct, u_char},
     ffi::*,
@@ -105,6 +106,7 @@ pub unsafe extern "C" fn atom_ffi(
     parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, atom)
 }
 
+use crate::dollar::x_call;
 pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let atom = atom.into_inner().next().unwrap();
 
@@ -116,7 +118,9 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::String => literal(atom, partab, comp),
         Rule::Number => rust_ncopy(atom, partab, comp),
         Rule::Exp => eval(atom, partab, comp),
-        _ => unreachable!(),
+        Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
+        Rule::Xcall => x_call(atom, partab, comp),
+        x => {dbg!(x); unreachable!()},
     }
 }
 

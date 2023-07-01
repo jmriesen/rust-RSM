@@ -4,7 +4,8 @@
 
 
 
-VarName = { &("%" | "$" | "$&" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{,32}}
+//TODO deal with dollar variables
+VarName = { &("%" | "$&" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{1,32}}
 
 NakedVariable = { "^"~&"(" }
 LocalVariable = { VarName }

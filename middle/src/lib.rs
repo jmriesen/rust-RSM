@@ -14,8 +14,10 @@ mod eval;
 mod ffi;
 mod localvar;
 mod op_code;
+mod dollar;
 
 #[derive(Parser)]
+#[grammar = "dollar.pest"]
 #[grammar = "localvar.pest"]
 #[grammar = "exp.pest"]
 #[grammar = "opcode.pest"]
