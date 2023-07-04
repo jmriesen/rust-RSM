@@ -133,98 +133,6 @@ void dodollar_temp(u_char **src,u_char **comp,partab_struct *partab_ptr)        
         *(*comp)++ = (u_char) args;                                            // store number of args
         return;                                                                 // and exit
     }
-
-    //TODO next
-    if (c == '&') {                                                             // xcall
-        c = toupper(*(*src)++);                                             // get next
-
-        if (c == '%') {                                                         // if it's a percent
-            name[i++] = c;                                                      // save it
-            c = toupper(*(*src)++);                                         // get next
-        }
-
-        while (isalpha((int) c) != 0) {                                         // while we have alphas
-            name[i++] = c;                                                      // save it
-            c = toupper(*(*src)++);                                         // get next
-        }
-
-        name[i] = '\0';                                                         // null terminate
-
-        if (c == '(') {                                                         // if it has args
-            while (TRUE) {                                                      // loop
-              eval_ffi(src,comp,partab_ptr);                                                         // get next argument
-                args++;                                                         // count an argument
-                c = *(*src)++;                                              // get term char
-                if (c == ')') break;                                            // all done if closing )
-                if (c != ',') EXPRE;                                            // if it's not a comma
-            }                                                                   // end of args loop
-        } else {
-            (*src)--;                                                       // else backup the source ptr
-        }
-
-        if (args > 2) {                                                         // all XCalls take two args
-          comperror_temp(src,comp,partab_ptr,-(ERRZ18 + ERRMLAST));                                    // junk
-            return;
-        }
-
-        for (i = args; i < 2; i++) {                                            // force two arguments
-            *(*comp)++ = OPSTR;                                                // say string follows
-            *(*comp)++ = 0;                                                    // endian doesn't matter here
-            *(*comp)++ = 0;                                                    // endian doesn't matter here
-            *(*comp)++ = '\0';                                                 // null terminated
-        }
-
-        if (strcmp(name, "%DIRECTORY") == 0) {                                  // $&%DIRECTORY()
-            *(*comp)++ = XCDIR;                                                // save the opcode
-        } else if (strcmp(name, "%HOST") == 0) {                                // $&%HOST()
-            *(*comp)++ = XCHOST;                                               // save the opcode
-        } else if (strcmp(name, "%FILE") == 0) {                                // $&%FILE()
-            *(*comp)++ = XCFILE;                                               // save the opcode
-        } else if (strcmp(name, "%ERRMSG") == 0) {                              // $&%ERRMSG()
-            *(*comp)++ = XCERR;                                                // save the opcode
-        } else if (strcmp(name, "%OPCOM") == 0) {                               // $&%OPCOM()
-            *(*comp)++ = XCOPC;                                                // save the opcode
-        } else if (strcmp(name, "%SIGNAL") == 0) {                              // $&%SIGNAL()
-            *(*comp)++ = XCSIG;                                                // save the opcode
-        } else if (strcmp(name, "%SPAWN") == 0) {                               // $&%SPAWN()
-            *(*comp)++ = XCSPA;                                                // save the opcode
-        } else if (strcmp(name, "%VERSION") == 0) {                             // $&%VERSION()
-            *(*comp)++ = XCVER;                                                // save the opcode
-        } else if (strcmp(name, "%ZWRITE") == 0) {                              // $&%ZWRITE()
-            *(*comp)++ = XCZWR;                                                // save the opcode
-        } else if (strcmp(name, "E") == 0) {                                    // $&E()
-            *(*comp)++ = XCE;                                                  // save the opcode
-        } else if (strcmp(name, "PASCHK") == 0) {                               // $&PASCHK()
-            *(*comp)++ = XCPAS;                                                // save the opcode
-        } else if (strcmp(name, "V") == 0) {                                    // $&V()
-            *(*comp)++ = XCV;                                                  // save the opcode
-        } else if (strcmp(name, "X") == 0) {                                    // $&X()
-            *(*comp)++ = XCX;                                                  // save the opcode
-        } else if (strcmp(name, "XRSM") == 0) {                                 // $&XRSM()
-            *(*comp)++ = XCXRSM;                                               // save the opcode
-        } else if (strcmp(name, "%SETENV") == 0) {                              // $&%SETENV()
-            *(*comp)++ = XCSETENV;                                             // save the opcode
-        } else if (strcmp(name, "%GETENV") == 0) {                              // $&%GETENV()
-            *(*comp)++ = XCGETENV;                                             // save the opcode
-        } else if (strcmp(name, "%ROUCHK") == 0) {                              // $&%ROUCHK()
-            *(*comp)++ = XCROUCHK;                                             // save the opcode
-        } else if (strcmp(name, "%FORK") == 0) {                                // $&%FORK()
-            *(*comp)++ = XCFORK;                                               // save the opcode
-        } else if (strcmp(name, "%IC") == 0) {                                  // $&%IC()
-            *(*comp)++ = XCIC;                                                 // save the opcode
-        } else if (strcmp(name, "%WAIT") == 0) {                                // $&%WAIT()
-            *(*comp)++ = XCWAIT;                                               // save the opcode
-        } else if (strcmp(name, "DEBUG") == 0) {                                // $&DEBUG()
-            *(*comp)++ = XCDEBUG;                                              // save the opcode
-        } else if (strcmp(name, "%COMPRESS") == 0) {                            // $&%COMPRESS()
-            *(*comp)++ = XCCOMP;                                               // save the opcode
-        } else {
-          comperror_temp(src,comp,partab_ptr,-(ERRZ18 + ERRMLAST));                                    // junk
-        }
-
-        return;                                                                 // end of xcalls
-    }
-
     name[0] = c;                                                                // save first char
 
     for (len = 0; isalpha((*src)[len]) != 0; len++) {                       // scan string
@@ -305,34 +213,7 @@ function:                                                                       
     }                                                                           // end of args loop
 
     switch (name[0]) {                                                          // dispatch on initial
-    case 'A':                                                                   // $A[SCII]
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "ascii\0", 6) != 0) EXPRE;
-      }
-
-      if (args == 1) {
-        *(*comp)++ = FUNA1;                                                // one arg form
-        return;                                                             // and exit
-      }
-
-      if (args == 2) {
-        *(*comp)++ = FUNA2;                                                // two arg form
-        return;                                                             // and exit
-      }
-
-      EXPRE;
-
-    case 'C':                                                                   // $C[HARACTER]
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "char\0", 5) != 0) EXPRE;
-      }
-
-      if (args > 255) EXPRE;                                                  // check number of args
-      *(*comp)++ = FUNC;                                                     // push the opcode
-      *(*comp)++ = (u_char) args;                                            // number of arguments
-      return;                                                                 // and give up
-
-    case 'D':                                                                   // $D[ATA]
+        case 'D':                                                                   // $D[ATA]
       if (len > 1) {                                                          // check for extended name
         if (strncasecmp(name, "data\0", 5) != 0) EXPRE;
       }
@@ -341,29 +222,7 @@ function:                                                                       
       *(*comp)++ = FUND;                                                     // set the opcode
       return;                                                                 // and give up
 
-    case 'E':                                                                   // $E[XTRACT]
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "extract\0", 8) != 0) EXPRE;
-      }
-
-      if (args == 1) {
-        *(*comp)++ = FUNE1;                                                // one arg form
-        return;                                                             // and exit
-      }
-
-      if (args == 2) {
-        *(*comp)++ = FUNE2;                                                // two arg form
-        return;                                                             // and exit
-      }
-
-      if (args == 3) {
-        *(*comp)++ = FUNE3;                                                // two arg form
-        return;                                                             // and exit
-      }
-
-      EXPRE;
-
-    case 'F':                                                                   // $F[IND] and $FN[UMBER]
+        case 'F':                                                                   // $F[IND] and $FN[UMBER]
       if ((len == 1) || (strncasecmp(name, "find\0", 5) == 0)) {              // $F[IND]
         if (args == 2) {
           *(*comp)++ = FUNF2;                                            // two arg form
@@ -423,21 +282,6 @@ function:                                                                       
       }
 
       return;                                                                 // done
-
-    case 'J':                                                                   // $J[USTIFY]
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "justify\0", 8) != 0) EXPRE;
-      }
-
-      if (args == 2) {
-        *(*comp)++ = FUNJ2;                                                // two arg form
-      } else if (args == 3) {
-        *(*comp)++ = FUNJ3;                                                // three arg form
-      } else {                                                                // all else is junk
-        EXPRE;
-      }
-
-      return;                                                                 // and exit
 
     case 'L':                                                                   // $L[ENGTH]
       if (len > 1) {                                                          // check for extended name
@@ -502,26 +346,6 @@ function:                                                                       
 
       return;
 
-    case 'P':                                                                   // $P[IECE]
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "piece\0", 6) != 0) {
-          comperror_temp(src,comp,partab_ptr,-(ERRZ12 + ERRMLAST));                                // compile an error
-          return;                                                         // and give up
-        }
-      }
-
-      if (args == 2) {
-        *(*comp)++ = FUNP2;                                                // two arg form
-      } else if (args == 3) {
-        *(*comp)++ = FUNP3;                                                // three arg form
-      } else if (args == 4) {
-        *(*comp)++ = FUNP4;                                                // four arg form
-      } else {
-        EXPRE;
-      }
-
-      return;
-
     case 'Q':                                                                   // $Q[UERY], $QS[UBSCRIPT], and $QL[ENGTH]
       if ((len == 1) || (strncasecmp(name, "query\0", 6) == 0)) {             // $Q[UERY]
         if (args == 1) {
@@ -552,27 +376,6 @@ function:                                                                       
 
         EXPRE;
       }                                                                       // end $FIND
-
-      EXPRE;
-
-    case 'R':                                                                   // $R[ANDOM], $RE[VERSE]
-      if ((len == 1) || (strncasecmp(name, "random\0", 7) == 0)) {            // $R[ANDOM]
-        if (args == 1) {
-          *(*comp)++ = FUNR;                                             // one arg form
-          return;                                                         // and exit
-        }
-
-        EXPRE;
-      }
-
-      if (((len == 2) && (toupper((int) name[1]) == 'E')) || (strncasecmp(name, "reverse\0", 8) == 0)) { // $REVERSE
-        if (args == 1) {
-          *(*comp)++ = FUNRE;
-          return;                                                         // and exit
-        }
-
-        EXPRE;
-      }
 
       EXPRE;
 
@@ -619,55 +422,7 @@ function:                                                                       
 
       EXPRE;
 
-    case 'T':                                                                   // $T[EXT], $TR[ANSLATE]
-      if ((len == 1) || (strncasecmp(name, "text\0", 5) == 0)) {              // $T[EXT]
-        if (args == 1) {
-          *(*comp)++ = FUNT;                                             // one arg form
-          return;                                                         // and exit
-        }
-
-        EXPRE;
-      }
-
-      if (((len == 2) && (toupper((int) name[1]) == 'R')) || (strncasecmp(name, "translate\0", 10) == 0)) { // $TR[ANSLATE]
-        if (args == 2) {
-          *(*comp)++ = FUNTR2;
-          return;                                                         // and exit
-        }
-
-        if (args == 3) {
-          *(*comp)++ = FUNTR3;
-          return;                                                         // and exit
-        }
-
-        EXPRE;
-      }
-
-      EXPRE;
-
-    case 'V':                                                                   // $VIEW
-      if (len > 1) {                                                          // check for extended name
-        if (strncasecmp(name, "view\0", 5) != 0) EXPRE;
-      }
-
-      if (args == 2) {
-        *(*comp)++ = FUNV2;                                                // two arg form
-        return;                                                             // and exit
-      }
-
-      if (args == 3) {
-        *(*comp)++ = FUNV3;                                                // three arg form
-        return;                                                             // and exit
-      }
-
-      if (args == 4) {
-        *(*comp)++ = FUNV4;                                                // four arg form
-        return;                                                             // and exit
-      }
-
-      EXPRE;
-
-    default:
+        default:
       EXPRE;
     }                                                                           // end of switch
 }

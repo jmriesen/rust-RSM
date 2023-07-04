@@ -1,0 +1,59 @@
+Args1 = _{"("~Exp~")"}
+Args2 = _{"("~Exp~","~Exp~")"}
+Args3 = _{"("~Exp~","~Exp~","~Exp~")"}
+Args4 = _{"("~Exp~","~Exp~","~Exp~","~Exp~")"}
+
+View = _{^"view"|^"v"}
+View2 = { View ~ Args2 }
+View3 = { View ~ Args3 }
+View4 = { View ~ Args4 }
+
+Char = {(^"Char"|^"C")~"("~Exp~(","~Exp){,254}~")" }
+Text = {(^"text"|^"T")~"("~Exp~")" }
+Random = { (^"Random"|^"R")~Args1 }
+Reverse= { (^"Reverse"|^"RE")~Args1 }
+
+Translate  = _{^"translate"|^"TR"}
+Translate2 = {Translate~Args2}
+Translate3 = {Translate~Args3}
+
+Piece = _{^"piece"|^"p"}
+Piece2 = {Piece~Args2}
+Piece3 = {Piece~Args3}
+Piece4 = {Piece~Args4}
+
+Justify = _{^"Justify"|^"j"}
+Justify2 = {Justify~Args2}
+Justify3 = {Justify~Args3}
+
+Ascii = _{^"Ascii"|^"a"}
+Ascii1 = {Ascii~Args1}
+Ascii2 = {Ascii~Args2}
+
+Extract = _{^"extract"|^"e"}
+Extract1 = {Extract~Args1}
+Extract2 = {Extract~Args2}
+Extract3 = {Extract~Args3}
+
+
+IntrinsicFunction = { "$"~(
+View2 |
+View3 |
+View4 |
+Char |
+Text |
+Translate2 |
+Translate3 |
+Random  |
+Reverse |
+Piece2 |
+Piece3 |
+Piece4 |
+Justify2 |
+Justify3 |
+Ascii1 |
+Ascii2 |
+Extract1 |
+Extract2 |
+Extract3 
+) }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::function::intrinsic_function;
 use crate::dollar::intrinsic_var_op_code;
 use crate::{
     bindings::{partab_struct, u_char},
@@ -120,6 +121,7 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::Exp => eval(atom, partab, comp),
         Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
         Rule::Xcall => x_call(atom, partab, comp),
+        Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
         x => {dbg!(x); unreachable!()},
     }
 }
