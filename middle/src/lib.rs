@@ -10,14 +10,17 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
+mod dollar;
 mod eval;
 mod ffi;
+mod function;
 mod localvar;
 mod op_code;
-mod dollar;
-mod function;
+mod routine;
+mod var;
 
 #[derive(Parser)]
+#[grammar = "routine.pest"]
 #[grammar = "function.pest"]
 #[grammar = "dollar.pest"]
 #[grammar = "localvar.pest"]

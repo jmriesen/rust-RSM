@@ -4,10 +4,8 @@ String = { quote ~( !quote~ANY | quote~quote)* ~quote}
 Number = { ("+" | "-")* ~ &(ASCII_DIGIT | "." ) ~(ASCII_DIGIT* ~ "."? ~ ASCII_DIGIT*)}
 
 //TODO once I have everything in Rust this will need to be restrucutred to handle recurstion. 
-Atom = {  Xcall | IntrinsicFunction | IntrinsicVar | Variable |  UnaryOperator | String | Number | "("~Exp~")" }
+Atom = {  Xcall | ExtrinsicFunction | IntrinsicFunction | IntrinsicVar | Variable |  UnaryOperator | String | Number | "("~Exp~")" }
 
 PatternOpCode = _{ OPPAT | OPNPAT }
 
 Exp = { Atom ~ (&PatternOpCode~BinaryOperator~Pattern | !PatternOpCode ~ BinaryOperator ~Atom)*}
-
-Eval = {Exp}

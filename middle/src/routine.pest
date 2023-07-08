@@ -1,0 +1,17 @@
+
+Tag = { (&("%" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{1,32}) | ASCII_DIGIT{1,32}}
+
+//Orignal allows for decimals but just ignorse them.
+//not allowed in exprestions
+//Offset = {ASCII_DIGIT{1,32} }
+
+Routine = { &("%" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{1,32} }
+
+//Currently can match ""
+
+VarUndefined = {""}
+ByRef = {"."~Variable}
+ByVal = {Exp}
+FunctionArg = _{ ByRef | ByVal | VarUndefined }
+FunctionArgs = _{"("~FunctionArg~(","~FunctionArg?)*~")"} 
+ExtrinsicFunction = {"$$"~Tag?~("^"~Routine)?~FunctionArgs? }

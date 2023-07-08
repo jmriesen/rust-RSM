@@ -1,10 +1,9 @@
-
-use crate::bindings::partab_struct;
 use super::*;
+use crate::bindings::partab_struct;
 use pest::iterators::Pair;
 
-pub fn intrinsic_var_op_code(var:Pair<'_,Rule>)-> u8{
-    (match var.into_inner().next().unwrap().as_rule(){
+pub fn intrinsic_var_op_code(var: Pair<'_, Rule>) -> u8 {
+    (match var.into_inner().next().unwrap().as_rule() {
         Rule::VarD => crate::bindings::VARD,
         Rule::VarEC => crate::bindings::VAREC,
         Rule::VarES => crate::bindings::VARES,
@@ -22,52 +21,53 @@ pub fn intrinsic_var_op_code(var:Pair<'_,Rule>)-> u8{
         Rule::VarT => crate::bindings::VART,
         Rule::VarX => crate::bindings::VARX,
         Rule::VarY => crate::bindings::VARY,
-        _=> unreachable!()
+        _ => unreachable!(),
     }) as u8
 }
 use crate::eval::eval;
-pub fn x_call(x_call:Pair<'_,Rule>,partab: &mut partab_struct, comp: &mut Vec<u8>) {
+pub fn x_call(x_call: Pair<'_, Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let mut x_call = x_call.into_inner();
     let name = x_call.next().unwrap();
 
     use crate::pest::Parser;
-    let default = SyntaxParser::parse(Rule::Exp,"\"\"").unwrap().next().unwrap();
+    let default = SyntaxParser::parse(Rule::Exp, "\"\"")
+        .unwrap()
+        .next()
+        .unwrap();
 
     let arg1 = x_call.next().unwrap_or(default.clone());
     let arg2 = x_call.next().unwrap_or(default);
-    eval(arg1,partab,comp);
-    eval(arg2,partab,comp);
+    eval(arg1, partab, comp);
+    eval(arg2, partab, comp);
 
-    let code = (match name.as_rule(){
-        Rule::XcDIR =>crate::bindings::XCDIR,
-        Rule::XcHOST =>crate::bindings::XCHOST,
-        Rule::XcFILE =>crate::bindings::XCFILE,
-        Rule::XcERR =>crate::bindings::XCERR,
-        Rule::XcOPC =>crate::bindings::XCOPC,
-        Rule::XcSIG =>crate::bindings::XCSIG,
-        Rule::XcSPA =>crate::bindings::XCSPA,
-        Rule::XcVER =>crate::bindings::XCVER,
-        Rule::XcZWR =>crate::bindings::XCZWR,
-        Rule::XcE =>crate::bindings::XCE,
-        Rule::XcPAS =>crate::bindings::XCPAS,
-        Rule::XcV =>crate::bindings::XCV,
-        Rule::XcX =>crate::bindings::XCX,
-        Rule::XcXRSM =>crate::bindings::XCXRSM,
-        Rule::XcSETENV =>crate::bindings::XCSETENV,
-        Rule::XcGETENV =>crate::bindings::XCGETENV,
-        Rule::XcROUCHK =>crate::bindings::XCROUCHK,
-        Rule::XcFORK =>crate::bindings::XCFORK,
-        Rule::XcIC =>crate::bindings::XCIC,
-        Rule::XcWAIT =>crate::bindings::XCWAIT,
-        Rule::XcDEBUG =>crate::bindings::XCDEBUG,
-        Rule::XcCOMP =>crate::bindings::XCCOMP,
-        _=> unreachable!()
+    let code = (match name.as_rule() {
+        Rule::XcDIR => crate::bindings::XCDIR,
+        Rule::XcHOST => crate::bindings::XCHOST,
+        Rule::XcFILE => crate::bindings::XCFILE,
+        Rule::XcERR => crate::bindings::XCERR,
+        Rule::XcOPC => crate::bindings::XCOPC,
+        Rule::XcSIG => crate::bindings::XCSIG,
+        Rule::XcSPA => crate::bindings::XCSPA,
+        Rule::XcVER => crate::bindings::XCVER,
+        Rule::XcZWR => crate::bindings::XCZWR,
+        Rule::XcE => crate::bindings::XCE,
+        Rule::XcPAS => crate::bindings::XCPAS,
+        Rule::XcV => crate::bindings::XCV,
+        Rule::XcX => crate::bindings::XCX,
+        Rule::XcXRSM => crate::bindings::XCXRSM,
+        Rule::XcSETENV => crate::bindings::XCSETENV,
+        Rule::XcGETENV => crate::bindings::XCGETENV,
+        Rule::XcROUCHK => crate::bindings::XCROUCHK,
+        Rule::XcFORK => crate::bindings::XCFORK,
+        Rule::XcIC => crate::bindings::XCIC,
+        Rule::XcWAIT => crate::bindings::XCWAIT,
+        Rule::XcDEBUG => crate::bindings::XCDEBUG,
+        Rule::XcCOMP => crate::bindings::XCCOMP,
+        _ => unreachable!(),
     }) as u8;
 
     comp.push(code);
 }
-
-
 
 #[cfg(test)]
 mod test {
@@ -148,4 +148,3 @@ mod test {
         test_eval(var);
     }
 }
-

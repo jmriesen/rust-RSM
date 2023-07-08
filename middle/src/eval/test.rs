@@ -39,7 +39,7 @@ pub fn test_eval(src: &str) {
         jobtab: null_mut(),
         maxjob: 0,
         sem_id: 0,
-        historic: 0,
+        historic: crate::bindings::HISTORIC_DNOK as i32,
         precision: 0,
         max_tt: 0,
         tt: [TRANTAB {

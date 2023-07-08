@@ -17,5 +17,5 @@ GlobalUciEnvVariable = { "^["~ Atom~","~ Atom ~"]" ~ VarName}
 VariableSubscripts  = { ("(" ~ Exp ~("," ~ Exp)* ~ ")")? }
 
 
-Variable = { (GlobalVariable | LocalVariable  | GlobalUciVariable | GlobalUciEnvVariable| NakedVariable)~VariableSubscripts }
+Variable = { "@"?~(GlobalVariable | LocalVariable  | GlobalUciVariable | GlobalUciEnvVariable| NakedVariable)~VariableSubscripts }
 

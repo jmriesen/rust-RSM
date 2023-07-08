@@ -1,11 +1,13 @@
 use super::*;
-use crate::function::intrinsic_function;
-use crate::dollar::intrinsic_var_op_code;
 use crate::{
     bindings::{partab_struct, u_char},
+    dollar::intrinsic_var_op_code,
     ffi::*,
+    function::intrinsic_function,
     localvar::parse_local_var,
     op_code::operator,
+    routine::extrinsic_function,
+    localvar::VarTypes,
 };
 use pest::iterators::Pair;
 use std::ffi::CString;
@@ -38,7 +40,7 @@ fn rust_ncopy(number: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8
     if number.contains('.') {
         number = number.trim_end_matches('0').trim_end_matches('.');
     }
-    if number.is_empty(){
+    if number.is_empty() {
         number = "0";
     }
     let num = CString::new(format!("{}{}", sign, number)).unwrap();
@@ -114,7 +116,7 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     //TODO will need to deal with inderection
     //TODO will need to deal dollar()
     match atom.as_rule() {
-        Rule::Variable => parse_local_var(atom, partab, comp),
+        Rule::Variable => parse_local_var(atom, partab, comp,VarTypes::Eval),
         Rule::UnaryOperator => unary_op(atom, partab, comp),
         Rule::String => literal(atom, partab, comp),
         Rule::Number => rust_ncopy(atom, partab, comp),
@@ -122,7 +124,11 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
         Rule::Xcall => x_call(atom, partab, comp),
         Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
-        x => {dbg!(x); unreachable!()},
+        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp),
+        _ => {
+            dbg!(atom);
+            unreachable!()
+        }
     }
 }
 

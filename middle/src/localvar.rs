@@ -1,11 +1,10 @@
 use super::*;
 use crate::{
-    bindings::{partab_struct, u_char},
+    bindings::{partab_struct, u_char, var_u},
     eval::{atom, eval},
     ffi::parse_c_to_rust_ffi,
 };
 use pest::iterators::Pair;
-use std::ffi::CString;
 
 #[no_mangle]
 pub unsafe extern "C" fn parse_local_var_ffi(
@@ -13,10 +12,30 @@ pub unsafe extern "C" fn parse_local_var_ffi(
     comp: *mut *mut u_char,
     par_tab: *mut partab_struct,
 ) {
-    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Variable, parse_local_var)
+    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Variable, parse_local_var_eval);
 }
 
-pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+fn parse_local_var_eval(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    parse_local_var(variable,partab,comp,VarTypes::Eval);
+}
+pub enum VarTypes{
+    Eval,
+    Build,
+    BuildNullable
+}
+
+impl VarTypes{
+    fn code(self)->u8{
+        use VarTypes::*;
+        (match self{
+            Eval => crate::bindings::OPVAR,
+            Build => crate::bindings::OPMVAR,
+            BuildNullable => crate::bindings::OPMVARN,
+        }) as u8
+    }
+}
+
+pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,var_type:VarTypes) {
     let mut variable = variable.into_inner();
 
     let descriptor = variable.next().unwrap();
@@ -28,7 +47,7 @@ pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &
         .inspect(|i| eval(i.clone(), partab, comp))
         .count();
 
-    comp.push(crate::bindings::OPVAR as u8);
+    comp.push(var_type.code());
     match variableType {
         crate::bindings::TYPVARGBL | crate::bindings::TYPVARNAM => {
             comp.push((variableType | number_of_subscripts as u32) as u8);
@@ -39,13 +58,8 @@ pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &
         }
     }
 
-    if let Some(name) = name.map(|x| {
-        x.into_bytes_with_nul()
-            .into_iter()
-            .chain(std::iter::repeat(0))
-            .take(32)
-    }) {
-        comp.extend(name);
+    if let Some(name) = name {
+        comp.extend(name.as_array());
     }
 }
 
@@ -53,7 +67,7 @@ fn parse_var_descriptor(
     descriptor: Pair<Rule>,
     partab: &mut partab_struct,
     comp: &mut Vec<u8>,
-) -> (u32, Option<CString>) {
+) -> (u32, Option<var_u>) {
     let variableType = match descriptor.as_rule() {
         Rule::GlobalVariable => crate::bindings::TYPVARGBL,
         Rule::LocalVariable => crate::bindings::TYPVARNAM,
@@ -71,10 +85,7 @@ fn parse_var_descriptor(
         atom(exp, partab, comp);
     }
 
-    let name = name
-        .iter()
-        .map(|x| CString::new(x.as_str()).unwrap())
-        .next();
+    let name = name.iter().map(|x| x.as_str().into()).next();
     (variableType, name)
 }
 
