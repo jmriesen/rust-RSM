@@ -1,6 +1,20 @@
 use crate::{bindings::partab_struct, eval::eval, Rule, localvar::{parse_local_var,VarTypes}, SyntaxParser};
 use pest::{iterators::Pair, Parser};
 
+pub fn reserve_jump(comp: &mut Vec<u8>)->usize{
+    comp.push(0);
+    comp.push(0);
+    comp.push(0);
+    comp.len()
+}
+
+pub fn write_jump(location:usize,code:u8,jump_to:usize,comp: &mut Vec<u8>) {
+    comp[location-3] = code;
+    let offset = ((jump_to-location) as i16).to_le_bytes();
+    comp[location-2..location]
+        .copy_from_slice(&offset);
+}
+
 pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let mut function = function.into_inner();
 
@@ -14,10 +28,7 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
             .map(|arg| {
                 eval(arg, partab, comp);
                 //reserving space for jump commands.
-                comp.push(0);
-                comp.push(0);
-                comp.push(0);
-                comp.len()
+                reserve_jump(comp)
             }).collect();
         //select got to the end with out finding a value.
         comp.push(crate::bindings::OPERROR as u8);
@@ -27,15 +38,8 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
         //fill in jumps
         let mut jump_indexs = jump_indexs.iter();
         while let (Some(jmp0),Some(jmp)) =  (jump_indexs.next(),jump_indexs.next()){
-            let len = comp.len();
-            let mut write_jump = |location:usize,code:u8,jump_to:usize| {
-                comp[location-3] = code;
-                let offset = ((jump_to-location) as i16).to_le_bytes();
-                comp[location-2..location]
-                    .copy_from_slice(&offset);
-            };
-            write_jump(*jmp0,crate::bindings::JMP0 as u8,*jmp);
-            write_jump(*jmp,crate::bindings::JMP as u8,len);
+           write_jump(*jmp0,crate::bindings::JMP0 as u8,*jmp,comp);
+           write_jump(*jmp,crate::bindings::JMP as u8,comp.len(),comp);
         }
     }else{
         //Some intrinsic act on variables them self rather then there value.

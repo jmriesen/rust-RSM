@@ -1,0 +1,9 @@
+PostCondition = {":"~Exp}
+
+Brake = { (^"B"|^"Break")~PostCondition?~("  " | " "~Exp~(","~Exp)*)}
+Close = { (^"C"|^"close")~PostCondition?~(" "~Exp~(","~Exp)*)}
+Else = { (^"e"|^"else")~"  "}
+
+DoArg = {ExtrinsicFunction~PostCondition?}
+Do = { (^"D"|^"Do")~PostCondition?~("  " | " "~DoArg~(","~DoArg)*)}
+Line = { Brake| Close | Do | Else }

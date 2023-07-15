@@ -4,14 +4,14 @@ use pest::iterators::Pair;
 
 use crate::{eval::eval, localvar::{parse_local_var,VarTypes}};
 
-pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,return_expected:bool) {
     let mut fn_call = fn_call.into_inner().peekable();
 
     //TODO indirection
     //TODO offsets
     let tag = fn_call.next_if(|x| x.as_rule() == Rule::Tag);
     let routine = fn_call.next_if(|x| x.as_rule() == Rule::Routine);
-    let args = fn_call
+    let mut args = fn_call
         .map(|x| {
             let arg_type = x.as_rule();
             let arg = x.into_inner().next();
@@ -27,7 +27,13 @@ pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, c
             }
         })
         .count() as u8
-        + 129;
+        + return_expected.then_some(129).unwrap_or(0);
+
+    //TODO I think this is a bug in the C source code, (parse:134 missing args--;)
+    //but for right now the C source is my source of truth.
+    if args !=0 && !return_expected{
+        args+=1;
+    }
 
     let opcode = match (tag.is_some(), routine.is_some()) {
         (true, false) => crate::bindings::CMDOTAG,

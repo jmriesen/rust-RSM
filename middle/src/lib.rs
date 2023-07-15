@@ -18,8 +18,10 @@ mod localvar;
 mod op_code;
 mod routine;
 mod var;
+mod command;
 
 #[derive(Parser)]
+#[grammar = "command.pest"]
 #[grammar = "routine.pest"]
 #[grammar = "function.pest"]
 #[grammar = "dollar.pest"]

@@ -124,7 +124,7 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
         Rule::Xcall => x_call(atom, partab, comp),
         Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
-        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp),
+        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp,true),
         _ => {
             dbg!(atom);
             unreachable!()
