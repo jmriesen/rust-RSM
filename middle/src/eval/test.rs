@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use super::*;
 use crate::{ffi::test::*};
 

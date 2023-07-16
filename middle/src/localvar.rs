@@ -74,15 +74,28 @@ fn parse_var_descriptor(
         Rule::NakedVariable => crate::bindings::TYPVARNAKED,
         Rule::GlobalUciVariable => crate::bindings::TYPVARGBLUCI,
         Rule::GlobalUciEnvVariable => crate::bindings::TYPVARGBLUCIENV,
+        Rule::IndirectVariable => crate::bindings::TYPVARIND,
         _ => unimplemented!(),
     };
 
     let (exps, name): (Vec<_>, Vec<_>) = descriptor
         .into_inner()
         .partition(|x| x.as_rule() == Rule::Atom);
+    let mut exps = exps.into_iter().peekable();
+
+    if variableType == crate::bindings::TYPVARIND {
+        atom(exps.next().unwrap(), partab, comp);
+        if exps.peek().is_some(){
+            comp.push(crate::bindings::INDEVAL as u8);
+        }else{
+            comp.push(crate::bindings::INDMVAR as u8);
+        }
+    }
 
     for exp in exps {
         atom(exp, partab, comp);
+        if variableType == crate::bindings::TYPVARIND{
+        }
     }
 
     let name = name.iter().map(|x| x.as_str().into()).next();
@@ -100,20 +113,17 @@ mod test {
     #[case("^[atom]varName")]
     #[case("^|atom|varName")]
     #[case("^[atom1,atom2]varName")]
-    //TODO there seems to be special handling for intrinsics
-    //#[case("$J")]
     #[case("SomeString(sub1)")]
     #[case("^SomeString(sub1)")]
     #[case("^(sub1)")]
     #[case("^|atom|varName(sub1)")]
-    //TODO there seems to be wired handling for these variableTypes
-    //#[case("^[atom1,atom2]varName(sub1)")]
+    #[case("^[atom1,atom2]varName(sub1)")]
     #[case("SomeString(sub1,sub2)")]
     #[case("^SomeString(sub1,sub2)")]
     #[case("^|atom|varName(sub1),sub2")]
-    //TODO there seems to be wired handling for these variableTypes
-    //#[case("^[atom1,atom2]varName(sub1,sub2)")]
-    //TODO indirection
+    #[case("^[atom1,atom2]varName(sub1,sub2)")]
+    #[case("@atom@(sub1,sub2)")]
+    #[case("@varName")]
     //TODO index
     fn parse_variable(#[case] var: &str) {
         test_eval(var);

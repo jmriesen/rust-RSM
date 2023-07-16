@@ -7,6 +7,9 @@
 //TODO deal with dollar variables
 VarName = { &("%" | "$&" | ASCII_ALPHA ) ~ ASCII_ALPHANUMERIC{1,32}}
 
+// @atom@(args <-if two @ must include subscripts 
+// otherwise we are indericting on a varable name, no subscripts allowed.
+IndirectVariable = { "@" ~ Atom ~ "@" ~ &"(" }
 NakedVariable = { "^"~&"(" }
 LocalVariable = { VarName }
 GlobalVariable = { "^" ~ VarName }
@@ -17,5 +20,5 @@ GlobalUciEnvVariable = { "^["~ Atom~","~ Atom ~"]" ~ VarName}
 VariableSubscripts  = { ("(" ~ Exp ~("," ~ Exp)* ~ ")")? }
 
 
-Variable = { "@"?~(GlobalVariable | LocalVariable  | GlobalUciVariable | GlobalUciEnvVariable| NakedVariable)~VariableSubscripts }
+Variable = { (GlobalVariable | LocalVariable  | GlobalUciVariable | GlobalUciEnvVariable| NakedVariable | IndirectVariable )~VariableSubscripts }
 

@@ -111,6 +111,7 @@ pub unsafe extern "C" fn atom_ffi(
 
 use crate::dollar::x_call;
 pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+
     let atom = atom.into_inner().next().unwrap();
 
     //TODO will need to deal with inderection
@@ -125,6 +126,10 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::Xcall => x_call(atom, partab, comp),
         Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
         Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp,true),
+        Rule::AtomInd => {
+            self::atom(atom.into_inner().next().unwrap(), partab, comp);
+            comp.push(crate::bindings::INDEVAL as u8);
+        }
         _ => {
             dbg!(atom);
             unreachable!()
