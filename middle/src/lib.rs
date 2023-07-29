@@ -6,6 +6,7 @@
 #[allow(dead_code)]
 pub mod bindings;
 
+mod command;
 mod dollar;
 mod eval;
 mod ffi;
@@ -14,6 +15,5 @@ mod localvar;
 mod op_code;
 mod routine;
 mod var;
-mod command;
 
-pub use parser::{Rule,SyntaxParser,pest};
+pub use parser::{pest, Rule, SyntaxParser};

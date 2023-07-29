@@ -4,10 +4,9 @@ use crate::{
     dollar::intrinsic_var_op_code,
     ffi::*,
     function::intrinsic_function,
-    localvar::parse_local_var,
+    localvar::{parse_local_var, VarTypes},
     op_code::operator,
     routine::extrinsic_function,
-    localvar::VarTypes,
 };
 use pest::iterators::Pair;
 use std::ffi::CString;
@@ -111,11 +110,10 @@ pub unsafe extern "C" fn atom_ffi(
 
 use crate::dollar::x_call;
 pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-
     let atom = atom.into_inner().next().unwrap();
 
     match atom.as_rule() {
-        Rule::Variable => parse_local_var(atom, partab, comp,VarTypes::Eval),
+        Rule::Variable => parse_local_var(atom, partab, comp, VarTypes::Eval),
         Rule::UnaryOperator => unary_op(atom, partab, comp),
         Rule::String => literal(atom, partab, comp),
         Rule::Number => rust_ncopy(atom, partab, comp),
@@ -123,32 +121,36 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
         Rule::Xcall => x_call(atom, partab, comp),
         Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
-        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp,true),
-        Rule::AtomInd => indirect_atom(atom, partab, comp,IndAtomContext::Eval),
+        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp, true),
+        Rule::AtomInd => indirect_atom(atom, partab, comp, IndAtomContext::Eval),
         _ => {
             dbg!(atom);
             unreachable!()
         }
     }
 }
-pub enum IndAtomContext{
+pub enum IndAtomContext {
     Eval,
     Close,
 }
 impl IndAtomContext {
-    fn op_code(self) -> u8{
-        (match self{
+    fn op_code(self) -> u8 {
+        (match self {
             Self::Eval => crate::bindings::INDEVAL,
             Self::Close => crate::bindings::INDCLOS,
         } as u8)
     }
 }
 
-pub fn indirect_atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,context:IndAtomContext) {
+pub fn indirect_atom(
+    atom: Pair<Rule>,
+    partab: &mut partab_struct,
+    comp: &mut Vec<u8>,
+    context: IndAtomContext,
+) {
     let atom = atom.into_inner().next().unwrap();
     self::atom(atom, partab, comp);
     comp.push(context.op_code());
-
 }
 
 #[cfg(test)]

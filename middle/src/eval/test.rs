@@ -1,8 +1,8 @@
 use super::*;
-use crate::{ffi::test::*};
+use crate::ffi::test::*;
 
 pub fn test_eval(src: &str) {
-    compare_to_c(src,Rule::Exp, eval, crate::bindings::eval);
+    compare_to_c(src, Rule::Exp, eval, crate::bindings::eval);
 }
 
 use rstest::rstest;

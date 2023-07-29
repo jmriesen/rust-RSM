@@ -1,34 +1,34 @@
-use crate::{bindings::partab_struct, eval::eval, Rule, localvar::{parse_local_var,VarTypes}, SyntaxParser};
+use crate::{
+    bindings::partab_struct,
+    eval::eval,
+    localvar::{parse_local_var, VarTypes},
+    Rule, SyntaxParser,
+};
 use pest::{iterators::Pair, Parser};
 
-pub fn reserve_jump(comp: &mut Vec<u8>)->usize{
+pub fn reserve_jump(comp: &mut Vec<u8>) -> usize {
     comp.push(0);
     comp.push(0);
     comp.len()
 }
 
-pub fn write_jump(location:usize,jump_to:usize,comp: &mut Vec<u8>) {
+pub fn write_jump(location: usize, jump_to: usize, comp: &mut Vec<u8>) {
     let offset = (jump_to as i16 - location as i16).to_le_bytes();
-    comp[location-2..location]
-        .copy_from_slice(&offset);
+    comp[location - 2..location].copy_from_slice(&offset);
 }
-
-
 
 pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let mut function = function.into_inner();
 
     let function = function.next().unwrap();
     let fn_type = function.as_rule();
-    let mut args = function
-        .into_inner();
+    let mut args = function.into_inner();
     //select gets accepts a special syntax and gets converted into jump commands.
-    if fn_type == Rule::Select{
-        let jump_indexs:Vec<_> = args
+    if fn_type == Rule::Select {
+        let jump_indexs: Vec<_> = args
             .map(|x| x.into_inner())
-            .map(|mut x| (x.next().unwrap(),x.next().unwrap()))
-            .map(|(condition,value)| {
-
+            .map(|mut x| (x.next().unwrap(), x.next().unwrap()))
+            .map(|(condition, value)| {
                 eval(condition, partab, comp);
                 comp.push(crate::bindings::JMP0 as u8);
                 let try_next = reserve_jump(comp);
@@ -37,48 +37,48 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
                 comp.push(crate::bindings::JMP as u8);
                 let exit = reserve_jump(comp);
 
-                (try_next,exit)
-            }).collect();
+                (try_next, exit)
+            })
+            .collect();
         //select got to the end with out finding a value.
         comp.push(crate::bindings::OPERROR as u8);
         let errm4 = (-(crate::bindings::ERRM4 as i16)).to_le_bytes();
         comp.extend_from_slice(&errm4);
 
-        for (try_next,exit) in jump_indexs{
-            write_jump(try_next,exit,comp);
-            write_jump(exit,comp.len(),comp);
+        for (try_next, exit) in jump_indexs {
+            write_jump(try_next, exit, comp);
+            write_jump(exit, comp.len(), comp);
         }
-    }else{
+    } else {
         //Some intrinsic act on variables them self rather then there value.
         match fn_type {
-            Rule::Data
-                | Rule::Get1
-                | Rule::Get2
-                | Rule::Increment1
-                | Rule::Increment2 => {
-                    parse_local_var(args.next().unwrap(), partab, comp, VarTypes::Build);
-                },
-            Rule::Name1
-                | Rule::Name2
-                | Rule::Order1
-                | Rule::Order2
-                | Rule::Query1
-                | Rule::Query2 => {
-                    parse_local_var(args.next().unwrap(), partab, comp, VarTypes::BuildNullable);
-                },
-            //Next is just Order but with a hard coded 2 arg.
-            Rule::Next =>{
-                parse_local_var(args.next().unwrap(), partab, comp, VarTypes::BuildNullable);
-                eval(SyntaxParser::parse(Rule::Exp, "2").unwrap().next().unwrap(),partab,comp);
+            Rule::Data | Rule::Get1 | Rule::Get2 | Rule::Increment1 | Rule::Increment2 => {
+                parse_local_var(args.next().unwrap(), partab, comp, VarTypes::Build);
             }
-            Rule::Text =>{
+            Rule::Name1
+            | Rule::Name2
+            | Rule::Order1
+            | Rule::Order2
+            | Rule::Query1
+            | Rule::Query2 => {
+                parse_local_var(args.next().unwrap(), partab, comp, VarTypes::BuildNullable);
+            }
+            //Next is just Order but with a hard coded 2 arg.
+            Rule::Next => {
+                parse_local_var(args.next().unwrap(), partab, comp, VarTypes::BuildNullable);
+                eval(
+                    SyntaxParser::parse(Rule::Exp, "2").unwrap().next().unwrap(),
+                    partab,
+                    comp,
+                );
+            }
+            Rule::Text => {
                 todo!() //routine arg of -2.
             }
-            _ => {},
+            _ => {}
         }
 
-        let count =args.map(|arg| eval(arg, partab, comp))
-            .count();
+        let count = args.map(|arg| eval(arg, partab, comp)).count();
         comp.push(function_as_num(fn_type));
 
         if fn_type == Rule::Char {
@@ -86,7 +86,6 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
             //Each arg is evaluated independently.
             comp.push(count as u8);
         }
-
     }
 }
 
@@ -126,7 +125,7 @@ pub fn function_as_num(opcode: Rule) -> u8 {
         Rule::Name2 => crate::bindings::FUNNA2,
         Rule::Order1 => crate::bindings::FUNO1,
         Rule::Order2 => crate::bindings::FUNO2,
-        Rule::Next => crate::bindings::FUNO2,//Note Next uses Order2
+        Rule::Next => crate::bindings::FUNO2, //Note Next uses Order2
         Rule::Query1 => crate::bindings::FUNQ1,
         Rule::Query2 => crate::bindings::FUNQ2,
         Rule::Stack1 => crate::bindings::FUNST1,
@@ -180,7 +179,11 @@ mod test {
     #[case("Next","n",1..=1)]
     #[case("Qlength","QL",1..=1)]
     #[case("QSUBSCRIPT","Qs",2..=2)]
-    fn x_call_on_variable(#[case] full: &str, #[case] abbreviated: &str, #[case] range: RangeInclusive<usize>) {
+    fn x_call_on_variable(
+        #[case] full: &str,
+        #[case] abbreviated: &str,
+        #[case] range: RangeInclusive<usize>,
+    ) {
         for val in range {
             let args = repeat("variable").take(val).collect::<Vec<_>>().join(",");
 
@@ -190,7 +193,7 @@ mod test {
     }
 
     #[test]
-    fn select_test(){
+    fn select_test() {
         test_eval("$s(1:2,3:4,5:6)");
     }
 }

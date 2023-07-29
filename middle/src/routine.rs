@@ -2,9 +2,17 @@ use super::*;
 use crate::bindings::{partab_struct, var_u};
 use pest::iterators::Pair;
 
-use crate::{eval::eval, localvar::{parse_local_var,VarTypes}};
+use crate::{
+    eval::eval,
+    localvar::{parse_local_var, VarTypes},
+};
 
-pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,return_expected:bool) {
+pub fn extrinsic_function(
+    fn_call: Pair<'_, Rule>,
+    partab: &mut partab_struct,
+    comp: &mut Vec<u8>,
+    return_expected: bool,
+) {
     let mut fn_call = fn_call.into_inner().peekable();
 
     //TODO indirection
@@ -20,7 +28,7 @@ pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, c
                 Rule::VarUndefined => comp.push(crate::bindings::VARUNDF as u8),
                 Rule::ByVal => eval(arg.unwrap(), partab, comp),
                 Rule::ByRef => {
-                    parse_local_var(arg.unwrap(), partab, comp,VarTypes::Eval);
+                    parse_local_var(arg.unwrap(), partab, comp, VarTypes::Eval);
                     comp.push(crate::bindings::NEWBREF as u8);
                 }
                 _ => todo!(),
@@ -31,8 +39,8 @@ pub fn extrinsic_function(fn_call: Pair<'_, Rule>, partab: &mut partab_struct, c
 
     //TODO I think this is a bug in the C source code, (parse:134 missing args--;)
     //but for right now the C source is my source of truth.
-    if args !=0 && !return_expected{
-        args+=1;
+    if args != 0 && !return_expected {
+        args += 1;
     }
 
     let opcode = match (tag.is_some(), routine.is_some()) {

@@ -16,19 +16,19 @@ pub unsafe extern "C" fn parse_local_var_ffi(
 }
 
 fn parse_local_var_eval(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    parse_local_var(variable,partab,comp,VarTypes::Eval);
+    parse_local_var(variable, partab, comp, VarTypes::Eval);
 }
-pub enum VarTypes{
+pub enum VarTypes {
     Eval,
     Build,
     BuildNullable,
     For,
 }
 
-impl VarTypes{
-    fn code(self)->u8{
+impl VarTypes {
+    fn code(self) -> u8 {
         use VarTypes::*;
-        (match self{
+        (match self {
             Eval => crate::bindings::OPVAR,
             Build => crate::bindings::OPMVAR,
             BuildNullable => crate::bindings::OPMVARN,
@@ -37,7 +37,12 @@ impl VarTypes{
     }
 }
 
-pub fn parse_local_var(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,var_type:VarTypes) {
+pub fn parse_local_var(
+    variable: Pair<Rule>,
+    partab: &mut partab_struct,
+    comp: &mut Vec<u8>,
+    var_type: VarTypes,
+) {
     let mut variable = variable.into_inner();
 
     let descriptor = variable.next().unwrap();
@@ -87,17 +92,16 @@ fn parse_var_descriptor(
 
     if variableType == crate::bindings::TYPVARIND {
         atom(exps.next().unwrap(), partab, comp);
-        if exps.peek().is_some(){
+        if exps.peek().is_some() {
             comp.push(crate::bindings::INDEVAL as u8);
-        }else{
+        } else {
             comp.push(crate::bindings::INDMVAR as u8);
         }
     }
 
     for exp in exps {
         atom(exp, partab, comp);
-        if variableType == crate::bindings::TYPVARIND{
-        }
+        if variableType == crate::bindings::TYPVARIND {}
     }
 
     let name = name.iter().map(|x| x.as_str().into()).next();
