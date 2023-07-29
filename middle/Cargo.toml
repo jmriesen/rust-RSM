@@ -11,6 +11,7 @@ libc = "0.2.139"
 uname = "0.1.1"
 pest = "2.0"
 pest_derive = "2.0"
+parser = { path = "../parser"}
 
 [dev-dependencies]
 rstest = "0.17.0"
