@@ -78,8 +78,8 @@ Query2 = { Query~"("~Variable~","~Exp~")"}
 Qlength = { (^"Qlength"|^"QL")~Args1 }
 Qsubscript = { (^"Qsubscript"|^"QS")~Args2 }
 
-
-Select = { (^"select"|^"S")~"("~Exp~":"~Exp~(","~Exp~":"~Exp)*~")"}
+SelectArg = {Exp~":"~Exp}
+Select = { (^"select"|^"S")~"("~SelectArg~(","~SelectArg)*~")"}
 
 Next={ (^"Next"|^"N")~"("~Variable~")"}
 

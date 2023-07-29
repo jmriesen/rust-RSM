@@ -4,16 +4,16 @@ use pest::{iterators::Pair, Parser};
 pub fn reserve_jump(comp: &mut Vec<u8>)->usize{
     comp.push(0);
     comp.push(0);
-    comp.push(0);
     comp.len()
 }
 
-pub fn write_jump(location:usize,code:u8,jump_to:usize,comp: &mut Vec<u8>) {
-    comp[location-3] = code;
-    let offset = ((jump_to-location) as i16).to_le_bytes();
+pub fn write_jump(location:usize,jump_to:usize,comp: &mut Vec<u8>) {
+    let offset = (jump_to as i16 - location as i16).to_le_bytes();
     comp[location-2..location]
         .copy_from_slice(&offset);
 }
+
+
 
 pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let mut function = function.into_inner();
@@ -25,21 +25,28 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
     //select gets accepts a special syntax and gets converted into jump commands.
     if fn_type == Rule::Select{
         let jump_indexs:Vec<_> = args
-            .map(|arg| {
-                eval(arg, partab, comp);
-                //reserving space for jump commands.
-                reserve_jump(comp)
+            .map(|x| x.into_inner())
+            .map(|mut x| (x.next().unwrap(),x.next().unwrap()))
+            .map(|(condition,value)| {
+
+                eval(condition, partab, comp);
+                comp.push(crate::bindings::JMP0 as u8);
+                let try_next = reserve_jump(comp);
+
+                eval(value, partab, comp);
+                comp.push(crate::bindings::JMP as u8);
+                let exit = reserve_jump(comp);
+
+                (try_next,exit)
             }).collect();
         //select got to the end with out finding a value.
         comp.push(crate::bindings::OPERROR as u8);
         let errm4 = (-(crate::bindings::ERRM4 as i16)).to_le_bytes();
         comp.extend_from_slice(&errm4);
 
-        //fill in jumps
-        let mut jump_indexs = jump_indexs.iter();
-        while let (Some(jmp0),Some(jmp)) =  (jump_indexs.next(),jump_indexs.next()){
-           write_jump(*jmp0,crate::bindings::JMP0 as u8,*jmp,comp);
-           write_jump(*jmp,crate::bindings::JMP as u8,comp.len(),comp);
+        for (try_next,exit) in jump_indexs{
+            write_jump(try_next,exit,comp);
+            write_jump(exit,comp.len(),comp);
         }
     }else{
         //Some intrinsic act on variables them self rather then there value.

@@ -10,4 +10,4 @@ Atom = {  Xcall | "$$"~ExtrinsicFunction | IntrinsicFunction | IntrinsicVar | Va
 
 PatternOpCode = _{ OPPAT | OPNPAT }
 
-Exp = { Atom ~ (&PatternOpCode~BinaryOperator~Pattern | !PatternOpCode ~ BinaryOperator ~Atom)*}
+Exp = { Atom ~ (&PatternOpCode~BinaryOperator~(Pattern | "@"~Atom ) | !PatternOpCode ~ BinaryOperator ~Atom)*}

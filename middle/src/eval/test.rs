@@ -14,6 +14,7 @@ fn pattern_match() {
     test_eval("SomeString?.(8A,1(1N))");
     test_eval("SomeString?.2A");
     test_eval("SomeString?1.A");
+    test_eval("SomeString?@var");
 }
 
 #[rstest]

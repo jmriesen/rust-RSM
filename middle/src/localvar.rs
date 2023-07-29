@@ -21,7 +21,8 @@ fn parse_local_var_eval(variable: Pair<Rule>, partab: &mut partab_struct, comp: 
 pub enum VarTypes{
     Eval,
     Build,
-    BuildNullable
+    BuildNullable,
+    For,
 }
 
 impl VarTypes{
@@ -31,6 +32,7 @@ impl VarTypes{
             Eval => crate::bindings::OPVAR,
             Build => crate::bindings::OPMVAR,
             BuildNullable => crate::bindings::OPMVARN,
+            For => crate::bindings::CMFORSET,
         }) as u8
     }
 }

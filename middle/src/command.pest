@@ -6,4 +6,8 @@ Else = { (^"e"|^"else")~"  "}
 
 DoArg = {ExtrinsicFunction~PostCondition?}
 Do = { (^"D"|^"Do")~PostCondition?~("  " | " "~DoArg~(","~DoArg)*)}
-Line = { Brake| Close | Do | Else }
+
+ForArg = {Exp~(":"~Exp){,2} }
+For = { (^"F"|^"for")~" "~(Variable~"="~(ForArg ~(","~ForArg)*))?~" "~Commands}
+Commands = { (Brake | Close | Do | Else | For)* }
+Line = { Commands }
