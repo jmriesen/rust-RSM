@@ -2,7 +2,7 @@ use super::*;
 use pest::iterators::Pair;
 use crate::localvar::{parse_local_var, VarTypes};
 use crate::routine::extrinsic_function;
-use crate::eval::eval;
+use crate::eval::{eval, indirect_atom};
 use crate::function::write_jump;
 use crate::{bindings::partab_struct, function::reserve_jump};
 
@@ -110,9 +110,15 @@ fn command_with_arg(command:Rule,arg: Pair<Rule>,partab: &mut partab_struct,comp
             comp.push(crate::bindings::OPBRKN as u8);
         },
         Rule::Close =>{
-            eval(arg,partab,comp);
-            //TODO handle indirection
-            comp.push(crate::bindings::CMCLOSE as u8);
+            use eval::IndAtomContext::Close;
+            match arg.as_rule(){
+                Rule::Exp =>{
+                    eval(arg,partab,comp);
+                    comp.push(crate::bindings::CMCLOSE as u8);
+                },
+                Rule::AtomInd =>indirect_atom(arg, partab, comp, Close),
+                _=> unreachable!(),
+            }
         },
         Rule::Do =>{
             let mut args = arg.into_inner().peekable();
@@ -149,6 +155,7 @@ mod test{
     #[case("b 1")]
     #[case("b 1,2")]
     #[case("c 1,2")]
+    #[case("c @1")]
     #[case("d  ")]
     #[case("d tag")]
     #[case("d tag:12")]

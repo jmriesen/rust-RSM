@@ -114,8 +114,6 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
 
     let atom = atom.into_inner().next().unwrap();
 
-    //TODO will need to deal with inderection
-    //TODO will need to deal dollar()
     match atom.as_rule() {
         Rule::Variable => parse_local_var(atom, partab, comp,VarTypes::Eval),
         Rule::UnaryOperator => unary_op(atom, partab, comp),
@@ -126,15 +124,31 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::Xcall => x_call(atom, partab, comp),
         Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
         Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp,true),
-        Rule::AtomInd => {
-            self::atom(atom.into_inner().next().unwrap(), partab, comp);
-            comp.push(crate::bindings::INDEVAL as u8);
-        }
+        Rule::AtomInd => indirect_atom(atom, partab, comp,IndAtomContext::Eval),
         _ => {
             dbg!(atom);
             unreachable!()
         }
     }
+}
+pub enum IndAtomContext{
+    Eval,
+    Close,
+}
+impl IndAtomContext {
+    fn op_code(self) -> u8{
+        (match self{
+            Self::Eval => crate::bindings::INDEVAL,
+            Self::Close => crate::bindings::INDCLOS,
+        } as u8)
+    }
+}
+
+pub fn indirect_atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>,context:IndAtomContext) {
+    let atom = atom.into_inner().next().unwrap();
+    self::atom(atom, partab, comp);
+    comp.push(context.op_code());
+
 }
 
 #[cfg(test)]

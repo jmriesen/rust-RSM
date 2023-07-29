@@ -1,7 +1,8 @@
 PostCondition = {":"~Exp}
 
 Brake = { (^"B"|^"Break")~PostCondition?~("  " | " "~Exp~(","~Exp)*)}
-Close = { (^"C"|^"close")~PostCondition?~(" "~Exp~(","~Exp)*)}
+CloseArg = _{AtomInd |Exp}
+Close = { (^"C"|^"close")~PostCondition?~(" "~CloseArg~(","~CloseArg)*)}
 Else = { (^"e"|^"else")~"  "}
 
 DoArg = {ExtrinsicFunction~PostCondition?}
