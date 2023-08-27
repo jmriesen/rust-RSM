@@ -1,0 +1,1294 @@
+[
+  {
+    "type": "Ascii",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "BinaryExpression",
+    "named": true,
+    "fields": {
+      "exp_left": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "exp_right": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "opp": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "BinaryOpp",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "BinaryOpp",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "OPADD",
+          "named": true
+        },
+        {
+          "type": "OPAND",
+          "named": true
+        },
+        {
+          "type": "OPCAT",
+          "named": true
+        },
+        {
+          "type": "OPCON",
+          "named": true
+        },
+        {
+          "type": "OPDIV",
+          "named": true
+        },
+        {
+          "type": "OPEQL",
+          "named": true
+        },
+        {
+          "type": "OPFOL",
+          "named": true
+        },
+        {
+          "type": "OPGTR",
+          "named": true
+        },
+        {
+          "type": "OPINT",
+          "named": true
+        },
+        {
+          "type": "OPLES",
+          "named": true
+        },
+        {
+          "type": "OPMOD",
+          "named": true
+        },
+        {
+          "type": "OPMUL",
+          "named": true
+        },
+        {
+          "type": "OPNAND",
+          "named": true
+        },
+        {
+          "type": "OPNCON",
+          "named": true
+        },
+        {
+          "type": "OPNEQL",
+          "named": true
+        },
+        {
+          "type": "OPNFOL",
+          "named": true
+        },
+        {
+          "type": "OPNGTR",
+          "named": true
+        },
+        {
+          "type": "OPNLES",
+          "named": true
+        },
+        {
+          "type": "OPNSAF",
+          "named": true
+        },
+        {
+          "type": "OPPOW",
+          "named": true
+        },
+        {
+          "type": "OPSAF",
+          "named": true
+        },
+        {
+          "type": "OPSUB",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Char",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Data",
+    "named": true,
+    "fields": {
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "ExpFunctions",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Ascii",
+          "named": true
+        },
+        {
+          "type": "Char",
+          "named": true
+        },
+        {
+          "type": "Extract",
+          "named": true
+        },
+        {
+          "type": "Find",
+          "named": true
+        },
+        {
+          "type": "Fnumber",
+          "named": true
+        },
+        {
+          "type": "Justify",
+          "named": true
+        },
+        {
+          "type": "Length",
+          "named": true
+        },
+        {
+          "type": "Piece",
+          "named": true
+        },
+        {
+          "type": "Random",
+          "named": true
+        },
+        {
+          "type": "Reverse",
+          "named": true
+        },
+        {
+          "type": "Stack",
+          "named": true
+        },
+        {
+          "type": "Text",
+          "named": true
+        },
+        {
+          "type": "Translate",
+          "named": true
+        },
+        {
+          "type": "View",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Expression",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "BinaryExpression",
+          "named": true
+        },
+        {
+          "type": "Expression",
+          "named": true
+        },
+        {
+          "type": "InderectExpression",
+          "named": true
+        },
+        {
+          "type": "IntrinsicFunction",
+          "named": true
+        },
+        {
+          "type": "PaternMatchExpression",
+          "named": true
+        },
+        {
+          "type": "UnaryExpression",
+          "named": true
+        },
+        {
+          "type": "Variable",
+          "named": true
+        },
+        {
+          "type": "number",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Extract",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Find",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Fnumber",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Get",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "GlobalUciEnvVariable",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "GlobalUciVariable",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "GlobalVariable",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Increment",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "InderectExpression",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "IndirectVariable",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "IntrinsicFunction",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "ExpFunctions",
+          "named": true
+        },
+        {
+          "type": "VarFunctions",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Justify",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Length",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "NakedVariable",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Name",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Next",
+    "named": true,
+    "fields": {
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "OPADD",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPFOL",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPMINUS",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPNOT",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPPLUS",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPSUB",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Order",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Patern",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "PaternElement",
+          "named": true
+        },
+        {
+          "type": "PaternRepetitionCount",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "PaternElement",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "Patern",
+          "named": true
+        },
+        {
+          "type": "string",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "PaternMatchExpression",
+    "named": true,
+    "fields": {
+      "exp_left": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "exp_right": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          },
+          {
+            "type": "Patern",
+            "named": true
+          }
+        ]
+      },
+      "opp": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "PatternOpp",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "PaternRepetitionCount",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "PatternOpp",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "OPNPAT",
+          "named": true
+        },
+        {
+          "type": "OPPAT",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Piece",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Qlength",
+    "named": true,
+    "fields": {
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Qsubscript",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Query",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "var": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Random",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Reverse",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Stack",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Text",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Translate",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "UnaryExpression",
+    "named": true,
+    "fields": {
+      "exp": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "opp": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "UnaryOpp",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "UnaryOpp",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "OPMINUS",
+          "named": true
+        },
+        {
+          "type": "OPNOT",
+          "named": true
+        },
+        {
+          "type": "OPPLUS",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "VarFunctions",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Data",
+          "named": true
+        },
+        {
+          "type": "Get",
+          "named": true
+        },
+        {
+          "type": "Increment",
+          "named": true
+        },
+        {
+          "type": "Name",
+          "named": true
+        },
+        {
+          "type": "Next",
+          "named": true
+        },
+        {
+          "type": "Order",
+          "named": true
+        },
+        {
+          "type": "Qlength",
+          "named": true
+        },
+        {
+          "type": "Qsubscript",
+          "named": true
+        },
+        {
+          "type": "Query",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Variable",
+    "named": true,
+    "fields": {
+      "heading": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "GlobalUciEnvVariable",
+            "named": true
+          },
+          {
+            "type": "GlobalUciVariable",
+            "named": true
+          },
+          {
+            "type": "GlobalVariable",
+            "named": true
+          },
+          {
+            "type": "IndirectVariable",
+            "named": true
+          },
+          {
+            "type": "NakedVariable",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "subs": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "(",
+            "named": false
+          },
+          {
+            "type": ")",
+            "named": false
+          },
+          {
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "View",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "command",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "commandArg",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "commandArg",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "line",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "command",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "number",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "source_file",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "string",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "\n",
+    "named": false
+  },
+  {
+    "type": " ",
+    "named": false
+  },
+  {
+    "type": "\"",
+    "named": false
+  },
+  {
+    "type": "\"\"",
+    "named": false
+  },
+  {
+    "type": "$",
+    "named": false
+  },
+  {
+    "type": "'",
+    "named": false
+  },
+  {
+    "type": "(",
+    "named": false
+  },
+  {
+    "type": ")",
+    "named": false
+  },
+  {
+    "type": "+",
+    "named": false
+  },
+  {
+    "type": ",",
+    "named": false
+  },
+  {
+    "type": "-",
+    "named": false
+  },
+  {
+    "type": ".",
+    "named": false
+  },
+  {
+    "type": "@",
+    "named": false
+  },
+  {
+    "type": "OPAND",
+    "named": true
+  },
+  {
+    "type": "OPCAT",
+    "named": true
+  },
+  {
+    "type": "OPCON",
+    "named": true
+  },
+  {
+    "type": "OPDIV",
+    "named": true
+  },
+  {
+    "type": "OPEQL",
+    "named": true
+  },
+  {
+    "type": "OPGTR",
+    "named": true
+  },
+  {
+    "type": "OPINT",
+    "named": true
+  },
+  {
+    "type": "OPLES",
+    "named": true
+  },
+  {
+    "type": "OPMOD",
+    "named": true
+  },
+  {
+    "type": "OPMUL",
+    "named": true
+  },
+  {
+    "type": "OPNAND",
+    "named": true
+  },
+  {
+    "type": "OPNCON",
+    "named": true
+  },
+  {
+    "type": "OPNEQL",
+    "named": true
+  },
+  {
+    "type": "OPNFOL",
+    "named": true
+  },
+  {
+    "type": "OPNGTR",
+    "named": true
+  },
+  {
+    "type": "OPNLES",
+    "named": true
+  },
+  {
+    "type": "OPNPAT",
+    "named": true
+  },
+  {
+    "type": "OPNSAF",
+    "named": true
+  },
+  {
+    "type": "OPPAT",
+    "named": true
+  },
+  {
+    "type": "OPPOW",
+    "named": true
+  },
+  {
+    "type": "OPSAF",
+    "named": true
+  },
+  {
+    "type": "]",
+    "named": false
+  },
+  {
+    "type": "^",
+    "named": false
+  },
+  {
+    "type": "^[",
+    "named": false
+  },
+  {
+    "type": "^|",
+    "named": false
+  },
+  {
+    "type": "identifier",
+    "named": true
+  },
+  {
+    "type": "w ",
+    "named": false
+  },
+  {
+    "type": "|",
+    "named": false
+  }
+]

@@ -1,0 +1,13 @@
+==================
+Line
+==================
+w test
+w 93
+w "string"
+---
+
+(source_file
+  (line (command (commandArg (identifier))))
+  (line (command (commandArg (number))))
+  (line (command (commandArg (string))))
+  )

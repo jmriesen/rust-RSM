@@ -24,46 +24,8 @@ pub fn commands(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
 
         let args = command;
         if command_type == Rule::For {
-            let (args, mut tail): (Vec<Pair<Rule>>, Vec<Pair<Rule>>) =
-                args.partition(|x| x.as_rule() != Rule::Commands);
-            let tail = tail.remove(0);
-
-            let arg_less = args.len() == 0;
-
-            if arg_less {
-                comp.push(crate::bindings::CMFOR0 as u8);
-                let exit = reserve_jump(comp);
-                commands(tail, partab, comp);
-                comp.push(crate::bindings::OPENDC as u8);
-                //jump back to start of for loop.
-                comp.push(crate::bindings::JMP as u8);
-                let jump = reserve_jump(comp);
-                write_jump(jump, exit, comp);
-                //jump out of for loop
-                write_jump(exit, comp.len(), comp);
-                comp.push(crate::bindings::OPNOP as u8);
-            } else {
-                let mut args = args.into_iter();
-                parse_local_var(args.next().unwrap(), partab, comp, VarTypes::For);
-                let offset_for_code = reserve_jump(comp);
-                let exit = reserve_jump(comp);
-                for arg in args {
-                    let arg = arg.into_inner();
-                    let code = match arg.map(|x| eval(x, partab, comp)).count() {
-                        1 => crate::bindings::CMFOR1,
-                        2 => crate::bindings::CMFOR2,
-                        3 => crate::bindings::CMFOR3,
-                        _ => unreachable!(),
-                    };
-                    comp.push(code as u8);
-                }
-                write_jump(offset_for_code, comp.len(), comp);
-                commands(tail, partab, comp);
-                comp.push(crate::bindings::OPENDC as u8);
-                comp.push(crate::bindings::CMFOREND as u8);
-                write_jump(exit, comp.len(), comp);
-                comp.push(crate::bindings::OPNOP as u8);
-            }
+            // For uses jump commands and requires special handling.
+            for_command(args, partab, comp);
         } else {
             //These commands treat each argument independently.
             let arg_count = args
@@ -83,6 +45,50 @@ pub fn commands(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
             }
         }
         comp.push(crate::bindings::OPENDC as u8);
+    }
+}
+use core::iter::Peekable;
+use pest::iterators::Pairs;
+fn for_command(args: Peekable<Pairs<Rule>>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+    let (args, mut tail): (Vec<Pair<Rule>>, Vec<Pair<Rule>>) =
+        args.partition(|x| x.as_rule() != Rule::Commands);
+    let tail = tail.remove(0);
+
+    let arg_less = args.len() == 0;
+
+    if arg_less {
+        comp.push(crate::bindings::CMFOR0 as u8);
+        let exit = reserve_jump(comp);
+        commands(tail, partab, comp);
+        comp.push(crate::bindings::OPENDC as u8);
+        //jump back to start of for loop.
+        comp.push(crate::bindings::JMP as u8);
+        let jump = reserve_jump(comp);
+        write_jump(jump, exit, comp);
+        //jump out of for loop
+        write_jump(exit, comp.len(), comp);
+        comp.push(crate::bindings::OPNOP as u8);
+    } else {
+        let mut args = args.into_iter();
+        parse_local_var(args.next().unwrap(), partab, comp, VarTypes::For);
+        let offset_for_code = reserve_jump(comp);
+        let exit = reserve_jump(comp);
+        for arg in args {
+            let arg = arg.into_inner();
+            let code = match arg.map(|x| eval(x, partab, comp)).count() {
+                1 => crate::bindings::CMFOR1,
+                2 => crate::bindings::CMFOR2,
+                3 => crate::bindings::CMFOR3,
+                _ => unreachable!(),
+            };
+            comp.push(code as u8);
+        }
+        write_jump(offset_for_code, comp.len(), comp);
+        commands(tail, partab, comp);
+        comp.push(crate::bindings::OPENDC as u8);
+        comp.push(crate::bindings::CMFOREND as u8);
+        write_jump(exit, comp.len(), comp);
+        comp.push(crate::bindings::OPNOP as u8);
     }
 }
 

@@ -12,8 +12,7 @@ use pest::iterators::Pair;
 use std::ffi::CString;
 
 fn pattern(pattern: Pair<Rule>, comp: &mut Vec<u8>) {
-    let cstr = CString::new(pattern.as_str()).unwrap();
-    comp.extend(compile_string(&cstr))
+    comp.extend(compile_string(&CString::new(pattern.as_str()).unwrap()));
 }
 
 #[no_mangle]
@@ -25,8 +24,16 @@ pub unsafe extern "C" fn ncopy_ffi(
     parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, rust_ncopy)
 }
 
-fn rust_ncopy(number: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
+fn rust_ncopy(number: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let number = number.as_str();
+    ncopy(number, partab, comp)
+}
+
+/// TODO rerwrite this function
+/// currently function both formats number into canonacl represntation and
+/// compiles to [u8]. It should only do this first part.
+/// Note in the C implemnation +9 is parsed as a unaray exprestion not a number.
+pub fn ncopy(number: &str, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let sign = if number.chars().filter(|x| *x == '-').count() % 2 == 0 {
         ""
     } else {
@@ -61,9 +68,12 @@ fn unary_op(unaryExp: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
     comp.push(op);
 }
 
+/// TODO deprecate
 fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    let literal = literal
-        .as_str()
+    compile_string_literal(literal.as_str(), comp);
+}
+pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
+    let string = string
         .strip_prefix('"')
         .unwrap()
         .strip_suffix('"')
@@ -71,7 +81,7 @@ fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>)
         //replace "" with " quote.
         .replace("\"\"", "\"");
     //strip off outer quotes.
-    let inner = CString::new(literal).unwrap();
+    let inner = CString::new(string).unwrap();
     comp.extend(compile_string(&inner))
 }
 
@@ -116,7 +126,7 @@ pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
         Rule::Variable => parse_local_var(atom, partab, comp, VarTypes::Eval),
         Rule::UnaryOperator => unary_op(atom, partab, comp),
         Rule::String => literal(atom, partab, comp),
-        Rule::Number => rust_ncopy(atom, partab, comp),
+        Rule::Number => ncopy(atom.as_str(), partab, comp),
         Rule::Exp => eval(atom, partab, comp),
         Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
         Rule::Xcall => x_call(atom, partab, comp),

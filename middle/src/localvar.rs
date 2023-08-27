@@ -26,7 +26,7 @@ pub enum VarTypes {
 }
 
 impl VarTypes {
-    fn code(self) -> u8 {
+    pub fn code(self) -> u8 {
         use VarTypes::*;
         (match self {
             Eval => crate::bindings::OPVAR,

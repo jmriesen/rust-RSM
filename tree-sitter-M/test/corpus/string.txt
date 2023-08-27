@@ -1,0 +1,13 @@
+==================
+String
+==================
+w "string"
+w "this is ""one"" string"
+w """this is also one string"""
+---
+
+(source_file
+  (line (command (commandArg (string))))
+  (line (command (commandArg (string))))
+  (line (command (commandArg (string))))
+  )

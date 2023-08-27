@@ -12,13 +12,17 @@ uname = "0.1.1"
 pest = "2.0"
 pest_derive = "2.0"
 parser = { path = "../parser"}
+tree-sitter-mumps = { path = "../tree-sitter-M"}
+tree-sitter = "0.20.9"
+
+lang_models = { path = "../lang_models"}
 
 [dev-dependencies]
 rstest = "0.17.0"
 
 
 [build-dependencies]
-bindgen = "0.63.0"
+bindgen = "0.66.1"
 cc = "1.0"
 cbindgen = "0.24.5"
 glob = "0.3.1"

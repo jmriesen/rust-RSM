@@ -75,8 +75,9 @@ pub fn parse_rust_to_c_ffi(
 
 #[cfg(test)]
 pub mod test {
+    use std::sync::{LockResult, MutexGuard};
     use std::sync::Mutex;
-    static guard: Mutex<()> = Mutex::new(());
+    static GUARD: Mutex<()> = Mutex::new(());
     use super::*;
 
     pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
@@ -89,14 +90,70 @@ pub mod test {
         fun_r: fn(Pair<Rule>, &mut partab_struct, &mut Vec<u8>) -> (),
         fn_c: unsafe extern "C" fn() -> (),
     ) {
-        use crate::bindings::{comp_ptr, source_ptr, systab, MVAR, SYSTAB, TRANTAB, VAR_U};
+        let (compiled_original, _lock) = compile_c(src, fn_c);
+        let mut byte_code = vec![];
+        let mut par_tab = partab_struct::default();
+        fun_r(
+            dbg!(SyntaxParser::parse(rule, src))
+                .unwrap()
+                .next()
+                .unwrap(),
+            &mut par_tab,
+            &mut byte_code,
+        );
+
+        assert_eq!(compiled_original, byte_code);
+        use crate::bindings::partab;
+        //TODO figure out why this is now failing.
+        //I think it might be an acutal bug in the command code.
+        unsafe { assert_eq!(any_as_u8_slice(&partab), any_as_u8_slice(&par_tab)) };
+    }
+
+    pub fn compile_c(
+        src: &str,
+        fn_c: unsafe extern "C" fn() -> (),
+    ) -> (Vec<u8>, LockResult<MutexGuard<'_, ()>>) {
+        use crate::bindings::{comp_ptr, partab, source_ptr, systab, SYSTAB};
         use std::io::Write;
 
         //TODO this is being leaked.
         let source = CString::new(dbg!(src)).unwrap();
         let source = source.into_raw() as *mut u8;
 
-        let mut par_tab = PARTAB {
+        //TODO Figure out how these different fields actually work.
+        //Zeroing out for now so that I can avoid seg faults
+        let mut sys_tab = SYSTAB::default();
+
+        //TODO something about the value of 100 can cause the len to be calculated incorrectly.
+        //attributing to some of the unsafe code in this test harness.
+        //I think it should be fine for now, after all my end goal is to remove the unsafe C all together.
+        const BUFFER_LEN: usize = 600;
+        let mut compiled_original = [0u8; BUFFER_LEN];
+        let _ = std::io::stdout().flush();
+        let lock = GUARD.lock();
+
+        let compile_stack_len = {
+            unsafe { source_ptr = source };
+            unsafe { comp_ptr = compiled_original.as_mut_ptr() };
+            unsafe { partab = PARTAB::default() };
+            unsafe { systab = &mut sys_tab as *mut SYSTAB };
+            unsafe { fn_c() }
+            unsafe { comp_ptr.offset_from(compiled_original.as_ptr()) }
+        };
+
+        (
+            compiled_original[..compile_stack_len as usize].to_vec(),
+            lock,
+        )
+    }
+}
+
+use crate::bindings::{HISTORIC_DNOK, MVAR, TRANTAB, VAR_U};
+use core::ptr::null_mut;
+
+impl Default for crate::bindings::PARTAB {
+    fn default() -> Self {
+        Self {
             jobtab: null_mut(),
             vol_fds: [0; 1],
             jnl_fds: [0; 1],
@@ -110,21 +167,24 @@ pub mod test {
             lp: null_mut(),
             ln: null_mut(),
             src_var: MVAR {
-                name: VAR_U { var_q: 0 },
+                name: VAR_U::from("TTTTT"), // { var_q: 0 },
                 volset: 0,
                 uci: 0,
                 slen: 0,
                 key: [0; 256],
             },
-        };
-        //TODO Figure out how these different fields actually work.
-        //Zeroing out for now so that I can avoid seg faults
-        let mut sys_tab = SYSTAB {
+        }
+    }
+}
+
+impl Default for crate::bindings::SYSTAB {
+    fn default() -> Self {
+        Self {
             address: null_mut(),
             jobtab: null_mut(),
             maxjob: 0,
             sem_id: 0,
-            historic: crate::bindings::HISTORIC_DNOK as i32,
+            historic: HISTORIC_DNOK as i32,
             precision: 0,
             max_tt: 0,
             tt: [TRANTAB {
@@ -144,41 +204,6 @@ pub mod test {
             addsize: 0,
             vol: [null_mut(); 1],
             last_blk_used: [0; 1],
-        };
-
-        //TODO something about the value of 100 can cause the len to be calculated incorrectly.
-        //attributing to some of the unsafe code in this test harness.
-        //I think it should be fine for now, after all my end goal is to remove the unsafe C all together.
-        const buffer_len: usize = 600;
-        let mut compiled_original = [0u8; buffer_len];
-        let _ = std::io::stdout().flush();
-        let compile_stack_len = {
-            let _lock = guard.lock();
-            unsafe { source_ptr = source };
-            unsafe { comp_ptr = compiled_original.as_mut_ptr() };
-            unsafe { partab = par_tab.clone() };
-            unsafe { systab = &mut sys_tab as *mut SYSTAB };
-            unsafe { fn_c() }
-            unsafe { comp_ptr.offset_from(compiled_original.as_ptr()) }
-        };
-
-        use core::ptr::null_mut;
-
-        let mut byte_code = vec![];
-        fun_r(
-            dbg!(SyntaxParser::parse(rule, src))
-                .unwrap()
-                .next()
-                .unwrap(),
-            &mut par_tab,
-            &mut byte_code,
-        );
-
-        assert_eq!(
-            compiled_original[..compile_stack_len as usize],
-            byte_code[..]
-        );
-        use crate::bindings::partab;
-        unsafe { assert_eq!(any_as_u8_slice(&partab), any_as_u8_slice(&par_tab)) };
+        }
     }
 }

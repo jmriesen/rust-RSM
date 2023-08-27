@@ -1,0 +1,27 @@
+==================
+Number
+==================
+w 9
+w 90
+w 90.9
+w .9
+w 0.9
+w +0.9
+w +09.
+w ++++0.9
+w -0.9
+w +-+-+-0.9
+---
+
+(source_file
+  (line (command (commandArg (number))))
+  (line (command (commandArg (number))))
+  (line (command (commandArg (number))))
+  (line (command (commandArg (number))))
+  (line (command (commandArg (number))))
+  (line (command (commandArg (number (sign)))))
+  (line (command (commandArg (number (sign)))))
+  (line (command (commandArg (number (sign)))))
+  (line (command (commandArg (number (sign)))))
+  (line (command (commandArg (number (sign)))))
+  )
