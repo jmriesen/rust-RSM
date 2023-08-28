@@ -32,8 +32,6 @@ var mumps_grammer = {
             optional(repeatDel(field("args",$._FunctionArg),",")),
             ")",
         ),
-        //TODO can this match the empty string?
-        //I am not getting a compile error.
         VarUndefined:$=> /\s*/,
         ByRef :$=>seq(".",$.Variable),
         _FunctionArg:$=> choice($.VarUndefined,$.ByRef,$.Expression),

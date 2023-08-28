@@ -29,14 +29,14 @@ struct Node {
 #[proc_macro]
 pub fn models(_: TokenStream) -> TokenStream {
     let data = include_str!("../../tree-sitter-M/src/node-types.json");
-    let mut nodes: Vec<Node> = serde_json::from_str(&data).expect("Unable to parse");
+    let mut nodes: Vec<Node> = serde_json::from_str(data).expect("Unable to parse");
 
     nodes.retain(|x| x.named);
     for node in &mut nodes {
         if let Some(config) = &mut node.children {
             config.r#types.retain(|x| x.named);
         }
-        for (_, config) in &mut node.fields {
+        for config in node.fields.values_mut() {
             config.types.retain(|x| x.named);
         }
     }
@@ -97,7 +97,7 @@ fn def_enum(name: &Ident, config: &TypeConfig) -> proc_macro2::TokenStream {
         .iter()
         .filter(|x| x.named)
         .map(|x| x.r#type.as_str())
-        .map(|x| (Literal::string(&x), Ident::new(&x, Span::call_site())));
+        .map(|x| (Literal::string(x), Ident::new(x, Span::call_site())));
 
     let enum_varients = options.clone().map(|(_, i)| quote! {#i(#i<#life_time>)});
     let match_arms = options.map(|(s, i)| quote! {#s =>Self::#i(#i::create(node))});
@@ -146,7 +146,7 @@ fn impl_getter(
 ) -> proc_macro2::TokenStream {
     let subtype = field_name.unwrap_or("children");
 
-    let (type_name, type_def) = get_return_type(parent, &subtype, config);
+    let (type_name, type_def) = get_return_type(parent, subtype, config);
 
     let (impl_line, return_type) = if config.multiple {
         (quote! {children.collect()}, quote! {Vec<#type_name>})

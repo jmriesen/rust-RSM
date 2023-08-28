@@ -163,7 +163,7 @@ impl<'a> models::Expression<'a> {
             },
             XCall(x) => {
                 use crate::eval::compile_string_literal;
-                x.args().iter().for_each(|x| x.compile(&source_code,comp));
+                x.args().iter().for_each(|x| x.compile(source_code,comp));
 
                 for _ in x.args().len()..2{
                     compile_string_literal("\"\"", comp);
@@ -279,11 +279,7 @@ impl<'a> models::Expression<'a> {
     }
 
     fn is_inderect(&self) -> bool {
-        if let models::ExpressionChildren::InderectExpression(_) = self.children() {
-            true
-        } else {
-            false
-        }
+        matches!(self.children(), models::ExpressionChildren::InderectExpression(_))
     }
 }
 
