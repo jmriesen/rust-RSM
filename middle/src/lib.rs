@@ -61,7 +61,29 @@ impl<'a> models::Expression<'a> {
                     OPNSAF(_) => bindings::OPNSAF,
                     OPSAF(_) => bindings::OPSAF,
                 } as u8);
-            }
+            },
+            IntrinsicVar(var) => {
+                use models::IntrinsicVarChildren::*;
+                comp.push(match var.children() {
+                    Device(_) => crate::bindings::VARD,
+                    Ecode(_) => crate::bindings::VAREC,
+                    Estack(_) => crate::bindings::VARES,
+                    Etrap(_) => crate::bindings::VARET,
+                    Horolog(_) => crate::bindings::VARH,
+                    Io(_) => crate::bindings::VARI,
+                    Job(_) => crate::bindings::VARJ,
+                    Key(_) => crate::bindings::VARK,
+                    Principal(_) => crate::bindings::VARP,
+                    Quit(_) => crate::bindings::VARQ,
+                    Reference(_) => crate::bindings::VARR,
+                    Storage(_) => crate::bindings::VARS,
+                    StackVar(_) => crate::bindings::VARST,
+                    System(_) => crate::bindings::VARSY,
+                    Test(_) => crate::bindings::VART,
+                    X(_) => crate::bindings::VARX,
+                    Y(_) => crate::bindings::VARY,
+                } as u8);
+            },
             Expression(exp) => exp.compile(source_code, comp),
             InderectExpression(exp) => {
                 exp.children().compile(source_code, comp);
@@ -94,8 +116,85 @@ impl<'a> models::Expression<'a> {
                     OPNOT(_) => bindings::OPNOT,
                     OPPLUS(_) => bindings::OPPLUS,
                 } as u8);
-            }
+            },
+            ExtrinsicFunction(x)=>{
+                use models::ExtrinsicFunctionArgs::*;
+                let args = x.args();
+                let tag = x.tag();
+                let routine = x.routine();
 
+                for arg in &args{
+                    match arg{
+                        VarUndefined(_)=>comp.push(crate::bindings::VARUNDF as u8),
+                        ByRef(var)=>{
+                            var.children().compile(source_code,comp,VarTypes::Build);
+                            comp.push(crate::bindings::NEWBREF as u8);
+                        },
+                        Expression(exp)=>exp.compile(source_code,comp),
+                    }
+                }
+                let opcode = match (tag.is_some(), routine.is_some()) {
+                    (true, false) => crate::bindings::CMDOTAG,
+                    (false, true) => crate::bindings::CMDOROU,
+                    (true, true) => crate::bindings::CMDORT,
+                    _ => unreachable!(),
+                };
+                comp.push(opcode as u8);
+                use crate::bindings::var_u;
+                if let Some(routine) = routine {
+
+                    let routine = routine.node().utf8_text(source_code.as_bytes()).unwrap();
+                    let tag = var_u::from(routine);
+                    comp.extend(tag.as_array());
+                }
+                if let Some(tag) = &tag{
+                    use models::ExtrinsicFunctionTag::*;
+                    let node = match tag{
+                        identifier(x) => x.node(),
+                        NumericIdentifier(x) => x.node()
+                    };
+
+                    let tag = node.utf8_text(source_code.as_bytes()).unwrap();
+                    let tag = var_u::from(tag);
+                    comp.extend(tag.as_array());
+                }
+                comp.push(args.len() as u8 + 129);
+
+            },
+            XCall(x) => {
+                use crate::eval::compile_string_literal;
+                x.args().iter().for_each(|x| x.compile(&source_code,comp));
+
+                for _ in x.args().len()..2{
+                    compile_string_literal("\"\"", comp);
+                }
+                use models::XCallCode::*;
+                comp.push(match x.code() {
+                    Directory(_) => crate::bindings::XCDIR,
+                    Host(_) => crate::bindings::XCHOST,
+                    File(_) => crate::bindings::XCFILE,
+                    ErrMsg(_) => crate::bindings::XCERR,
+                    OpCom(_) => crate::bindings::XCOPC,
+                    Signal(_) => crate::bindings::XCSIG,
+                    Spawn(_) => crate::bindings::XCSPA,
+                    Version(_) => crate::bindings::XCVER,
+                    Zwrite(_) => crate::bindings::XCZWR,
+                    E(_) => crate::bindings::XCE,
+                    Paschk(_) => crate::bindings::XCPAS,
+                    V(_) => crate::bindings::XCV,
+                    XCallX(_) => crate::bindings::XCX,
+                    Xrsm(_) => crate::bindings::XCXRSM,
+                    SetEnv(_) => crate::bindings::XCSETENV,
+                    GetEnv(_) => crate::bindings::XCGETENV,
+                    RouChk(_) => crate::bindings::XCROUCHK,
+                    Fork(_) => crate::bindings::XCFORK,
+                    IC(_) => crate::bindings::XCIC,
+                    Wait(_) => crate::bindings::XCWAIT,
+                    Debug(_) => crate::bindings::XCDEBUG,
+                    Compress(_) => crate::bindings::XCCOMP,
+                } as u8);
+
+            },
             Variable(var) => var.compile(source_code,comp,VarTypes::Eval),
             number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
@@ -130,6 +229,7 @@ impl<'a> models::Expression<'a> {
                             Length(x) => (crate::bindings::FUNL1 - 1, x.args()),
                             Stack(x) => (crate::bindings::FUNST1 - 1, x.args()),
                             Char(x) => (crate::bindings::FUNC, x.args()),
+                            //TODO handle select. It dose not work like the others.
                         };
                         let count = args.iter().map(|x| x.compile(source_code, comp)).count();
                         if opcode == crate::bindings::FUNC {
@@ -239,35 +339,35 @@ impl <'a>models::Variable<'a>{
 }
 
 pub fn compile(source_code: &str) -> Vec<u8> {
-        use tree_sitter::Parser;
-        let mut parser = Parser::new();
-        parser.set_language(tree_sitter_mumps::language()).unwrap();
-        let tree = parser.parse(source_code, None).unwrap();
-        #[cfg(test)]
-        dbg!(&tree.root_node().to_sexp());
-        let tree = unsafe { models::type_tree(&tree) };
+    use tree_sitter::Parser;
+    let mut parser = Parser::new();
+    parser.set_language(tree_sitter_mumps::language()).unwrap();
+    let tree = parser.parse(source_code, None).unwrap();
+    #[cfg(test)]
+    dbg!(&tree.root_node().to_sexp());
+    let tree = unsafe { models::type_tree(&tree) };
 
-        let mut comp = vec![];
+    let mut comp = vec![];
 
-        let lines = tree.children();
-        for line in lines {
-            let commands = line.children();
-            for command in commands {
-                for arg in command.children() {
-                    let arg = arg.children();
-                    arg.compile(source_code, &mut comp);
-                    if !arg.is_inderect() {
-                        comp.push(bindings::CMWRTEX as u8);
-                    }
+    let lines = tree.children();
+    for line in lines {
+        let commands = line.children();
+        for command in commands {
+            for arg in command.children() {
+                let arg = arg.children();
+                arg.compile(source_code, &mut comp);
+                if !arg.is_inderect() {
+                    comp.push(bindings::CMWRTEX as u8);
                 }
-                comp.push(bindings::OPENDC as u8);
-                comp.push(bindings::OPENDC as u8);
             }
-            comp.pop();
-            comp.push(bindings::ENDLIN as u8);
+            comp.push(bindings::OPENDC as u8);
+            comp.push(bindings::OPENDC as u8);
         }
-        comp
+        comp.pop();
+        comp.push(bindings::ENDLIN as u8);
     }
+    comp
+}
 
 #[cfg(test)]
 mod test {
@@ -394,7 +494,7 @@ mod test {
     #[case("char","c",50..=50)]
     #[case("length","l",1..=2)]
     #[case("Stack","st",1..=2)]
-    fn x_call(#[case] full: &str, #[case] abbreviated: &str, #[case] range: RangeInclusive<usize>) {
+    fn intrinsic_fun(#[case] full: &str, #[case] abbreviated: &str, #[case] range: RangeInclusive<usize>) {
         use core::iter::repeat;
         for val in range {
             let args = repeat("11011").take(val).collect::<Vec<_>>().join(",");
@@ -424,7 +524,7 @@ mod test {
     #[case("Next","n",1..=1)]
     #[case("Qlength","QL",1..=1)]
     #[case("QSUBSCRIPT","Qs",2..=2)]
-    fn x_call_on_variable(
+    fn intrinsic_variable_fn(
         #[case] full: &str,
         #[case] abbreviated: &str,
         #[case] range: RangeInclusive<usize>,
@@ -446,5 +546,97 @@ mod test {
                 assert_eq!(orignal, temp);
             }
         }
+    }
+    #[rstest]
+    #[case("$D")]
+    #[case("$device")]
+    #[case("$EC")]
+    #[case("$ecode")]
+    #[case("$ES")]
+    #[case("$estack")]
+    #[case("$ET")]
+    #[case("etrap")]
+    #[case("$H")]
+    #[case("$horolog")]
+    #[case("$I")]
+    #[case("$io")]
+    #[case("$J")]
+    #[case("$job")]
+    #[case("$K")]
+    #[case("$key")]
+    #[case("$P")]
+    #[case("$principal")]
+    #[case("$Q")]
+    #[case("$quit")]
+    #[case("$R")]
+    #[case("$reference")]
+    #[case("$S")]
+    #[case("$storage")]
+    #[case("$ST")]
+    #[case("$stack")]
+    #[case("$SY")]
+    #[case("$system")]
+    #[case("$T")]
+    #[case("$test")]
+    #[case("$X")]
+    #[case("$Y")]
+    fn intrinsic_var(#[case] var: &str) {
+        {
+            let source_code = format!("w {}", var);
+            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+
+            assert_eq!(orignal, compile(&source_code));
+        }
+    }
+    #[rstest]
+    #[case("$&%DIRECTORY")]
+    #[case("$&%HOST")]
+    #[case("$&%FILE")]
+    #[case("$&%ERRMSG")]
+    #[case("$&%OPCOM")]
+    #[case("$&%SIGNAL")]
+    #[case("$&%SPAWN")]
+    #[case("$&%VERSION")]
+    #[case("$&%ZWRITE")]
+    #[case("$&E")]
+    #[case("$&PASCHK")]
+    #[case("$&V")]
+    #[case("$&X")]
+    #[case("$&XRSM")]
+    #[case("$&%SETENV")]
+    #[case("$&%GETENV")]
+    #[case("$&%ROUCHK")]
+    #[case("$&%FORK")]
+    #[case("$&%IC")]
+    #[case("$&%WAIT")]
+    #[case("$&DEBUG")]
+    #[case("$&%COMPRESS")]
+    fn x_call(#[case] call: &str){
+        use core::iter::repeat;
+        for num in  1..=2 {
+            let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
+            let source_code = format!("w {}({})", call,args);
+            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+            let temp = compile(&source_code);
+
+            assert_eq!(orignal, temp);
+        }
+    }
+
+    #[rstest]
+    #[case("$$tag()")]
+    #[case("$$tag^rou()")]
+    #[case("$$^rou()")]
+    #[case("$$tag(89)")]
+    #[case("$$tag(89,87)")]
+    #[case("$$tag(,87)")]
+    #[case("$$tag(.name)")]
+    #[case("$$tag(89,.name)")]
+    fn extrinsic_call(#[case] fn_call: &str) {
+        let source_code = format!("w {}", fn_call);
+        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+        let temp = compile(&source_code);
+
+        assert_eq!(orignal, temp);
     }
 }

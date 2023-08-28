@@ -106,6 +106,174 @@
         ]
       }
     },
+    "_Tag": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "NumericIdentifier"
+        }
+      ]
+    },
+    "NumericIdentifier": {
+      "type": "PATTERN",
+      "value": "\\d{1,32}"
+    },
+    "ExtrinsicFunction": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "$$"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "tag",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_Tag"
+              }
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "^"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "routine",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "FIELD",
+                  "name": "tag",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_Tag"
+                  }
+                },
+                {
+                  "type": "STRING",
+                  "value": "^"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "routine",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "PREC_LEFT",
+              "value": 1,
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "FIELD",
+                    "name": "args",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_FunctionArg"
+                    }
+                  },
+                  {
+                    "type": "REPEAT",
+                    "content": {
+                      "type": "SEQ",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": ","
+                        },
+                        {
+                          "type": "FIELD",
+                          "name": "args",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "_FunctionArg"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": ")"
+        }
+      ]
+    },
+    "VarUndefined": {
+      "type": "PATTERN",
+      "value": "\\s*"
+    },
+    "ByRef": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "."
+        },
+        {
+          "type": "SYMBOL",
+          "name": "Variable"
+        }
+      ]
+    },
+    "_FunctionArg": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "VarUndefined"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "ByRef"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "Expression"
+        }
+      ]
+    },
     "identifier": {
       "type": "PATTERN",
       "value": "([A-Z]|[a-z])([A-Z]|[a-z]|\\d)*"
@@ -274,6 +442,18 @@
         {
           "type": "SYMBOL",
           "name": "IntrinsicFunction"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "IntrinsicVar"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "ExtrinsicFunction"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "XCall"
         }
       ]
     },
@@ -2067,7 +2247,7 @@
             },
             {
               "type": "PATTERN",
-              "value": "[sS]"
+              "value": "[sS][tT]"
             }
           ]
         },
@@ -2872,6 +3052,688 @@
         {
           "type": "SYMBOL",
           "name": "ExpFunctions"
+        }
+      ]
+    },
+    "Device": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[dD][eE][vV][iI][cC][eE]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[dD]"
+        }
+      ]
+    },
+    "Ecode": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[eE][cC][oO][dD][eE]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[eE][cC]"
+        }
+      ]
+    },
+    "Estack": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[eE][sS][tT][aA][cC][kK]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[eE][sS]"
+        }
+      ]
+    },
+    "Etrap": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[eE][tT][rR][aA][pP]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[eE][tT]"
+        }
+      ]
+    },
+    "Horolog": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[hH][oO][rR][oO][lL][oO][gG]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[hH]"
+        }
+      ]
+    },
+    "Io": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[iI][oO]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[iI]"
+        }
+      ]
+    },
+    "Job": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[jJ][oO][bB]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[jJ]"
+        }
+      ]
+    },
+    "Key": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[kK][eE][yY]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[kK]"
+        }
+      ]
+    },
+    "Principal": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[pP][rR][iI][nN][cC][iI][pP][aA][lL]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[pP]"
+        }
+      ]
+    },
+    "Quit": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[qQ][uU][iI][tT]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[qQ]"
+        }
+      ]
+    },
+    "Reference": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[rR][eE][fF][eE][rR][eE][nN][cC][eE]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[rR]"
+        }
+      ]
+    },
+    "System": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[sS][yY][sS][tT][eE][mM]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[sS][yY]"
+        }
+      ]
+    },
+    "Storage": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[sS][tT][oO][rR][aA][gG][eE]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[sS]"
+        }
+      ]
+    },
+    "Test": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[tT][eE][sS][tT]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[tT]"
+        }
+      ]
+    },
+    "X": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[xX]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[xX]"
+        }
+      ]
+    },
+    "Y": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[yY]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[yY]"
+        }
+      ]
+    },
+    "StackVar": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[sS][tT][aA][cC][kK]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[sS][tT]"
+        }
+      ]
+    },
+    "IntrinsicVar": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "$"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "StackVar"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Device"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Ecode"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Estack"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Etrap"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Horolog"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Io"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Job"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Key"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Principal"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Quit"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Reference"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "System"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Storage"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Test"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "X"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "Y"
+            }
+          ]
+        }
+      ]
+    },
+    "Directory": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "DIRECTORY"
+        }
+      ]
+    },
+    "Host": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "HOST"
+        }
+      ]
+    },
+    "File": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "FILE"
+        }
+      ]
+    },
+    "ErrMsg": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "ERRMSG"
+        }
+      ]
+    },
+    "OpCom": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "OPCOM"
+        }
+      ]
+    },
+    "Signal": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "SIGNAL"
+        }
+      ]
+    },
+    "Spawn": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "SPAWN"
+        }
+      ]
+    },
+    "Version": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "VERSION"
+        }
+      ]
+    },
+    "Zwrite": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "ZWRITE"
+        }
+      ]
+    },
+    "E": {
+      "type": "STRING",
+      "value": "E"
+    },
+    "Paschk": {
+      "type": "STRING",
+      "value": "PASCHK"
+    },
+    "V": {
+      "type": "STRING",
+      "value": "V"
+    },
+    "Xrsm": {
+      "type": "STRING",
+      "value": "XRSM"
+    },
+    "SetEnv": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "SETENV"
+        }
+      ]
+    },
+    "GetEnv": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "GETENV"
+        }
+      ]
+    },
+    "RouChk": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "ROUCHK"
+        }
+      ]
+    },
+    "Fork": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "FORK"
+        }
+      ]
+    },
+    "IC": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "IC"
+        }
+      ]
+    },
+    "Wait": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "WAIT"
+        }
+      ]
+    },
+    "Debug": {
+      "type": "STRING",
+      "value": "DEBUG"
+    },
+    "Compress": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "%"
+        },
+        {
+          "type": "STRING",
+          "value": "COMPRESS"
+        }
+      ]
+    },
+    "XCallX": {
+      "type": "STRING",
+      "value": "X"
+    },
+    "XCall": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "$&"
+        },
+        {
+          "type": "FIELD",
+          "name": "code",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "XCallX"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Directory"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Host"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "File"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "ErrMsg"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "OpCom"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Signal"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Spawn"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Version"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Zwrite"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "E"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Paschk"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "V"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Xrsm"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "SetEnv"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "GetEnv"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "RouChk"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Fork"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "IC"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Wait"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Debug"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "Compress"
+              }
+            ]
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "("
+        },
+        {
+          "type": "FIELD",
+          "name": "args",
+          "content": {
+            "type": "SYMBOL",
+            "name": "Expression"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ","
+                },
+                {
+                  "type": "FIELD",
+                  "name": "args",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "Expression"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": ")"
         }
       ]
     }

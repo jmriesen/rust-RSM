@@ -151,6 +151,21 @@
     }
   },
   {
+    "type": "ByRef",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Variable",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "Char",
     "named": true,
     "fields": {
@@ -167,6 +182,11 @@
     }
   },
   {
+    "type": "Compress",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Data",
     "named": true,
     "fields": {
@@ -181,6 +201,36 @@
         ]
       }
     }
+  },
+  {
+    "type": "Device",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Directory",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Ecode",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "ErrMsg",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Estack",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Etrap",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "ExpFunctions",
@@ -266,11 +316,19 @@
           "named": true
         },
         {
+          "type": "ExtrinsicFunction",
+          "named": true
+        },
+        {
           "type": "InderectExpression",
           "named": true
         },
         {
           "type": "IntrinsicFunction",
+          "named": true
+        },
+        {
+          "type": "IntrinsicVar",
           "named": true
         },
         {
@@ -283,6 +341,10 @@
         },
         {
           "type": "Variable",
+          "named": true
+        },
+        {
+          "type": "XCall",
           "named": true
         },
         {
@@ -311,6 +373,59 @@
         ]
       }
     }
+  },
+  {
+    "type": "ExtrinsicFunction",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "ByRef",
+            "named": true
+          },
+          {
+            "type": "Expression",
+            "named": true
+          },
+          {
+            "type": "VarUndefined",
+            "named": true
+          }
+        ]
+      },
+      "routine": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "tag": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "NumericIdentifier",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "File",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "Find",
@@ -345,6 +460,11 @@
     }
   },
   {
+    "type": "Fork",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Get",
     "named": true,
     "fields": {
@@ -369,6 +489,11 @@
         ]
       }
     }
+  },
+  {
+    "type": "GetEnv",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "GlobalUciEnvVariable",
@@ -402,6 +527,21 @@
   },
   {
     "type": "GlobalVariable",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Horolog",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Host",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "IC",
     "named": true,
     "fields": {}
   },
@@ -481,6 +621,95 @@
     }
   },
   {
+    "type": "IntrinsicVar",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Device",
+          "named": true
+        },
+        {
+          "type": "Ecode",
+          "named": true
+        },
+        {
+          "type": "Estack",
+          "named": true
+        },
+        {
+          "type": "Etrap",
+          "named": true
+        },
+        {
+          "type": "Horolog",
+          "named": true
+        },
+        {
+          "type": "Io",
+          "named": true
+        },
+        {
+          "type": "Job",
+          "named": true
+        },
+        {
+          "type": "Key",
+          "named": true
+        },
+        {
+          "type": "Principal",
+          "named": true
+        },
+        {
+          "type": "Quit",
+          "named": true
+        },
+        {
+          "type": "Reference",
+          "named": true
+        },
+        {
+          "type": "StackVar",
+          "named": true
+        },
+        {
+          "type": "Storage",
+          "named": true
+        },
+        {
+          "type": "System",
+          "named": true
+        },
+        {
+          "type": "Test",
+          "named": true
+        },
+        {
+          "type": "X",
+          "named": true
+        },
+        {
+          "type": "Y",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "Io",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Job",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Justify",
     "named": true,
     "fields": {
@@ -495,6 +724,11 @@
         ]
       }
     }
+  },
+  {
+    "type": "Key",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "Length",
@@ -586,6 +820,11 @@
   },
   {
     "type": "OPSUB",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OpCom",
     "named": true,
     "fields": {}
   },
@@ -734,6 +973,11 @@
     }
   },
   {
+    "type": "Principal",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Qlength",
     "named": true,
     "fields": {
@@ -802,6 +1046,11 @@
     }
   },
   {
+    "type": "Quit",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Random",
     "named": true,
     "fields": {
@@ -816,6 +1065,11 @@
         ]
       }
     }
+  },
+  {
+    "type": "Reference",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "Reverse",
@@ -834,6 +1088,26 @@
     }
   },
   {
+    "type": "RouChk",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "SetEnv",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Signal",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Spawn",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Stack",
     "named": true,
     "fields": {
@@ -848,6 +1122,26 @@
         ]
       }
     }
+  },
+  {
+    "type": "StackVar",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Storage",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "System",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Test",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "Text",
@@ -1042,6 +1336,11 @@
     }
   },
   {
+    "type": "Version",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "View",
     "named": true,
     "fields": {
@@ -1056,6 +1355,136 @@
         ]
       }
     }
+  },
+  {
+    "type": "Wait",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "X",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "XCall",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "code": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "Compress",
+            "named": true
+          },
+          {
+            "type": "Debug",
+            "named": true
+          },
+          {
+            "type": "Directory",
+            "named": true
+          },
+          {
+            "type": "E",
+            "named": true
+          },
+          {
+            "type": "ErrMsg",
+            "named": true
+          },
+          {
+            "type": "File",
+            "named": true
+          },
+          {
+            "type": "Fork",
+            "named": true
+          },
+          {
+            "type": "GetEnv",
+            "named": true
+          },
+          {
+            "type": "Host",
+            "named": true
+          },
+          {
+            "type": "IC",
+            "named": true
+          },
+          {
+            "type": "OpCom",
+            "named": true
+          },
+          {
+            "type": "Paschk",
+            "named": true
+          },
+          {
+            "type": "RouChk",
+            "named": true
+          },
+          {
+            "type": "SetEnv",
+            "named": true
+          },
+          {
+            "type": "Signal",
+            "named": true
+          },
+          {
+            "type": "Spawn",
+            "named": true
+          },
+          {
+            "type": "V",
+            "named": true
+          },
+          {
+            "type": "Version",
+            "named": true
+          },
+          {
+            "type": "Wait",
+            "named": true
+          },
+          {
+            "type": "XCallX",
+            "named": true
+          },
+          {
+            "type": "Xrsm",
+            "named": true
+          },
+          {
+            "type": "Zwrite",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Y",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Zwrite",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "command",
@@ -1148,6 +1577,18 @@
     "named": false
   },
   {
+    "type": "$$",
+    "named": false
+  },
+  {
+    "type": "$&",
+    "named": false
+  },
+  {
+    "type": "%",
+    "named": false
+  },
+  {
     "type": "'",
     "named": false
   },
@@ -1180,12 +1621,60 @@
     "named": false
   },
   {
+    "type": "COMPRESS",
+    "named": false
+  },
+  {
+    "type": "DIRECTORY",
+    "named": false
+  },
+  {
+    "type": "Debug",
+    "named": true
+  },
+  {
+    "type": "E",
+    "named": true
+  },
+  {
+    "type": "ERRMSG",
+    "named": false
+  },
+  {
+    "type": "FILE",
+    "named": false
+  },
+  {
+    "type": "FORK",
+    "named": false
+  },
+  {
+    "type": "GETENV",
+    "named": false
+  },
+  {
+    "type": "HOST",
+    "named": false
+  },
+  {
+    "type": "IC",
+    "named": false
+  },
+  {
+    "type": "NumericIdentifier",
+    "named": true
+  },
+  {
     "type": "OPAND",
     "named": true
   },
   {
     "type": "OPCAT",
     "named": true
+  },
+  {
+    "type": "OPCOM",
+    "named": false
   },
   {
     "type": "OPCON",
@@ -1262,6 +1751,54 @@
   {
     "type": "OPSAF",
     "named": true
+  },
+  {
+    "type": "Paschk",
+    "named": true
+  },
+  {
+    "type": "ROUCHK",
+    "named": false
+  },
+  {
+    "type": "SETENV",
+    "named": false
+  },
+  {
+    "type": "SIGNAL",
+    "named": false
+  },
+  {
+    "type": "SPAWN",
+    "named": false
+  },
+  {
+    "type": "V",
+    "named": true
+  },
+  {
+    "type": "VERSION",
+    "named": false
+  },
+  {
+    "type": "VarUndefined",
+    "named": true
+  },
+  {
+    "type": "WAIT",
+    "named": false
+  },
+  {
+    "type": "XCallX",
+    "named": true
+  },
+  {
+    "type": "Xrsm",
+    "named": true
+  },
+  {
+    "type": "ZWRITE",
+    "named": false
   },
   {
     "type": "]",
