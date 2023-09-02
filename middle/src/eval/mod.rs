@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    bindings::{partab_struct, u_char},
+    bindings::{partab_struct},
     dollar::intrinsic_var_op_code,
     ffi::*,
     function::intrinsic_function,
@@ -13,20 +13,6 @@ use std::ffi::CString;
 
 fn pattern(pattern: Pair<Rule>, comp: &mut Vec<u8>) {
     comp.extend(compile_string(&CString::new(pattern.as_str()).unwrap()));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn ncopy_ffi(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    par_tab: *mut partab_struct,
-) {
-    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, rust_ncopy)
-}
-
-fn rust_ncopy(number: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    let number = number.as_str();
-    ncopy(number, partab, comp)
 }
 
 /// TODO rerwrite this function
@@ -85,15 +71,6 @@ pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     comp.extend(compile_string(&inner))
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn eval_ffi(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    par_tab: *mut partab_struct,
-) {
-    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Exp, eval)
-}
-
 pub fn eval(eval: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let mut eval = eval.into_inner();
     atom(eval.next().unwrap(), partab, comp);
@@ -107,15 +84,6 @@ pub fn eval(eval: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
 
         operator(op, comp);
     }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn atom_ffi(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    par_tab: *mut partab_struct,
-) {
-    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Number, atom)
 }
 
 use crate::dollar::x_call;

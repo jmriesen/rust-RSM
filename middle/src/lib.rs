@@ -8,13 +8,15 @@ pub mod bindings;
 
 mod command;
 mod dollar;
-pub mod eval;
-pub mod ffi;
-pub mod function;
-pub mod localvar;
+mod eval;
+mod ffi;
+mod function;
+mod localvar;
 mod op_code;
 mod routine;
 mod var;
+
+pub use command::line;
 
 pub use parser::{pest, Rule, SyntaxParser};
 
@@ -22,6 +24,11 @@ pub mod models {
     use tree_sitter::Node;
     lang_models::models!();
 
+    ///# Safety
+    ///This code adds typing info via a wrappers to the tree sitter nodes.
+    ///This only works if there are no errors in the syntax tree and it is an M syntax tree.
+    ///If thoses invarients are not upheald you may get unexpected panics.
+    ///TODO these variants can probubly be checked at runtime that would let me remove the unsafe.
     pub unsafe fn type_tree(tree: &tree_sitter::Tree) -> source_file<'_> {
         source_file::create(tree.root_node())
     }

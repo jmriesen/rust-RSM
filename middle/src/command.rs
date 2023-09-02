@@ -92,7 +92,7 @@ fn for_command(args: Peekable<Pairs<Rule>>, partab: &mut partab_struct, comp: &m
     }
 }
 
-fn line(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
+pub fn line(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let command_sequence = line.into_inner().next().unwrap();
     commands(command_sequence, partab, comp);
     comp.push(crate::bindings::ENDLIN);

@@ -1,23 +1,11 @@
 use super::*;
 use crate::{
-    bindings::{partab_struct, u_char, var_u},
+    bindings::{partab_struct, var_u},
     eval::{atom, eval},
-    ffi::parse_c_to_rust_ffi,
 };
 use pest::iterators::Pair;
 
-#[no_mangle]
-pub unsafe extern "C" fn parse_local_var_ffi(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    par_tab: *mut partab_struct,
-) {
-    parse_c_to_rust_ffi(src, comp, par_tab, Rule::Variable, parse_local_var_eval);
-}
 
-fn parse_local_var_eval(variable: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    parse_local_var(variable, partab, comp, VarTypes::Eval);
-}
 pub enum VarTypes {
     Eval,
     Build,

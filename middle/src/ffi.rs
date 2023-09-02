@@ -5,7 +5,12 @@ use crate::{
 use pest::iterators::Pair;
 
 use std::ffi::{CStr, CString};
-pub unsafe fn sync_with_c(
+
+/// copies the compiled code back to C's comp and moves the comp/src pointer
+/// This should be removed once the compile code has been converted from C to rust.
+/// # Safety
+/// This should only be called on the src/comp pointers that are provided by C.
+unsafe fn sync_with_c(
     src: *mut *mut u_char,
     comp: *mut *mut u_char,
     offset: usize,
@@ -21,7 +26,16 @@ pub unsafe fn sync_with_c(
 }
 
 use super::*;
-pub fn parse_c_to_rust_ffi(
+
+/// This function was used when I wanted the C code I was converting to call out to rust.
+///  it handles converting the src comp and par_tab into somthing rust can safely understand.
+/// # Safety
+/// This should only used to create ffi wrapers that will be called from C.
+/// the src comp and par_tab values must be the onces used by C to compile the code.
+/// This still could cause memory unsafety if the compiled code overflows its buffer.
+/// This should be removed once the C to rust converstion for the compiling modual has been compleated.
+#[allow(dead_code)]
+unsafe fn parse_c_to_rust_ffi(
     src: *mut *mut u_char,
     comp: *mut *mut u_char,
     par_tab: *mut partab_struct,
@@ -52,6 +66,7 @@ pub fn compile_string(value: &CStr) -> Vec<u8> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn parse_rust_to_c_ffi(
     src: &str,
     partab: &mut PARTAB,
