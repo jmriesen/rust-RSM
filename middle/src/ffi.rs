@@ -45,7 +45,7 @@ pub fn parse_c_to_rust_ffi(
 pub fn compile_string(value: &CStr) -> Vec<u8> {
     use std::iter::once;
     let bytes = value.to_bytes_with_nul();
-    once(crate::bindings::OPSTR as u8)
+    once(crate::bindings::OPSTR)
         //length does not include null bite.
         .chain(((bytes.len() - 1) as u_short).to_le_bytes())
         .chain(bytes.iter().copied())

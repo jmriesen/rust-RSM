@@ -9,7 +9,7 @@ use crate::{
 use pest::iterators::Pair;
 
 pub fn commands(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    for command in line.into_inner().into_iter() {
+    for command in line.into_inner() {
         let command_type = command.as_rule();
         let mut command = command.into_inner().peekable();
 
@@ -18,7 +18,7 @@ pub fn commands(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
                 .next_if(|x| x.as_rule() == Rule::PostCondition)
                 .map(|condition| {
                     eval(condition.into_inner().next().unwrap(), partab, comp);
-                    comp.push(crate::bindings::JMP0 as u8);
+                    comp.push(crate::bindings::JMP0);
                     reserve_jump(comp)
                 });
 
@@ -37,14 +37,14 @@ pub fn commands(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
                 if command_type == Rule::Do {
                     //TODO for some reason the c source dose not consume the second' '
                     //This leaves us with a second OPENDC;
-                    comp.push(crate::bindings::OPENDC as u8);
+                    comp.push(crate::bindings::OPENDC);
                 }
             }
             if let Some(jump) = post_condition {
                 write_jump(jump, comp.len(), comp)
             }
         }
-        comp.push(crate::bindings::OPENDC as u8);
+        comp.push(crate::bindings::OPENDC);
     }
 }
 use core::iter::Peekable;
@@ -54,20 +54,20 @@ fn for_command(args: Peekable<Pairs<Rule>>, partab: &mut partab_struct, comp: &m
         args.partition(|x| x.as_rule() != Rule::Commands);
     let tail = tail.remove(0);
 
-    let arg_less = args.len() == 0;
+    let arg_less = args.is_empty();
 
     if arg_less {
-        comp.push(crate::bindings::CMFOR0 as u8);
+        comp.push(crate::bindings::CMFOR0);
         let exit = reserve_jump(comp);
         commands(tail, partab, comp);
-        comp.push(crate::bindings::OPENDC as u8);
+        comp.push(crate::bindings::OPENDC);
         //jump back to start of for loop.
-        comp.push(crate::bindings::JMP as u8);
+        comp.push(crate::bindings::JMP);
         let jump = reserve_jump(comp);
         write_jump(jump, exit, comp);
         //jump out of for loop
         write_jump(exit, comp.len(), comp);
-        comp.push(crate::bindings::OPNOP as u8);
+        comp.push(crate::bindings::OPNOP);
     } else {
         let mut args = args.into_iter();
         parse_local_var(args.next().unwrap(), partab, comp, VarTypes::For);
@@ -85,17 +85,17 @@ fn for_command(args: Peekable<Pairs<Rule>>, partab: &mut partab_struct, comp: &m
         }
         write_jump(offset_for_code, comp.len(), comp);
         commands(tail, partab, comp);
-        comp.push(crate::bindings::OPENDC as u8);
-        comp.push(crate::bindings::CMFOREND as u8);
+        comp.push(crate::bindings::OPENDC);
+        comp.push(crate::bindings::CMFOREND);
         write_jump(exit, comp.len(), comp);
-        comp.push(crate::bindings::OPNOP as u8);
+        comp.push(crate::bindings::OPNOP);
     }
 }
 
 fn line(line: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
     let command_sequence = line.into_inner().next().unwrap();
     commands(command_sequence, partab, comp);
-    comp.push(crate::bindings::ENDLIN as u8);
+    comp.push(crate::bindings::ENDLIN);
 }
 
 fn argumentless_command_op_code(command: Rule) -> u8 {
@@ -117,14 +117,14 @@ fn command_with_arg(
     match command {
         Rule::Brake => {
             eval(arg, partab, comp);
-            comp.push(crate::bindings::OPBRKN as u8);
+            comp.push(crate::bindings::OPBRKN);
         }
         Rule::Close => {
             use eval::IndAtomContext::Close;
             match arg.as_rule() {
                 Rule::Exp => {
                     eval(arg, partab, comp);
-                    comp.push(crate::bindings::CMCLOSE as u8);
+                    comp.push(crate::bindings::CMCLOSE);
                 }
                 Rule::AtomInd => indirect_atom(arg, partab, comp, Close),
                 _ => unreachable!(),
@@ -137,7 +137,7 @@ fn command_with_arg(
                 args.next_if(|x| x.as_rule() == Rule::PostCondition)
                     .map(|condition| {
                         eval(condition.into_inner().next().unwrap(), partab, comp);
-                        comp.push(crate::bindings::JMP0 as u8);
+                        comp.push(crate::bindings::JMP0);
                         reserve_jump(comp)
                     });
 

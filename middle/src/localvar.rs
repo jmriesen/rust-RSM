@@ -28,12 +28,12 @@ pub enum VarTypes {
 impl VarTypes {
     pub fn code(self) -> u8 {
         use VarTypes::*;
-        (match self {
+        match self {
             Eval => crate::bindings::OPVAR,
             Build => crate::bindings::OPMVAR,
             BuildNullable => crate::bindings::OPMVARN,
             For => crate::bindings::CMFORSET,
-        }) as u8
+        }
     }
 }
 
@@ -93,9 +93,9 @@ fn parse_var_descriptor(
     if variableType == crate::bindings::TYPVARIND {
         atom(exps.next().unwrap(), partab, comp);
         if exps.peek().is_some() {
-            comp.push(crate::bindings::INDEVAL as u8);
+            comp.push(crate::bindings::INDEVAL);
         } else {
-            comp.push(crate::bindings::INDMVAR as u8);
+            comp.push(crate::bindings::INDMVAR);
         }
     }
 

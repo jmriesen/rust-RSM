@@ -30,18 +30,18 @@ pub fn intrinsic_function(function: Pair<Rule>, partab: &mut partab_struct, comp
             .map(|mut x| (x.next().unwrap(), x.next().unwrap()))
             .map(|(condition, value)| {
                 eval(condition, partab, comp);
-                comp.push(crate::bindings::JMP0 as u8);
+                comp.push(crate::bindings::JMP0);
                 let try_next = reserve_jump(comp);
 
                 eval(value, partab, comp);
-                comp.push(crate::bindings::JMP as u8);
+                comp.push(crate::bindings::JMP);
                 let exit = reserve_jump(comp);
 
                 (try_next, exit)
             })
             .collect();
         //select got to the end with out finding a value.
-        comp.push(crate::bindings::OPERROR as u8);
+        comp.push(crate::bindings::OPERROR);
         let errm4 = (-(crate::bindings::ERRM4 as i16)).to_le_bytes();
         comp.extend_from_slice(&errm4);
 

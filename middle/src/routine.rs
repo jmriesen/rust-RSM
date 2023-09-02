@@ -25,17 +25,17 @@ pub fn extrinsic_function(
             let arg = x.into_inner().next();
             match arg_type {
                 //TODO indirection
-                Rule::VarUndefined => comp.push(crate::bindings::VARUNDF as u8),
+                Rule::VarUndefined => comp.push(crate::bindings::VARUNDF),
                 Rule::ByVal => eval(arg.unwrap(), partab, comp),
                 Rule::ByRef => {
                     parse_local_var(arg.unwrap(), partab, comp, VarTypes::Eval);
-                    comp.push(crate::bindings::NEWBREF as u8);
+                    comp.push(crate::bindings::NEWBREF);
                 }
                 _ => todo!(),
             }
         })
         .count() as u8
-        + return_expected.then_some(129).unwrap_or(0);
+        + if return_expected { 129 } else { 0 };
 
     //TODO I think this is a bug in the C source code, (parse:134 missing args--;)
     //but for right now the C source is my source of truth.

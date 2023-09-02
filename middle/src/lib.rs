@@ -60,7 +60,7 @@ impl<'a> models::Expression<'a> {
                     OPNFOL(_) => bindings::OPNFOL,
                     OPNSAF(_) => bindings::OPNSAF,
                     OPSAF(_) => bindings::OPSAF,
-                } as u8);
+                });
             },
             IntrinsicVar(var) => {
                 use models::IntrinsicVarChildren::*;
@@ -82,13 +82,13 @@ impl<'a> models::Expression<'a> {
                     Test(_) => crate::bindings::VART,
                     X(_) => crate::bindings::VARX,
                     Y(_) => crate::bindings::VARY,
-                } as u8);
+                });
             },
             Expression(exp) => exp.compile(source_code, comp),
             InderectExpression(exp) => {
                 exp.children().compile(source_code, comp);
                 //TODO note hardcoded at the moment
-                comp.push(bindings::INDWRIT as u8);
+                comp.push(bindings::INDWRIT);
             }
             PaternMatchExpression(pat_exp) => {
                 use models::{PaternMatchExpressionExp_right::*, PatternOppChildren::*};
@@ -105,7 +105,7 @@ impl<'a> models::Expression<'a> {
                 comp.push(match pat_exp.opp().children() {
                     OPPAT(_) => bindings::OPPAT,
                     OPNPAT(_) => bindings::OPNPAT,
-                } as u8);
+                });
             }
             //TODO should inderect be considered a special case of unary?
             UnaryExpression(unary_exp) => {
@@ -115,7 +115,7 @@ impl<'a> models::Expression<'a> {
                     OPMINUS(_) => bindings::OPMINUS,
                     OPNOT(_) => bindings::OPNOT,
                     OPPLUS(_) => bindings::OPPLUS,
-                } as u8);
+                });
             },
             ExtrinsicFunction(x)=>{
                 use models::ExtrinsicFunctionArgs::*;
@@ -125,10 +125,10 @@ impl<'a> models::Expression<'a> {
 
                 for arg in &args{
                     match arg{
-                        VarUndefined(_)=>comp.push(crate::bindings::VARUNDF as u8),
+                        VarUndefined(_)=>comp.push(crate::bindings::VARUNDF),
                         ByRef(var)=>{
                             var.children().compile(source_code,comp,VarTypes::Build);
-                            comp.push(crate::bindings::NEWBREF as u8);
+                            comp.push(crate::bindings::NEWBREF);
                         },
                         Expression(exp)=>exp.compile(source_code,comp),
                     }
@@ -192,7 +192,7 @@ impl<'a> models::Expression<'a> {
                     Wait(_) => crate::bindings::XCWAIT,
                     Debug(_) => crate::bindings::XCDEBUG,
                     Compress(_) => crate::bindings::XCCOMP,
-                } as u8);
+                });
 
             },
             Variable(var) => var.compile(source_code,comp,VarTypes::Eval),
@@ -236,11 +236,11 @@ impl<'a> models::Expression<'a> {
                             if count > 254 {
                                 panic!("Char has too many args");
                             } else {
-                                comp.push(opcode as u8);
+                                comp.push(opcode);
                                 comp.push(count as u8);
                             }
                         } else {
-                            comp.push((opcode + count as u32) as u8);
+                            comp.push(opcode + count as u8);
                         }
                     }
                     VarFunctions(exp_fun) => {
@@ -271,7 +271,7 @@ impl<'a> models::Expression<'a> {
                             ncopy("2", &mut PARTAB::default(), comp);
                         }
 
-                        comp.push((opcode + count as u32+1) as u8);
+                        comp.push(opcode + count as u8+1);
                     }
                 };
             }
@@ -295,7 +295,7 @@ impl <'a>models::Variable<'a>{
                 NakedVariable(_) => bindings::TYPVARNAKED,
                 IndirectVariable(exp) => {
                     exp.children().compile(source_code, comp);
-                    comp.push(bindings::INDMVAR as u8);
+                    comp.push(bindings::INDMVAR);
                     bindings::TYPVARIND
                 }
                 GlobalVariable(_) => bindings::TYPVARGBL,
@@ -353,14 +353,14 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 let arg = arg.children();
                 arg.compile(source_code, &mut comp);
                 if !arg.is_inderect() {
-                    comp.push(bindings::CMWRTEX as u8);
+                    comp.push(bindings::CMWRTEX);
                 }
             }
-            comp.push(bindings::OPENDC as u8);
-            comp.push(bindings::OPENDC as u8);
+            comp.push(bindings::OPENDC);
+            comp.push(bindings::OPENDC);
         }
         comp.pop();
-        comp.push(bindings::ENDLIN as u8);
+        comp.push(bindings::ENDLIN);
     }
     comp
 }

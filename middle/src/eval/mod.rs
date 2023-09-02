@@ -145,10 +145,10 @@ pub enum IndAtomContext {
 }
 impl IndAtomContext {
     fn op_code(self) -> u8 {
-        (match self {
+        match self {
             Self::Eval => crate::bindings::INDEVAL,
             Self::Close => crate::bindings::INDCLOS,
-        } as u8)
+        }
     }
 }
 

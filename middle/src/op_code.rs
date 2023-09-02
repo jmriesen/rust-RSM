@@ -3,10 +3,10 @@ use pest::iterators::Pair;
 
 pub fn operator(operator: Pair<Rule>, comp: &mut Vec<u8>) {
     let code = operator.into_inner().next().unwrap();
-    comp.push(opcode_as_num(code.as_rule()) as u8)
+    comp.push(opcode_as_num(code.as_rule()))
 }
 
-fn opcode_as_num(opcode: Rule) -> u32 {
+fn opcode_as_num(opcode: Rule) -> u8{
     use Rule::*;
     match opcode {
         OPADD => bindings::OPADD,
@@ -61,12 +61,12 @@ mod test {
         parse_not_able_op_code("?", OPPAT, OPNPAT);
     }
 
-    pub fn parse_not_able_op_code(src: &str, opcode: u32, not_opcode: u32) {
+    pub fn parse_not_able_op_code(src: &str, opcode: u8, not_opcode: u8) {
         parse_op_code(src, opcode);
         parse_op_code(&format!("'{}", src), not_opcode);
     }
 
-    pub fn parse_op_code(src: &str, opcode: u32) {
+    pub fn parse_op_code(src: &str, opcode: u8) {
         use crate::pest::Parser;
         let mut comp = vec![];
         let temp = SyntaxParser::parse(Rule::BinaryOperator, src)
@@ -74,6 +74,6 @@ mod test {
             .next()
             .unwrap();
         operator(temp, &mut comp);
-        assert_eq!(opcode as u8, comp[0]);
+        assert_eq!({ opcode }, comp[0]);
     }
 }
