@@ -78,7 +78,6 @@ var mumps_grammer = {
             field('exp_left',$.Expression),
             field('opp',$.PatternOpp),
             choice(
-                //TODO this is to premissive.
                 seq("@",field('exp_right',$.Expression)),
                 field('exp_right',$.Patern)
             )
@@ -151,9 +150,12 @@ var mumps_grammer = {
                 field('name',$.identifier),
                 optional(field('subs',$._VariableSubscripts))
             )
-        )
-        //temp:$=>$.Expression,
-
+        ),
+        Select:$=>seq(
+            fn_regex("select",1),
+            "(",
+            repeatDel(seq($.Expression,":",$.Expression),","),
+            ")")
     },
     extras: $ => [],
 };
@@ -167,6 +169,7 @@ function caseInsensitive (keyword) {
                       .join('')
                      );
 }
+
 function fn_regex(fn,abreviation_len){
     return choice(caseInsensitive(fn),caseInsensitive(fn.substring(0, abreviation_len)));
 }
@@ -182,7 +185,7 @@ function fn_rule(grammer,fn,lower,upper,abreviation_len,variable_fn){
                 let args = exps.flatMap(exp=>[exp,","]).slice(0,-1);
                 return seq(...args);
             });
-        return seq("$",fn_regex(fn,abreviation_len),"(",choice(...options),")");
+        return seq(fn_regex(fn,abreviation_len),"(",choice(...options),")");
     };
 }
 
@@ -221,11 +224,16 @@ exp_functions.forEach(fn =>fn_rule(mumps_grammer,...fn,false));
 var_functions.forEach(fn =>fn_rule(mumps_grammer,...fn,true));
 
 mumps_grammer.rules["VarFunctions"] = $=>choice(...var_functions.map(x=> $[x[0]]));
-mumps_grammer.rules["Char"] = $=>seq("$",fn_regex("Char",1),"(",repeatDel(field('args',$.Expression),","),")");
+mumps_grammer.rules["Char"] = $=>seq(fn_regex("Char",1),"(",repeatDel(field('args',$.Expression),","),")");
 mumps_grammer.rules["ExpFunctions"] = $=>choice(
     $.Char,
     ...exp_functions.map(x=> $[x[0]]));
-mumps_grammer.rules["IntrinsicFunction"] = $=>choice($.VarFunctions,$.ExpFunctions);
+
+mumps_grammer.rules["IntrinsicFunction"] = $=>seq("$",choice(
+    $.Select,
+    $.VarFunctions,
+    $.ExpFunctions
+));
 
 IntrinsicVar =[
     ["Device",1],
@@ -294,6 +302,7 @@ Xcall.forEach(
         }
     }
 );
+
 mumps_grammer.rules["XCallX"] = $ => "X";
 
 mumps_grammer.rules["XCall"] = $=>seq(

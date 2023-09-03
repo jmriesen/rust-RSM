@@ -1,3 +1,5 @@
+#![feature(array_chunks)]
+
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -279,8 +281,36 @@ impl<'a> models::Expression<'a> {
                         }
 
                         comp.push(opcode + count as u8+1);
+                    },
+                    Select(select)=>{
+                        use crate::function::{reserve_jump, write_jump};
+                        let jump_indexs = select
+                            .children()
+                            .array_chunks::<2>()
+                            .map(|[condition, value]| {
+                                condition.compile(source_code, comp);
+                                comp.push(crate::bindings::JMP0);
+                                let try_next = reserve_jump(comp);
+
+                                value.compile(source_code, comp);
+                                comp.push(crate::bindings::JMP);
+                                let exit = reserve_jump(comp);
+
+                                (try_next, exit)
+                            }
+                            )
+                            .collect::<Vec<_>>();
+
+                        comp.push(crate::bindings::OPERROR);
+                        let errm4 = (-(crate::bindings::ERRM4 as i16)).to_le_bytes();
+                        comp.extend_from_slice(&errm4);
+
+                        for (try_next, exit) in jump_indexs {
+                            write_jump(try_next, exit, comp);
+                            write_jump(exit, comp.len(), comp);
+                        }
                     }
-                };
+                }
             }
         }
     }
@@ -641,5 +671,15 @@ mod test {
         let temp = compile(&source_code);
 
         assert_eq!(orignal, temp);
+    }
+
+    #[test]
+    fn select_test() {
+        let source_code = "w $s(1:2,3:4,5:6)";
+        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+        let temp = compile(&source_code);
+
+        assert_eq!(orignal, temp);
+
     }
 }

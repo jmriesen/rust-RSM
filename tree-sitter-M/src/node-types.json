@@ -614,6 +614,10 @@
           "named": true
         },
         {
+          "type": "Select",
+          "named": true
+        },
+        {
           "type": "VarFunctions",
           "named": true
         }
@@ -1091,6 +1095,21 @@
     "type": "RouChk",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "Select",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "SetEnv",
@@ -1614,6 +1633,10 @@
   },
   {
     "type": ".",
+    "named": false
+  },
+  {
+    "type": ":",
     "named": false
   },
   {
