@@ -386,18 +386,22 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     for line in lines {
         let commands = line.children();
         for command in commands {
-            for arg in command.children() {
-                let arg = arg.children();
-                arg.compile(source_code, &mut comp);
-                if !arg.is_inderect() {
-                    comp.push(bindings::CMWRTEX);
+            //match command.children(){
+                //command::Write(command)=>{
+                for arg in command.children().children() {
+                    let arg = arg.children();
+                    arg.compile(source_code, &mut comp);
+                    if !arg.is_inderect() {
+                        comp.push(bindings::CMWRTEX);
+                    }
                 }
+                comp.push(bindings::OPENDC);
+                comp.push(bindings::OPENDC);
             }
-            comp.push(bindings::OPENDC);
-            comp.push(bindings::OPENDC);
-        }
-        comp.pop();
-        comp.push(bindings::ENDLIN);
+            //}
+            comp.pop();
+            comp.push(bindings::ENDLIN);
+        //}
     }
     comp
 }

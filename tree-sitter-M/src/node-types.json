@@ -1381,6 +1381,21 @@
     "fields": {}
   },
   {
+    "type": "Write",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "commandArg",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "X",
     "named": true,
     "fields": {}
@@ -1510,11 +1525,11 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
         {
-          "type": "commandArg",
+          "type": "Write",
           "named": true
         }
       ]
@@ -1842,10 +1857,6 @@
   {
     "type": "identifier",
     "named": true
-  },
-  {
-    "type": "w ",
-    "named": false
   },
   {
     "type": "|",

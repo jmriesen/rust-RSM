@@ -14,9 +14,6 @@ var mumps_grammer = {
 
     rules: {
         source_file: $ => repeatDel($.line,"\n"),
-        command:$=> choice(
-            seq("w ",repeatDel($.commandArg,",")),
-        ),
         commandArg:$=> $.Expression,
         line: $=> repeatDel($.command," "),
         _Tag: $=> choice($.identifier,$.NumericIdentifier),
@@ -321,5 +318,23 @@ mumps_grammer.rules["XCall"] = $=>seq(
 );
 
 
+let commandTypes =
+    [
+        ["Write","commandArg"],
+    ];
+
+commandTypes.forEach(
+    x => mumps_grammer.rules[x[0]] = $ => {
+        //TODO postcondition.
+        return seq(
+            fn_regex(x[0],1),
+            " ",
+            optional(repeatDel($[x[1]],","))
+        );
+    }
+);
+  mumps_grammer.rules["command"] = $=>choice(
+      ...commandTypes.map(x=> $[x[0]])
+);
 
 module.exports = grammar(mumps_grammer);
