@@ -1,5 +1,10 @@
 [
   {
+    "type": "ArgDelimenator",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "Ascii",
     "named": true,
     "fields": {
@@ -151,6 +156,32 @@
     }
   },
   {
+    "type": "Brake",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "ByRef",
     "named": true,
     "fields": {},
@@ -172,6 +203,37 @@
       "args": {
         "multiple": true,
         "required": true,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "Clear",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Close",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
         "types": [
           {
             "type": "Expression",
@@ -214,6 +276,11 @@
   },
   {
     "type": "Ecode",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "Else",
     "named": true,
     "fields": {}
   },
@@ -383,15 +450,15 @@
         "required": false,
         "types": [
           {
+            "type": "ArgDelimenator",
+            "named": true
+          },
+          {
             "type": "ByRef",
             "named": true
           },
           {
             "type": "Expression",
-            "named": true
-          },
-          {
-            "type": "VarUndefined",
             "named": true
           }
         ]
@@ -457,6 +524,47 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "For",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "ForArg",
+            "named": true
+          }
+        ]
+      },
+      "variable": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Variable",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "ForArg",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -803,6 +911,11 @@
     "fields": {}
   },
   {
+    "type": "OPEQL",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "OPFOL",
     "named": true,
     "fields": {}
@@ -813,7 +926,17 @@
     "fields": {}
   },
   {
+    "type": "OPMOD",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "OPNOT",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "OPPAT",
     "named": true,
     "fields": {}
   },
@@ -1158,6 +1281,21 @@
     "fields": {}
   },
   {
+    "type": "Tab",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "Test",
     "named": true,
     "fields": {}
@@ -1383,13 +1521,51 @@
   {
     "type": "Write",
     "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "WriteArg",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "WriteArg",
+    "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
-      "required": false,
+      "multiple": false,
+      "required": true,
       "types": [
         {
-          "type": "commandArg",
+          "type": "Bang",
+          "named": true
+        },
+        {
+          "type": "Clear",
+          "named": true
+        },
+        {
+          "type": "Expression",
+          "named": true
+        },
+        {
+          "type": "Tab",
           "named": true
         }
       ]
@@ -1529,22 +1705,23 @@
       "required": true,
       "types": [
         {
-          "type": "Write",
+          "type": "Brake",
           "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "commandArg",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
+        },
         {
-          "type": "Expression",
+          "type": "Close",
+          "named": true
+        },
+        {
+          "type": "Else",
+          "named": true
+        },
+        {
+          "type": "For",
+          "named": true
+        },
+        {
+          "type": "Write",
           "named": true
         }
       ]
@@ -1576,7 +1753,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "line",
@@ -1603,7 +1780,7 @@
     "named": false
   },
   {
-    "type": "\"\"",
+    "type": "#",
     "named": false
   },
   {
@@ -1655,8 +1832,20 @@
     "named": false
   },
   {
+    "type": "=",
+    "named": false
+  },
+  {
+    "type": "?",
+    "named": false
+  },
+  {
     "type": "@",
     "named": false
+  },
+  {
+    "type": "Bang",
+    "named": true
   },
   {
     "type": "COMPRESS",
@@ -1723,10 +1912,6 @@
     "named": true
   },
   {
-    "type": "OPEQL",
-    "named": true
-  },
-  {
     "type": "OPGTR",
     "named": true
   },
@@ -1736,10 +1921,6 @@
   },
   {
     "type": "OPLES",
-    "named": true
-  },
-  {
-    "type": "OPMOD",
     "named": true
   },
   {
@@ -1779,10 +1960,6 @@
     "named": true
   },
   {
-    "type": "OPPAT",
-    "named": true
-  },
-  {
     "type": "OPPOW",
     "named": true
   },
@@ -1817,10 +1994,6 @@
   {
     "type": "VERSION",
     "named": false
-  },
-  {
-    "type": "VarUndefined",
-    "named": true
   },
   {
     "type": "WAIT",
