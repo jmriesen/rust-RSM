@@ -5,7 +5,6 @@ use crate::{
 };
 use pest::iterators::Pair;
 
-
 pub enum VarTypes {
     Eval,
     Build,

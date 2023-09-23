@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    bindings::{partab_struct},
+    bindings::partab_struct,
     dollar::intrinsic_var_op_code,
     ffi::*,
     function::intrinsic_function,

@@ -9,8 +9,8 @@ extern crate cbindgen;
 #[derive(Debug)]
 struct OpCodeParser;
 
-impl bindgen::callbacks::ParseCallbacks for OpCodeParser{
-    fn int_macro(&self, _name: &str, _value: i64) -> Option<bindgen::callbacks::IntKind>{
+impl bindgen::callbacks::ParseCallbacks for OpCodeParser {
+    fn int_macro(&self, _name: &str, _value: i64) -> Option<bindgen::callbacks::IntKind> {
         Some(bindgen::callbacks::IntKind::U8)
     }
 }
@@ -81,8 +81,8 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     let opcodes = bindgen::Builder::default()
-    // The input header we would like to generate bindings for.
-    // note order matters so I cant just pull all .h files from that folder.
+        // The input header we would like to generate bindings for.
+        // note order matters so I cant just pull all .h files from that folder.
         .header("C/include/opcode.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .parse_callbacks(Box::new(OpCodeParser))
@@ -91,5 +91,4 @@ fn main() {
     opcodes
         .write_to_file(out_path.join("opcodes.rs"))
         .expect("Couldn't write bindings!");
-
 }

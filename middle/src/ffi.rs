@@ -90,8 +90,7 @@ pub fn parse_rust_to_c_ffi(
 
 #[cfg(test)]
 pub mod test {
-    use std::sync::{LockResult, MutexGuard};
-    use std::sync::Mutex;
+    use std::sync::{LockResult, Mutex, MutexGuard};
     static GUARD: Mutex<()> = Mutex::new(());
     use super::*;
 

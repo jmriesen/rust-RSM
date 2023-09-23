@@ -6,7 +6,7 @@ pub fn operator(operator: Pair<Rule>, comp: &mut Vec<u8>) {
     comp.push(opcode_as_num(code.as_rule()))
 }
 
-fn opcode_as_num(opcode: Rule) -> u8{
+fn opcode_as_num(opcode: Rule) -> u8 {
     use Rule::*;
     match opcode {
         OPADD => bindings::OPADD,

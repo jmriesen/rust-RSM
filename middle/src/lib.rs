@@ -1,5 +1,4 @@
 #![feature(array_chunks)]
-
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -26,14 +25,8 @@ pub mod models {
     use tree_sitter::Node;
     lang_models::models!();
 
-    ///# Safety
-    ///This code adds typing info via a wrappers to the tree sitter nodes.
-    ///This only works if there are no errors in the syntax tree and it is an M syntax tree.
-    ///If thoses invarients are not upheald you may get unexpected panics.
-    ///TODO these variants can probubly be checked at runtime that would let me remove the unsafe.
-
-    pub fn create_tree(source_code: &str,)->tree_sitter::Tree{
-        use tree_sitter::{Parser};
+    pub fn create_tree(source_code: &str) -> tree_sitter::Tree {
+        use tree_sitter::Parser;
         let mut parser = Parser::new();
         parser.set_language(tree_sitter_mumps::language()).unwrap();
         let tree = parser.parse(source_code, None).unwrap();
@@ -42,38 +35,43 @@ pub mod models {
         tree
     }
 
-    pub fn type_tree<'a>(tree:&'a tree_sitter::Tree,source_code: &'a str,) -> Result<source_file<'a>,()> {
-        use tree_sitter::{QueryCursor,Query};
+    pub fn type_tree<'a>(
+        tree: &'a tree_sitter::Tree,
+        source_code: &'a str,
+    ) -> Result<source_file<'a>, ()> {
+        use tree_sitter::{Query, QueryCursor};
         let mut query_cursor = QueryCursor::new();
-        let error_query = Query::new(tree_sitter_mumps::language(),"(ERROR)").unwrap();
-        let errors= query_cursor.matches(&error_query,tree.root_node(),source_code.as_bytes());
-        if errors.count()!=0{
+        let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)").unwrap();
+        let errors = query_cursor.matches(&error_query, tree.root_node(), source_code.as_bytes());
+        if errors.count() != 0 {
             Err(())
-        }else{
+        } else {
             Ok(source_file::create(tree.root_node()))
         }
-
     }
 }
 
-
 //TODO consider replacing the context with an enum.
-pub enum ExpressionContext{
+pub enum ExpressionContext {
     Write,
     Eval,
     Close,
 }
 
 impl<'a> models::Expression<'a> {
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>,context:ExpressionContext) {
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
         use crate::bindings::PARTAB;
         use eval::ncopy;
         use models::ExpressionChildren::*;
         match self.children() {
             BinaryExpression(bin_exp) => {
                 use models::BinaryOppChildren::*;
-                bin_exp.exp_left().compile(source_code, comp,ExpressionContext::Eval);
-                bin_exp.exp_right().compile(source_code, comp,ExpressionContext::Eval);
+                bin_exp
+                    .exp_left()
+                    .compile(source_code, comp, ExpressionContext::Eval);
+                bin_exp
+                    .exp_right()
+                    .compile(source_code, comp, ExpressionContext::Eval);
                 comp.push(match bin_exp.opp().children() {
                     OPADD(_) => bindings::OPADD,
                     OPSUB(_) => bindings::OPSUB,
@@ -98,7 +96,7 @@ impl<'a> models::Expression<'a> {
                     OPNSAF(_) => bindings::OPNSAF,
                     OPSAF(_) => bindings::OPSAF,
                 });
-            },
+            }
             IntrinsicVar(var) => {
                 use models::IntrinsicVarChildren::*;
                 comp.push(match var.children() {
@@ -120,24 +118,26 @@ impl<'a> models::Expression<'a> {
                     X(_) => crate::bindings::VARX,
                     Y(_) => crate::bindings::VARY,
                 });
-            },
-            Expression(exp) => exp.compile(source_code, comp,ExpressionContext::Eval),
+            }
+            Expression(exp) => exp.compile(source_code, comp, ExpressionContext::Eval),
             InderectExpression(exp) => {
-                exp.children().compile(source_code, comp,ExpressionContext::Eval);
+                exp.children()
+                    .compile(source_code, comp, ExpressionContext::Eval);
                 //TODO note hardcoded at the moment
                 use ExpressionContext as E;
-                comp.push(
-                    match context{
-                        E::Eval => bindings::INDEVAL,
-                        E::Write =>bindings::INDWRIT,
-                        E::Close=>bindings::INDCLOS,
-                    });
+                comp.push(match context {
+                    E::Eval => bindings::INDEVAL,
+                    E::Write => bindings::INDWRIT,
+                    E::Close => bindings::INDCLOS,
+                });
             }
             PaternMatchExpression(pat_exp) => {
                 use models::{PaternMatchExpressionExp_right::*, PatternOppChildren::*};
-                pat_exp.exp_left().compile(source_code, comp,ExpressionContext::Eval);
+                pat_exp
+                    .exp_left()
+                    .compile(source_code, comp, ExpressionContext::Eval);
                 match pat_exp.exp_right() {
-                    Expression(exp) => exp.compile(source_code, comp,ExpressionContext::Eval),
+                    Expression(exp) => exp.compile(source_code, comp, ExpressionContext::Eval),
                     Patern(value) => {
                         //TODO remove duplication
                         use crate::eval::compile_string_literal;
@@ -153,14 +153,16 @@ impl<'a> models::Expression<'a> {
             //TODO should inderect be considered a special case of unary?
             UnaryExpression(unary_exp) => {
                 use models::UnaryOppChildren::*;
-                unary_exp.exp().compile(source_code, comp,ExpressionContext::Eval);
+                unary_exp
+                    .exp()
+                    .compile(source_code, comp, ExpressionContext::Eval);
                 comp.push(match unary_exp.opp().children() {
                     OPMINUS(_) => bindings::OPMINUS,
                     OPNOT(_) => bindings::OPNOT,
                     OPPLUS(_) => bindings::OPPLUS,
                 });
-            },
-            ExtrinsicFunction(x)=>{
+            }
+            ExtrinsicFunction(x) => {
                 use models::ExtrinsicFunctionArgs::*;
                 let args = x.args();
                 let tag = x.tag();
@@ -170,30 +172,30 @@ impl<'a> models::Expression<'a> {
                 let mut need_arg = true;
                 let mut arg_count = 0;
 
-                for arg in &args{
-                    need_arg = match arg{
-                        ArgDelimenator(_)=>{
+                for arg in &args {
+                    need_arg = match arg {
+                        ArgDelimenator(_) => {
                             //handles "(," and ",," cases
                             //NOTE ",)" case is handled as if it was just ")"
-                            if need_arg{
-                                arg_count+=1;
+                            if need_arg {
+                                arg_count += 1;
                                 comp.push(crate::bindings::VARUNDF);
                             }
                             true
-                        },
-                        ByRef(var)=>{
+                        }
+                        ByRef(var) => {
                             assert!(need_arg);
-                            var.children().compile(source_code,comp,VarTypes::Build);
-                            arg_count+=1;
+                            var.children().compile(source_code, comp, VarTypes::Build);
+                            arg_count += 1;
                             comp.push(crate::bindings::NEWBREF);
                             false
-                        },
-                        Expression(exp)=>{
+                        }
+                        Expression(exp) => {
                             assert!(need_arg);
-                            arg_count+=1;
-                            exp.compile(source_code,comp,ExpressionContext::Eval)   ;
+                            arg_count += 1;
+                            exp.compile(source_code, comp, ExpressionContext::Eval);
                             false
-                        },
+                        }
                     };
                 }
                 let opcode = match (tag.is_some(), routine.is_some()) {
@@ -205,16 +207,15 @@ impl<'a> models::Expression<'a> {
                 comp.push(opcode as u8);
                 use crate::bindings::var_u;
                 if let Some(routine) = routine {
-
                     let routine = routine.node().utf8_text(source_code.as_bytes()).unwrap();
                     let tag = var_u::from(routine);
                     comp.extend(tag.as_array());
                 }
-                if let Some(tag) = &tag{
+                if let Some(tag) = &tag {
                     use models::ExtrinsicFunctionTag::*;
-                    let node = match tag{
+                    let node = match tag {
                         identifier(x) => x.node(),
-                        NumericIdentifier(x) => x.node()
+                        NumericIdentifier(x) => x.node(),
                     };
 
                     let tag = node.utf8_text(source_code.as_bytes()).unwrap();
@@ -223,13 +224,14 @@ impl<'a> models::Expression<'a> {
                 }
 
                 comp.push(arg_count + 129);
-
-            },
+            }
             XCall(x) => {
                 use crate::eval::compile_string_literal;
-                x.args().iter().for_each(|x| x.compile(source_code,comp,ExpressionContext::Eval));
+                x.args()
+                    .iter()
+                    .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
 
-                for _ in x.args().len()..2{
+                for _ in x.args().len()..2 {
                     compile_string_literal("\"\"", comp);
                 }
                 use models::XCallCode::*;
@@ -257,19 +259,18 @@ impl<'a> models::Expression<'a> {
                     Debug(_) => crate::bindings::XCDEBUG,
                     Compress(_) => crate::bindings::XCCOMP,
                 });
-
-            },
-            Variable(var) => var.compile(source_code,comp,VarTypes::Eval),
+            }
+            Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
             number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
                 ncopy(num, &mut PARTAB::default(), comp);
-            },
+            }
 
             string(value) => {
                 use crate::eval::compile_string_literal;
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
                 compile_string_literal(value, comp);
-            },
+            }
 
             IntrinsicFunction(intrinsic) => {
                 use models::IntrinsicFunctionChildren::*;
@@ -295,7 +296,10 @@ impl<'a> models::Expression<'a> {
                             Char(x) => (crate::bindings::FUNC, x.args()),
                             //TODO handle select. It dose not work like the others.
                         };
-                        let count = args.iter().map(|x| x.compile(source_code, comp,ExpressionContext::Eval)).count();
+                        let count = args
+                            .iter()
+                            .map(|x| x.compile(source_code, comp, ExpressionContext::Eval))
+                            .count();
                         if opcode == crate::bindings::FUNC {
                             if count > 254 {
                                 panic!("Char has too many args");
@@ -310,50 +314,51 @@ impl<'a> models::Expression<'a> {
                     VarFunctions(exp_fun) => {
                         use models::VarFunctionsChildren::*;
                         let children = &exp_fun.children();
-                        let (opcode, var,args) = match children {
-                            Name(x) => (crate::bindings::FUNNA1- 1, x.var(), x.args()),
-                            Order(x) => (crate::bindings::FUNO1- 1, x.var(), x.args()),
-                            Query(x) => (crate::bindings::FUNQ1- 1,  x.var(),x.args()),
-                            Increment(x) => (crate::bindings::FUNI1- 1,  x.var(),x.args()),
-                            Get(x) => (crate::bindings::FUNG1- 1,  x.var(),x.args()),
+                        let (opcode, var, args) = match children {
+                            Name(x) => (crate::bindings::FUNNA1 - 1, x.var(), x.args()),
+                            Order(x) => (crate::bindings::FUNO1 - 1, x.var(), x.args()),
+                            Query(x) => (crate::bindings::FUNQ1 - 1, x.var(), x.args()),
+                            Increment(x) => (crate::bindings::FUNI1 - 1, x.var(), x.args()),
+                            Get(x) => (crate::bindings::FUNG1 - 1, x.var(), x.args()),
                             //TODO Next is an allisas for Order + hard coded param.
-                            Next(x) => (crate::bindings::FUNO2- 1,  x.var(),None),
-                            Data(x) => (crate::bindings::FUND- 1,  x.var(),None),
-                            Qlength(x) => (crate::bindings::FUNQL- 1,  x.var(),None),
-                            Qsubscript(x) => (crate::bindings::FUNQS- 2,  x.var(),Some(x.args())),
+                            Next(x) => (crate::bindings::FUNO2 - 1, x.var(), None),
+                            Data(x) => (crate::bindings::FUND - 1, x.var(), None),
+                            Qlength(x) => (crate::bindings::FUNQL - 1, x.var(), None),
+                            Qsubscript(x) => (crate::bindings::FUNQS - 2, x.var(), Some(x.args())),
                         };
                         let var_type = match children {
                             Data(_) | Get(_) | Increment(_) => VarTypes::Build,
                             Name(_) | Order(_) | Query(_) | Next(_) => VarTypes::BuildNullable,
-                            Qlength(_) | Qsubscript(_)=>VarTypes::Eval,
-
+                            Qlength(_) | Qsubscript(_) => VarTypes::Eval,
                         };
 
-                        var.compile(source_code,comp,var_type);
-                        let count = args.iter().map(|x| x.compile(source_code, comp,ExpressionContext::Eval)).count();
-                        if let Next(_) = children{
+                        var.compile(source_code, comp, var_type);
+                        let count = args
+                            .iter()
+                            .map(|x| x.compile(source_code, comp, ExpressionContext::Eval))
+                            .count();
+                        if let Next(_) = children {
                             ncopy("2", &mut PARTAB::default(), comp);
                         }
 
-                        comp.push(opcode + count as u8+1);
-                    },
-                    Select(select)=>{
+                        comp.push(opcode + count as u8 + 1);
+                    }
+                    Select(select) => {
                         use crate::function::{reserve_jump, write_jump};
                         let jump_indexs = select
                             .children()
                             .array_chunks::<2>()
                             .map(|[condition, value]| {
-                                condition.compile(source_code, comp,ExpressionContext::Eval);
+                                condition.compile(source_code, comp, ExpressionContext::Eval);
                                 comp.push(crate::bindings::JMP0);
                                 let try_next = reserve_jump(comp);
 
-                                value.compile(source_code, comp,ExpressionContext::Eval);
+                                value.compile(source_code, comp, ExpressionContext::Eval);
                                 comp.push(crate::bindings::JMP);
                                 let exit = reserve_jump(comp);
 
                                 (try_next, exit)
-                            }
-                            )
+                            })
                             .collect::<Vec<_>>();
 
                         comp.push(crate::bindings::OPERROR);
@@ -371,13 +376,16 @@ impl<'a> models::Expression<'a> {
     }
 
     fn is_inderect(&self) -> bool {
-        matches!(self.children(), models::ExpressionChildren::InderectExpression(_))
+        matches!(
+            self.children(),
+            models::ExpressionChildren::InderectExpression(_)
+        )
     }
 }
 
 use crate::localvar::VarTypes;
-impl <'a>models::Variable<'a>{
-    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>,context:VarTypes){
+impl<'a> models::Variable<'a> {
+    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
         let subscripts = self.subs();
 
         use models::VariableHeading::*;
@@ -386,19 +394,21 @@ impl <'a>models::Variable<'a>{
             .map(|heading| match &heading {
                 NakedVariable(_) => bindings::TYPVARNAKED,
                 IndirectVariable(exp) => {
-                    exp.children().compile(source_code, comp,ExpressionContext::Eval);
+                    exp.children()
+                        .compile(source_code, comp, ExpressionContext::Eval);
                     comp.push(bindings::INDMVAR);
                     bindings::TYPVARIND
                 }
                 GlobalVariable(_) => bindings::TYPVARGBL,
                 GlobalUciVariable(exp) => {
-                    exp.children().compile(source_code, comp,ExpressionContext::Eval);
+                    exp.children()
+                        .compile(source_code, comp, ExpressionContext::Eval);
                     bindings::TYPVARGBLUCI
                 }
                 GlobalUciEnvVariable(exps) => {
                     exps.children()
                         .iter()
-                        .for_each(|x| x.compile(source_code, comp,ExpressionContext::Eval));
+                        .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
                     bindings::TYPVARGBLUCIENV
                 }
             })
@@ -406,7 +416,9 @@ impl <'a>models::Variable<'a>{
 
         //NOTE c docs says subscripts heading,
         //but that is not what the code outputs
-        subscripts.iter().for_each(|x| x.compile(source_code, comp,ExpressionContext::Eval));
+        subscripts
+            .iter()
+            .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
 
         comp.push(context.code());
         match var_type {
@@ -427,149 +439,146 @@ impl <'a>models::Variable<'a>{
 }
 
 pub fn compile(source_code: &str) -> Vec<u8> {
-
     //Tree sitters regex lib is limmited.
     //in M you can have an argumentless comannd iff it is the end of the line.
     //however at the moment I can only look ahead for the newline char not the end of file char.
     //This may be solvable, but for now it is simply easier to alwyas append a newline to the end of the souce code.
     let source_code = &format!("{source_code}\n");
     let tree = models::create_tree(&source_code);
-    let tree = models::type_tree(&tree,&source_code).unwrap() ;
+    let tree = models::type_tree(&tree, &source_code).unwrap();
 
     let mut comp = vec![];
 
     let lines = tree.children();
     for line in lines {
-
         let mut for_jumps = vec![];
         let commands = line.children();
         for command in &commands {
-            use crate::function::{reserve_jump,write_jump};
-            let post_condition = match &command.children(){
-                E::Write(command)=>command.post_condition(),
-                E::Brake(command)=>command.post_condition(),
-                E::Close(command)=>command.post_condition(),
-                E::For(_)=>None,
-                E::Else(_)=>None,
-            }.map(|condition| {
-                condition.compile(source_code, &mut comp,ExpressionContext::Eval);
+            use crate::function::{reserve_jump, write_jump};
+            let post_condition = match &command.children() {
+                E::Write(command) => command.post_condition(),
+                E::Brake(command) => command.post_condition(),
+                E::Close(command) => command.post_condition(),
+                E::For(_) => None,
+                E::Else(_) => None,
+            }
+            .map(|condition| {
+                condition.compile(source_code, &mut comp, ExpressionContext::Eval);
                 comp.push(crate::bindings::JMP0);
                 reserve_jump(&mut comp)
             });
             use crate::models::commandChildren as E;
-            match command.children(){
-                E::Write(command)=>{
+            match command.children() {
+                E::Write(command) => {
                     for arg in command.args() {
                         use crate::models::WriteArgChildren as E;
-                        match arg.children(){
-                            E::Bang(_)=>comp.push(bindings::CMWRTNL),
-                            E::Clear(_)=>comp.push(bindings::CMWRTFF),
-                            E::Tab(tab)=>{
-                                tab.children().compile(source_code, &mut comp,ExpressionContext::Eval);
+                        match arg.children() {
+                            E::Bang(_) => comp.push(bindings::CMWRTNL),
+                            E::Clear(_) => comp.push(bindings::CMWRTFF),
+                            E::Tab(tab) => {
+                                tab.children().compile(
+                                    source_code,
+                                    &mut comp,
+                                    ExpressionContext::Eval,
+                                );
                                 comp.push(bindings::CMWRTAB);
-                            },
-                            E::Expression(exp)=>{
-                                exp.compile(source_code, &mut comp,ExpressionContext::Write);
+                            }
+                            E::Expression(exp) => {
+                                exp.compile(source_code, &mut comp, ExpressionContext::Write);
                                 if !exp.is_inderect() {
                                     comp.push(bindings::CMWRTEX);
                                 }
-
                             }
-
                         }
                     }
                 }
-                E::Brake(command)=>{
+                E::Brake(command) => {
                     let children = command.args();
-                    if children.is_empty(){
+                    if children.is_empty() {
                         comp.push(bindings::OPBRK0);
-                    }else{
-                        for arg in children  {
-                            arg.compile(source_code, &mut comp,ExpressionContext::Eval);
+                    } else {
+                        for arg in children {
+                            arg.compile(source_code, &mut comp, ExpressionContext::Eval);
                             if !arg.is_inderect() {
                                 comp.push(bindings::OPBRKN);
                             }
                         }
                     }
-                },
+                }
 
-                E::Close(command)=>{
+                E::Close(command) => {
                     //TODO this should not allow for one 0 children;
                     let children = command.args();
-                    for arg in children  {
-                        arg.compile(source_code, &mut comp,ExpressionContext::Close);
+                    for arg in children {
+                        arg.compile(source_code, &mut comp, ExpressionContext::Close);
                         if !arg.is_inderect() {
                             comp.push(bindings::CMCLOSE);
                         }
                     }
                 }
 
-                E::Else(_)=>{
+                E::Else(_) => {
                     comp.push(bindings::OPELSE);
                 }
-                E::For(command)=>{
-                    match command.variable(){
-                        Some(var) => {
-                            var.compile(source_code,&mut comp,VarTypes::For);
-                            let offset_for_code = reserve_jump(&mut comp);
-                            let exit = reserve_jump(&mut comp);
+                E::For(command) => match command.variable() {
+                    Some(var) => {
+                        var.compile(source_code, &mut comp, VarTypes::For);
+                        let offset_for_code = reserve_jump(&mut comp);
+                        let exit = reserve_jump(&mut comp);
 
-                            for args in command.args(){
-                                for exp in args.children(){
-                                    exp.compile(source_code,&mut comp,ExpressionContext::Eval);
-                                }
+                        for args in command.args() {
+                            for exp in args.children() {
+                                exp.compile(source_code, &mut comp, ExpressionContext::Eval);
+                            }
 
-                                comp.push(match args.children().len(){
-                                    1 => crate::bindings::CMFOR1,
+                            comp.push(match args.children().len() {
+                                1 => crate::bindings::CMFOR1,
                                 2 => crate::bindings::CMFOR2,
                                 3 => crate::bindings::CMFOR3,
                                 _ => unreachable!(),
-                                });
-                            }
-
-                            write_jump(offset_for_code, comp.len(), &mut comp);
-                            for_jumps.push((exit,false));
-                        },
-                        None=>{
-                            comp.push(crate::bindings::CMFOR0);
-                            for_jumps.push((reserve_jump(&mut comp),true));
+                            });
                         }
+
+                        write_jump(offset_for_code, comp.len(), &mut comp);
+                        for_jumps.push((exit, false));
                     }
-                }
+                    None => {
+                        comp.push(crate::bindings::CMFOR0);
+                        for_jumps.push((reserve_jump(&mut comp), true));
+                    }
+                },
             }
             //NOTE C bug?
             //if the command has arguments C dosent consume the trailing white space.
             //this causes extra end commands to be added.
-            if !command.argumentless(){
+            if !command.argumentless() {
                 comp.push(bindings::OPENDC);
             }
             if let Some(jump) = post_condition {
                 write_jump(jump, comp.len(), &mut comp)
             }
             //For commans only end at the end of the line.
-            if !matches!(command.children(),E::For(_)){
+            if !matches!(command.children(), E::For(_)) {
                 comp.push(bindings::OPENDC);
             }
         }
-        if let Some(command) =  &commands.last(){
-            if !command.argumentless(){
+        if let Some(command) = &commands.last() {
+            if !command.argumentless() {
                 //NOTE C bug?
                 //The last command in a line is not subjected to the bug.
                 //This removes the addtional OPENDC I added to compensate for the other bug.
                 comp.pop();
             }
         }
-        use crate::function::write_jump;
-        use crate::function::reserve_jump;
-        for (exit,argless) in for_jumps.into_iter().rev(){
+        use crate::function::{reserve_jump, write_jump};
+        for (exit, argless) in for_jumps.into_iter().rev() {
             comp.push(crate::bindings::OPENDC);
-            if argless{
+            if argless {
                 //jump back to start of for loop.
                 comp.push(crate::bindings::JMP);
                 let jump = reserve_jump(&mut comp);
                 write_jump(jump, exit, &mut comp);
-
-            }else{
+            } else {
                 comp.push(crate::bindings::CMFOREND);
             }
             //jump out of for loop
@@ -583,15 +592,15 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     comp
 }
 
-impl <'a>crate::models::command<'a>{
-    fn argumentless(&self)->bool{
+impl<'a> crate::models::command<'a> {
+    fn argumentless(&self) -> bool {
         use crate::models::commandChildren as E;
-        match self.children(){
-            E::Write(command)=>command.args().is_empty(),
-            E::Brake(command)=>command.args().is_empty(),
-            E::Close(command)=>command.args().is_empty(),
-            E::For(command)=>command.args().is_empty(),
-            E::Else(_)=>true,
+        match self.children() {
+            E::Write(command) => command.args().is_empty(),
+            E::Brake(command) => command.args().is_empty(),
+            E::Close(command) => command.args().is_empty(),
+            E::For(command) => command.args().is_empty(),
+            E::Else(_) => true,
         }
     }
 }
@@ -721,7 +730,11 @@ mod test {
     #[case("char","c",50..=50)]
     #[case("length","l",1..=2)]
     #[case("Stack","st",1..=2)]
-    fn intrinsic_fun(#[case] full: &str, #[case] abbreviated: &str, #[case] range: RangeInclusive<usize>) {
+    fn intrinsic_fun(
+        #[case] full: &str,
+        #[case] abbreviated: &str,
+        #[case] range: RangeInclusive<usize>,
+    ) {
         use core::iter::repeat;
         for val in range {
             let args = repeat("11011").take(val).collect::<Vec<_>>().join(",");
@@ -838,11 +851,11 @@ mod test {
     #[case("$&%WAIT")]
     #[case("$&DEBUG")]
     #[case("$&%COMPRESS")]
-    fn x_call(#[case] call: &str){
+    fn x_call(#[case] call: &str) {
         use core::iter::repeat;
-        for num in  1..=2 {
+        for num in 1..=2 {
             let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
-            let source_code = format!("w {}({})", call,args);
+            let source_code = format!("w {}({})", call, args);
             let (orignal, _lock) = compile_c(&source_code, bindings::parse);
             let temp = compile(&source_code);
 
@@ -875,7 +888,6 @@ mod test {
         let temp = compile(&source_code);
 
         assert_eq!(orignal, temp);
-
     }
     #[rstest]
     #[case("b")]
