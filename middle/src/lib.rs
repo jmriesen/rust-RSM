@@ -21,6 +21,8 @@ pub use command::line;
 
 pub use parser::{pest, Rule, SyntaxParser};
 
+use crate::function::{reserve_jump, write_jump};
+
 pub mod models {
     use tree_sitter::Node;
     lang_models::models!();
@@ -29,7 +31,9 @@ pub mod models {
         use tree_sitter::Parser;
         let mut parser = Parser::new();
         parser.set_language(tree_sitter_mumps::language()).unwrap();
+
         let tree = parser.parse(source_code, None).unwrap();
+
         #[cfg(test)]
         dbg!(&tree.root_node().to_sexp());
         tree
@@ -344,7 +348,6 @@ impl<'a> models::Expression<'a> {
                         comp.push(opcode + count as u8 + 1);
                     }
                     Select(select) => {
-                        use crate::function::{reserve_jump, write_jump};
                         let jump_indexs = select
                             .children()
                             .array_chunks::<2>()
@@ -444,8 +447,8 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     //however at the moment I can only look ahead for the newline char not the end of file char.
     //This may be solvable, but for now it is simply easier to alwyas append a newline to the end of the souce code.
     let source_code = &format!("{source_code}\n");
-    let tree = models::create_tree(&source_code);
-    let tree = models::type_tree(&tree, &source_code).unwrap();
+    let tree = models::create_tree(source_code);
+    let tree = models::type_tree(&tree, source_code).unwrap();
 
     let mut comp = vec![];
 
@@ -454,7 +457,6 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         let mut for_jumps = vec![];
         let commands = line.children();
         for command in &commands {
-            use crate::function::{reserve_jump, write_jump};
             let post_condition = match &command.children() {
                 E::Write(command) => command.post_condition(),
                 E::Brake(command) => command.post_condition(),
@@ -570,7 +572,6 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 comp.pop();
             }
         }
-        use crate::function::{reserve_jump, write_jump};
         for (exit, argless) in for_jumps.into_iter().rev() {
             comp.push(crate::bindings::OPENDC);
             if argless {
@@ -884,8 +885,8 @@ mod test {
     #[test]
     fn select_test() {
         let source_code = "w $s(1:2,3:4,5:6)";
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-        let temp = compile(&source_code);
+        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let temp = compile(source_code);
 
         assert_eq!(orignal, temp);
     }
@@ -913,8 +914,8 @@ mod test {
     #[case("f x=1:2:3 ")]
     #[case("f x=1,2:3,4:5:6 ")]
     fn command_test(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-        let temp = compile(&source_code);
+        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let temp = compile(source_code);
 
         assert_eq!(orignal, temp);
     }
@@ -927,8 +928,8 @@ mod test {
     #[case("w ?@temp")]
     #[case("w 1,#,!,?@temp")]
     fn write_command(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-        let temp = compile(&source_code);
+        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let temp = compile(source_code);
 
         assert_eq!(orignal, temp);
     }
