@@ -58,6 +58,7 @@ fn unary_op(unaryExp: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>
 fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
     compile_string_literal(literal.as_str(), comp);
 }
+
 pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     let string = string
         .strip_prefix('"')

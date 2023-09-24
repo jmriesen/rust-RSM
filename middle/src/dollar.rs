@@ -71,8 +71,10 @@ pub fn x_call(x_call: Pair<'_, Rule>, partab: &mut partab_struct, comp: &mut Vec
 
 #[cfg(test)]
 mod test {
-    use crate::eval::test::test_eval;
+    use crate::ffi::test::compile_c;
     use rstest::rstest;
+    use crate::bindings;
+    use crate::compile;
 
     #[rstest]
     #[case("$D")]
@@ -107,9 +109,13 @@ mod test {
     #[case("$test")]
     #[case("$X")]
     #[case("$Y")]
-
     fn intrinsic_var(#[case] var: &str) {
-        test_eval(var);
+        {
+            let source_code = format!("w {}", var);
+            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+
+            assert_eq!(orignal, compile(&source_code));
+        }
     }
 
     /*
@@ -138,13 +144,21 @@ mod test {
     #[case("$&XRSM")]
     #[case("$&%SETENV")]
     #[case("$&%GETENV")]
-    #[case("$&%ROUCHK(something,\"Something\")")]
-    #[case("$&%FORK(onlyone)")]
+    #[case("$&%ROUCHK")]
+    #[case("$&%FORK")]
     #[case("$&%IC")]
     #[case("$&%WAIT")]
     #[case("$&DEBUG")]
     #[case("$&%COMPRESS")]
-    fn x_call(#[case] var: &str) {
-        test_eval(var);
+    fn x_call(#[case] call: &str) {
+        use core::iter::repeat;
+        for num in 1..=2 {
+            let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
+            let source_code = format!("w {}({})", call, args);
+            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+            let temp = compile(&source_code);
+
+            assert_eq!(orignal, temp);
+        }
     }
 }

@@ -17,7 +17,6 @@ mod op_code;
 mod routine;
 mod var;
 
-pub use command::line;
 
 pub use parser::{pest, Rule, SyntaxParser};
 
@@ -69,59 +68,16 @@ impl<'a> models::Expression<'a> {
         use models::ExpressionChildren::*;
         match self.children() {
             BinaryExpression(bin_exp) => {
-                use models::BinaryOppChildren::*;
                 bin_exp
                     .exp_left()
                     .compile(source_code, comp, ExpressionContext::Eval);
                 bin_exp
                     .exp_right()
                     .compile(source_code, comp, ExpressionContext::Eval);
-                comp.push(match bin_exp.opp().children() {
-                    OPADD(_) => bindings::OPADD,
-                    OPSUB(_) => bindings::OPSUB,
-                    OPMUL(_) => bindings::OPMUL,
-                    OPDIV(_) => bindings::OPDIV,
-                    OPINT(_) => bindings::OPINT,
-                    OPMOD(_) => bindings::OPMOD,
-                    OPPOW(_) => bindings::OPPOW,
-                    OPCAT(_) => bindings::OPCAT,
-                    OPGTR(_) => bindings::OPGTR,
-                    OPAND(_) => bindings::OPAND,
-                    OPCON(_) => bindings::OPCON,
-                    OPFOL(_) => bindings::OPFOL,
-                    OPEQL(_) => bindings::OPEQL,
-                    OPLES(_) => bindings::OPLES,
-                    OPNEQL(_) => bindings::OPNEQL,
-                    OPNLES(_) => bindings::OPNLES,
-                    OPNGTR(_) => bindings::OPNGTR,
-                    OPNAND(_) => bindings::OPNAND,
-                    OPNCON(_) => bindings::OPNCON,
-                    OPNFOL(_) => bindings::OPNFOL,
-                    OPNSAF(_) => bindings::OPNSAF,
-                    OPSAF(_) => bindings::OPSAF,
-                });
+                comp.push(bin_exp.opp().op_code());
             }
             IntrinsicVar(var) => {
-                use models::IntrinsicVarChildren::*;
-                comp.push(match var.children() {
-                    Device(_) => crate::bindings::VARD,
-                    Ecode(_) => crate::bindings::VAREC,
-                    Estack(_) => crate::bindings::VARES,
-                    Etrap(_) => crate::bindings::VARET,
-                    Horolog(_) => crate::bindings::VARH,
-                    Io(_) => crate::bindings::VARI,
-                    Job(_) => crate::bindings::VARJ,
-                    Key(_) => crate::bindings::VARK,
-                    Principal(_) => crate::bindings::VARP,
-                    Quit(_) => crate::bindings::VARQ,
-                    Reference(_) => crate::bindings::VARR,
-                    Storage(_) => crate::bindings::VARS,
-                    StackVar(_) => crate::bindings::VARST,
-                    System(_) => crate::bindings::VARSY,
-                    Test(_) => crate::bindings::VART,
-                    X(_) => crate::bindings::VARX,
-                    Y(_) => crate::bindings::VARY,
-                });
+                comp.push(var.op_code());
             }
             Expression(exp) => exp.compile(source_code, comp, ExpressionContext::Eval),
             InderectExpression(exp) => {
@@ -178,31 +134,7 @@ impl<'a> models::Expression<'a> {
                 for _ in x.args().len()..2 {
                     compile_string_literal("\"\"", comp);
                 }
-                use models::XCallCode::*;
-                comp.push(match x.code() {
-                    Directory(_) => crate::bindings::XCDIR,
-                    Host(_) => crate::bindings::XCHOST,
-                    File(_) => crate::bindings::XCFILE,
-                    ErrMsg(_) => crate::bindings::XCERR,
-                    OpCom(_) => crate::bindings::XCOPC,
-                    Signal(_) => crate::bindings::XCSIG,
-                    Spawn(_) => crate::bindings::XCSPA,
-                    Version(_) => crate::bindings::XCVER,
-                    Zwrite(_) => crate::bindings::XCZWR,
-                    E(_) => crate::bindings::XCE,
-                    Paschk(_) => crate::bindings::XCPAS,
-                    V(_) => crate::bindings::XCV,
-                    XCallX(_) => crate::bindings::XCX,
-                    Xrsm(_) => crate::bindings::XCXRSM,
-                    SetEnv(_) => crate::bindings::XCSETENV,
-                    GetEnv(_) => crate::bindings::XCGETENV,
-                    RouChk(_) => crate::bindings::XCROUCHK,
-                    Fork(_) => crate::bindings::XCFORK,
-                    IC(_) => crate::bindings::XCIC,
-                    Wait(_) => crate::bindings::XCWAIT,
-                    Debug(_) => crate::bindings::XCDEBUG,
-                    Compress(_) => crate::bindings::XCCOMP,
-                });
+                comp.push(x.code().op_code());
             }
             Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
             number(num) => {
@@ -327,59 +259,7 @@ impl<'a> models::Expression<'a> {
 }
 
 use crate::localvar::VarTypes;
-impl<'a> models::Variable<'a> {
-    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
-        let subscripts = self.subs();
 
-        use models::VariableHeading::*;
-        let var_type = self
-            .heading()
-            .map(|heading| match &heading {
-                NakedVariable(_) => bindings::TYPVARNAKED,
-                IndirectVariable(exp) => {
-                    exp.children()
-                        .compile(source_code, comp, ExpressionContext::Eval);
-                    comp.push(bindings::INDMVAR);
-                    bindings::TYPVARIND
-                }
-                GlobalVariable(_) => bindings::TYPVARGBL,
-                GlobalUciVariable(exp) => {
-                    exp.children()
-                        .compile(source_code, comp, ExpressionContext::Eval);
-                    bindings::TYPVARGBLUCI
-                }
-                GlobalUciEnvVariable(exps) => {
-                    exps.children()
-                        .iter()
-                        .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
-                    bindings::TYPVARGBLUCIENV
-                }
-            })
-            .unwrap_or(bindings::TYPVARNAM);
-
-        //NOTE c docs says subscripts heading,
-        //but that is not what the code outputs
-        subscripts
-            .iter()
-            .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
-
-        comp.push(context.code());
-        match var_type {
-            crate::bindings::TYPVARGBL | crate::bindings::TYPVARNAM => {
-                comp.push((var_type | subscripts.len() as u32) as u8);
-            }
-            _ => {
-                comp.push(var_type as u8);
-                comp.push(subscripts.len() as u8);
-            }
-        }
-        if let Some(name) = self.name() {
-            let name = name.node().utf8_text(source_code.as_bytes()).unwrap();
-            let name = bindings::VAR_U::from(name);
-            comp.extend(name.as_array())
-        }
-    }
-}
 
 pub fn compile(source_code: &str) -> Vec<u8> {
     //Tree sitters regex lib is limmited.
@@ -639,7 +519,7 @@ impl <'a>crate::models::ExtrinsicFunction<'a>{
             ExtrinsicFunctionContext::Do=>{
                 //NOTE on line parse.c:241
                 //args is incremented before we check for ")"
-                //Therefor the args falue is 1 higher then it should be iff there are parenthisses.
+                //Therefor the args falue is 1 higher then it should be
                 let source = self.node().utf8_text(source_code.as_bytes()).unwrap();
                 if source.contains("(")
                 {
@@ -656,331 +536,3 @@ impl <'a>crate::models::ExtrinsicFunction<'a>{
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use crate::ffi::test::compile_c;
-    #[test]
-    fn multiple_commands() {
-        let source_code = "w 9 w 8 w 7 w 6 w 5 w 4 w 3";
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(source_code));
-    }
-
-    use rstest::rstest;
-    #[rstest]
-    #[case("9")]
-    #[case("10000000")]
-    #[case("00000001")]
-    #[case("0.1")]
-    #[case("0.00001")]
-    #[case("0.0")]
-    #[case(".0000000")]
-    #[case("0.0000000")]
-    #[case("0.000010000")]
-    #[case("00000000.00000000")]
-    //TODO implement HISTORIC_EOK
-    //#[case("1E100")]
-    //#[case("1E-100")]
-    //#[case("1.90E-100")]
-    fn parse_number(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-    #[rstest]
-    #[case("+-+-+-+-+-234")]
-    #[case("-10000")]
-    #[case("--45")]
-    #[case("'45")]
-    #[case("-'-45")]
-    fn parse_unary_exp(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-    #[rstest]
-    #[case("\"Some string\"")]
-    #[case("\"Some numbers89097\"")]
-    #[case("\" string with quote\"\"quote\"\" some text\"")]
-    fn parse_string(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-
-    #[rstest]
-    #[case("98+9")]
-    #[case("-98\\var(7,9)")]
-    #[case("98+(something+9)")]
-    fn parse_binary(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-    #[rstest]
-    #[case("SomeString?.A")]
-    #[case("SomeString?1.3A")]
-    #[case("SomeString?.(8A,1(1N))")]
-    #[case("SomeString?.2A")]
-    #[case("SomeString?1.A")]
-    #[case("SomeString?@var")]
-    fn parse_pattern(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-
-    #[rstest]
-    #[case("SomeString")]
-    #[case("^SomeString")]
-    #[case("^[atom]varName")]
-    #[case("^|atom|varName")]
-    #[case("^[atom1,atom2]varName")]
-    #[case("SomeString(sub1)")]
-    #[case("^SomeString(sub1)")]
-    #[case("^(sub1)")]
-    #[case("^|atom|varName(sub1)")]
-    #[case("^[atom1,atom2]varName(sub1)")]
-    #[case("SomeString(sub1,sub2)")]
-    #[case("^SomeString(sub1,sub2)")]
-    #[case("^|atom|varName(sub1,sub2)")]
-    #[case("^[atom1,atom2]varName(sub1,sub2)")]
-    #[case("@atom@(sub1,sub2)")]
-    #[case("@varName")]
-    //TODO index
-    fn parse_var(#[case] num: &str) {
-        let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-        assert_eq!(orignal, compile(&source_code));
-    }
-    use core::ops::RangeInclusive;
-    #[rstest]
-    #[case("View","V",2..=4)]
-    #[case("Text","T",1..=1)]
-    #[case("Translate","TR",2..=3)]
-    #[case("Find","F",2..=3)]
-    #[case("fnumber","Fn",2..=3)]
-    #[case("Random","R",1..=1)]
-    #[case("Reverse","Re",1..=1)]
-    #[case("Piece","P",2..=4)]
-    #[case("Justify","J",2..=3)]
-    #[case("extract","E",1..=3)]
-    #[case("ascii","a",1..=2)]
-    #[case("char","c",1..=8)]
-    //TODO test upper bounds of Char
-    //currenrly getting segfale problby would need to increase the buffer.
-    #[case("char","c",50..=50)]
-    #[case("length","l",1..=2)]
-    #[case("Stack","st",1..=2)]
-    fn intrinsic_fun(
-        #[case] full: &str,
-        #[case] abbreviated: &str,
-        #[case] range: RangeInclusive<usize>,
-    ) {
-        use core::iter::repeat;
-        for val in range {
-            let args = repeat("11011").take(val).collect::<Vec<_>>().join(",");
-
-            {
-                let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-                assert_eq!(orignal, compile(&source_code));
-            }
-            {
-                let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-                let temp = compile(&source_code);
-
-                assert_eq!(orignal, temp);
-            }
-        }
-    }
-    #[rstest]
-    #[case("Data","D",1..=1)]
-    #[case("Get","G",1..=2)]
-    #[case("increment","i",1..=2)]
-    #[case("name","na",1..=2)]
-    #[case("order","o",1..=2)]
-    #[case("query","q",1..=2)]
-    #[case("Next","n",1..=1)]
-    #[case("Qlength","QL",1..=1)]
-    #[case("QSUBSCRIPT","Qs",2..=2)]
-    fn intrinsic_variable_fn(
-        #[case] full: &str,
-        #[case] abbreviated: &str,
-        #[case] range: RangeInclusive<usize>,
-    ) {
-        use core::iter::repeat;
-        for val in range {
-            let args = repeat("variable").take(val).collect::<Vec<_>>().join(",");
-            {
-                let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-                assert_eq!(orignal, compile(&source_code));
-            }
-            {
-                let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-                let temp = compile(&source_code);
-
-                assert_eq!(orignal, temp);
-            }
-        }
-    }
-    #[rstest]
-    #[case("$D")]
-    #[case("$device")]
-    #[case("$EC")]
-    #[case("$ecode")]
-    #[case("$ES")]
-    #[case("$estack")]
-    #[case("$ET")]
-    #[case("etrap")]
-    #[case("$H")]
-    #[case("$horolog")]
-    #[case("$I")]
-    #[case("$io")]
-    #[case("$J")]
-    #[case("$job")]
-    #[case("$K")]
-    #[case("$key")]
-    #[case("$P")]
-    #[case("$principal")]
-    #[case("$Q")]
-    #[case("$quit")]
-    #[case("$R")]
-    #[case("$reference")]
-    #[case("$S")]
-    #[case("$storage")]
-    #[case("$ST")]
-    #[case("$stack")]
-    #[case("$SY")]
-    #[case("$system")]
-    #[case("$T")]
-    #[case("$test")]
-    #[case("$X")]
-    #[case("$Y")]
-    fn intrinsic_var(#[case] var: &str) {
-        {
-            let source_code = format!("w {}", var);
-            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-
-            assert_eq!(orignal, compile(&source_code));
-        }
-    }
-    #[rstest]
-    #[case("$&%DIRECTORY")]
-    #[case("$&%HOST")]
-    #[case("$&%FILE")]
-    #[case("$&%ERRMSG")]
-    #[case("$&%OPCOM")]
-    #[case("$&%SIGNAL")]
-    #[case("$&%SPAWN")]
-    #[case("$&%VERSION")]
-    #[case("$&%ZWRITE")]
-    #[case("$&E")]
-    #[case("$&PASCHK")]
-    #[case("$&V")]
-    #[case("$&X")]
-    #[case("$&XRSM")]
-    #[case("$&%SETENV")]
-    #[case("$&%GETENV")]
-    #[case("$&%ROUCHK")]
-    #[case("$&%FORK")]
-    #[case("$&%IC")]
-    #[case("$&%WAIT")]
-    #[case("$&DEBUG")]
-    #[case("$&%COMPRESS")]
-    fn x_call(#[case] call: &str) {
-        use core::iter::repeat;
-        for num in 1..=2 {
-            let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
-            let source_code = format!("w {}({})", call, args);
-            let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-            let temp = compile(&source_code);
-
-            assert_eq!(orignal, temp);
-        }
-    }
-
-    #[rstest]
-    #[case("$$tag()")]
-    #[case("$$tag^rou()")]
-    #[case("$$^rou()")]
-    #[case("$$tag(89)")]
-    #[case("$$tag(89,87)")]
-    #[case("$$tag(,87)")]
-    #[case("$$tag(,,,,)")]
-    #[case("$$tag(.name)")]
-    #[case("$$tag(89,.name)")]
-    fn extrinsic_call(#[case] fn_call: &str) {
-        let source_code = format!("w {}", fn_call);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-        let temp = compile(&source_code);
-
-        assert_eq!(orignal, temp);
-    }
-
-    #[test]
-    fn select_test() {
-        let source_code = "w $s(1:2,3:4,5:6)";
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
-        let temp = compile(source_code);
-
-        assert_eq!(orignal, temp);
-    }
-    #[rstest]
-    #[case("b")]
-    #[case("b  b  b")]
-    #[case("b:something  ")]
-    #[case("b 1")]
-    #[case("b 1,2")]
-    #[case("b 1,2 b 2")]
-    #[case("c 1,2")]
-    #[case("c @1")]
-    #[case("d  ")]
-    #[case("d tag")]
-    #[case("d tag:12")]
-    #[case("d tag(90):12,tag^rou:0")]
-    #[case("e  ")]
-    #[case("e  w 1")]
-    #[case("f  ")]
-    #[case("f  b  b  ")]
-    #[case("f  f  b  ")]
-    #[case("f  f  f  b  ")]
-    #[case("f x=1 ")]
-    #[case("f x=1:2 ")]
-    #[case("f x=1:2:3 ")]
-    #[case("f x=1,2:3,4:5:6 ")]
-    fn command_test(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
-        let temp = compile(source_code);
-
-        assert_eq!(orignal, temp);
-    }
-
-    #[rstest]
-    #[case("w 90")]
-    #[case("w !")]
-    #[case("w #")]
-    #[case("w ?9")]
-    #[case("w ?@temp")]
-    #[case("w 1,#,!,?@temp")]
-    fn write_command(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
-        let temp = compile(source_code);
-
-        assert_eq!(orignal, temp);
-    }
-}

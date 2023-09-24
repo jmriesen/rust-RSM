@@ -64,21 +64,26 @@ pub fn extrinsic_function(
 
 #[cfg(test)]
 mod test {
-    use crate::eval::test::test_eval;
+    use crate::ffi::test::compile_c;
     use rstest::rstest;
+    use crate::bindings;
+    use crate::compile;
 
     #[rstest]
-    #[case("$$tag")]
-    #[case("$$tag")]
-    #[case("$$tag^rou")]
-    #[case("$$^rou")]
+    #[case("$$tag()")]
+    #[case("$$tag^rou()")]
+    #[case("$$^rou()")]
     #[case("$$tag(89)")]
     #[case("$$tag(89,87)")]
     #[case("$$tag(,87)")]
-    //#[case("$$tag(.name)")]
-    //#[case("$$tag(89,.name)")]
-
+    #[case("$$tag(,,,,)")]
+    #[case("$$tag(.name)")]
+    #[case("$$tag(89,.name)")]
     fn extrinsic_call(#[case] fn_call: &str) {
-        test_eval(fn_call);
+        let source_code = format!("w {}", fn_call);
+        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+        let temp = compile(&source_code);
+
+        assert_eq!(orignal, temp);
     }
 }
