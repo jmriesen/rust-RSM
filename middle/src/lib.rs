@@ -17,8 +17,6 @@ mod op_code;
 mod routine;
 mod var;
 
-
-
 use crate::function::{reserve_jump, write_jump};
 
 pub mod models {
@@ -30,11 +28,12 @@ pub mod models {
         let mut parser = Parser::new();
         parser.set_language(tree_sitter_mumps::language()).unwrap();
 
+        #[cfg(test)]
         let tree = parser.parse(source_code, None).unwrap();
-
         #[cfg(test)]
         dbg!(&tree.root_node().to_sexp());
-        tree
+
+        parser.parse(source_code, None).unwrap()
     }
 
     pub fn type_tree<'a>(
@@ -122,7 +121,7 @@ impl<'a> models::Expression<'a> {
                 });
             }
             ExtrinsicFunction(x) => {
-                x.compile(source_code,comp,ExtrinsicFunctionContext::Eval);
+                x.compile(source_code, comp, ExtrinsicFunctionContext::Eval);
             }
             XCall(x) => {
                 use crate::eval::compile_string_literal;
@@ -259,7 +258,6 @@ impl<'a> models::Expression<'a> {
 
 use crate::localvar::VarTypes;
 
-
 pub fn compile(source_code: &str) -> Vec<u8> {
     //Tree sitters regex lib is limmited.
     //in M you can have an argumentless comannd iff it is the end of the line.
@@ -343,23 +341,27 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                     comp.push(bindings::OPELSE);
                 }
                 E::Do(command) => {
-                    if command.args().is_empty(){
+                    if command.args().is_empty() {
                         comp.push(crate::bindings::CMDON);
-                    }else{
-                        for arg in command.args(){
-                            let post_condion = arg.post_condition().map(|x|{
-                                x.compile(source_code,&mut comp,ExpressionContext::Eval);
+                    } else {
+                        for arg in command.args() {
+                            let post_condion = arg.post_condition().map(|x| {
+                                x.compile(source_code, &mut comp, ExpressionContext::Eval);
                                 comp.push(crate::bindings::JMP0);
                                 reserve_jump(&mut comp)
                             });
 
-                            arg.function().compile(source_code,&mut comp,ExtrinsicFunctionContext::Do);
-                            if let Some(jump)= post_condion{
+                            arg.function().compile(
+                                source_code,
+                                &mut comp,
+                                ExtrinsicFunctionContext::Do,
+                            );
+                            if let Some(jump) = post_condion {
                                 write_jump(jump, comp.len(), &mut comp)
                             }
                         }
                     }
-                },
+                }
                 E::For(command) => match command.variable() {
                     Some(var) => {
                         var.compile(source_code, &mut comp, VarTypes::For);
@@ -391,7 +393,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             //NOTE C bug?
             //if the command has arguments C dosent consume the trailing white space.
             //this causes extra end commands to be added.
-            if !command.argumentless(){
+            if !command.argumentless() {
                 comp.push(bindings::OPENDC);
             }
             if let Some(jump) = post_condition {
@@ -408,10 +410,8 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 //The last command in a line is not subjected to the bug.
                 //This removes the addtional OPENDC I added to compensate for the other bug.
                 comp.pop();
-            }else{
-                if matches!(command.children(), crate::models::commandChildren::Do(_)){
-                    comp.push(bindings::OPENDC);
-                }
+            } else if matches!(command.children(), crate::models::commandChildren::Do(_)) {
+                comp.push(bindings::OPENDC);
             }
         }
         for (exit, argless) in for_jumps.into_iter().rev() {
@@ -448,12 +448,12 @@ impl<'a> crate::models::command<'a> {
         }
     }
 }
-enum ExtrinsicFunctionContext{
+enum ExtrinsicFunctionContext {
     Eval,
     Do,
 }
-impl <'a>crate::models::ExtrinsicFunction<'a>{
-    fn compile(&self,source_code:&str,comp:&mut Vec<u8>,context:ExtrinsicFunctionContext){
+impl<'a> crate::models::ExtrinsicFunction<'a> {
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
         use models::ExtrinsicFunctionArgs::*;
         let args = self.args();
         let tag = self.tag();
@@ -514,24 +514,20 @@ impl <'a>crate::models::ExtrinsicFunction<'a>{
             comp.extend(tag.as_array());
         }
 
-        let marker = match context{
-            ExtrinsicFunctionContext::Do=>{
+        let marker = match context {
+            ExtrinsicFunctionContext::Do => {
                 //NOTE on line parse.c:241
                 //args is incremented before we check for ")"
                 //Therefor the args falue is 1 higher then it should be
                 let source = self.node().utf8_text(source_code.as_bytes()).unwrap();
-                if source.contains("(")
-                {
+                if source.contains('(') {
                     1
-                }else{
+                } else {
                     0
                 }
-            },
-            ExtrinsicFunctionContext::Eval=>{
-                129
-            },
+            }
+            ExtrinsicFunctionContext::Eval => 129,
         };
-        comp.push(arg_count+marker);
+        comp.push(arg_count + marker);
     }
 }
-

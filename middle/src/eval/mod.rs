@@ -1,8 +1,5 @@
-use super::*;
-use crate::{
-    bindings::partab_struct,
-    ffi::*,
-};
+
+use crate::{bindings::partab_struct, ffi::*};
 use std::ffi::CString;
 
 /// TODO rerwrite this function
@@ -29,8 +26,6 @@ pub fn ncopy(number: &str, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
     comp.extend(compile_string(&num))
 }
 
-
-
 pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     let string = string
         .strip_prefix('"')
@@ -42,19 +37,6 @@ pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     //strip off outer quotes.
     let inner = CString::new(string).unwrap();
     comp.extend(compile_string(&inner))
-}
-
-pub enum IndAtomContext {
-    Eval,
-    Close,
-}
-impl IndAtomContext {
-    fn op_code(self) -> u8 {
-        match self {
-            Self::Eval => crate::bindings::INDEVAL,
-            Self::Close => crate::bindings::INDCLOS,
-        }
-    }
 }
 
 #[cfg(test)]

@@ -1,7 +1,5 @@
 use super::*;
-use crate::{
-    bindings::{partab_struct, var_u},
-};
+
 
 pub enum VarTypes {
     Eval,
@@ -75,14 +73,10 @@ impl<'a> crate::models::Variable<'a> {
     }
 }
 
-
-
 #[cfg(test)]
 mod test {
+    use crate::{bindings, compile, ffi::test::compile_c};
     use rstest::rstest;
-    use crate::ffi::test::compile_c;
-    use crate::compile;
-    use crate::bindings;
     #[rstest]
     #[case("SomeString")]
     #[case("^SomeString")]

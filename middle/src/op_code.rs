@@ -1,8 +1,7 @@
 use super::*;
 
-impl<'a> crate::models::BinaryOpp<'a>{
-    pub fn op_code(&self)->u8{
-
+impl<'a> crate::models::BinaryOpp<'a> {
+    pub fn op_code(&self) -> u8 {
         use models::BinaryOppChildren::*;
         match self.children() {
             OPADD(_) => bindings::OPADD,
@@ -33,9 +32,9 @@ impl<'a> crate::models::BinaryOpp<'a>{
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::bindings::*;
-/*
+    
+    
+    /*
     #[test]
     pub fn parse_op_code_test() {
         parse_op_code("+", OPADD);
@@ -61,5 +60,4 @@ mod test {
         parse_op_code(&format!("'{}", src), not_opcode);
     }
     */
-
 }

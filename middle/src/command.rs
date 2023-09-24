@@ -1,10 +1,8 @@
-use super::*;
+
 #[cfg(test)]
 mod test {
-    use crate::ffi::test::compile_c;
+    use crate::{bindings, compile, ffi::test::compile_c};
     use rstest::rstest;
-    use crate::bindings;
-    use crate::compile;
 
     #[test]
     fn multiple_commands() {

@@ -1,6 +1,4 @@
-use crate::{
-    bindings::partab_struct,
-};
+
 
 pub fn reserve_jump(comp: &mut Vec<u8>) -> usize {
     comp.push(0);
@@ -13,8 +11,8 @@ pub fn write_jump(location: usize, jump_to: usize, comp: &mut [u8]) {
     comp[location - 2..location].copy_from_slice(&offset);
 }
 
-impl <'a> crate::models::XCallCode<'a>{
-    pub fn op_code(&self)->u8{
+impl<'a> crate::models::XCallCode<'a> {
+    pub fn op_code(&self) -> u8 {
         use crate::models::XCallCode::*;
         match self {
             Directory(_) => crate::bindings::XCDIR,
@@ -43,44 +41,37 @@ impl <'a> crate::models::XCallCode<'a>{
     }
 }
 
-impl<'a> crate::models::IntrinsicVar<'a>{
-   pub fn op_code(&self)->u8{
-
-       use crate::models::IntrinsicVarChildren::*;
-       match self.children() {
-           Device(_) => crate::bindings::VARD,
-           Ecode(_) => crate::bindings::VAREC,
-           Estack(_) => crate::bindings::VARES,
-           Etrap(_) => crate::bindings::VARET,
-           Horolog(_) => crate::bindings::VARH,
-           Io(_) => crate::bindings::VARI,
-           Job(_) => crate::bindings::VARJ,
-           Key(_) => crate::bindings::VARK,
-           Principal(_) => crate::bindings::VARP,
-           Quit(_) => crate::bindings::VARQ,
-           Reference(_) => crate::bindings::VARR,
-           Storage(_) => crate::bindings::VARS,
-           StackVar(_) => crate::bindings::VARST,
-           System(_) => crate::bindings::VARSY,
-           Test(_) => crate::bindings::VART,
-           X(_) => crate::bindings::VARX,
-           Y(_) => crate::bindings::VARY,
-       }
-   }
+impl<'a> crate::models::IntrinsicVar<'a> {
+    pub fn op_code(&self) -> u8 {
+        use crate::models::IntrinsicVarChildren::*;
+        match self.children() {
+            Device(_) => crate::bindings::VARD,
+            Ecode(_) => crate::bindings::VAREC,
+            Estack(_) => crate::bindings::VARES,
+            Etrap(_) => crate::bindings::VARET,
+            Horolog(_) => crate::bindings::VARH,
+            Io(_) => crate::bindings::VARI,
+            Job(_) => crate::bindings::VARJ,
+            Key(_) => crate::bindings::VARK,
+            Principal(_) => crate::bindings::VARP,
+            Quit(_) => crate::bindings::VARQ,
+            Reference(_) => crate::bindings::VARR,
+            Storage(_) => crate::bindings::VARS,
+            StackVar(_) => crate::bindings::VARST,
+            System(_) => crate::bindings::VARSY,
+            Test(_) => crate::bindings::VART,
+            X(_) => crate::bindings::VARX,
+            Y(_) => crate::bindings::VARY,
+        }
+    }
 }
-
-
-
-
 
 #[cfg(test)]
 mod test {
     use core::ops::RangeInclusive;
 
+    use crate::{bindings, compile, ffi::test::compile_c};
     use rstest::rstest;
-    use crate::ffi::test::compile_c;
-    use crate::compile;
-    use crate::bindings;
 
     #[test]
     fn select_test() {
@@ -90,7 +81,7 @@ mod test {
 
         assert_eq!(orignal, temp);
     }
-#[rstest]
+    #[rstest]
     #[case("View","V",2..=4)]
     #[case("Text","T",1..=1)]
     #[case("Translate","TR",2..=3)]
@@ -133,8 +124,7 @@ mod test {
         }
     }
 
-
-#[rstest]
+    #[rstest]
     #[case("Data","D",1..=1)]
     #[case("Get","G",1..=2)]
     #[case("increment","i",1..=2)]
@@ -167,5 +157,4 @@ mod test {
             }
         }
     }
-
 }

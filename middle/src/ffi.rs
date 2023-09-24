@@ -1,6 +1,4 @@
-use crate::{
-    bindings::{partab_struct, u_char, u_short, PARTAB},
-};
+use crate::bindings::{u_char, u_short, PARTAB};
 
 use std::ffi::{CStr, CString};
 
@@ -8,6 +6,7 @@ use std::ffi::{CStr, CString};
 /// This should be removed once the compile code has been converted from C to rust.
 /// # Safety
 /// This should only be called on the src/comp pointers that are provided by C.
+#[allow(dead_code)]
 unsafe fn sync_with_c(
     src: *mut *mut u_char,
     comp: *mut *mut u_char,
@@ -63,6 +62,7 @@ pub mod test {
     static GUARD: Mutex<()> = Mutex::new(());
     use super::*;
 
+    #[allow(dead_code)]
     pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
         ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
     }
