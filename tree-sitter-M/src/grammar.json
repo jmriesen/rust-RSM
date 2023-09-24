@@ -139,6 +139,44 @@
         }
       ]
     },
+    "DoArg": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "function",
+          "content": {
+            "type": "SYMBOL",
+            "name": "ExtrinsicFunction"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ":"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "post_condition",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "Expression"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
+    },
     "line": {
       "type": "SEQ",
       "members": [
@@ -201,10 +239,6 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "$$"
-        },
-        {
           "type": "CHOICE",
           "members": [
             {
@@ -260,69 +294,74 @@
           ]
         },
         {
-          "type": "STRING",
-          "value": "("
-        },
-        {
           "type": "CHOICE",
           "members": [
             {
-              "type": "FIELD",
-              "name": "args",
-              "content": {
-                "type": "PREC_LEFT",
-                "value": 1,
-                "content": {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "CHOICE",
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "("
+                },
+                {
+                  "type": "FIELD",
+                  "name": "args",
+                  "content": {
+                    "type": "PREC_LEFT",
+                    "value": 1,
+                    "content": {
+                      "type": "SEQ",
                       "members": [
                         {
-                          "type": "SYMBOL",
-                          "name": "_FunctionArg"
+                          "type": "CHOICE",
+                          "members": [
+                            {
+                              "type": "SYMBOL",
+                              "name": "_FunctionArg"
+                            },
+                            {
+                              "type": "BLANK"
+                            }
+                          ]
                         },
                         {
-                          "type": "BLANK"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "REPEAT",
-                      "content": {
-                        "type": "SEQ",
-                        "members": [
-                          {
-                            "type": "SYMBOL",
-                            "name": "ArgDelimenator"
-                          },
-                          {
-                            "type": "CHOICE",
+                          "type": "REPEAT",
+                          "content": {
+                            "type": "SEQ",
                             "members": [
                               {
                                 "type": "SYMBOL",
-                                "name": "_FunctionArg"
+                                "name": "ArgDelimenator"
                               },
                               {
-                                "type": "BLANK"
+                                "type": "CHOICE",
+                                "members": [
+                                  {
+                                    "type": "SYMBOL",
+                                    "name": "_FunctionArg"
+                                  },
+                                  {
+                                    "type": "BLANK"
+                                  }
+                                ]
                               }
                             ]
                           }
-                        ]
-                      }
+                        }
+                      ]
                     }
-                  ]
+                  }
+                },
+                {
+                  "type": "STRING",
+                  "value": ")"
                 }
-              }
+              ]
             },
             {
               "type": "BLANK"
             }
           ]
-        },
-        {
-          "type": "STRING",
-          "value": ")"
         }
       ]
     },
@@ -530,8 +569,17 @@
           "name": "IntrinsicVar"
         },
         {
-          "type": "SYMBOL",
-          "name": "ExtrinsicFunction"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "$$"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "ExtrinsicFunction"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -4179,6 +4227,112 @@
         }
       ]
     },
+    "Do": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "PATTERN",
+              "value": "[dD][oO]"
+            },
+            {
+              "type": "PATTERN",
+              "value": "[dD]"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ":"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "post_condition",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "Expression"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "PATTERN",
+              "value": "()?(\\n)"
+            },
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": " "
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PREC_LEFT",
+                      "value": 1,
+                      "content": {
+                        "type": "SEQ",
+                        "members": [
+                          {
+                            "type": "FIELD",
+                            "name": "args",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "DoArg"
+                            }
+                          },
+                          {
+                            "type": "REPEAT",
+                            "content": {
+                              "type": "SEQ",
+                              "members": [
+                                {
+                                  "type": "STRING",
+                                  "value": ","
+                                },
+                                {
+                                  "type": "FIELD",
+                                  "name": "args",
+                                  "content": {
+                                    "type": "SYMBOL",
+                                    "name": "DoArg"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     "For": {
       "type": "SEQ",
       "members": [
@@ -4290,6 +4444,10 @@
         {
           "type": "SYMBOL",
           "name": "Close"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "Do"
         }
       ]
     }

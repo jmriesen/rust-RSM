@@ -275,6 +275,58 @@
     "fields": {}
   },
   {
+    "type": "Do",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "DoArg",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "DoArg",
+    "named": true,
+    "fields": {
+      "function": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "ExtrinsicFunction",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "Ecode",
     "named": true,
     "fields": {}
@@ -1710,6 +1762,10 @@
         },
         {
           "type": "Close",
+          "named": true
+        },
+        {
+          "type": "Do",
           "named": true
         },
         {

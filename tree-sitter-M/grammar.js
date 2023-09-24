@@ -33,34 +33,36 @@ var mumps_grammer = {
         Bang:$=> "!",
         Clear:$=> "#",
         Tab:$=> seq("?",$.Expression),
+        DoArg:$=> seq(
+            field('function',$.ExtrinsicFunction),
+            optional(seq(":",field('post_condition',$.Expression)))
+        ),
 
         line: $=> seq(repeatDel($.command," "),repeat(" ")),
         _Tag: $=> choice($.identifier,$.NumericIdentifier),
         NumericIdentifier:$=> /\d{1,32}/,
         ExtrinsicFunction:$=> seq(
-            "$$",
             choice(
                 field("tag",$._Tag),
                 seq("^",field("routine",$.identifier)),
                 seq(field("tag",$._Tag),"^",field("routine",$.identifier)),
             ),
-            "(",
-            //optional(repeatDel(field("args",$._FunctionArg),",")),
-            //Ok so I can't match the empty string.
-            //But I can match other stuff.
             optional(
-                field("args",
-                      repeatDel(optional($._FunctionArg),$.ArgDelimenator))
+                seq(
+                    "(",
+                    //optional(repeatDel(field("args",$._FunctionArg),",")),
+                    //Ok so I can't match the empty string.
+                    //But I can match other stuff.
+                    field("args",
+                          repeatDel(optional($._FunctionArg),$.ArgDelimenator)
+                         ),
+                    ")",
+                )
             ),
-            ")",
         ),
-        //TEST matching on nothing can cause an infinite loop.
-        //VarUndefined:$=> "",
-        //VarUndefined:$=> " ",
         ArgDelimenator:$=> ",",
         ByRef :$=>seq(".",$.Variable),
         _FunctionArg:$=> choice($.ByRef,$.Expression),
-        //_FunctionArg:$=> choice($.VarUndefined,$.ByRef,$.Expression),
 
         //TODO identifiers should be constraind to 32 digets.
         identifier: $ => /([A-Z]|[a-z])([A-Z]|[a-z]|\d)*/,
@@ -88,7 +90,7 @@ var mumps_grammer = {
             seq("(",$.Expression,")"),
             $.IntrinsicFunction,
             $.IntrinsicVar,
-            $.ExtrinsicFunction,
+            seq("$$",$.ExtrinsicFunction),
             $.XCall
         ),
         InderectExpression:$ => prec.left(seq("@",$.Expression)),
@@ -355,6 +357,7 @@ let commandTypes =
         ["Brake","Expression",true],
         ["Else",null,false],
         ["Close","Expression",true],
+        ["Do","DoArg",true],
     ];
 
 commandTypes.forEach(

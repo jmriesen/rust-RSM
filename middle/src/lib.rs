@@ -167,67 +167,7 @@ impl<'a> models::Expression<'a> {
                 });
             }
             ExtrinsicFunction(x) => {
-                use models::ExtrinsicFunctionArgs::*;
-                let args = x.args();
-                let tag = x.tag();
-                let routine = x.routine();
-
-                //If an arg is not explicitly given thenn we add a VARUNDF marker.
-                let mut need_arg = true;
-                let mut arg_count = 0;
-
-                for arg in &args {
-                    need_arg = match arg {
-                        ArgDelimenator(_) => {
-                            //handles "(," and ",," cases
-                            //NOTE ",)" case is handled as if it was just ")"
-                            if need_arg {
-                                arg_count += 1;
-                                comp.push(crate::bindings::VARUNDF);
-                            }
-                            true
-                        }
-                        ByRef(var) => {
-                            assert!(need_arg);
-                            var.children().compile(source_code, comp, VarTypes::Build);
-                            arg_count += 1;
-                            comp.push(crate::bindings::NEWBREF);
-                            false
-                        }
-                        Expression(exp) => {
-                            assert!(need_arg);
-                            arg_count += 1;
-                            exp.compile(source_code, comp, ExpressionContext::Eval);
-                            false
-                        }
-                    };
-                }
-                let opcode = match (tag.is_some(), routine.is_some()) {
-                    (true, false) => crate::bindings::CMDOTAG,
-                    (false, true) => crate::bindings::CMDOROU,
-                    (true, true) => crate::bindings::CMDORT,
-                    _ => unreachable!(),
-                };
-                comp.push(opcode as u8);
-                use crate::bindings::var_u;
-                if let Some(routine) = routine {
-                    let routine = routine.node().utf8_text(source_code.as_bytes()).unwrap();
-                    let tag = var_u::from(routine);
-                    comp.extend(tag.as_array());
-                }
-                if let Some(tag) = &tag {
-                    use models::ExtrinsicFunctionTag::*;
-                    let node = match tag {
-                        identifier(x) => x.node(),
-                        NumericIdentifier(x) => x.node(),
-                    };
-
-                    let tag = node.utf8_text(source_code.as_bytes()).unwrap();
-                    let tag = var_u::from(tag);
-                    comp.extend(tag.as_array());
-                }
-
-                comp.push(arg_count + 129);
+                x.compile(source_code,comp,ExtrinsicFunctionContext::Eval);
             }
             XCall(x) => {
                 use crate::eval::compile_string_literal;
@@ -461,6 +401,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 E::Write(command) => command.post_condition(),
                 E::Brake(command) => command.post_condition(),
                 E::Close(command) => command.post_condition(),
+                E::Do(command) => command.post_condition(),
                 E::For(_) => None,
                 E::Else(_) => None,
             }
@@ -522,6 +463,24 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 E::Else(_) => {
                     comp.push(bindings::OPELSE);
                 }
+                E::Do(command) => {
+                    if command.args().is_empty(){
+                        comp.push(crate::bindings::CMDON);
+                    }else{
+                        for arg in command.args(){
+                            let post_condion = arg.post_condition().map(|x|{
+                                x.compile(source_code,&mut comp,ExpressionContext::Eval);
+                                comp.push(crate::bindings::JMP0);
+                                reserve_jump(&mut comp)
+                            });
+
+                            arg.function().compile(source_code,&mut comp,ExtrinsicFunctionContext::Do);
+                            if let Some(jump)= post_condion{
+                                write_jump(jump, comp.len(), &mut comp)
+                            }
+                        }
+                    }
+                },
                 E::For(command) => match command.variable() {
                     Some(var) => {
                         var.compile(source_code, &mut comp, VarTypes::For);
@@ -553,7 +512,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             //NOTE C bug?
             //if the command has arguments C dosent consume the trailing white space.
             //this causes extra end commands to be added.
-            if !command.argumentless() {
+            if !command.argumentless(){
                 comp.push(bindings::OPENDC);
             }
             if let Some(jump) = post_condition {
@@ -570,6 +529,10 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 //The last command in a line is not subjected to the bug.
                 //This removes the addtional OPENDC I added to compensate for the other bug.
                 comp.pop();
+            }else{
+                if matches!(command.children(), crate::models::commandChildren::Do(_)){
+                    comp.push(bindings::OPENDC);
+                }
             }
         }
         for (exit, argless) in for_jumps.into_iter().rev() {
@@ -601,8 +564,95 @@ impl<'a> crate::models::command<'a> {
             E::Brake(command) => command.args().is_empty(),
             E::Close(command) => command.args().is_empty(),
             E::For(command) => command.args().is_empty(),
+            E::Do(command) => command.args().is_empty(),
             E::Else(_) => true,
         }
+    }
+}
+enum ExtrinsicFunctionContext{
+    Eval,
+    Do,
+}
+impl <'a>crate::models::ExtrinsicFunction<'a>{
+    fn compile(&self,source_code:&str,comp:&mut Vec<u8>,context:ExtrinsicFunctionContext){
+        use models::ExtrinsicFunctionArgs::*;
+        let args = self.args();
+        let tag = self.tag();
+        let routine = self.routine();
+
+        //If an arg is not explicitly given thenn we add a VARUNDF marker.
+        let mut need_arg = true;
+        let mut arg_count = 0;
+
+        for arg in &args {
+            need_arg = match arg {
+                ArgDelimenator(_) => {
+                    //handles "(," and ",," cases
+                    //NOTE ",)" case is handled as if it was just ")"
+                    if need_arg {
+                        arg_count += 1;
+                        comp.push(crate::bindings::VARUNDF);
+                    }
+                    true
+                }
+                ByRef(var) => {
+                    assert!(need_arg);
+                    var.children().compile(source_code, comp, VarTypes::Build);
+                    arg_count += 1;
+                    comp.push(crate::bindings::NEWBREF);
+                    false
+                }
+                Expression(exp) => {
+                    assert!(need_arg);
+                    arg_count += 1;
+                    exp.compile(source_code, comp, ExpressionContext::Eval);
+                    false
+                }
+            };
+        }
+        let opcode = match (tag.is_some(), routine.is_some()) {
+            (true, false) => crate::bindings::CMDOTAG,
+            (false, true) => crate::bindings::CMDOROU,
+            (true, true) => crate::bindings::CMDORT,
+            _ => unreachable!(),
+        };
+        comp.push(opcode as u8);
+        use crate::bindings::var_u;
+        if let Some(routine) = routine {
+            let routine = routine.node().utf8_text(source_code.as_bytes()).unwrap();
+            let tag = var_u::from(routine);
+            comp.extend(tag.as_array());
+        }
+        if let Some(tag) = &tag {
+            use models::ExtrinsicFunctionTag::*;
+            let node = match tag {
+                identifier(x) => x.node(),
+                NumericIdentifier(x) => x.node(),
+            };
+
+            let tag = node.utf8_text(source_code.as_bytes()).unwrap();
+            let tag = var_u::from(tag);
+            comp.extend(tag.as_array());
+        }
+
+        let marker = match context{
+            ExtrinsicFunctionContext::Do=>{
+                //NOTE on line parse.c:241
+                //args is incremented before we check for ")"
+                //Therefor the args falue is 1 higher then it should be iff there are parenthisses.
+                let source = self.node().utf8_text(source_code.as_bytes()).unwrap();
+                if source.contains("(")
+                {
+                    1
+                }else{
+                    0
+                }
+            },
+            ExtrinsicFunctionContext::Eval=>{
+                129
+            },
+        };
+        comp.push(arg_count+marker);
     }
 }
 
@@ -899,10 +949,10 @@ mod test {
     #[case("b 1,2 b 2")]
     #[case("c 1,2")]
     #[case("c @1")]
-    //#[case("d  ")]
-    //#[case("d tag")]
-    //#[case("d tag:12")]
-    //#[case("d tag(90):12,tag^rou:0")]
+    #[case("d  ")]
+    #[case("d tag")]
+    #[case("d tag:12")]
+    #[case("d tag(90):12,tag^rou:0")]
     #[case("e  ")]
     #[case("e  w 1")]
     #[case("f  ")]
