@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members=[
-"parser",
 "middle",
 "tree-sitter-M",
 "lang_models"
