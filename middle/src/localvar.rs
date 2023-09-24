@@ -1,9 +1,7 @@
 use super::*;
 use crate::{
     bindings::{partab_struct, var_u},
-    eval::{atom, eval},
 };
-use pest::iterators::Pair;
 
 pub enum VarTypes {
     Eval,
@@ -77,76 +75,7 @@ impl<'a> crate::models::Variable<'a> {
     }
 }
 
-pub fn parse_local_var(
-    variable: Pair<Rule>,
-    partab: &mut partab_struct,
-    comp: &mut Vec<u8>,
-    var_type: VarTypes,
-) {
-    let mut variable = variable.into_inner();
 
-    let descriptor = variable.next().unwrap();
-    let (variableType, name) = parse_var_descriptor(descriptor, partab, comp);
-
-    let subscripts = variable.next().unwrap();
-    let number_of_subscripts = subscripts
-        .into_inner()
-        .inspect(|i| eval(i.clone(), partab, comp))
-        .count();
-
-    comp.push(var_type.code());
-    match variableType {
-        crate::bindings::TYPVARGBL | crate::bindings::TYPVARNAM => {
-            comp.push((variableType | number_of_subscripts as u32) as u8);
-        }
-        _ => {
-            comp.push(variableType as u8);
-            comp.push(number_of_subscripts as u8);
-        }
-    }
-
-    if let Some(name) = name {
-        comp.extend(name.as_array());
-    }
-}
-
-fn parse_var_descriptor(
-    descriptor: Pair<Rule>,
-    partab: &mut partab_struct,
-    comp: &mut Vec<u8>,
-) -> (u32, Option<var_u>) {
-    let variableType = match descriptor.as_rule() {
-        Rule::GlobalVariable => crate::bindings::TYPVARGBL,
-        Rule::LocalVariable => crate::bindings::TYPVARNAM,
-        Rule::NakedVariable => crate::bindings::TYPVARNAKED,
-        Rule::GlobalUciVariable => crate::bindings::TYPVARGBLUCI,
-        Rule::GlobalUciEnvVariable => crate::bindings::TYPVARGBLUCIENV,
-        Rule::IndirectVariable => crate::bindings::TYPVARIND,
-        _ => unimplemented!(),
-    };
-
-    let (exps, name): (Vec<_>, Vec<_>) = descriptor
-        .into_inner()
-        .partition(|x| x.as_rule() == Rule::Atom);
-    let mut exps = exps.into_iter().peekable();
-
-    if variableType == crate::bindings::TYPVARIND {
-        atom(exps.next().unwrap(), partab, comp);
-        if exps.peek().is_some() {
-            comp.push(crate::bindings::INDEVAL);
-        } else {
-            comp.push(crate::bindings::INDMVAR);
-        }
-    }
-
-    for exp in exps {
-        atom(exp, partab, comp);
-        if variableType == crate::bindings::TYPVARIND {}
-    }
-
-    let name = name.iter().map(|x| x.as_str().into()).next();
-    (variableType, name)
-}
 
 #[cfg(test)]
 mod test {

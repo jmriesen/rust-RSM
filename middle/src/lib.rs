@@ -18,7 +18,6 @@ mod routine;
 mod var;
 
 
-pub use parser::{pest, Rule, SyntaxParser};
 
 use crate::function::{reserve_jump, write_jump};
 

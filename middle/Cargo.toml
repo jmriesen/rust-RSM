@@ -9,9 +9,6 @@ edition = "2021"
 clap = { version = "4.0.8", features = ["derive"] }
 libc = "0.2.139"
 uname = "0.1.1"
-pest = "2.0"
-pest_derive = "2.0"
-parser = { path = "../parser"}
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.9"
 

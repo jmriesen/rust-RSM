@@ -1,8 +1,6 @@
 use crate::{
     bindings::{partab_struct, u_char, u_short, PARTAB},
-    pest::Parser,
 };
-use pest::iterators::Pair;
 
 use std::ffi::{CStr, CString};
 
@@ -26,35 +24,6 @@ unsafe fn sync_with_c(
 }
 
 use super::*;
-
-/// This function was used when I wanted the C code I was converting to call out to rust.
-///  it handles converting the src comp and par_tab into somthing rust can safely understand.
-/// # Safety
-/// This should only used to create ffi wrapers that will be called from C.
-/// the src comp and par_tab values must be the onces used by C to compile the code.
-/// This still could cause memory unsafety if the compiled code overflows its buffer.
-/// This should be removed once the C to rust converstion for the compiling modual has been compleated.
-#[allow(dead_code)]
-unsafe fn parse_c_to_rust_ffi(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    par_tab: *mut partab_struct,
-    rule: Rule,
-    parser: fn(Pair<Rule>, &mut partab_struct, &mut Vec<u8>),
-) {
-    let source = unsafe { CStr::from_ptr(*src as *const i8) }
-        .to_str()
-        .unwrap();
-
-    let variable = SyntaxParser::parse(rule, source).unwrap().next().unwrap();
-    let offset = variable.as_str().len();
-    let mut byte_code = vec![];
-    parser(variable, unsafe { &mut *par_tab }, &mut byte_code);
-
-    unsafe {
-        sync_with_c(src, comp, offset, &byte_code);
-    }
-}
 
 pub fn compile_string(value: &CStr) -> Vec<u8> {
     use std::iter::once;
@@ -96,31 +65,6 @@ pub mod test {
 
     pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
         ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-    }
-
-    pub fn compare_to_c(
-        src: &str,
-        rule: Rule,
-        fun_r: fn(Pair<Rule>, &mut partab_struct, &mut Vec<u8>) -> (),
-        fn_c: unsafe extern "C" fn() -> (),
-    ) {
-        let (compiled_original, _lock) = compile_c(src, fn_c);
-        let mut byte_code = vec![];
-        let mut par_tab = partab_struct::default();
-        fun_r(
-            dbg!(SyntaxParser::parse(rule, src))
-                .unwrap()
-                .next()
-                .unwrap(),
-            &mut par_tab,
-            &mut byte_code,
-        );
-
-        assert_eq!(compiled_original, byte_code);
-        use crate::bindings::partab;
-        //TODO figure out why this is now failing.
-        //I think it might be an acutal bug in the command code.
-        unsafe { assert_eq!(any_as_u8_slice(&partab), any_as_u8_slice(&par_tab)) };
     }
 
     pub fn compile_c(

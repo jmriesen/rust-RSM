@@ -1,19 +1,9 @@
 use super::*;
 use crate::{
     bindings::partab_struct,
-    dollar::intrinsic_var_op_code,
     ffi::*,
-    function::intrinsic_function,
-    localvar::{parse_local_var, VarTypes},
-    op_code::operator,
-    routine::extrinsic_function,
 };
-use pest::iterators::Pair;
 use std::ffi::CString;
-
-fn pattern(pattern: Pair<Rule>, comp: &mut Vec<u8>) {
-    comp.extend(compile_string(&CString::new(pattern.as_str()).unwrap()));
-}
 
 /// TODO rerwrite this function
 /// currently function both formats number into canonacl represntation and
@@ -39,25 +29,7 @@ pub fn ncopy(number: &str, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
     comp.extend(compile_string(&num))
 }
 
-fn unary_op(unaryExp: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    let mut unaryExp = unaryExp.into_inner();
-    let op = unaryExp.next().unwrap();
-    let op = match op.as_rule() {
-        Rule::OPNOT => bindings::OPNOT,
-        Rule::OPPLUS => bindings::OPPLUS,
-        Rule::OPMINUS => bindings::OPMINUS,
-        _ => unreachable!(),
-    } as u8;
 
-    let exp = unaryExp.next().unwrap();
-    atom(exp, partab, comp);
-    comp.push(op);
-}
-
-/// TODO deprecate
-fn literal(literal: Pair<Rule>, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    compile_string_literal(literal.as_str(), comp);
-}
 
 pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     let string = string
@@ -72,42 +44,6 @@ pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     comp.extend(compile_string(&inner))
 }
 
-pub fn eval(eval: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    let mut eval = eval.into_inner();
-    atom(eval.next().unwrap(), partab, comp);
-
-    while let (Some(op), Some(exp)) = (eval.next(), eval.next()) {
-        match exp.as_rule() {
-            Rule::Atom => atom(exp, partab, comp),
-            Rule::Pattern => pattern(exp, comp),
-            _ => unreachable!(),
-        }
-
-        operator(op, comp);
-    }
-}
-
-use crate::dollar::x_call;
-pub fn atom(atom: Pair<Rule>, partab: &mut partab_struct, comp: &mut Vec<u8>) {
-    let atom = atom.into_inner().next().unwrap();
-
-    match atom.as_rule() {
-        Rule::Variable => parse_local_var(atom, partab, comp, VarTypes::Eval),
-        Rule::UnaryOperator => unary_op(atom, partab, comp),
-        Rule::String => literal(atom, partab, comp),
-        Rule::Number => ncopy(atom.as_str(), partab, comp),
-        Rule::Exp => eval(atom, partab, comp),
-        Rule::IntrinsicVar => comp.push(intrinsic_var_op_code(atom)),
-        Rule::Xcall => x_call(atom, partab, comp),
-        Rule::IntrinsicFunction => intrinsic_function(atom, partab, comp),
-        Rule::ExtrinsicFunction => extrinsic_function(atom, partab, comp, true),
-        Rule::AtomInd => indirect_atom(atom, partab, comp, IndAtomContext::Eval),
-        _ => {
-            dbg!(atom);
-            unreachable!()
-        }
-    }
-}
 pub enum IndAtomContext {
     Eval,
     Close,
@@ -119,17 +55,6 @@ impl IndAtomContext {
             Self::Close => crate::bindings::INDCLOS,
         }
     }
-}
-
-pub fn indirect_atom(
-    atom: Pair<Rule>,
-    partab: &mut partab_struct,
-    comp: &mut Vec<u8>,
-    context: IndAtomContext,
-) {
-    let atom = atom.into_inner().next().unwrap();
-    self::atom(atom, partab, comp);
-    comp.push(context.op_code());
 }
 
 #[cfg(test)]
