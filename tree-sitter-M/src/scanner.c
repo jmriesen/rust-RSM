@@ -62,56 +62,38 @@ bool tree_sitter_mumps_external_scanner_scan(void *payload, TSLexer *lexer,
   } else if (valid_symbols[INDENT] || valid_symbols[DEDENT] ||
              valid_symbols[LINE_LEVEL]) {
 
-    //Only allow indentation at start of a line or at the end of the file.
-    /*
-    if (lexer->get_column(lexer) != 0 || lexer->eof(lexer) ||
-        lexer->lookahead ==0) {
-      return false;
-    }*/
-
     ParseState *state = payload;
     lexer->mark_end(lexer);
 
-    /*
-    if (!state->docInitialized){
-      state->docInitialized = true;
-      lexer->result_symbol = INDENT;
-      return true;
-    }
-
-    if (state->indentation==0 && (lexer->eof(lexer) || lexer->lookahead == 0)) {
-      lexer->result_symbol = DEDENT;
-      return true;
-    }*/
-
+    // calculating indentation
+    //------------------------------------------------
     int count = 0;
-    while (lexer->lookahead == '.') {
+
+    // indentation must start with space or TODO tab.
+    if (lexer->lookahead == ' ') {
       count++;
-      lexer->advance(lexer, false);
+      while (lexer->lookahead == '.' || lexer->lookahead == ' ') {
+        //after the initial indentation only . count
+        if (lexer->lookahead == '.') {
+          count++;
+        }
+        lexer->advance(lexer, false);
+      }
     }
-    //Always try to indent before leveling off
-    //Only match Dedent if it is valid;
-    if (state->indentation < count) {
+
+    if (state->indentation < count && valid_symbols[INDENT]) {
       lexer->result_symbol = INDENT;
       state->indentation++;
-      return true;
-    } else if (state->indentation == count) {
-      //since line level is whitespace it can show up anywhere.
-      //We will wind up in an infinely loop if it can match the empty string.
-      if (count>0) {
-        lexer->mark_end(lexer);
-        lexer->result_symbol = LINE_LEVEL;
-        return true;
-      }else{
-        return false;
-      }
-    } else if (valid_symbols[DEDENT] && state->indentation >0){
-        lexer->result_symbol = DEDENT;
-        state->indentation--;
-        return true;
-    }else{
+    } else if (state->indentation == count && valid_symbols[LINE_LEVEL]) {
+      lexer->result_symbol = LINE_LEVEL;
+      lexer->mark_end(lexer);
+    } else if (valid_symbols[DEDENT]) {
+      lexer->result_symbol = DEDENT;
+      state->indentation--;
+    } else {
       return false;
     }
+    return true;
   }
   return false;
 }

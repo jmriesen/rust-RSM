@@ -70,14 +70,14 @@ impl<'a> crate::models::IntrinsicVar<'a> {
 mod test {
     use core::ops::RangeInclusive;
 
-    use crate::{bindings, compile, ffi::test::compile_c};
+    use crate::{bindings, test_compile_command, ffi::test::compile_c};
     use rstest::rstest;
 
     #[test]
     fn select_test() {
         let source_code = "w $s(1:2,3:4,5:6)";
         let (orignal, _lock) = compile_c(source_code, bindings::parse);
-        let temp = compile(source_code);
+        let temp = test_compile_command(source_code);
 
         assert_eq!(orignal, temp);
     }
@@ -112,12 +112,12 @@ mod test {
                 let source_code = format!("w ${}({})", full, args);
                 let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-                assert_eq!(orignal, compile(&source_code));
+                assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
                 let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-                let temp = compile(&source_code);
+                let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);
             }
@@ -146,12 +146,12 @@ mod test {
                 let source_code = format!("w ${}({})", full, args);
                 let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-                assert_eq!(orignal, compile(&source_code));
+                assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
                 let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-                let temp = compile(&source_code);
+                let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);
             }

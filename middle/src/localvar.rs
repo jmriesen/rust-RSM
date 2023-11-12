@@ -75,7 +75,7 @@ impl<'a> crate::models::Variable<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{bindings, compile, ffi::test::compile_c};
+    use crate::{bindings, test_compile_command, ffi::test::compile_c};
     use rstest::rstest;
     #[rstest]
     #[case("SomeString")]
@@ -99,6 +99,6 @@ mod test {
         let source_code = format!("w {}", num);
         let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-        assert_eq!(orignal, compile(&source_code));
+        assert_eq!(orignal, test_compile_command(&source_code));
     }
 }

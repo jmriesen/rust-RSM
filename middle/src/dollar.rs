@@ -1,9 +1,6 @@
-
-
-
 #[cfg(test)]
 mod test {
-    use crate::{bindings, compile, ffi::test::compile_c};
+    use crate::{bindings, test_compile_command, ffi::test::compile_c};
     use rstest::rstest;
 
     #[rstest]
@@ -44,7 +41,7 @@ mod test {
             let source_code = format!("w {}", var);
             let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-            assert_eq!(orignal, compile(&source_code));
+            assert_eq!(orignal, test_compile_command(&source_code));
         }
     }
 
@@ -86,7 +83,7 @@ mod test {
             let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
             let source_code = format!("w {}({})", call, args);
             let (orignal, _lock) = compile_c(&source_code, bindings::parse);
-            let temp = compile(&source_code);
+            let temp = test_compile_command(&source_code);
 
             assert_eq!(orignal, temp);
         }

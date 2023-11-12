@@ -1,5 +1,19 @@
+use std::{process::Command};
+
 fn main() {
+
+    //generate the grammer if the grammer.js file changes.
+    //Note requires cli installed.
+    println!("cargo:rerun-if-changed=grammer.js");
+    let status_code = Command::new("tree-sitter")
+        .arg("generate")
+        .status()
+        .expect("failed to execute tree-sitter cli");
+    assert!(status_code.success());
+
+
     let src_dir = std::path::Path::new("src");
+
 
     let mut c_config = cc::Build::new();
     c_config.include(src_dir);
@@ -13,11 +27,9 @@ fn main() {
     // If your language uses an external scanner written in C,
     // then include this block of code:
 
-    /*
     let scanner_path = src_dir.join("scanner.c");
     c_config.file(&scanner_path);
     println!("cargo:rerun-if-changed={}", scanner_path.to_str().unwrap());
-    */
 
     c_config.compile("parser");
     println!("cargo:rerun-if-changed={}", parser_path.to_str().unwrap());

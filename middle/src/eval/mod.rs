@@ -1,4 +1,3 @@
-
 use crate::{bindings::partab_struct, ffi::*};
 use std::ffi::CString;
 

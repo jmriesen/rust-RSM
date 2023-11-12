@@ -1,10 +1,5 @@
 [
   {
-    "type": "ArgDelimenator",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "Ascii",
     "named": true,
     "fields": {
@@ -156,7 +151,46 @@
     }
   },
   {
+    "type": "Block",
+    "named": true,
+    "fields": {
+      "content": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "Block",
+            "named": true
+          },
+          {
+            "type": "line",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "dedent",
+          "named": true
+        },
+        {
+          "type": "indent",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "Brake",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "BrakeCommand",
     "named": true,
     "fields": {
       "args": {
@@ -179,6 +213,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Brake",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -220,6 +264,11 @@
   {
     "type": "Close",
     "named": true,
+    "fields": {}
+  },
+  {
+    "type": "CloseCommand",
+    "named": true,
     "fields": {
       "args": {
         "multiple": true,
@@ -241,6 +290,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Close",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -277,28 +336,7 @@
   {
     "type": "Do",
     "named": true,
-    "fields": {
-      "args": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "DoArg",
-            "named": true
-          }
-        ]
-      },
-      "post_condition": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "Expression",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "DoArg",
@@ -327,6 +365,42 @@
     }
   },
   {
+    "type": "DoCommand",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "DoArg",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Do",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "Ecode",
     "named": true,
     "fields": {}
@@ -335,6 +409,21 @@
     "type": "Else",
     "named": true,
     "fields": {}
+  },
+  {
+    "type": "ElseCommand",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Else",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "ErrMsg",
@@ -502,8 +591,8 @@
         "required": false,
         "types": [
           {
-            "type": "ArgDelimenator",
-            "named": true
+            "type": ",",
+            "named": false
           },
           {
             "type": "ByRef",
@@ -511,6 +600,10 @@
           },
           {
             "type": "Expression",
+            "named": true
+          },
+          {
+            "type": "VarUndefined",
             "named": true
           }
         ]
@@ -939,6 +1032,47 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "New",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "NewCommand",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "New",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1573,28 +1707,7 @@
   {
     "type": "Write",
     "named": true,
-    "fields": {
-      "args": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": "WriteArg",
-            "named": true
-          }
-        ]
-      },
-      "post_condition": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "Expression",
-            "named": true
-          }
-        ]
-      }
-    }
+    "fields": {}
   },
   {
     "type": "WriteArg",
@@ -1618,6 +1731,42 @@
         },
         {
           "type": "Tab",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "WriteCommand",
+    "named": true,
+    "fields": {
+      "args": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "WriteArg",
+            "named": true
+          }
+        ]
+      },
+      "post_condition": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "Expression",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "Write",
           "named": true
         }
       ]
@@ -1757,19 +1906,19 @@
       "required": true,
       "types": [
         {
-          "type": "Brake",
+          "type": "BrakeCommand",
           "named": true
         },
         {
-          "type": "Close",
+          "type": "CloseCommand",
           "named": true
         },
         {
-          "type": "Do",
+          "type": "DoCommand",
           "named": true
         },
         {
-          "type": "Else",
+          "type": "ElseCommand",
           "named": true
         },
         {
@@ -1777,7 +1926,11 @@
           "named": true
         },
         {
-          "type": "Write",
+          "type": "NewCommand",
+          "named": true
+        },
+        {
+          "type": "WriteCommand",
           "named": true
         }
       ]
@@ -1808,20 +1961,15 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
-      "required": false,
+      "multiple": false,
+      "required": true,
       "types": [
         {
-          "type": "line",
+          "type": "Block",
           "named": true
         }
       ]
     }
-  },
-  {
-    "type": "string",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "\n",
@@ -1829,10 +1977,6 @@
   },
   {
     "type": " ",
-    "named": false
-  },
-  {
-    "type": "\"",
     "named": false
   },
   {
@@ -2052,6 +2196,10 @@
     "named": false
   },
   {
+    "type": "VarUndefined",
+    "named": true
+  },
+  {
     "type": "WAIT",
     "named": false
   },
@@ -2084,7 +2232,19 @@
     "named": false
   },
   {
+    "type": "dedent",
+    "named": true
+  },
+  {
     "type": "identifier",
+    "named": true
+  },
+  {
+    "type": "indent",
+    "named": true
+  },
+  {
+    "type": "string",
     "named": true
   },
   {

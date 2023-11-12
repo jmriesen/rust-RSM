@@ -4,16 +4,34 @@ function repeatDel(rep,del) {
 
 var mumps_grammer = {
     name: 'mumps',
+    word:$=> $.identifier,
+    externals: $ => [
+        $.VarUndefined,
+        $.indent,
+        $.dedent,
+        $._line_level,
+        $.error_sentinel
+    ],
+
     precedences: ($) => [
         [
             $.number,
             $.UnaryOpp,
             $.UnaryExpression,
+
         ],
     ],
 
     rules: {
-        source_file: $ => repeatDel(optional($.line),"\n"),
+        source_file: $ => $.Block,
+        Block:$=> seq(
+            $.indent,
+            repeat1(choice(
+                seq($._line_level,field("content",$.line),"\n"),
+                field("content",$.Block)
+            )),
+            $.dedent
+        ),
         WriteArg:$=> choice(
             $.Bang,
             $.Clear,
@@ -50,19 +68,17 @@ var mumps_grammer = {
             optional(
                 seq(
                     "(",
-                    //optional(repeatDel(field("args",$._FunctionArg),",")),
-                    //Ok so I can't match the empty string.
-                    //But I can match other stuff.
+                    //NOTE It is easier to just remove the traling VarUndefined when compiling then then durring parseing
                     field("args",
-                          repeatDel(optional($._FunctionArg),$.ArgDelimenator)
+                          repeatDel(
+                              choice($.ByRef,$.Expression,$.VarUndefined),
+                              ",")
                          ),
                     ")",
                 )
             ),
         ),
-        ArgDelimenator:$=> ",",
         ByRef :$=>seq(".",$.Variable),
-        _FunctionArg:$=> choice($.ByRef,$.Expression),
 
         //TODO identifiers should be constraind to 32 digets.
         identifier: $ => /([A-Z]|[a-z])([A-Z]|[a-z]|\d)*/,
@@ -72,9 +88,8 @@ var mumps_grammer = {
             seq(/\d+/,optional(seq(".",optional(/\d+/)))),
             seq(".",/\d+/),
         ),
-        string: $=> seq("\"",repeat(choice($._non_quote,$._quote)),"\""),
-        _non_quote:$=> /[^"]*/,
-        _quote:$=> "\"\"",
+
+        string: $=> /(\"([#-~]|[ ])*\")+/,  // all charactors from # to ~ excluding quote. //TODO check the actural specs latter.
 
         //-------------------------------
         //opcodes
@@ -187,7 +202,8 @@ var mumps_grammer = {
             repeatDel(seq($.Expression,":",$.Expression),","),
             ")")
     },
-    extras: $ => [],
+    extras: $ => [
+    ],
 };
 
 //NOTE caseInsensitive gramer not yet supported
@@ -358,39 +374,40 @@ let commandTypes =
         ["Else",null,false],
         ["Close","Expression",true],
         ["Do","DoArg",true],
+        ["New","identifier",true],
     ];
 
 commandTypes.forEach(
-    x => mumps_grammer.rules[x[0]] = $ => {
-        var postcondition = [];
-        if (x[2]){
-            postcondition.push(
-                optional(seq(":",field('post_condition',$.Expression))));
-        }
-        var args = [];
-        if (x[1] != null){
-            args.push(optional(repeatDel(field('args',$[x[1]]),",")));
-        }
-        return seq(
-            fn_regex(x[0],1),
-            ...postcondition,
-            choice(
-                //if end of line no space is needed for argumentless commands
-                new RegExp("()?(\n)"),
-                seq(
-                    " ",
-                    ...args,
-                ),
-            ),
+    x => {
 
-        );
+        mumps_grammer.rules[x[0]] = $ => fn_regex(x[0],1);
+        mumps_grammer.rules[x[0]+"Command"] = $ => {
+            var postcondition = [];
+            if (x[2]){
+                postcondition.push(
+                    optional(seq(":",field('post_condition',$.Expression))));
+            }
+            var args = [];
+            if (x[1] != null){
+                args.push(optional(repeatDel(field('args',$[x[1]]),",")));
+            }
+            return seq(
+                $[x[0]],
+                ...postcondition,
+                choice(
+                    seq(
+                        " ",
+                        ...args,
+                    ),
+                ),
+
+            );
+        }
     }
 );
 mumps_grammer.rules["For"] = $=>seq(
     fn_regex("For",1),
     choice(
-        //if end of line no space is needed for argumentless commands
-        new RegExp("()?(\n)"),
         " ",
         seq(
             " ",
@@ -402,7 +419,7 @@ mumps_grammer.rules["For"] = $=>seq(
 )
 mumps_grammer.rules["command"] = $=>choice(
     $.For,
-    ...commandTypes.map(x=> $[x[0]])
+    ...commandTypes.map(x=> $[x[0]+"Command"])
 );
 
 module.exports = grammar(mumps_grammer);

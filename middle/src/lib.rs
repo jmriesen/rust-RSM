@@ -258,29 +258,40 @@ impl<'a> models::Expression<'a> {
 
 use crate::localvar::VarTypes;
 
+///Test harness that for commands
+///
+///Wraps the provided command in addtional formatting before calling compile.
+///This is needed since the only type tree sitter can parse is the source_file.
+///
+#[cfg(test)]
+pub fn test_compile_command(source_code: &str) -> Vec<u8> {
+    let source_code = source_code.replace("\n", "\n ");
+    let source_code = &format!(" {source_code}\n");
+    compile(&source_code)
+}
+
 pub fn compile(source_code: &str) -> Vec<u8> {
-    //Tree sitters regex lib is limmited.
-    //in M you can have an argumentless comannd iff it is the end of the line.
-    //however at the moment I can only look ahead for the newline char not the end of file char.
-    //This may be solvable, but for now it is simply easier to alwyas append a newline to the end of the souce code.
-    let source_code = &format!("{source_code}\n");
-    let tree = models::create_tree(source_code);
+        let tree = models::create_tree(dbg!(source_code));
     let tree = models::type_tree(&tree, source_code).unwrap();
 
     let mut comp = vec![];
-
-    let lines = tree.children();
-    for line in lines {
+    let block = tree.children();
+    for line in block.content(){
+        let line = match line{
+            models::BlockContent::line(line)=>line,
+            models::BlockContent::Block(_line)=>continue,
+        };
         let mut for_jumps = vec![];
         let commands = line.children();
         for command in &commands {
             let post_condition = match &command.children() {
-                E::Write(command) => command.post_condition(),
-                E::Brake(command) => command.post_condition(),
-                E::Close(command) => command.post_condition(),
-                E::Do(command) => command.post_condition(),
+                E::WriteCommand(command) => command.post_condition(),
+                E::BrakeCommand(command) => command.post_condition(),
+                E::CloseCommand(command) => command.post_condition(),
+                E::DoCommand(command) => command.post_condition(),
                 E::For(_) => None,
-                E::Else(_) => None,
+                E::ElseCommand(_) => None,
+                E::NewCommand(_) => None,
             }
             .map(|condition| {
                 condition.compile(source_code, &mut comp, ExpressionContext::Eval);
@@ -289,7 +300,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             });
             use crate::models::commandChildren as E;
             match command.children() {
-                E::Write(command) => {
+                E::WriteCommand(command) => {
                     for arg in command.args() {
                         use crate::models::WriteArgChildren as E;
                         match arg.children() {
@@ -312,7 +323,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                         }
                     }
                 }
-                E::Brake(command) => {
+                E::BrakeCommand(command) => {
                     let children = command.args();
                     if children.is_empty() {
                         comp.push(bindings::OPBRK0);
@@ -326,7 +337,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                     }
                 }
 
-                E::Close(command) => {
+                E::CloseCommand(command) => {
                     //TODO this should not allow for one 0 children;
                     let children = command.args();
                     for arg in children {
@@ -337,10 +348,11 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                     }
                 }
 
-                E::Else(_) => {
+                E::ElseCommand(_) => {
                     comp.push(bindings::OPELSE);
                 }
-                E::Do(command) => {
+                E::NewCommand(_command) => {}
+                E::DoCommand(command) => {
                     if command.args().is_empty() {
                         comp.push(crate::bindings::CMDON);
                     } else {
@@ -410,7 +422,10 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 //The last command in a line is not subjected to the bug.
                 //This removes the addtional OPENDC I added to compensate for the other bug.
                 comp.pop();
-            } else if matches!(command.children(), crate::models::commandChildren::Do(_)) {
+            } else if matches!(
+                command.children(),
+                crate::models::commandChildren::DoCommand(_)
+            ) {
                 comp.push(bindings::OPENDC);
             }
         }
@@ -439,12 +454,13 @@ impl<'a> crate::models::command<'a> {
     fn argumentless(&self) -> bool {
         use crate::models::commandChildren as E;
         match self.children() {
-            E::Write(command) => command.args().is_empty(),
-            E::Brake(command) => command.args().is_empty(),
-            E::Close(command) => command.args().is_empty(),
+            E::WriteCommand(command) => command.args().is_empty(),
+            E::BrakeCommand(command) => command.args().is_empty(),
+            E::CloseCommand(command) => command.args().is_empty(),
             E::For(command) => command.args().is_empty(),
-            E::Do(command) => command.args().is_empty(),
-            E::Else(_) => true,
+            E::DoCommand(command) => command.args().is_empty(),
+            E::ElseCommand(_) => true,
+            E::NewCommand(_) => true,
         }
     }
 }
@@ -452,43 +468,33 @@ enum ExtrinsicFunctionContext {
     Eval,
     Do,
 }
+
 impl<'a> crate::models::ExtrinsicFunction<'a> {
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
         use models::ExtrinsicFunctionArgs::*;
-        let args = self.args();
+        let mut args = self.args();
         let tag = self.tag();
         let routine = self.routine();
 
-        //If an arg is not explicitly given thenn we add a VARUNDF marker.
-        let mut need_arg = true;
-        let mut arg_count = 0;
-
+        //NOTE It is easier to  just remove the traling VarUndefined when compiling then then durring parseing
+        if args.last().is_some_and(|x| matches!(x,VarUndefined(_))){
+            args.pop();
+        }
         for arg in &args {
-            need_arg = match arg {
-                ArgDelimenator(_) => {
-                    //handles "(," and ",," cases
-                    //NOTE ",)" case is handled as if it was just ")"
-                    if need_arg {
-                        arg_count += 1;
-                        comp.push(crate::bindings::VARUNDF);
-                    }
-                    true
+            match arg {
+                VarUndefined(_) => {
+                    comp.push(crate::bindings::VARUNDF);
                 }
                 ByRef(var) => {
-                    assert!(need_arg);
                     var.children().compile(source_code, comp, VarTypes::Build);
-                    arg_count += 1;
                     comp.push(crate::bindings::NEWBREF);
-                    false
                 }
                 Expression(exp) => {
-                    assert!(need_arg);
-                    arg_count += 1;
                     exp.compile(source_code, comp, ExpressionContext::Eval);
-                    false
                 }
             };
         }
+
         let opcode = match (tag.is_some(), routine.is_some()) {
             (true, false) => crate::bindings::CMDOTAG,
             (false, true) => crate::bindings::CMDOROU,
@@ -528,6 +534,6 @@ impl<'a> crate::models::ExtrinsicFunction<'a> {
             }
             ExtrinsicFunctionContext::Eval => 129,
         };
-        comp.push(arg_count + marker);
+        comp.push(args.len() as u8+ marker);
     }
 }

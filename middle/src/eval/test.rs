@@ -1,5 +1,5 @@
 
-use crate::compile;
+use crate::test_compile_command;
 use crate::ffi::test::*;
 use crate::bindings;
 use rstest::rstest;
@@ -15,7 +15,7 @@ fn parse_pattern(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-    assert_eq!(orignal, compile(&source_code));
+    assert_eq!(orignal, test_compile_command(&source_code));
 }
 
 #[rstest]
@@ -37,7 +37,7 @@ fn parse_number(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-    assert_eq!(orignal, compile(&source_code));
+    assert_eq!(orignal, test_compile_command(&source_code));
 }
 
 #[rstest]
@@ -48,7 +48,7 @@ fn parse_string(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-    assert_eq!(orignal, compile(&source_code));
+    assert_eq!(orignal, test_compile_command(&source_code));
 }
 
 #[rstest]
@@ -61,7 +61,7 @@ fn parse_unary_exp(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-    assert_eq!(orignal, compile(&source_code));
+    assert_eq!(orignal, test_compile_command(&source_code));
 }
 #[rstest]
 #[case("98+9")]
@@ -71,5 +71,5 @@ fn parse_binary(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, bindings::parse);
 
-    assert_eq!(orignal, compile(&source_code));
+    assert_eq!(orignal, test_compile_command(&source_code));
 }
