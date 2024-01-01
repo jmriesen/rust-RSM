@@ -54,6 +54,7 @@ impl<'a> VariableHeading<'a>{
 
 impl<'a> crate::models::Variable<'a> {
     pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
+        use expression::ExpressionContext;
         let heading = self.heading();
         VariableHeading::args(&heading).iter()
             .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));

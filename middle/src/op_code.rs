@@ -1,10 +1,6 @@
 use super::*;
 
-pub enum ExpressionContext {
-    Write = bindings::INDWRIT as isize,
-    Eval = bindings::INDEVAL as isize,
-    Close = bindings::INDCLOS as isize,
-}
+
 
 impl <'a> models::UnaryOpp<'a> {
     pub fn op_code(&self)-> u8{
@@ -13,6 +9,16 @@ impl <'a> models::UnaryOpp<'a> {
             E::OPMINUS(_) => bindings::OPMINUS,
             E::OPPLUS(_) => bindings::OPPLUS,
             E::OPNOT(_) => bindings::OPNOT,
+        }
+    }
+}
+
+impl <'a> models::PatternOpp<'a> {
+    pub fn op_code(&self)-> u8{
+        use models::PatternOppChildren as E;
+        match self.children() {
+            E::OPPAT(_) => bindings::OPPAT,
+            E::OPNPAT(_) => bindings::OPNPAT,
         }
     }
 }

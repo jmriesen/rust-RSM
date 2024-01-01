@@ -37,6 +37,3 @@ pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
     let inner = CString::new(string).unwrap();
     comp.extend(compile_string(&inner))
 }
-
-#[cfg(test)]
-pub mod test;
