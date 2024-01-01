@@ -11,3 +11,6 @@ TODO
 /target/
 /middle/C/rsm
 /middle/C/libmylib.a
+*.wasm
+*.m
+*.html

@@ -3,15 +3,48 @@
   "word": "identifier",
   "rules": {
     "source_file": {
-      "type": "SYMBOL",
-      "name": "Block"
+      "type": "REPEAT1",
+      "content": {
+        "type": "SYMBOL",
+        "name": "Tag"
+      }
+    },
+    "Tag": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "TagName"
+          }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "block",
+              "content": {
+                "type": "SYMBOL",
+                "name": "Block"
+              }
+            },
+            {
+              "type": "STRING",
+              "value": "\n"
+            }
+          ]
+        }
+      ]
     },
     "Block": {
       "type": "SEQ",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "indent"
+          "name": "_indent"
         },
         {
           "type": "REPEAT1",
@@ -26,12 +59,8 @@
                     "name": "_line_level"
                   },
                   {
-                    "type": "FIELD",
-                    "name": "content",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "line"
-                    }
+                    "type": "SYMBOL",
+                    "name": "line"
                   },
                   {
                     "type": "STRING",
@@ -40,19 +69,15 @@
                 ]
               },
               {
-                "type": "FIELD",
-                "name": "content",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "Block"
-                }
+                "type": "SYMBOL",
+                "name": "Block"
               }
             ]
           }
         },
         {
           "type": "SYMBOL",
-          "name": "dedent"
+          "name": "_dedent"
         }
       ]
     },
@@ -228,7 +253,7 @@
         }
       ]
     },
-    "_Tag": {
+    "TagName": {
       "type": "CHOICE",
       "members": [
         {
@@ -256,7 +281,7 @@
               "name": "tag",
               "content": {
                 "type": "SYMBOL",
-                "name": "_Tag"
+                "name": "TagName"
               }
             },
             {
@@ -284,7 +309,7 @@
                   "name": "tag",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "_Tag"
+                    "name": "TagName"
                   }
                 },
                 {
@@ -4409,6 +4434,112 @@
         }
       ]
     },
+    "QUIT": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "[qQ][uU][iI][tT]"
+        },
+        {
+          "type": "PATTERN",
+          "value": "[qQ]"
+        }
+      ]
+    },
+    "QUITCommand": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "QUIT"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": ":"
+                },
+                {
+                  "type": "FIELD",
+                  "name": "post_condition",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "Expression"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": " "
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "PREC_LEFT",
+                      "value": 1,
+                      "content": {
+                        "type": "SEQ",
+                        "members": [
+                          {
+                            "type": "FIELD",
+                            "name": "args",
+                            "content": {
+                              "type": "SYMBOL",
+                              "name": "Expression"
+                            }
+                          },
+                          {
+                            "type": "REPEAT",
+                            "content": {
+                              "type": "SEQ",
+                              "members": [
+                                {
+                                  "type": "STRING",
+                                  "value": ","
+                                },
+                                {
+                                  "type": "FIELD",
+                                  "name": "args",
+                                  "content": {
+                                    "type": "SYMBOL",
+                                    "name": "Expression"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     "For": {
       "type": "SEQ",
       "members": [
@@ -4524,6 +4655,10 @@
         {
           "type": "SYMBOL",
           "name": "NewCommand"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "QUITCommand"
         }
       ]
     }
@@ -4553,11 +4688,11 @@
     },
     {
       "type": "SYMBOL",
-      "name": "indent"
+      "name": "_indent"
     },
     {
       "type": "SYMBOL",
-      "name": "dedent"
+      "name": "_dedent"
     },
     {
       "type": "SYMBOL",

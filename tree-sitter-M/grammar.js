@@ -7,8 +7,8 @@ var mumps_grammer = {
     word:$=> $.identifier,
     externals: $ => [
         $.VarUndefined,
-        $.indent,
-        $.dedent,
+        $._indent,
+        $._dedent,
         $._line_level,
         $.error_sentinel
     ],
@@ -23,14 +23,16 @@ var mumps_grammer = {
     ],
 
     rules: {
-        source_file: $ => $.Block,
+        source_file: $ => repeat1($.Tag),
+        Tag:$=> seq(field("name",$.TagName),choice(field("block",$.Block),"\n")),
         Block:$=> seq(
-            $.indent,
+            $._indent,
             repeat1(choice(
-                seq($._line_level,field("content",$.line),"\n"),
-                field("content",$.Block)
+                //NOTE including a newline here forces the routine to include a new line at the end.
+                seq($._line_level,$.line,"\n"),
+                $.Block
             )),
-            $.dedent
+            $._dedent
         ),
         WriteArg:$=> choice(
             $.Bang,
@@ -57,13 +59,13 @@ var mumps_grammer = {
         ),
 
         line: $=> seq(repeatDel($.command," "),repeat(" ")),
-        _Tag: $=> choice($.identifier,$.NumericIdentifier),
+        TagName: $=> choice($.identifier,$.NumericIdentifier),
         NumericIdentifier:$=> /\d{1,32}/,
         ExtrinsicFunction:$=> seq(
             choice(
-                field("tag",$._Tag),
+                field("tag",$.TagName),
                 seq("^",field("routine",$.identifier)),
-                seq(field("tag",$._Tag),"^",field("routine",$.identifier)),
+                seq(field("tag",$.TagName),"^",field("routine",$.identifier)),
             ),
             optional(
                 seq(
@@ -375,6 +377,7 @@ let commandTypes =
         ["Close","Expression",true],
         ["Do","DoArg",true],
         ["New","identifier",true],
+        ["QUIT","Expression",true],
     ];
 
 commandTypes.forEach(

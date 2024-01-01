@@ -17,6 +17,8 @@ mod op_code;
 mod routine;
 mod var;
 
+use models::UnaryOpp;
+
 use crate::function::{reserve_jump, write_jump};
 
 pub mod models {
@@ -52,19 +54,38 @@ pub mod models {
     }
 }
 
-//TODO consider replacing the context with an enum.
-pub enum ExpressionContext {
-    Write,
-    Eval,
-    Close,
-}
-
+use op_code::ExpressionContext;
 impl<'a> models::Expression<'a> {
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
         use crate::bindings::PARTAB;
         use eval::ncopy;
         use models::ExpressionChildren::*;
         match self.children() {
+            number(num) => {
+                let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
+                ncopy(num, &mut PARTAB::default(), comp);
+            }
+            string(value) => {
+                use crate::eval::compile_string_literal;
+                let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
+                compile_string_literal(value, comp);
+            }
+            Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
+            IntrinsicVar(var) => {
+                comp.push(var.op_code());
+            }
+            Expression(exp) => exp.compile(source_code, comp, ExpressionContext::Eval),
+            InderectExpression(exp) => {
+                exp.children()
+                    .compile(source_code, comp, ExpressionContext::Eval);
+                comp.push(context as u8);
+            }
+            UnaryExpression(unary_exp) => {
+                unary_exp
+                    .exp()
+                    .compile(source_code, comp, ExpressionContext::Eval);
+                comp.push(unary_exp.opp().op_code());
+            }
             BinaryExpression(bin_exp) => {
                 bin_exp
                     .exp_left()
@@ -73,21 +94,6 @@ impl<'a> models::Expression<'a> {
                     .exp_right()
                     .compile(source_code, comp, ExpressionContext::Eval);
                 comp.push(bin_exp.opp().op_code());
-            }
-            IntrinsicVar(var) => {
-                comp.push(var.op_code());
-            }
-            Expression(exp) => exp.compile(source_code, comp, ExpressionContext::Eval),
-            InderectExpression(exp) => {
-                exp.children()
-                    .compile(source_code, comp, ExpressionContext::Eval);
-                //TODO note hardcoded at the moment
-                use ExpressionContext as E;
-                comp.push(match context {
-                    E::Eval => bindings::INDEVAL,
-                    E::Write => bindings::INDWRIT,
-                    E::Close => bindings::INDCLOS,
-                });
             }
             PaternMatchExpression(pat_exp) => {
                 use models::{PaternMatchExpressionExp_right::*, PatternOppChildren::*};
@@ -108,18 +114,6 @@ impl<'a> models::Expression<'a> {
                     OPNPAT(_) => bindings::OPNPAT,
                 });
             }
-            //TODO should inderect be considered a special case of unary?
-            UnaryExpression(unary_exp) => {
-                use models::UnaryOppChildren::*;
-                unary_exp
-                    .exp()
-                    .compile(source_code, comp, ExpressionContext::Eval);
-                comp.push(match unary_exp.opp().children() {
-                    OPMINUS(_) => bindings::OPMINUS,
-                    OPNOT(_) => bindings::OPNOT,
-                    OPPLUS(_) => bindings::OPPLUS,
-                });
-            }
             ExtrinsicFunction(x) => {
                 x.compile(source_code, comp, ExtrinsicFunctionContext::Eval);
             }
@@ -133,17 +127,6 @@ impl<'a> models::Expression<'a> {
                     compile_string_literal("\"\"", comp);
                 }
                 comp.push(x.code().op_code());
-            }
-            Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
-            number(num) => {
-                let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
-                ncopy(num, &mut PARTAB::default(), comp);
-            }
-
-            string(value) => {
-                use crate::eval::compile_string_literal;
-                let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
-                compile_string_literal(value, comp);
             }
 
             IntrinsicFunction(intrinsic) => {
@@ -266,7 +249,7 @@ use crate::localvar::VarTypes;
 #[cfg(test)]
 pub fn test_compile_command(source_code: &str) -> Vec<u8> {
     let source_code = source_code.replace("\n", "\n ");
-    let source_code = &format!(" {source_code}\n");
+    let source_code = &format!("tag {source_code}\n");
     compile(&source_code)
 }
 
@@ -275,11 +258,12 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     let tree = models::type_tree(&tree, source_code).unwrap();
 
     let mut comp = vec![];
-    let block = tree.children();
-    for line in block.content(){
+    let tags = tree.children();
+    let block = tags[0].block().unwrap();
+    for line in block.children(){
         let line = match line{
-            models::BlockContent::line(line)=>line,
-            models::BlockContent::Block(_line)=>continue,
+            models::BlockChildren::line(line)=>line,
+            models::BlockChildren::Block(_line)=>continue,
         };
         let mut for_jumps = vec![];
         let commands = line.children();
@@ -292,6 +276,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 E::For(_) => None,
                 E::ElseCommand(_) => None,
                 E::NewCommand(_) => None,
+                E::QUITCommand(_) => todo!(),
             }
             .map(|condition| {
                 condition.compile(source_code, &mut comp, ExpressionContext::Eval);
@@ -401,6 +386,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                         for_jumps.push((reserve_jump(&mut comp), true));
                     }
                 },
+                E::QUITCommand(_) => todo!(),
             }
             //NOTE C bug?
             //if the command has arguments C dosent consume the trailing white space.
@@ -461,6 +447,8 @@ impl<'a> crate::models::command<'a> {
             E::DoCommand(command) => command.args().is_empty(),
             E::ElseCommand(_) => true,
             E::NewCommand(_) => true,
+            E::QUITCommand(_) => true,
+
         }
     }
 }
@@ -509,8 +497,9 @@ impl<'a> crate::models::ExtrinsicFunction<'a> {
             comp.extend(tag.as_array());
         }
         if let Some(tag) = &tag {
-            use models::ExtrinsicFunctionTag::*;
-            let node = match tag {
+            use crate::models::TagNameChildren::*;
+            let tag = tag.children();
+            let node = match &tag {
                 identifier(x) => x.node(),
                 NumericIdentifier(x) => x.node(),
             };

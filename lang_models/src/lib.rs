@@ -63,6 +63,7 @@ pub fn models(_: TokenStream) -> TokenStream {
             .map(|(name, config)| impl_getter(&type_name, Some(name), config));
 
         quote! {
+            #[derive(Clone)]
             pub struct #type_name <#life_time> {
                 node:Node <#life_time>
             }
@@ -103,6 +104,7 @@ fn def_enum(name: &Ident, config: &TypeConfig) -> proc_macro2::TokenStream {
     let match_arms = options.map(|(s, i)| quote! {#s =>Self::#i(#i::create(node))});
 
     let declaration = quote! {
+        #[derive(Clone)]
         pub enum #name<#life_time>{
             #(#enum_varients),*
         }
@@ -146,14 +148,15 @@ fn impl_getter(
 ) -> proc_macro2::TokenStream {
     let subtype = field_name.unwrap_or("children");
 
+    let life_time = syn::Lifetime::new("'a", Span::call_site());
     let (type_name, type_def) = get_return_type(parent, subtype, config);
 
     let (impl_line, return_type) = if config.multiple {
-        (quote! {children.collect()}, quote! {Vec<#type_name>})
+        (quote! {children.collect()}, quote! {Vec<#type_name<#life_time>>})
     } else if !config.required {
-        (quote! {children.next()}, quote! {Option<#type_name>})
+        (quote! {children.next()}, quote! {Option<#type_name<#life_time>>})
     } else {
-        (quote! {children.next().unwrap()}, quote! {#type_name})
+        (quote! {children.next().unwrap()}, quote! {#type_name<#life_time>})
     };
 
     let selector = if let Some(field) = field_name {
@@ -164,7 +167,6 @@ fn impl_getter(
     };
 
     let method = Ident::new(subtype, Span::call_site());
-    let life_time = syn::Lifetime::new("'a", Span::call_site());
     quote! {
         #type_def
         impl <#life_time>#parent<#life_time> {

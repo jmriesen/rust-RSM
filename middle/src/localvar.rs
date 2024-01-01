@@ -1,71 +1,85 @@
+use crate::models::{VariableHeading, Expression};
+
 use super::*;
 
 
 pub enum VarTypes {
-    Eval,
-    Build,
-    BuildNullable,
-    For,
+    Eval = crate::bindings::OPVAR as isize,
+    Build = crate::bindings::OPMVAR as isize,
+    BuildNullable = crate::bindings::OPMVARN as isize,
+    For = crate::bindings::CMFORSET as isize,
 }
 
-impl VarTypes {
-    pub fn code(self) -> u8 {
-        use VarTypes::*;
-        match self {
-            Eval => crate::bindings::OPVAR,
-            Build => crate::bindings::OPMVAR,
-            BuildNullable => crate::bindings::OPMVARN,
-            For => crate::bindings::CMFORSET,
+impl<'a> VariableHeading<'a>{
+    pub fn op_code(heading:&Option<Self>)->u8{
+
+        use models::VariableHeading::*;
+        (if let Some(heading) = heading{
+            match heading {
+                NakedVariable(_) => bindings::TYPVARNAKED,
+                IndirectVariable(_) => bindings::TYPVARIND,
+                GlobalVariable(_) => bindings::TYPVARGBL,
+                GlobalUciVariable(_) => bindings::TYPVARGBLUCI,
+                GlobalUciEnvVariable(_) => bindings::TYPVARGBLUCIENV
+            }
+        }else{
+            bindings::TYPVARNAM
+        })as u8
+    }
+    fn union_length(heading:&Option<Self>)->bool{
+
+        use models::VariableHeading::*;
+        match heading {
+            Some(GlobalVariable(_)) |None => true,
+            _ =>false,
+        }
+    }
+    fn args(heading:&Option<Self>)->Vec<Expression>{
+
+        use models::VariableHeading::*;
+        //TODO in theory I should be able to remove all of these alocations.
+        if let Some(heading) = heading{
+            match heading {
+                NakedVariable(_) =>vec![],
+                GlobalVariable(_) => vec![],
+                GlobalUciVariable(exp) => vec![exp.children()],
+                GlobalUciEnvVariable(exps) => exps.children(),
+                IndirectVariable(exp) => vec![exp.children()],
+            }
+        }else{
+            vec![]
         }
     }
 }
+
 impl<'a> crate::models::Variable<'a> {
     pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
-        let subscripts = self.subs();
-
-        use models::VariableHeading::*;
-        let var_type = self
-            .heading()
-            .map(|heading| match &heading {
-                NakedVariable(_) => bindings::TYPVARNAKED,
-                IndirectVariable(exp) => {
-                    exp.children()
-                        .compile(source_code, comp, ExpressionContext::Eval);
-                    comp.push(bindings::INDMVAR);
-                    bindings::TYPVARIND
-                }
-                GlobalVariable(_) => bindings::TYPVARGBL,
-                GlobalUciVariable(exp) => {
-                    exp.children()
-                        .compile(source_code, comp, ExpressionContext::Eval);
-                    bindings::TYPVARGBLUCI
-                }
-                GlobalUciEnvVariable(exps) => {
-                    exps.children()
-                        .iter()
-                        .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
-                    bindings::TYPVARGBLUCIENV
-                }
-            })
-            .unwrap_or(bindings::TYPVARNAM);
+        let heading = self.heading();
+        VariableHeading::args(&heading).iter()
+            .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
+        if let Some(VariableHeading::IndirectVariable(_)) = heading{
+            comp.push(bindings::INDMVAR);
+        }
 
         //NOTE c docs says subscripts heading,
         //but that is not what the code outputs
+        let subscripts = self.subs();
         subscripts
             .iter()
             .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
 
-        comp.push(context.code());
-        match var_type {
-            crate::bindings::TYPVARGBL | crate::bindings::TYPVARNAM => {
-                comp.push((var_type | subscripts.len() as u32) as u8);
-            }
-            _ => {
-                comp.push(var_type as u8);
-                comp.push(subscripts.len() as u8);
-            }
+        comp.push(context as u8);
+        let op_code = VariableHeading::op_code(&self.heading());
+        if VariableHeading::union_length(&heading){
+            comp.push(op_code | (subscripts.len() as u8) );
+        }else{
+            comp.push(op_code);
+            comp.push(subscripts.len() as u8);
+
         }
+
         if let Some(name) = self.name() {
+            //TODO abstract away.
             let name = name.node().utf8_text(source_code.as_bytes()).unwrap();
             let name = bindings::VAR_U::from(name);
             comp.extend(name.as_array())
