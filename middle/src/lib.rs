@@ -35,7 +35,9 @@ pub mod models {
 
         parser.parse(source_code, None).unwrap()
     }
-
+    //TODO fix this lint.
+    //This will require some major work to handle the error case properly.
+    #[allow(clippy::result_unit_err)]
     pub fn type_tree<'a>(
         tree: &'a tree_sitter::Tree,
         source_code: &'a str,
@@ -63,9 +65,9 @@ use crate::localvar::VarTypes;
 ///
 #[cfg(test)]
 pub fn test_compile_command(source_code: &str) -> Vec<u8> {
-    let source_code = source_code.replace("\n", "\n ");
+    let source_code = source_code.replace('\n', "\n ");
     let source_code = &format!("tag {source_code}\n");
-    compile(&source_code)
+    compile(source_code)
 }
 
 pub fn compile(source_code: &str) -> Vec<u8> {

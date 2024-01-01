@@ -29,7 +29,7 @@ impl Document {
         query: &'a tree_sitter::Query,
         query_cursor: &'a mut tree_sitter::QueryCursor,
     ) -> tree_sitter::QueryMatches<'a, 'a, &[u8]> {
-        query_cursor.matches(&query, self.tree.root_node(), &*self.source.as_bytes())
+        query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
 
     fn update(&mut self, mut changes: Vec<TextDocumentContentChangeEvent>) {
@@ -69,22 +69,21 @@ impl Document {
         //TODO all tags should end with a quit.
         //TODO either all quits should return a value, or non should.
 
-        use tree_sitter::{Query, QueryCursor};
         if let Ok(routine) = models::type_tree(&self.tree, &self.source) {
             routine
                 .children()
                 .iter()
                 //Pull out last line of each tag if it exists.
-                .filter_map(|x| x.block().map(|x| x.children().last().cloned()).flatten())
+                .filter_map(|x| x.block().and_then(|x| x.children().last().cloned()))
                 .filter_map(|x| match x {
-                    BlockChildren::Block(block) => Some(block.node().clone()),
+                    BlockChildren::Block(block) => Some(*block.node()),
                     BlockChildren::line(line) => {
                         let commands = line.children();
                         let command = commands.last().unwrap().children();
                         if matches!(command, commandChildren::QUITCommand(_)) {
                             None
                         } else {
-                            Some(line.node().clone())
+                            Some(*line.node())
                         }
                     }
                 })
@@ -93,7 +92,7 @@ impl Document {
                     Diagnostic {
                         code_description: None,
                         code: None,
-                        message: format!("tags should end with a quit command"),
+                        message: "tags should end with a quit command".to_string(),
                         source: None,
                         tags: None,
                         data: None,
@@ -112,7 +111,6 @@ impl Document {
     }
 
     fn lines_after_unconditional_quit(&self) -> Vec<Diagnostic> {
-        use tree_sitter::{Query, QueryCursor};
         //TODO unconditional quits befor the last line of a routine.
         //TODO this should really apply to blocks.
 
@@ -145,15 +143,15 @@ impl Document {
                 .skip(1)
                 .map(|x|
                      match x {
-                         BlockChildren::Block(block) => block.node().clone(),//TODO deal with nessted blocks
-                         BlockChildren::line(line) => line.node().clone()
+                         BlockChildren::Block(block) => *block.node(),//TODO deal with nessted blocks
+                         BlockChildren::line(line) => *line.node()
                      })
                      .map(|node| {
                          dbg!(node.to_sexp());
                          Diagnostic {
                              code_description: None,
                              code: None,
-                             message: format!("Lines after an unconditional quite will be ignored."),
+                             message: "Lines after an unconditional quite will be ignored.".to_string(),
                              source: None,
                              tags: None,
                              data: None,
@@ -325,7 +323,7 @@ impl Document {
                 .array_windows()
                 .map(|[previuse, current]| {
                     //NOTE converting from absolute pos to deltas.
-                    let mut current = current.clone();
+                    let mut current = *current;
                     current.delta_line -= previuse.delta_line;
                     if current.delta_line == 0 {
                         current.delta_start -= previuse.delta_start;

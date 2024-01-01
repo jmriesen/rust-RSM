@@ -31,7 +31,7 @@ fn main() {
         .with_language(cbindgen::Language::C)
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(&rust_header.join("rust.h"));
+        .write_to_file(rust_header.join("rust.h"));
 
     let c_src = glob::glob("C/*/*.c")
         .unwrap()

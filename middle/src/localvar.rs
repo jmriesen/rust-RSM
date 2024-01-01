@@ -27,12 +27,8 @@ impl<'a> VariableHeading<'a>{
         })as u8
     }
     fn union_length(heading:&Option<Self>)->bool{
-
         use models::VariableHeading::*;
-        match heading {
-            Some(GlobalVariable(_)) |None => true,
-            _ =>false,
-        }
+        matches!(heading, Some(GlobalVariable(_)) |None)
     }
     fn args(heading:&Option<Self>)->Vec<Expression>{
 
