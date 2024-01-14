@@ -1,0 +1,52 @@
+* Project level problem summary.
+** Learning
+*** Learn how to migrate a large project.
+**** I enjoy thinking about larger systems, however I don't have much experience dealing with larger architectural changes.
+Frequently I find that I dislike how a system works but don't know how to change it.
+I think I can do something better but just end up making something more complicated.
+**** Incremental changes and AB testing.
+Since an interpreter's behavior is well defined it is vary easy to AB test this project, while also having a lot of complexity.
+This makes it easier to adhere to things like continues delivery and test driven development.
+**** Allows me to try philosophies that I have been exposed to.
+- Test driven development
+- Continues delivery
+*** Learning more about Rust
+Rust is currently my favorite programming language but I don't have any opportunities  to use it in work.
+I like the idea of idiomatic rust, however without something to work on that really is all talk, and I have seen how far talk takes me.
+
+This project gives me the opportunities to try out a number of both Rust's high and low lever features. For example:
+- iterators
+- C FFI
+- Unsafe rust
+- Testing
+- Macro programming.
+- moduals
+- workspaces
+- multiple crates.
+* Current Project development.
+Here are the larger peaces of the project as I see them.
+NOTE I have been messing around with whatever part strikes my fancy so all of them are either a work in progress or not started.
+** Parser
+This is being done using a combination of tree-sitter and macros.
+ - Tree-sitter-M handles the actual parsing code
+ - lang_models takes a json file provided by tree sitter an makes type defs.
+   - Currently the Json file is retrieved by using a relative path.
+     - TODO this should be replaced by something less fragile.
+ - middle lib.rs has some glue code between the two.
+   - TODO this should probably be refactored out.
+     - It was originally placed there since the parser was only used by the compiler.
+- The original C compiler does not produce a parse tree so AB testing is done by the compiler prj.
+** Compiler
+This was the initial part of the project I worked on.
+As such most of the other projects were or are in the process of being refactored out of this crate.
+- Talks the parse tree provided by the parser and turns it into bite code.
+- This is where most of the AB testing is happening currently.
+** Language server
+This was mostly made on a wim one weekend just to see if I could.
+Current about all it does is connect to VS code and tell you if the code parses.
+If I ever get to the point where this is a useful application I this would probably be the most useful to others.
+A lot of the drive for this comes from my frustration with the lack of static analyzes tools that The M IDE I have used has.
+** Runtime
+I have not worked on this yet.
+** REPL (Read Evaluate Print Loop)
+I have not worked on this yet.
