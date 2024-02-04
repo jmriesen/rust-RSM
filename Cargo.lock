@@ -426,7 +426,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
-name = "lang_models"
+name = "lang-model"
+version = "0.1.0"
+dependencies = [
+ "lang-model-macro",
+ "tree-sitter",
+ "tree-sitter-mumps",
+]
+
+[[package]]
+name = "lang-model-macro"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -434,6 +443,19 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "lang-server"
+version = "0.1.0"
+dependencies = [
+ "lang-model-macro",
+ "lsp-types",
+ "rsm",
+ "tokio",
+ "tower-lsp",
+ "tree-sitter",
+ "tree-sitter-mumps",
 ]
 
 [[package]]
@@ -722,11 +744,8 @@ dependencies = [
  "cbindgen",
  "cc",
  "glob",
- "lang_models",
- "lsp-types",
+ "lang-model",
  "rstest",
- "tokio",
- "tower-lsp",
  "tree-sitter",
  "tree-sitter-mumps",
 ]

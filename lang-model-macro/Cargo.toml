@@ -1,5 +1,5 @@
 [package]
-name = "lang_models"
+name = "lang-model-macro"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,21 +1,15 @@
 [package]
-name = "rsm"
+name = "lang-server"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lsp-types = "0.94.1"
+tokio = { version = "1.32.0", features = ["macros", "io-std", "rt-multi-thread"] }
+tower-lsp = "0.20.0"
+lang-model-macro = { path = "../lang-model-macro"}
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.10"
-lang-model = { path = "../lang-model"}
-
-[dev-dependencies]
-rstest = "0.18.2"
-
-
-[build-dependencies]
-bindgen = "0.66.1"
-cc = "1.0.83"
-cbindgen = "0.26.0"
-glob = "0.3.1"
+rsm = { path = "../middle" }

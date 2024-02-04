@@ -1,5 +1,5 @@
 [package]
-name = "rsm"
+name = "lang-model"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,14 +8,4 @@ edition = "2021"
 [dependencies]
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.10"
-lang-model = { path = "../lang-model"}
-
-[dev-dependencies]
-rstest = "0.18.2"
-
-
-[build-dependencies]
-bindgen = "0.66.1"
-cc = "1.0.83"
-cbindgen = "0.26.0"
-glob = "0.3.1"
+lang-model-macro = { path = "../lang-model-macro"}

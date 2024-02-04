@@ -3,5 +3,5 @@ resolver = "2"
 members=[
 "middle",
 "tree-sitter-M",
-"lang_models"
-]
+"lang-model-macro",
+"lang-server", "lang-model"]
