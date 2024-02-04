@@ -62,10 +62,10 @@ impl<'a> Compileable for crate::models::Variable<'a> {
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
         use expression::ExpressionContext;
         let heading = self.heading();
-        //TODO remove these for eachs and replace them with normal for loops.
-        heading.args()
-            .iter()
-            .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
+
+        for arg in heading.args() {
+            arg.compile(source_code, comp, ExpressionContext::Eval);
+        }
 
         if  heading.is_indirect(){
             comp.push(bindings::INDMVAR);
@@ -73,18 +73,17 @@ impl<'a> Compileable for crate::models::Variable<'a> {
 
         //NOTE c docs says subscripts heading,
         //but that is not what the code outputs
-        let subscripts = self.subs();
-        subscripts
-            .iter()
-            .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
+        for subscript in self.subs() {
+            subscript.compile(source_code, comp, ExpressionContext::Eval);
+        }
 
         comp.push(context as u8);
+        comp.push(heading.op_code());
         //Consider requiting this so we only push opcode once.
         if heading.union_length(){
-            comp.push(heading.op_code() | (subscripts.len() as u8) );
+            *comp.last_mut().unwrap() |= self.subs().len() as u8;
         }else{
-            comp.push(heading.op_code());
-            comp.push(subscripts.len() as u8);
+            comp.push(self.subs().len() as u8);
         }
 
         if let Some(name) = self.name() {
