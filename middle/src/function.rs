@@ -1,5 +1,3 @@
-
-
 pub fn reserve_jump(comp: &mut Vec<u8>) -> usize {
     comp.push(0);
     comp.push(0);
@@ -70,7 +68,7 @@ impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
 mod test {
     use core::ops::RangeInclusive;
 
-    use crate::{bindings, test_compile_command, ffi::test::compile_c};
+    use crate::{bindings, ffi::test::compile_c, test_compile_command};
     use rstest::rstest;
 
     #[test]

@@ -19,21 +19,20 @@ mod var;
 
 use crate::function::{reserve_jump, write_jump};
 
-mod models{
+mod models {
     //TODO clean up and remove glob inport.
     pub use lang_model::*;
 }
 
 use crate::localvar::VarTypes;
 
-
-trait Compileable{
+trait Compileable {
     type Context;
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>,contex:Self::Context);
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, contex: Self::Context);
 }
 
-trait OpCode{
-   fn op_code(&self) -> u8 ;
+trait OpCode {
+    fn op_code(&self) -> u8;
 }
 
 ///Test harness that for commands
@@ -50,16 +49,16 @@ pub fn test_compile_command(source_code: &str) -> Vec<u8> {
 
 pub fn compile(source_code: &str) -> Vec<u8> {
     use expression::ExpressionContext;
-        let tree = models::create_tree(dbg!(source_code));
+    let tree = models::create_tree(dbg!(source_code));
     let tree = models::type_tree(&tree, source_code).unwrap();
 
     let mut comp = vec![];
     let tags = tree.children();
     let block = tags[0].block().unwrap();
-    for line in block.children(){
-        let line = match line{
-            models::BlockChildren::line(line)=>line,
-            models::BlockChildren::Block(_line)=>continue,
+    for line in block.children() {
+        let line = match line {
+            models::BlockChildren::line(line) => line,
+            models::BlockChildren::Block(_line) => continue,
         };
         let mut for_jumps = vec![];
         let commands = line.children();
@@ -232,8 +231,6 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     comp
 }
 
-
-
 enum ExtrinsicFunctionContext {
     Eval,
     Do,
@@ -242,14 +239,14 @@ enum ExtrinsicFunctionContext {
 impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
     type Context = ExtrinsicFunctionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
-        use models::ExtrinsicFunctionArgs::*;
         use crate::expression::ExpressionContext;
+        use models::ExtrinsicFunctionArgs::*;
         let mut args = self.args();
         let tag = self.tag();
         let routine = self.routine();
 
         //NOTE It is easier to  just remove the traling VarUndefined when compiling then then durring parseing
-        if args.last().is_some_and(|x| matches!(x,VarUndefined(_))){
+        if args.last().is_some_and(|x| matches!(x, VarUndefined(_))) {
             args.pop();
         }
         for arg in &args {
@@ -307,6 +304,6 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
             }
             ExtrinsicFunctionContext::Eval => 129,
         };
-        comp.push(args.len() as u8+ marker);
+        comp.push(args.len() as u8 + marker);
     }
 }

@@ -1,7 +1,6 @@
-use std::{process::Command};
+use std::process::Command;
 
 fn main() {
-
     //generate the grammer if the grammer.js file changes.
     //Note requires cli installed.
     println!("cargo:rerun-if-changed=grammer.js");
@@ -11,9 +10,7 @@ fn main() {
         .expect("failed to execute tree-sitter cli");
     assert!(status_code.success());
 
-
     let src_dir = std::path::Path::new("src");
-
 
     let mut c_config = cc::Build::new();
     c_config.include(src_dir);

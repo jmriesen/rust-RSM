@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{bindings, test_compile_command, ffi::test::compile_c};
+    use crate::{bindings, ffi::test::compile_c, test_compile_command};
     use rstest::rstest;
 
     #[rstest]

@@ -1,12 +1,10 @@
-mod literals;
 mod intrinsicFunction;
+mod literals;
 pub use literals::*;
 
 use crate::models::*;
 
-use crate::localvar::VarTypes;
-use crate::ExtrinsicFunctionContext;
-use crate::OpCode;
+use crate::{localvar::VarTypes, ExtrinsicFunctionContext, OpCode};
 
 pub enum ExpressionContext {
     Write = crate::bindings::INDWRIT as isize,
@@ -87,7 +85,7 @@ impl<'a> Compileable for Expression<'a> {
             }
 
             IntrinsicFunction(intrinsic) => {
-                intrinsic.compile(source_code, comp,());
+                intrinsic.compile(source_code, comp, ());
             }
         }
     }

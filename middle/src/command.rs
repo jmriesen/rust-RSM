@@ -1,7 +1,6 @@
-
 #[cfg(test)]
 mod test {
-    use crate::{bindings, test_compile_command, ffi::test::compile_c};
+    use crate::{bindings, ffi::test::compile_c, test_compile_command};
     use rstest::rstest;
 
     #[test]
@@ -13,7 +12,7 @@ mod test {
     }
 
     //TODO comand with no args at the end of a line.
-    //TODO use external parser to handle it. 
+    //TODO use external parser to handle it.
     #[rstest]
     #[case("b  ")]
     #[case("b  b  b  ")]

@@ -1,25 +1,24 @@
 use crate::models::*;
 
-use crate::function::{reserve_jump, write_jump};
-use crate::localvar::VarTypes;
-
-use super::{
-    ExpressionContext,
-    ncopy
+use crate::{
+    function::{reserve_jump, write_jump},
+    localvar::VarTypes,
 };
+
+use super::{ncopy, ExpressionContext};
 
 use crate::bindings::PARTAB;
 
-trait ExpFunctionsExt<'a>{
-    fn base_code_and_args(&self)->(u8,Vec<Expression<'a>>);
+trait ExpFunctionsExt<'a> {
+    fn base_code_and_args(&self) -> (u8, Vec<Expression<'a>>);
 }
 
-impl <'a>ExpFunctionsExt<'a> for ExpFunctions<'a>{
+impl<'a> ExpFunctionsExt<'a> for ExpFunctions<'a> {
     //NOTE the opcode is intrisicly tied to the number of args
     //so it does not really make since to seporate them
-    fn base_code_and_args(&self)->(u8,Vec<Expression<'a>>){
+    fn base_code_and_args(&self) -> (u8, Vec<Expression<'a>>) {
         use ExpFunctionsChildren::*;
-        match self.children(){
+        match self.children() {
             View(x) => (crate::bindings::FUNV2 - 2, x.args()),
             //TODO Text handling should be more detailed.
             Text(x) => (crate::bindings::FUNT - 1, vec![x.args()]),
@@ -39,13 +38,13 @@ impl <'a>ExpFunctionsExt<'a> for ExpFunctions<'a>{
     }
 }
 
-trait VarFunctionsExt{
-    fn components(&self)->(u8,Variable,Option<Expression>);
-    fn var_types(&self)->VarTypes;
+trait VarFunctionsExt {
+    fn components(&self) -> (u8, Variable, Option<Expression>);
+    fn var_types(&self) -> VarTypes;
 }
 
-impl <'a>VarFunctionsExt for VarFunctions<'a> {
-    fn components(&self)->(u8,Variable,Option<Expression>){
+impl<'a> VarFunctionsExt for VarFunctions<'a> {
+    fn components(&self) -> (u8, Variable, Option<Expression>) {
         use VarFunctionsChildren::*;
         let children = &self.children();
         match children {
@@ -62,9 +61,9 @@ impl <'a>VarFunctionsExt for VarFunctions<'a> {
         }
     }
 
-    fn var_types(&self)->VarTypes{
+    fn var_types(&self) -> VarTypes {
         use VarFunctionsChildren::*;
-        match self.children(){
+        match self.children() {
             Data(_) | Get(_) | Increment(_) => VarTypes::Build,
             Name(_) | Order(_) | Query(_) | Next(_) => VarTypes::BuildNullable,
             Qlength(_) | Qsubscript(_) => VarTypes::Eval,
@@ -72,23 +71,22 @@ impl <'a>VarFunctionsExt for VarFunctions<'a> {
     }
 }
 
-
 use crate::Compileable;
 impl<'a> Compileable for IntrinsicFunction<'a> {
     type Context = ();
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>,_context:Self::Context) {
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, _context: Self::Context) {
         use IntrinsicFunctionChildren::*;
 
         //TODO Consider Reducing Duplication betwen ExpFunc and VarFunc
         match &self.children() {
             ExpFunctions(exp_fun) => {
-                let (base_code,args) = exp_fun.base_code_and_args();
+                let (base_code, args) = exp_fun.base_code_and_args();
 
-                for arg in &args{
+                for arg in &args {
                     arg.compile(source_code, comp, ExpressionContext::Eval)
                 }
 
-                if matches!(exp_fun.children(),ExpFunctionsChildren::Char(_)) {
+                if matches!(exp_fun.children(), ExpFunctionsChildren::Char(_)) {
                     if args.len() > 254 {
                         panic!("Char has too many args");
                     } else {
@@ -103,7 +101,7 @@ impl<'a> Compileable for IntrinsicFunction<'a> {
                 let (opcode, var, args) = var_fun.components();
                 var.compile(source_code, comp, var_fun.var_types());
 
-                for arg in &args{
+                for arg in &args {
                     arg.compile(source_code, comp, ExpressionContext::Eval)
                 }
 

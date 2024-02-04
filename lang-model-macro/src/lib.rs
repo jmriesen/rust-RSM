@@ -152,11 +152,20 @@ fn impl_getter(
     let (type_name, type_def) = get_return_type(parent, subtype, config);
 
     let (impl_line, return_type) = if config.multiple {
-        (quote! {children.collect()}, quote! {Vec<#type_name<#life_time>>})
+        (
+            quote! {children.collect()},
+            quote! {Vec<#type_name<#life_time>>},
+        )
     } else if !config.required {
-        (quote! {children.next()}, quote! {Option<#type_name<#life_time>>})
+        (
+            quote! {children.next()},
+            quote! {Option<#type_name<#life_time>>},
+        )
     } else {
-        (quote! {children.next().unwrap()}, quote! {#type_name<#life_time>})
+        (
+            quote! {children.next().unwrap()},
+            quote! {#type_name<#life_time>},
+        )
     };
 
     let selector = if let Some(field) = field_name {

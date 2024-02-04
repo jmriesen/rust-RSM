@@ -1,7 +1,4 @@
-
-use crate::test_compile_command;
-use crate::ffi::test::*;
-use crate::bindings;
+use crate::{bindings, ffi::test::*, test_compile_command};
 use rstest::rstest;
 
 #[rstest]

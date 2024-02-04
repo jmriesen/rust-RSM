@@ -1,7 +1,6 @@
-use crate::models::{VariableHeading, Expression};
+use crate::models::{Expression, VariableHeading};
 
 use super::*;
-
 
 pub enum VarTypes {
     Eval = crate::bindings::OPVAR as isize,
@@ -10,48 +9,47 @@ pub enum VarTypes {
     For = crate::bindings::CMFORSET as isize,
 }
 
-trait HeadingExt{
-    fn op_code(&self)->u8;
-    fn union_length(&self)->bool;
-    fn args(&self)->Vec<Expression>;
-    fn is_indirect(&self)->bool;
+trait HeadingExt {
+    fn op_code(&self) -> u8;
+    fn union_length(&self) -> bool;
+    fn args(&self) -> Vec<Expression>;
+    fn is_indirect(&self) -> bool;
 }
-impl<'a> HeadingExt for Option<VariableHeading<'a>>{
-    fn op_code(&self)->u8{
+impl<'a> HeadingExt for Option<VariableHeading<'a>> {
+    fn op_code(&self) -> u8 {
         use models::VariableHeading::*;
-        (if let Some(heading) = self{
+        (if let Some(heading) = self {
             match heading {
                 NakedVariable(_) => bindings::TYPVARNAKED,
                 IndirectVariable(_) => bindings::TYPVARIND,
                 GlobalVariable(_) => bindings::TYPVARGBL,
                 GlobalUciVariable(_) => bindings::TYPVARGBLUCI,
-                GlobalUciEnvVariable(_) => bindings::TYPVARGBLUCIENV
+                GlobalUciEnvVariable(_) => bindings::TYPVARGBLUCIENV,
             }
-        }else{
+        } else {
             bindings::TYPVARNAM
-        })as u8
+        }) as u8
     }
-    fn union_length(&self)->bool{
+    fn union_length(&self) -> bool {
         use models::VariableHeading::*;
-        matches!(self, Some(GlobalVariable(_)) |None)
+        matches!(self, Some(GlobalVariable(_)) | None)
     }
-    fn args(&self)->Vec<Expression>{
-
+    fn args(&self) -> Vec<Expression> {
         use models::VariableHeading::*;
         //TODO in theory I should be able to remove all of these alocations.
-        if let Some(heading) = self{
+        if let Some(heading) = self {
             match heading {
-                NakedVariable(_) =>vec![],
+                NakedVariable(_) => vec![],
                 GlobalVariable(_) => vec![],
                 GlobalUciVariable(exp) => vec![exp.children()],
                 GlobalUciEnvVariable(exps) => exps.children(),
                 IndirectVariable(exp) => vec![exp.children()],
             }
-        }else{
+        } else {
             vec![]
         }
     }
-    fn is_indirect(&self)->bool{
+    fn is_indirect(&self) -> bool {
         use models::VariableHeading::*;
         matches!(self, Some(IndirectVariable(_)))
     }
@@ -67,7 +65,7 @@ impl<'a> Compileable for crate::models::Variable<'a> {
             arg.compile(source_code, comp, ExpressionContext::Eval);
         }
 
-        if  heading.is_indirect(){
+        if heading.is_indirect() {
             comp.push(bindings::INDMVAR);
         }
 
@@ -80,9 +78,9 @@ impl<'a> Compileable for crate::models::Variable<'a> {
         comp.push(context as u8);
         comp.push(heading.op_code());
         //Consider requiting this so we only push opcode once.
-        if heading.union_length(){
+        if heading.union_length() {
             *comp.last_mut().unwrap() |= self.subs().len() as u8;
-        }else{
+        } else {
             comp.push(self.subs().len() as u8);
         }
 
@@ -97,7 +95,7 @@ impl<'a> Compileable for crate::models::Variable<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{bindings, test_compile_command, ffi::test::compile_c};
+    use crate::{bindings, ffi::test::compile_c, test_compile_command};
     use rstest::rstest;
     #[rstest]
     #[case("SomeString")]

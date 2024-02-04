@@ -31,12 +31,9 @@ pub fn type_tree<'a>(
     }
 }
 
-impl<'a> Expression<'a>{
+impl<'a> Expression<'a> {
     pub fn is_inderect(&self) -> bool {
-        matches!(
-            self.children(),
-            ExpressionChildren::InderectExpression(_)
-        )
+        matches!(self.children(), ExpressionChildren::InderectExpression(_))
     }
 }
 
@@ -52,7 +49,6 @@ impl<'a> command<'a> {
             E::ElseCommand(_) => true,
             E::NewCommand(_) => true,
             E::QUITCommand(_) => true,
-
         }
     }
 }

@@ -121,68 +121,35 @@ impl Document {
                 //Grab all lines
                 .filter_map(|x| x.block().map(|x| x.children()))
                 .flatten()
-                .skip_while(|x|
-                            !match x {
-                                BlockChildren::Block(_) => false,//TODO deal with nessted blocks
-                                BlockChildren::line(line) => {
-                                    //Look for unconditional quit.
-                                    use lang_model::commandChildren as E;
-                                    line
-                                    //commands
-                                        .children()
-                                        .into_iter()
-                                        .map(|x| x.children())
-                                    //ignore anything after controlflow command
-                                        //.take_while(|x| !matches!(x, E::IfCommand(_)))
-                                        .take_while(|x| !matches!(x, E::ElseCommand(_)))
-                                        .take_while(|x| !matches!(x, E::For(_)))
-                                        .any(|x| matches!(x, E::QUITCommand(_)))
-                                }
-                            })
+                .skip_while(|x| !match x {
+                    BlockChildren::Block(_) => false, //TODO deal with nessted blocks
+                    BlockChildren::line(line) => {
+                        //Look for unconditional quit.
+                        use lang_model::commandChildren as E;
+                        line
+                            //commands
+                            .children()
+                            .into_iter()
+                            .map(|x| x.children())
+                            //ignore anything after controlflow command
+                            //.take_while(|x| !matches!(x, E::IfCommand(_)))
+                            .take_while(|x| !matches!(x, E::ElseCommand(_)))
+                            .take_while(|x| !matches!(x, E::For(_)))
+                            .any(|x| matches!(x, E::QUITCommand(_)))
+                    }
+                })
                 //Skip over the quit.
                 .skip(1)
-                .map(|x|
-                     match x {
-                         BlockChildren::Block(block) => *block.node(),//TODO deal with nessted blocks
-                         BlockChildren::line(line) => *line.node()
-                     })
-                     .map(|node| {
-                         dbg!(node.to_sexp());
-                         Diagnostic {
-                             code_description: None,
-                             code: None,
-                             message: "Lines after an unconditional quite will be ignored.".to_string(),
-                             source: None,
-                             tags: None,
-                             data: None,
-                             related_information: None,
-                             severity: Some(DiagnosticSeverity::ERROR),
-                             range: Range {
-                                 start: node.start_position().to_position(),
-                                 end: node.end_position().to_position(),
-                             },
-                         }
-                     })
-                     .collect()
-                } else {
-                    vec![]
-                }
-        }
-
-        fn validate(&self) -> Vec<Diagnostic> {
-            use tree_sitter::{Query, QueryCursor};
-            let mut query_cursor = QueryCursor::new();
-            let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)@error").unwrap();
-            let expressions = self.query(&error_query, &mut query_cursor);
-
-            expressions
-                .map(|exp| {
-                    let node = exp.captures[0].node;
+                .map(|x| match x {
+                    BlockChildren::Block(block) => *block.node(), //TODO deal with nessted blocks
+                    BlockChildren::line(line) => *line.node(),
+                })
+                .map(|node| {
                     dbg!(node.to_sexp());
                     Diagnostic {
                         code_description: None,
                         code: None,
-                        message: node.to_sexp(),
+                        message: "Lines after an unconditional quite will be ignored.".to_string(),
                         source: None,
                         tags: None,
                         data: None,
@@ -195,227 +162,258 @@ impl Document {
                     }
                 })
                 .collect()
+        } else {
+            vec![]
         }
     }
 
-    trait PointExt {
-        fn to_position(&self) -> Position;
-    }
+    fn validate(&self) -> Vec<Diagnostic> {
+        use tree_sitter::{Query, QueryCursor};
+        let mut query_cursor = QueryCursor::new();
+        let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)@error").unwrap();
+        let expressions = self.query(&error_query, &mut query_cursor);
 
-    impl PointExt for tree_sitter::Point {
-        fn to_position(&self) -> Position {
-            Position {
-                line: self.row as u32,
-                character: self.column as u32,
-            }
+        expressions
+            .map(|exp| {
+                let node = exp.captures[0].node;
+                dbg!(node.to_sexp());
+                Diagnostic {
+                    code_description: None,
+                    code: None,
+                    message: node.to_sexp(),
+                    source: None,
+                    tags: None,
+                    data: None,
+                    related_information: None,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    range: Range {
+                        start: node.start_position().to_position(),
+                        end: node.end_position().to_position(),
+                    },
+                }
+            })
+            .collect()
+    }
+}
+
+trait PointExt {
+    fn to_position(&self) -> Position;
+}
+
+impl PointExt for tree_sitter::Point {
+    fn to_position(&self) -> Position {
+        Position {
+            line: self.row as u32,
+            character: self.column as u32,
         }
     }
+}
 
-    #[tower_lsp::async_trait]
-    impl LanguageServer for ServerState {
-        async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-            Ok(InitializeResult {
-                capabilities: ServerCapabilities {
-                    text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                        TextDocumentSyncKind::INCREMENTAL,
-                    )),
-                    definition_provider: Some(OneOf::Left(true)),
-                    semantic_tokens_provider: Some(
-                        SemanticTokensServerCapabilities::SemanticTokensOptions(
-                            SemanticTokensOptions {
-                                full: Some(SemanticTokensFullOptions::Bool(true)),
-                                legend: SemanticTokensLegend {
-                                    token_types: vec![
-                                        SemanticTokenType::NUMBER,
-                                        SemanticTokenType::STRING,
-                                        SemanticTokenType::VARIABLE,
-                                        SemanticTokenType::METHOD,
-                                        SemanticTokenType::KEYWORD,
-                                    ],
-                                    ..Default::default()
-                                },
+#[tower_lsp::async_trait]
+impl LanguageServer for ServerState {
+    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+        Ok(InitializeResult {
+            capabilities: ServerCapabilities {
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::INCREMENTAL,
+                )),
+                definition_provider: Some(OneOf::Left(true)),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                            legend: SemanticTokensLegend {
+                                token_types: vec![
+                                    SemanticTokenType::NUMBER,
+                                    SemanticTokenType::STRING,
+                                    SemanticTokenType::VARIABLE,
+                                    SemanticTokenType::METHOD,
+                                    SemanticTokenType::KEYWORD,
+                                ],
                                 ..Default::default()
                             },
-                        ),
-                    ),
-                    diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
-                        DiagnosticOptions {
-                            identifier: None,
-                            inter_file_dependencies: true,
-                            workspace_diagnostics: false,
-                            work_done_progress_options: WorkDoneProgressOptions {
-                                work_done_progress: None,
-                            },
+                            ..Default::default()
                         },
-                    )),
-                    folding_range_provider: Some(FoldingRangeProviderCapability::FoldingProvider(
-                        FoldingProviderOptions {},
-                    )),
-                    ..ServerCapabilities::default()
-                },
-                server_info: None,
-            })
-        }
-
-        async fn initialized(&self, _: InitializedParams) {
-            self.client
-                .log_message(MessageType::INFO, "server initialized!")
-                .await;
-        }
-
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
-        }
-
-        async fn semantic_tokens_full(
-            &self,
-            params: SemanticTokensParams,
-        ) -> Result<Option<SemanticTokensResult>> {
-            let documents = self.documents.read().unwrap();
-            let document = documents.get(&params.text_document.uri).unwrap();
-            use tree_sitter::{Query, QueryCursor};
-
-            let key = |node_kind| match node_kind {
-                "number" => 0,
-                "string" => 1,
-                "Variable" => 2,
-                "TagName" => 3,
-                _ => 4,
-            };
-
-            let query = Query::new(
-                tree_sitter_mumps::language(),
-                "[(number) (string) (Variable) (TagName)]@token",
-            )
-                .unwrap();
-            let mut query_cursor = QueryCursor::new();
-            //when I tried to use one query I was misssing nodes. I am not sure why.
-            let command_query =
-                Query::new(tree_sitter_mumps::language(), "(command . (_ . (_)@token))").unwrap();
-            let mut command_query_cursor = QueryCursor::new();
-
-            let mut tokens: Vec<_> = document
-                .query(&query, &mut query_cursor)
-                .chain(document.query(&command_query, &mut command_query_cursor))
-                .map(|x| x.captures[0].node)
-                .map(|node| {
-                    let start = node.start_position();
-                    let end = node.end_position();
-
-                    SemanticToken {
-                        //NOTE Using absolutes position for now
-                        //will convert into deltas latter.
-                        delta_line: start.row as u32,
-                        delta_start: start.column as u32,
-                        length: (end.column - start.column) as u32,
-                        token_type: key(node.kind()), //TODO
-                        token_modifiers_bitset: 0,
-                    }
-                })
-                .collect();
-
-            //order matters since token location is specified using offesets.
-            tokens.sort_by_key(|x| (x.delta_line, x.delta_start));
-
-            //Inserting dummy inital token so that I can use windows to calculate offsets.
-
-            let data: Vec<_> = tokens
-                .array_windows()
-                .map(|[previuse, current]| {
-                    //NOTE converting from absolute pos to deltas.
-                    let mut current = *current;
-                    current.delta_line -= previuse.delta_line;
-                    if current.delta_line == 0 {
-                        current.delta_start -= previuse.delta_start;
-                    }
-                    current
-                })
-                .collect();
-            dbg!(&data[0]);
-
-            Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
-                result_id: None,
-                data,
-            })))
-        }
-
-        async fn folding_range(&self, params: FoldingRangeParams) -> Result<Option<Vec<FoldingRange>>> {
-            let documents = self.documents.read().unwrap();
-            let document = documents.get(&params.text_document.uri).unwrap();
-            use tree_sitter::{Query, QueryCursor};
-
-            let query = Query::new(tree_sitter_mumps::language(), "(Block)@token").unwrap();
-            let mut query_cursor = QueryCursor::new();
-
-            Ok(Some(
-                document
-                    .query(&query, &mut query_cursor)
-                    .map(|x| x.captures[0].node)
-                    .map(|block| FoldingRange {
-                        start_line: block.start_position().row as u32,
-                        start_character: Some(0),
-                        end_line: block.end_position().row as u32,
-                        end_character: Some(0),
-                        kind: Some(FoldingRangeKind::Region),
-                        collapsed_text: Some("".into()),
-                    })
-                    .collect(),
-            ))
-        }
-
-        async fn diagnostic(
-            &self,
-            params: DocumentDiagnosticParams,
-        ) -> Result<DocumentDiagnosticReportResult> {
-            let documents = self.documents.read().unwrap();
-
-            let routine = documents
-                .get(&params.text_document.uri)
-                .expect("diagnostic can only be requested for open documents");
-            let warnings = routine.lint_tags_end_in_quit();
-            let warnings2 = routine.lines_after_unconditional_quit();
-            let errors = routine.validate();
-
-            Ok(DocumentDiagnosticReportResult::Report(
-                DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
-                    related_documents: None, //TODO this could change
-                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                        items: [warnings, errors,warnings2].concat(),
-                        result_id: None,
+                    ),
+                ),
+                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
+                    DiagnosticOptions {
+                        identifier: None,
+                        inter_file_dependencies: true,
+                        workspace_diagnostics: false,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
+                        },
                     },
-                }),
-            ))
-        }
+                )),
+                folding_range_provider: Some(FoldingRangeProviderCapability::FoldingProvider(
+                    FoldingProviderOptions {},
+                )),
+                ..ServerCapabilities::default()
+            },
+            server_info: None,
+        })
+    }
 
-        async fn did_open(&self, params: DidOpenTextDocumentParams) {
-            let source = fs::read_to_string(params.text_document.uri.to_file_path().unwrap()).unwrap();
-            self.documents
-                .write()
-                .unwrap()
-                .insert(params.text_document.uri, Document::new(source));
-        }
+    async fn initialized(&self, _: InitializedParams) {
+        self.client
+            .log_message(MessageType::INFO, "server initialized!")
+            .await;
+    }
 
-        async fn did_save(&self, _: DidSaveTextDocumentParams) {}
+    async fn shutdown(&self) -> Result<()> {
+        Ok(())
+    }
 
-        async fn did_change(&self, change: DidChangeTextDocumentParams) {
-            self.documents
-                .write()
-                .unwrap()
-                .get_mut(&change.text_document.uri)
-                .expect("The document should allready be open before changes are made")
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let documents = self.documents.read().unwrap();
+        let document = documents.get(&params.text_document.uri).unwrap();
+        use tree_sitter::{Query, QueryCursor};
+
+        let key = |node_kind| match node_kind {
+            "number" => 0,
+            "string" => 1,
+            "Variable" => 2,
+            "TagName" => 3,
+            _ => 4,
+        };
+
+        let query = Query::new(
+            tree_sitter_mumps::language(),
+            "[(number) (string) (Variable) (TagName)]@token",
+        )
+        .unwrap();
+        let mut query_cursor = QueryCursor::new();
+        //when I tried to use one query I was misssing nodes. I am not sure why.
+        let command_query =
+            Query::new(tree_sitter_mumps::language(), "(command . (_ . (_)@token))").unwrap();
+        let mut command_query_cursor = QueryCursor::new();
+
+        let mut tokens: Vec<_> = document
+            .query(&query, &mut query_cursor)
+            .chain(document.query(&command_query, &mut command_query_cursor))
+            .map(|x| x.captures[0].node)
+            .map(|node| {
+                let start = node.start_position();
+                let end = node.end_position();
+
+                SemanticToken {
+                    //NOTE Using absolutes position for now
+                    //will convert into deltas latter.
+                    delta_line: start.row as u32,
+                    delta_start: start.column as u32,
+                    length: (end.column - start.column) as u32,
+                    token_type: key(node.kind()), //TODO
+                    token_modifiers_bitset: 0,
+                }
+            })
+            .collect();
+
+        //order matters since token location is specified using offesets.
+        tokens.sort_by_key(|x| (x.delta_line, x.delta_start));
+
+        //Inserting dummy inital token so that I can use windows to calculate offsets.
+
+        let data: Vec<_> = tokens
+            .array_windows()
+            .map(|[previuse, current]| {
+                //NOTE converting from absolute pos to deltas.
+                let mut current = *current;
+                current.delta_line -= previuse.delta_line;
+                if current.delta_line == 0 {
+                    current.delta_start -= previuse.delta_start;
+                }
+                current
+            })
+            .collect();
+        dbg!(&data[0]);
+
+        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+            result_id: None,
+            data,
+        })))
+    }
+
+    async fn folding_range(&self, params: FoldingRangeParams) -> Result<Option<Vec<FoldingRange>>> {
+        let documents = self.documents.read().unwrap();
+        let document = documents.get(&params.text_document.uri).unwrap();
+        use tree_sitter::{Query, QueryCursor};
+
+        let query = Query::new(tree_sitter_mumps::language(), "(Block)@token").unwrap();
+        let mut query_cursor = QueryCursor::new();
+
+        Ok(Some(
+            document
+                .query(&query, &mut query_cursor)
+                .map(|x| x.captures[0].node)
+                .map(|block| FoldingRange {
+                    start_line: block.start_position().row as u32,
+                    start_character: Some(0),
+                    end_line: block.end_position().row as u32,
+                    end_character: Some(0),
+                    kind: Some(FoldingRangeKind::Region),
+                    collapsed_text: Some("".into()),
+                })
+                .collect(),
+        ))
+    }
+
+    async fn diagnostic(
+        &self,
+        params: DocumentDiagnosticParams,
+    ) -> Result<DocumentDiagnosticReportResult> {
+        let documents = self.documents.read().unwrap();
+
+        let routine = documents
+            .get(&params.text_document.uri)
+            .expect("diagnostic can only be requested for open documents");
+        let warnings = routine.lint_tags_end_in_quit();
+        let warnings2 = routine.lines_after_unconditional_quit();
+        let errors = routine.validate();
+
+        Ok(DocumentDiagnosticReportResult::Report(
+            DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+                related_documents: None, //TODO this could change
+                full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                    items: [warnings, errors, warnings2].concat(),
+                    result_id: None,
+                },
+            }),
+        ))
+    }
+
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        let source = fs::read_to_string(params.text_document.uri.to_file_path().unwrap()).unwrap();
+        self.documents
+            .write()
+            .unwrap()
+            .insert(params.text_document.uri, Document::new(source));
+    }
+
+    async fn did_save(&self, _: DidSaveTextDocumentParams) {}
+
+    async fn did_change(&self, change: DidChangeTextDocumentParams) {
+        self.documents
+            .write()
+            .unwrap()
+            .get_mut(&change.text_document.uri)
+            .expect("The document should allready be open before changes are made")
             //It is fine to unwrap since the document must have been opend for there to be changes.
-                .update(change.content_changes);
-        }
+            .update(change.content_changes);
     }
+}
 
-    #[tokio::main]
-    async fn main() {
-        let stdin = tokio::io::stdin();
-        let stdout = tokio::io::stdout();
+#[tokio::main]
+async fn main() {
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
 
-        let (service, socket) = LspService::new(|client| ServerState {
-            client,
-            documents: Default::default(),
-        });
-        Server::new(stdin, stdout, socket).serve(service).await;
-    }
+    let (service, socket) = LspService::new(|client| ServerState {
+        client,
+        documents: Default::default(),
+    });
+    Server::new(stdin, stdout, socket).serve(service).await;
+}
