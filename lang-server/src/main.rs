@@ -2,7 +2,7 @@
 
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-use rsm::models::{self, commandChildren, BlockChildren};
+use lang_model::{self, commandChildren, BlockChildren};
 use std::fs;
 
 struct ServerState {
@@ -19,12 +19,11 @@ struct Document {
 impl Document {
     fn new(source: String) -> Self {
         Self {
-            tree: models::create_tree(&source),
+            tree: lang_model::create_tree(&source),
             source,
         }
     }
 
-    
     fn query<'a>(
         &'a self,
         query: &'a tree_sitter::Query,
@@ -60,7 +59,7 @@ impl Document {
 
         //TODO tree sitter suports updating the tree based on edits.
         //If I figure out the api I could make this more effieciant.
-        self.tree = models::create_tree(&self.source);
+        self.tree = lang_model::create_tree(&self.source);
     }
 
     fn lint_tags_end_in_quit(&self) -> Vec<Diagnostic> {
@@ -70,7 +69,7 @@ impl Document {
         //TODO all tags should end with a quit.
         //TODO either all quits should return a value, or non should.
 
-        if let Ok(routine) = models::type_tree(&self.tree, &self.source) {
+        if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
             routine
                 .children()
                 .iter()
@@ -115,7 +114,7 @@ impl Document {
         //TODO unconditional quits befor the last line of a routine.
         //TODO this should really apply to blocks.
 
-        if let Ok(routine) = models::type_tree(&self.tree, &self.source) {
+        if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
             routine
                 .children()
                 .iter()
@@ -127,7 +126,7 @@ impl Document {
                                 BlockChildren::Block(_) => false,//TODO deal with nessted blocks
                                 BlockChildren::line(line) => {
                                     //Look for unconditional quit.
-                                    use rsm::models::commandChildren as E;
+                                    use lang_model::commandChildren as E;
                                     line
                                     //commands
                                         .children()

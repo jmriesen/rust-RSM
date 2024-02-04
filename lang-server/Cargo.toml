@@ -9,7 +9,7 @@ edition = "2021"
 lsp-types = "0.94.1"
 tokio = { version = "1.32.0", features = ["macros", "io-std", "rt-multi-thread"] }
 tower-lsp = "0.20.0"
+lang-model= { path = "../lang-model"}
 lang-model-macro = { path = "../lang-model-macro"}
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.10"
-rsm = { path = "../middle" }

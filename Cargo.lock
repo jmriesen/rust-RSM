@@ -449,9 +449,9 @@ dependencies = [
 name = "lang-server"
 version = "0.1.0"
 dependencies = [
+ "lang-model",
  "lang-model-macro",
  "lsp-types",
- "rsm",
  "tokio",
  "tower-lsp",
  "tree-sitter",
