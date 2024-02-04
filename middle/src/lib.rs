@@ -26,6 +26,16 @@ mod models{
 
 use crate::localvar::VarTypes;
 
+
+trait Compileable{
+    type Context;
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>,contex:Self::Context);
+}
+
+trait OpCode{
+   fn op_code(&self) -> u8 ;
+}
+
 ///Test harness that for commands
 ///
 ///Wraps the provided command in addtional formatting before calling compile.
@@ -222,28 +232,15 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     comp
 }
 
-impl<'a> crate::models::command<'a> {
-    fn argumentless(&self) -> bool {
-        use crate::models::commandChildren as E;
-        match self.children() {
-            E::WriteCommand(command) => command.args().is_empty(),
-            E::BrakeCommand(command) => command.args().is_empty(),
-            E::CloseCommand(command) => command.args().is_empty(),
-            E::For(command) => command.args().is_empty(),
-            E::DoCommand(command) => command.args().is_empty(),
-            E::ElseCommand(_) => true,
-            E::NewCommand(_) => true,
-            E::QUITCommand(_) => true,
 
-        }
-    }
-}
+
 enum ExtrinsicFunctionContext {
     Eval,
     Do,
 }
 
-impl<'a> crate::models::ExtrinsicFunction<'a> {
+impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
+    type Context = ExtrinsicFunctionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
         use models::ExtrinsicFunctionArgs::*;
         use crate::expression::ExpressionContext;

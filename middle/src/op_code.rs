@@ -1,9 +1,9 @@
 use super::*;
 
+use crate::OpCode;
 
-
-impl <'a> models::UnaryOpp<'a> {
-    pub fn op_code(&self)-> u8{
+impl <'a> OpCode for models::UnaryOpp<'a> {
+    fn op_code(&self)-> u8{
         use models::UnaryOppChildren as E;
         match self.children() {
             E::OPMINUS(_) => bindings::OPMINUS,
@@ -13,8 +13,8 @@ impl <'a> models::UnaryOpp<'a> {
     }
 }
 
-impl <'a> models::PatternOpp<'a> {
-    pub fn op_code(&self)-> u8{
+impl <'a> OpCode for models::PatternOpp<'a> {
+    fn op_code(&self)-> u8{
         use models::PatternOppChildren as E;
         match self.children() {
             E::OPPAT(_) => bindings::OPPAT,
@@ -23,8 +23,8 @@ impl <'a> models::PatternOpp<'a> {
     }
 }
 
-impl<'a> crate::models::BinaryOpp<'a> {
-    pub fn op_code(&self) -> u8 {
+impl<'a> OpCode for crate::models::BinaryOpp<'a> {
+    fn op_code(&self) -> u8 {
         use models::BinaryOppChildren::*;
         match self.children() {
             OPADD(_) => bindings::OPADD,

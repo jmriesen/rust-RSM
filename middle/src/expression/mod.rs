@@ -6,6 +6,7 @@ use crate::models::*;
 
 use crate::localvar::VarTypes;
 use crate::ExtrinsicFunctionContext;
+use crate::OpCode;
 
 pub enum ExpressionContext {
     Write = crate::bindings::INDWRIT as isize,
@@ -13,8 +14,10 @@ pub enum ExpressionContext {
     Close = crate::bindings::INDCLOS as isize,
 }
 
-impl<'a> Expression<'a> {
-    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
+use crate::Compileable;
+impl<'a> Compileable for Expression<'a> {
+    type Context = ExpressionContext;
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
         use crate::bindings::PARTAB;
         use ExpressionChildren::*;
         match self.children() {
@@ -84,16 +87,9 @@ impl<'a> Expression<'a> {
             }
 
             IntrinsicFunction(intrinsic) => {
-                intrinsic.compile(source_code, comp);
+                intrinsic.compile(source_code, comp,());
             }
         }
-    }
-
-    pub fn is_inderect(&self) -> bool {
-        matches!(
-            self.children(),
-            ExpressionChildren::InderectExpression(_)
-        )
     }
 }
 

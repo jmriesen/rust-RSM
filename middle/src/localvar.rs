@@ -10,11 +10,16 @@ pub enum VarTypes {
     For = crate::bindings::CMFORSET as isize,
 }
 
-impl<'a> VariableHeading<'a>{
-    pub fn op_code(heading:&Option<Self>)->u8{
-
+trait HeadingExt{
+    fn op_code(&self)->u8;
+    fn union_length(&self)->bool;
+    fn args(&self)->Vec<Expression>;
+    fn is_indirect(&self)->bool;
+}
+impl<'a> HeadingExt for Option<VariableHeading<'a>>{
+    fn op_code(&self)->u8{
         use models::VariableHeading::*;
-        (if let Some(heading) = heading{
+        (if let Some(heading) = self{
             match heading {
                 NakedVariable(_) => bindings::TYPVARNAKED,
                 IndirectVariable(_) => bindings::TYPVARIND,
@@ -26,15 +31,15 @@ impl<'a> VariableHeading<'a>{
             bindings::TYPVARNAM
         })as u8
     }
-    fn union_length(heading:&Option<Self>)->bool{
+    fn union_length(&self)->bool{
         use models::VariableHeading::*;
-        matches!(heading, Some(GlobalVariable(_)) |None)
+        matches!(self, Some(GlobalVariable(_)) |None)
     }
-    fn args(heading:&Option<Self>)->Vec<Expression>{
+    fn args(&self)->Vec<Expression>{
 
         use models::VariableHeading::*;
         //TODO in theory I should be able to remove all of these alocations.
-        if let Some(heading) = heading{
+        if let Some(heading) = self{
             match heading {
                 NakedVariable(_) =>vec![],
                 GlobalVariable(_) => vec![],
@@ -46,15 +51,23 @@ impl<'a> VariableHeading<'a>{
             vec![]
         }
     }
+    fn is_indirect(&self)->bool{
+        use models::VariableHeading::*;
+        matches!(self, Some(IndirectVariable(_)))
+    }
 }
-
-impl<'a> crate::models::Variable<'a> {
-    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
+use crate::Compileable;
+impl<'a> Compileable for crate::models::Variable<'a> {
+    type Context = VarTypes;
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
         use expression::ExpressionContext;
         let heading = self.heading();
-        VariableHeading::args(&heading).iter()
+        //TODO remove these for eachs and replace them with normal for loops.
+        heading.args()
+            .iter()
             .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
-        if let Some(VariableHeading::IndirectVariable(_)) = heading{
+
+        if  heading.is_indirect(){
             comp.push(bindings::INDMVAR);
         }
 
@@ -66,13 +79,12 @@ impl<'a> crate::models::Variable<'a> {
             .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
 
         comp.push(context as u8);
-        let op_code = VariableHeading::op_code(&self.heading());
-        if VariableHeading::union_length(&heading){
-            comp.push(op_code | (subscripts.len() as u8) );
+        //Consider requiting this so we only push opcode once.
+        if heading.union_length(){
+            comp.push(heading.op_code() | (subscripts.len() as u8) );
         }else{
-            comp.push(op_code);
+            comp.push(heading.op_code());
             comp.push(subscripts.len() as u8);
-
         }
 
         if let Some(name) = self.name() {

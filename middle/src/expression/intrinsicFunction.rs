@@ -10,7 +10,11 @@ use super::{
 
 use crate::bindings::PARTAB;
 
-impl <'a>ExpFunctions<'a>{
+trait ExpFunctionsExt<'a>{
+    fn base_code_and_args(&self)->(u8,Vec<Expression<'a>>);
+}
+
+impl <'a>ExpFunctionsExt<'a> for ExpFunctions<'a>{
     //NOTE the opcode is intrisicly tied to the number of args
     //so it does not really make since to seporate them
     fn base_code_and_args(&self)->(u8,Vec<Expression<'a>>){
@@ -35,7 +39,12 @@ impl <'a>ExpFunctions<'a>{
     }
 }
 
-impl <'a> VarFunctions<'a> {
+trait VarFunctionsExt{
+    fn components(&self)->(u8,Variable,Option<Expression>);
+    fn var_types(&self)->VarTypes;
+}
+
+impl <'a>VarFunctionsExt for VarFunctions<'a> {
     fn components(&self)->(u8,Variable,Option<Expression>){
         use VarFunctionsChildren::*;
         let children = &self.children();
@@ -64,8 +73,10 @@ impl <'a> VarFunctions<'a> {
 }
 
 
-impl<'a> IntrinsicFunction<'a> {
-    pub fn compile(&self, source_code: &str, comp: &mut Vec<u8>) {
+use crate::Compileable;
+impl<'a> Compileable for IntrinsicFunction<'a> {
+    type Context = ();
+    fn compile(&self, source_code: &str, comp: &mut Vec<u8>,_context:Self::Context) {
         use IntrinsicFunctionChildren::*;
 
         //TODO Consider Reducing Duplication betwen ExpFunc and VarFunc

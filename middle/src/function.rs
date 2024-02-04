@@ -11,8 +11,8 @@ pub fn write_jump(location: usize, jump_to: usize, comp: &mut [u8]) {
     comp[location - 2..location].copy_from_slice(&offset);
 }
 
-impl<'a> crate::models::XCallCode<'a> {
-    pub fn op_code(&self) -> u8 {
+impl<'a> crate::OpCode for crate::models::XCallCode<'a> {
+    fn op_code(&self) -> u8 {
         use crate::models::XCallCode::*;
         match self {
             Directory(_) => crate::bindings::XCDIR,
@@ -41,8 +41,8 @@ impl<'a> crate::models::XCallCode<'a> {
     }
 }
 
-impl<'a> crate::models::IntrinsicVar<'a> {
-    pub fn op_code(&self) -> u8 {
+impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
+    fn op_code(&self) -> u8 {
         use crate::models::IntrinsicVarChildren::*;
         match self.children() {
             Device(_) => crate::bindings::VARD,

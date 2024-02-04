@@ -31,3 +31,28 @@ pub fn type_tree<'a>(
     }
 }
 
+impl<'a> Expression<'a>{
+    pub fn is_inderect(&self) -> bool {
+        matches!(
+            self.children(),
+            ExpressionChildren::InderectExpression(_)
+        )
+    }
+}
+
+impl<'a> command<'a> {
+    pub fn argumentless(&self) -> bool {
+        use commandChildren as E;
+        match self.children() {
+            E::WriteCommand(command) => command.args().is_empty(),
+            E::BrakeCommand(command) => command.args().is_empty(),
+            E::CloseCommand(command) => command.args().is_empty(),
+            E::For(command) => command.args().is_empty(),
+            E::DoCommand(command) => command.args().is_empty(),
+            E::ElseCommand(_) => true,
+            E::NewCommand(_) => true,
+            E::QUITCommand(_) => true,
+
+        }
+    }
+}
