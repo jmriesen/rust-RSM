@@ -273,9 +273,12 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
         comp.push(opcode as u8);
         use crate::bindings::var_u;
         if let Some(routine) = routine {
-            let routine = routine.node().utf8_text(source_code.as_bytes()).unwrap();
-            let tag = var_u::from(routine);
-            comp.extend(tag.as_array());
+            let routine :var_u = routine.node()
+                .utf8_text(source_code.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap();
+            comp.extend(routine.as_array());
         }
         if let Some(tag) = &tag {
             use crate::models::TagNameChildren::*;
@@ -285,8 +288,10 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
                 NumericIdentifier(x) => x.node(),
             };
 
-            let tag = node.utf8_text(source_code.as_bytes()).unwrap();
-            let tag = var_u::from(tag);
+            let tag :var_u = node.utf8_text(source_code.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap();
             comp.extend(tag.as_array());
         }
 

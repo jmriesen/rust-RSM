@@ -91,4 +91,10 @@ fn main() {
     opcodes
         .write_to_file(out_path.join("opcodes.rs"))
         .expect("Couldn't write bindings!");
+
+    //the C needs to link to these libraries. 
+    println!("cargo:rustc-link-lib=framework=CoreServices");
+    println!("cargo:rustc-link-lib=framework=DirectoryService");
+    println!("cargo:rustc-link-lib=framework=Security");
+
 }

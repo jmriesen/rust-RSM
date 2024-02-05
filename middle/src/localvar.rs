@@ -85,9 +85,13 @@ impl<'a> Compileable for crate::models::Variable<'a> {
         }
 
         if let Some(name) = self.name() {
+            use bindings::VAR_U;
             //TODO abstract away.
-            let name = name.node().utf8_text(source_code.as_bytes()).unwrap();
-            let name = bindings::VAR_U::from(name);
+            let name:VAR_U = name.node()
+                .utf8_text(source_code.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap();
             comp.extend(name.as_array())
         }
     }

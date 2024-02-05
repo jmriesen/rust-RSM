@@ -125,7 +125,7 @@ impl Default for crate::bindings::PARTAB {
             lp: null_mut(),
             ln: null_mut(),
             src_var: MVAR {
-                name: VAR_U::from("TTTTT"), // { var_q: 0 },
+                name: "TTTTT".try_into().unwrap(), // { var_q: 0 },
                 volset: 0,
                 uci: 0,
                 slen: 0,
