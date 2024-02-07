@@ -1,4 +1,4 @@
-use crate::{ VAR_U};
+use crate::VAR_U;
 
 
 #[allow(non_camel_case_types)]

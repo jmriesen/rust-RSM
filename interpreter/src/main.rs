@@ -1,21 +1,10 @@
 #![feature(let_chains)]
-use crate::var_u::AlphaVAR_U;
+use interpreter::var_u::AlphaVAR_U;
 #[allow(unused)]
 use clap::{Parser, Subcommand};
 use std::ffi::CString;
-use units::DatabaseSize;
+use interpreter::units::DatabaseSize;
 
-#[allow(clippy::all,unused)]
-mod bindings;
-mod create;
-
-#[allow(unused)]
-mod run;
-mod start;
-mod units;
-mod util;
-mod var_u;
-use bindings::*;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -67,7 +56,7 @@ fn main() {
     let name = CString::new(args.name.clone()).unwrap();
     match args.command {
         Info => {
-            util::info(args.name.clone());
+            interpreter::util::info(args.name.clone());
             println!("-----------------------------");
             //TODO create some A/B tests
             /*
@@ -89,7 +78,7 @@ fn main() {
             routine_buffer,
             additional_buffer,
         } => {
-            let _ = start::start(
+            let _ = interpreter::start::start(
                 args.name,
                 jobs,
                 global_buffer,
@@ -104,15 +93,17 @@ fn main() {
             volnam,
             env,
         } => {
-            create::create_file(
-                block_num,
-                block_size * 1024,
-                map * 1024,
+            interpreter::create::FileConfig::new(
+                args.name.try_into().unwrap(),
                 volnam,
                 env,
-                args.name.clone(),
+                block_num,
+                block_size * 1024,
+                Some(map * 1024),
             )
-            .unwrap();
+            .unwrap()
+            .create();
+
         }
         Run { env, command } => {
             let env = CString::new(env).unwrap();
@@ -120,7 +111,7 @@ fn main() {
 
             //NOTE for right now I am just going to leak the strings passed to C.
             unsafe {
-                INIT_Run(name.into_raw(), env.into_raw(), command.into_raw());
+                rsm::bindings::INIT_Run(name.into_raw(), env.into_raw(), command.into_raw());
             };
         }
     }

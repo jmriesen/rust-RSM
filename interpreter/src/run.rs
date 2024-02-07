@@ -1,6 +1,6 @@
 use super::*;
 use std::fs::OpenOptions;
-
+use std::ffi::CString;
 
 /*
 static mut strstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];
