@@ -1,17 +1,15 @@
 #![feature(let_chains)]
-use interpreter::var_u::AlphaVAR_U;
+#![feature(iter_intersperse)]
 #[allow(unused)]
 use clap::{Parser, Subcommand};
+use interpreter::{units::Kibibytes, var_u::AlphaVAR_U};
 use std::ffi::CString;
-use interpreter::units::DatabaseSize;
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
     name: String,
-    /// Number of times to greet
     #[command(subcommand)]
     command: Commands,
 }
@@ -30,15 +28,21 @@ enum Commands {
         #[arg(short, long, default_value_t = 0)]
         additional_buffer: u32,
     },
+    ///Create a new database file
     Create {
-        #[arg(short = 's', long, value_parser=DatabaseSize::parse)]
-        block_num: DatabaseSize,
+        ///The number of database blocks.
+        #[arg(short = 's', long)]
+        block_num: u32,
+        ///The size of each database block.
         #[arg(short, long)]
         block_size: u32,
-        #[arg(short, long, default_value_t = 0)]
-        map: u32, //TODO I don't know what this is
+        ///The minimum size of the header block.
+        #[arg(short, long)]
+        map: Option<u32>, //TODO I don't know what this is
         #[arg(short, long, value_parser=AlphaVAR_U::parse)]
+        ///Volume name
         volnam: AlphaVAR_U,
+        ///Environment name
         #[arg(short, long, value_parser=AlphaVAR_U::parse)]
         env: Option<AlphaVAR_U>,
     },
@@ -50,7 +54,7 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     use Commands::*;
     let args = Args::parse();
     let name = CString::new(args.name.clone()).unwrap();
@@ -98,12 +102,17 @@ fn main() {
                 volnam,
                 env,
                 block_num,
-                block_size * 1024,
-                Some(map * 1024),
+                Kibibytes(block_size as usize),
+                map.map(|x| Kibibytes(x as usize)),
             )
-            .unwrap()
+                .map_err(|errors| {
+                    errors
+                        .iter()
+                        .map(|e| e.to_string())
+                        .intersperse("\n".to_string())
+                        .collect::<String>()
+                })?
             .create();
-
         }
         Run { env, command } => {
             let env = CString::new(env).unwrap();
@@ -115,4 +124,5 @@ fn main() {
             };
         }
     }
+    Ok(())
 }

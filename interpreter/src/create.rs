@@ -1,6 +1,6 @@
 use crate::label_block;
+use crate::units::*;
 use crate::var_u::AlphaVAR_U;
-use crate::units::DatabaseSize;
 use std::{fs::OpenOptions, io::Seek};
 
 use crate::{current_time, DB_Block, DB_VER, IDX_START, MAX_MAP_SIZE, RSM_MAGIC, TRUE, UCI_TAB};
@@ -11,30 +11,31 @@ unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 
 ///Config for how to create a database file
 // TODO consider combining this this with the label block.
-pub struct FileConfig{
+pub struct FileConfig {
     name: String,
     volume: AlphaVAR_U,
     env: AlphaVAR_U,
-    number_of_blocks: DatabaseSize,
-    block_size: u32,//TODO add a unit to this param.
-    header_size_bytes: u32,
+    ///MAX_DATABASE_BLKS is i32::Max not u32::Max
+    number_of_blocks: u32,
+    block_size: Kibibytes,
+    header_size: Kibibytes,
 }
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum FileConfigError{
-
-    //TODO should I be the type system for this like I am with Database size?
-    //Or should I remove the typing from database size.
+pub enum FileConfigError {
+    ///Database size must be from 100 to [`i32::Max`] blocks
+    #[error("Database size must be from 100 to {} blocks", i32::MAX)]
+    InvalidDatabaseSize,
     ///Block size must be from 4 to 256 KiB
     #[error("Block size must be from 4 to 256 KiB")]
     InvalidBlockSize,
     ///Map block size must be from 0 to [`MAX_MAP_SIZE`] KiB
-    #[error("Map block size must be from 0 to {} KiB",MAX_MAP_SIZE)]
+    #[error("Map block size must be from 0 to {} KiB", MAX_MAP_SIZE)]
     InvalidMapSize,
     ///Map block size is smaller than required by database size.
-    #[error("Map block size of {0} KiB smaller than required by database size")]
-    InsufficentMapSize(u32),
+    #[error("Map block size of {0} smaller than required by database size")]
+    InsufficentMapSize(Kibibytes),
 }
 
 impl FileConfig {
@@ -46,41 +47,58 @@ impl FileConfig {
     pub fn new(
         name: String,
         volume: AlphaVAR_U,
-        env:Option<AlphaVAR_U>,
-        number_of_blocks: DatabaseSize,
-        block_size: u32,
-        reserve_header_kibibytes:Option<u32>,
-    )-> Result<Self,FileConfigError>{
-        //NOTE this map code is not well tested and may have a bug in it.
-        let header_required_size_bytes = number_of_blocks.inner().div_ceil(8) + 1 + (std::mem::size_of::<label_block>() as u32);
-        let header_size_bytes = u32::max(
-            if let Some (kibibytes) = reserve_header_kibibytes{
-                kibibytes*1024
-            }else{
-                header_required_size_bytes.next_multiple_of(1024)
-            }
-            ,block_size);
+        env: Option<AlphaVAR_U>,
+        mut number_of_blocks: u32,
+        block_size: Kibibytes,
+        reserve_header: Option<Kibibytes>,
+    ) -> Result<Self, Vec<FileConfigError>> {
+        let mut errors = vec![];
 
-        if !(4..1024).contains(&(block_size / 1024)) {
-            Err(FileConfigError::InvalidBlockSize)
-        }else if header_size_bytes > rsm::bindings::MAX_MAP_SIZE * 1024{
-            Err(FileConfigError::InvalidMapSize)
-        }else if header_size_bytes< header_required_size_bytes {
-            Err(FileConfigError::InsufficentMapSize(header_size_bytes/1024))
-        }else{
+        //Round up to 8*n-1
+        number_of_blocks |= 7;
+        if !(100..i32::MAX as u32).contains(&number_of_blocks) {
+            errors.push(FileConfigError::InvalidDatabaseSize)
+        }
+        let header_min_size = Bytes(
+            std::mem::size_of::<label_block>()
+            //bytes required to track block useage.
+                + number_of_blocks.div_ceil(8) as usize + 1,
+        );
+
+        let header_size = Kibibytes::max(
+            if let Some(kibibytes) = reserve_header {
+                kibibytes
+            } else {
+                header_min_size.kibi_round_up()
+            },
+            block_size,
+        );
+
+        if !(Kibibytes(4)..Kibibytes(256)).contains(&block_size) {
+            errors.push(FileConfigError::InvalidBlockSize)
+        }
+        if header_size > Kibibytes(rsm::bindings::MAX_MAP_SIZE as usize) {
+            errors.push(FileConfigError::InvalidMapSize)
+        }
+        if header_min_size > header_size.into() {
+            errors.push(FileConfigError::InsufficentMapSize(header_size))
+        }
+        if errors.is_empty(){
             Ok(Self {
                 name,
                 volume,
                 number_of_blocks,
                 block_size,
-                env:env.unwrap_or_else(|| "MGR".try_into().unwrap()),
-                header_size_bytes,
+                env: env.unwrap_or_else(|| "MGR".try_into().unwrap()),
+                header_size: header_size,
             })
+        }else{
+            Err(errors)
         }
     }
 
     ///TODO this does not currently verify everthing was written.
-    pub fn create(self)->Result<(), String>{
+    pub fn create(self) -> Result<(), String> {
         use std::io::SeekFrom::Start;
         use std::io::Write;
         //In source they also restricted permissions.
@@ -91,22 +109,26 @@ impl FileConfig {
             .open(self.name)
             .unwrap();
 
-        write_zeros(&file, (self.header_size_bytes + self.block_size*self.number_of_blocks.inner()) as usize);
+        write_zeros(
+            &file,
+            //TODO clean up.
+            Bytes::from(self.header_size + (self.block_size * self.number_of_blocks)).0,
+        );
 
         file.seek(Start(0));
         let label = label_block {
             magic: RSM_MAGIC,
-            max_block: self.number_of_blocks.inner(),
-            header_bytes: self.header_size_bytes,
-            block_size:self.block_size,
+            max_block: self.number_of_blocks,
+            header_bytes: Bytes::from(self.header_size).0 as u32,
+            block_size: Bytes::from(self.block_size).0 as u32,
             clean: 1,
             creation_time: unsafe { current_time(TRUE as i16) as u64 },
             db_ver: DB_VER as u16,
             journal_available: 0,
             journal_file: [0_i8; 227],
             journal_requested: 0,
-            uci : {
-                let mut uci= [UCI_TAB {
+            uci: {
+                let mut uci = [UCI_TAB {
                     global: 0,
                     name: "".try_into().unwrap(),
                 }; 64];
@@ -127,46 +149,44 @@ impl FileConfig {
 
         //-----------------------------------------------
 
-        file.seek(Start(self.header_size_bytes as u64));
+        file.seek(Start(Bytes::from(self.header_size).0 as u64));
         //Make manager block and $GLOBAL record
         let mgrblk = DB_Block {
             type_: 65,
             last_idx: IDX_START,
-            last_free: (self.block_size / 4 - 7) as u16,
+            last_free: (Bytes::from(self.block_size).words() - 7) as u16,
             global: "$GLOBAL".try_into().unwrap(),
             flags: 0,
             right_ptr: 0,
             spare: 0,
         };
 
-       file
-            .write(unsafe { any_as_u8_slice(&mgrblk) })
+        file.write(unsafe { any_as_u8_slice(&mgrblk) })
             .map_err(|_| "File write failed")?;
         //TODO Remove the 6 litteral.
-        let us = ((self.block_size / 4) - 6) as u16;
-       file
-            .write(&us.to_le_bytes())
+        let us = (Bytes::from(self.block_size).words() - 6) as u16;
+        file.write(&us.to_le_bytes())
             .map_err(|_| "File write failed")?;
 
-        file.seek(Start(self.header_size_bytes  as u64 +(4 * us) as u64));
+        file.seek(Start(
+            Bytes::from(self.header_size).0 as u64 + (4 * us as u64),
+        ));
 
-        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one. 
+        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
         use rsm::bindings::CSTRING;
-        let block_identifier = CSTRING{
-            len:24,
+        let block_identifier = CSTRING {
+            len: 24,
             buf: {
                 let mut buf = [0; 65535];
-                buf[1]=9;
-                buf[2]=128; // "\200" from the C code.
-                buf[3..3+7].copy_from_slice("$GLOBAL".as_bytes());
-                buf[4*4-2..5*4-2].copy_from_slice(&1_i32.to_le_bytes());
+                buf[1] = 9;
+                buf[2] = 128; // "\200" from the C code.
+                buf[3..3 + 7].copy_from_slice("$GLOBAL".as_bytes());
+                buf[4 * 4 - 2..5 * 4 - 2].copy_from_slice(&1_i32.to_le_bytes());
                 buf
-            }
+            },
         };
 
-        file.write(unsafe {
-            &any_as_u8_slice(&block_identifier)[..24]
-        });
+        file.write(unsafe { &any_as_u8_slice(&block_identifier)[..24] });
 
         Ok(())
     }
@@ -175,19 +195,19 @@ impl FileConfig {
 ///Writes out zeros to a file.
 ///This is done in 512 kibibyte increments.
 ///TODO this does not currently verify everthing was written.
-fn write_zeros<W: std::io::Write>(mut writer: W, bytes:usize){
+fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize) {
     let zero_buffer = vec![0u8; 512 * 1024];
-    for _ in 0..bytes/zero_buffer.len() {
+    for _ in 0..bytes / zero_buffer.len() {
         writer.write(&zero_buffer);
     }
-    writer.write(&zero_buffer[0..bytes%zero_buffer.len()]);
+    writer.write(&zero_buffer[0..bytes % zero_buffer.len()]);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::rstest;
     use crate::INIT_Create_File;
+    use rstest::rstest;
     use std::ffi::CString;
     use std::fs::remove_file;
     use std::fs::File;
@@ -195,12 +215,12 @@ mod tests {
 
     #[ignore]
     #[rstest]
-    #[case("TST", 100, 4 * 1024)]
-    fn test(#[case] volume:&str, #[case] number_of_blocks: u32, #[case] block_size: u32) {
+    #[case("TST", 100, 4)]
+    fn test(#[case] volume: &str, #[case] number_of_blocks: u32, #[case] block_size: u32) {
         //tests run in parrallel, uuids are used to avoid file conflicts.
         let file_name = uuid::Uuid::new_v4().to_string();
 
-        let c_file_name = format!("{}_c.dat",file_name);
+        let c_file_name = format!("{}_c.dat", file_name);
         {
             let vol = CString::new(volume).unwrap();
             let file = CString::new(c_file_name.as_str()).unwrap();
@@ -208,7 +228,7 @@ mod tests {
             unsafe {
                 INIT_Create_File(
                     number_of_blocks,
-                    block_size,
+                    block_size * 1024,
                     0,
                     vol.into_raw(),
                     std::ptr::null_mut(),
@@ -217,17 +237,17 @@ mod tests {
             };
         }
 
-        let rust_file_name = format!("{}_rust.dat",file_name);
+        let rust_file_name = format!("{}_rust.dat", file_name);
         FileConfig::new(
             rust_file_name.clone(),
             volume.try_into().unwrap(),
             None,
             number_of_blocks.try_into().unwrap(),
-            block_size,
-            None
+            Kibibytes(block_size as usize),
+            None,
         )
-            .unwrap()
-            .create();
+        .unwrap()
+        .create();
 
         diff_files(&c_file_name, &rust_file_name);
 
@@ -235,7 +255,7 @@ mod tests {
         remove_file(c_file_name).unwrap();
     }
 
-    fn diff_files(old:&str,new:&str){
+    fn diff_files(old: &str, new: &str) {
         let mut old_bytes = Vec::new();
         let mut new_butes = Vec::new();
         // read the whole file
@@ -256,6 +276,5 @@ mod tests {
             }
         }
         assert_eq!(true, old_bytes == new_butes);
-
     }
 }

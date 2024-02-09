@@ -1,4 +1,4 @@
-#[allow(clippy::all,unused)]
+#[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
 
