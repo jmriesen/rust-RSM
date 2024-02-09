@@ -9,6 +9,8 @@ unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
 }
 
+///Config for how to create a database file
+// TODO consider combining this this with the label block.
 pub struct FileConfig{
     name: String,
     volume: AlphaVAR_U,
@@ -17,24 +19,42 @@ pub struct FileConfig{
     block_size: u32,//TODO add a unit to this param.
     header_size_bytes: u32,
 }
+use thiserror::Error;
 
-//TODO try out thiserror crate.
+#[derive(Error, Debug)]
+pub enum FileConfigError{
+
+    //TODO should I be the type system for this like I am with Database size?
+    //Or should I remove the typing from database size.
+    ///Block size must be from 4 to 256 KiB
+    #[error("Block size must be from 4 to 256 KiB")]
+    InvalidBlockSize,
+    ///Map block size must be from 0 to [`MAX_MAP_SIZE`] KiB
+    #[error("Map block size must be from 0 to {} KiB",MAX_MAP_SIZE)]
+    InvalidMapSize,
+    ///Map block size is smaller than required by database size.
+    #[error("Map block size of {0} KiB smaller than required by database size")]
+    InsufficentMapSize(u32),
+}
+
 impl FileConfig {
-    /// Sets how large the header section is.
-    /// NOTE The header section will always take up at least one block regardless of this value.
-    /// NOTE Just combine this with the header field.
+    /// The header size will always be at least as large as a block_size,
+    /// but could larger.
+    /// If reserve_header_kibibytes is None or to less the the
+    /// minimum required header size then minimum head size will be used.
+    /// See [`FileConfigError`] for more details on valid values.
     pub fn new(
         name: String,
         volume: AlphaVAR_U,
         env:Option<AlphaVAR_U>,
         number_of_blocks: DatabaseSize,
         block_size: u32,
-        header_size_kibibytes:Option<u32>,
-    )-> Result<Self,String>{
+        reserve_header_kibibytes:Option<u32>,
+    )-> Result<Self,FileConfigError>{
         //NOTE this map code is not well tested and may have a bug in it.
         let header_required_size_bytes = number_of_blocks.inner().div_ceil(8) + 1 + (std::mem::size_of::<label_block>() as u32);
         let header_size_bytes = u32::max(
-            if let Some (kibibytes) = header_size_kibibytes{
+            if let Some (kibibytes) = reserve_header_kibibytes{
                 kibibytes*1024
             }else{
                 header_required_size_bytes.next_multiple_of(1024)
@@ -42,17 +62,11 @@ impl FileConfig {
             ,block_size);
 
         if !(4..1024).contains(&(block_size / 1024)) {
-            Err(format!("Block size must be from 4 to 256 KiB"))
+            Err(FileConfigError::InvalidBlockSize)
         }else if header_size_bytes > rsm::bindings::MAX_MAP_SIZE * 1024{
-            Err(format!(
-                "Map block size must be from 0 to {} KiB\n",
-                MAX_MAP_SIZE
-            ))
+            Err(FileConfigError::InvalidMapSize)
         }else if header_size_bytes< header_required_size_bytes {
-
-            Err(format!(
-                "Map block size of {} KiB smaller than required by database size\n",
-                header_size_bytes / 1024))
+            Err(FileConfigError::InsufficentMapSize(header_size_bytes/1024))
         }else{
             Ok(Self {
                 name,
@@ -65,6 +79,7 @@ impl FileConfig {
         }
     }
 
+    ///TODO this does not currently verify everthing was written.
     pub fn create(self)->Result<(), String>{
         use std::io::SeekFrom::Start;
         use std::io::Write;
@@ -134,6 +149,8 @@ impl FileConfig {
             .map_err(|_| "File write failed")?;
 
         file.seek(Start(self.header_size_bytes  as u64 +(4 * us) as u64));
+
+        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one. 
         use rsm::bindings::CSTRING;
         let block_identifier = CSTRING{
             len:24,
@@ -157,6 +174,7 @@ impl FileConfig {
 
 ///Writes out zeros to a file.
 ///This is done in 512 kibibyte increments.
+///TODO this does not currently verify everthing was written.
 fn write_zeros<W: std::io::Write>(mut writer: W, bytes:usize){
     let zero_buffer = vec![0u8; 512 * 1024];
     for _ in 0..bytes/zero_buffer.len() {
