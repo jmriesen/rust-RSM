@@ -1,6 +1,5 @@
 use crate::VAR_U;
 
-
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
 pub struct AlphaVAR_U {

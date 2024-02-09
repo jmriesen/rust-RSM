@@ -112,7 +112,8 @@ fn main() -> Result<(), String> {
                         .intersperse("\n".to_string())
                         .collect::<String>()
                 })?
-            .create();
+            .create()
+                .map_err(|_| "error writing file")?;
         }
         Run { env, command } => {
             let env = CString::new(env).unwrap();

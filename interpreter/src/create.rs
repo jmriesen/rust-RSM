@@ -98,7 +98,7 @@ impl FileConfig {
     }
 
     ///TODO this does not currently verify everthing was written.
-    pub fn create(self) -> Result<(), String> {
+    pub fn create(self) -> std::io::Result<()> {
         use std::io::SeekFrom::Start;
         use std::io::Write;
         //In source they also restricted permissions.
@@ -111,11 +111,10 @@ impl FileConfig {
 
         write_zeros(
             &file,
-            //TODO clean up.
             Bytes::from(self.header_size + (self.block_size * self.number_of_blocks)).0,
-        );
+        )?;
 
-        file.seek(Start(0));
+        file.seek(Start(0))?;
         let label = label_block {
             magic: RSM_MAGIC,
             max_block: self.number_of_blocks,
@@ -141,39 +140,26 @@ impl FileConfig {
             volnam: *self.volume.inner(),
         };
 
-        file.write(unsafe { any_as_u8_slice(&label) })
-            .map_err(|_| "File write failed")?;
+        file.write_all(unsafe { any_as_u8_slice(&label)})?;
         //Writing out that block 0 and 1 have been used.
         //TODO remove raw write I don't want to be relying on int types that carry no context.
-        file.write(&[3]).map_err(|_| "File write failed")?;
+        file.write_all(&[3])?;
 
         //-----------------------------------------------
 
-        file.seek(Start(Bytes::from(self.header_size).0 as u64));
+        file.seek(Start(Bytes::from(self.header_size).0 as u64))?;
         //Make manager block and $GLOBAL record
         let mgrblk = DB_Block {
             type_: 65,
             last_idx: IDX_START,
-            last_free: (Bytes::from(self.block_size).words() - 7) as u16,
+            last_free: (Words::from(self.block_size).0 - 7) as u16,
             global: "$GLOBAL".try_into().unwrap(),
             flags: 0,
             right_ptr: 0,
             spare: 0,
         };
 
-        file.write(unsafe { any_as_u8_slice(&mgrblk) })
-            .map_err(|_| "File write failed")?;
-        //TODO Remove the 6 litteral.
-        let us = (Bytes::from(self.block_size).words() - 6) as u16;
-        file.write(&us.to_le_bytes())
-            .map_err(|_| "File write failed")?;
-
-        file.seek(Start(
-            Bytes::from(self.header_size).0 as u64 + (4 * us as u64),
-        ));
-
-        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
-        use rsm::bindings::CSTRING;
+        file.write_all(unsafe { any_as_u8_slice(&mgrblk) })?;
         let block_identifier = CSTRING {
             len: 24,
             buf: {
@@ -186,7 +172,18 @@ impl FileConfig {
             },
         };
 
-        file.write(unsafe { &any_as_u8_slice(&block_identifier)[..24] });
+        let us = Bytes::from(self.block_size) - Bytes(block_identifier.len.into());
+        let us = Words::try_from(us).unwrap();
+        file.write_all(&(us.0 as u16).to_le_bytes())?;
+
+        file.seek(Start(
+            (Bytes::from(self.header_size)+Bytes::from(us)).0 as u64,
+        ))?;
+
+        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
+        use rsm::bindings::CSTRING;
+
+        file.write_all(unsafe { &any_as_u8_slice(&block_identifier)[..24] })?;
 
         Ok(())
     }
@@ -195,12 +192,13 @@ impl FileConfig {
 ///Writes out zeros to a file.
 ///This is done in 512 kibibyte increments.
 ///TODO this does not currently verify everthing was written.
-fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize) {
+fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize)->std::io::Result<()>{
     let zero_buffer = vec![0u8; 512 * 1024];
     for _ in 0..bytes / zero_buffer.len() {
-        writer.write(&zero_buffer);
+        writer.write_all(&zero_buffer)?;
     }
-    writer.write(&zero_buffer[0..bytes % zero_buffer.len()]);
+    writer.write_all(&zero_buffer[0..bytes % zero_buffer.len()])?;
+    Ok(())
 }
 
 #[cfg(test)]

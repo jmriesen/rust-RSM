@@ -3,13 +3,37 @@
 ///interger number of kibiytes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Kibibytes(pub usize);
+///interger number of Words.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
+pub struct Words(pub usize);
 ///interger number of bytes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Bytes(pub usize);
 
 impl From<Kibibytes> for Bytes {
-    fn from(bytes: Kibibytes) -> Self {
-        Self(bytes.0 * 1024)
+    fn from(kibi: Kibibytes) -> Self {
+        Self(kibi.0 * 1024)
+    }
+}
+
+impl From<Words> for Bytes {
+    fn from(word: Words) -> Self {
+        Self(word.0 * 4)
+    }
+}
+
+impl From<Kibibytes> for Words{
+    fn from(kibi: Kibibytes) -> Self {
+        Bytes::from(kibi).try_into().unwrap()
+    }
+}
+
+impl TryFrom<Bytes> for Words{
+    type Error = ();
+    /// Currently panics on error case
+    fn try_from(bytes: Bytes) -> Result<Self,()>{
+        assert!(bytes.0%4==0);
+        Ok(Self(bytes.0/4))
     }
 }
 
@@ -17,9 +41,6 @@ impl Bytes {
     ///Round up to nearest kibi
     pub fn kibi_round_up(self) -> Kibibytes {
         Kibibytes(self.0.div_ceil(1024))
-    }
-    pub fn words(self) -> usize {
-        self.0 / 4
     }
 }
 
@@ -36,6 +57,21 @@ impl std::ops::Add for Kibibytes {
         Self(self.0 + other.0)
     }
 }
+
+impl std::ops::Add for Bytes{
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+impl std::ops::Sub for Bytes{
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
+
 
 impl std::ops::Mul<u32> for Kibibytes {
     type Output = Self;
