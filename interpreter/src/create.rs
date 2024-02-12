@@ -20,8 +20,8 @@ pub struct FileConfig {
     block_size: Kibibytes,
     header_size: Kibibytes,
 }
-use thiserror::Error;
 
+use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum FileConfigError {
     ///Database size must be from 100 to [`i32::Max`] blocks
@@ -83,7 +83,7 @@ impl FileConfig {
         if header_min_size > header_size.into() {
             errors.push(FileConfigError::InsufficentMapSize(header_size))
         }
-        if errors.is_empty(){
+        if errors.is_empty() {
             Ok(Self {
                 name,
                 volume,
@@ -92,7 +92,7 @@ impl FileConfig {
                 env: env.unwrap_or_else(|| "MGR".try_into().unwrap()),
                 header_size: header_size,
             })
-        }else{
+        } else {
             Err(errors)
         }
     }
@@ -140,7 +140,7 @@ impl FileConfig {
             volnam: *self.volume.inner(),
         };
 
-        file.write_all(unsafe { any_as_u8_slice(&label)})?;
+        file.write_all(unsafe { any_as_u8_slice(&label) })?;
         //Writing out that block 0 and 1 have been used.
         //TODO remove raw write I don't want to be relying on int types that carry no context.
         file.write_all(&[3])?;
@@ -177,7 +177,7 @@ impl FileConfig {
         file.write_all(&(us.0 as u16).to_le_bytes())?;
 
         file.seek(Start(
-            (Bytes::from(self.header_size)+Bytes::from(us)).0 as u64,
+            (Bytes::from(self.header_size) + Bytes::from(us)).0 as u64,
         ))?;
 
         //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
@@ -192,7 +192,7 @@ impl FileConfig {
 ///Writes out zeros to a file.
 ///This is done in 512 kibibyte increments.
 ///TODO this does not currently verify everthing was written.
-fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize)->std::io::Result<()>{
+fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize) -> std::io::Result<()> {
     let zero_buffer = vec![0u8; 512 * 1024];
     for _ in 0..bytes / zero_buffer.len() {
         writer.write_all(&zero_buffer)?;

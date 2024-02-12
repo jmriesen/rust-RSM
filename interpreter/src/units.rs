@@ -22,18 +22,18 @@ impl From<Words> for Bytes {
     }
 }
 
-impl From<Kibibytes> for Words{
+impl From<Kibibytes> for Words {
     fn from(kibi: Kibibytes) -> Self {
         Bytes::from(kibi).try_into().unwrap()
     }
 }
 
-impl TryFrom<Bytes> for Words{
+impl TryFrom<Bytes> for Words {
     type Error = ();
     /// Currently panics on error case
-    fn try_from(bytes: Bytes) -> Result<Self,()>{
-        assert!(bytes.0%4==0);
-        Ok(Self(bytes.0/4))
+    fn try_from(bytes: Bytes) -> Result<Self, ()> {
+        assert!(bytes.0 % 4 == 0);
+        Ok(Self(bytes.0 / 4))
     }
 }
 
@@ -58,20 +58,19 @@ impl std::ops::Add for Kibibytes {
     }
 }
 
-impl std::ops::Add for Bytes{
+impl std::ops::Add for Bytes {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self(self.0 + other.0)
     }
 }
 
-impl std::ops::Sub for Bytes{
+impl std::ops::Sub for Bytes {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         Self(self.0 - other.0)
     }
 }
-
 
 impl std::ops::Mul<u32> for Kibibytes {
     type Output = Self;
