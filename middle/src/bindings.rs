@@ -5,6 +5,9 @@ use std::fmt;
 pub const MAX_MAP_SIZE: u32 =
     (MAX_DATABASE_BLKS / 8 + (std::mem::size_of::<label_block>() as u32)) / 1024 + 1;
 pub const IDX_START: u16 = (std::mem::size_of::<DB_Block>() as u16) / 2;
+use core::ffi::c_void;
+//TODO note the orignal C code defines this differntely bassed off of cfg values. I have just hard coded the one that works on my machine for now. 
+pub const SHMAT_SEED:*const c_void =   0x200000000 as *const c_void;
 
 include!(concat!(env!("OUT_DIR"), "/opcodes.rs"));
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

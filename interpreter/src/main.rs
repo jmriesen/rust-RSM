@@ -4,6 +4,7 @@
 use clap::{Parser, Subcommand};
 use interpreter::{units::Kibibytes, var_u::AlphaVAR_U};
 use std::ffi::CString;
+use std::num::NonZeroU32;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -19,14 +20,12 @@ enum Commands {
     Info,
     Kill,
     Start {
-        #[arg(short, long, default_value_t = 1)]
-        jobs: u32,
-        #[arg(short, long, default_value_t = 0)]
-        global_buffer: u32,
-        #[arg(short, long, default_value_t = 0)]
-        routine_buffer: u32,
-        #[arg(short, long, default_value_t = 0)]
-        additional_buffer: u32,
+        #[arg(short, long)]
+        jobs: NonZeroU32,
+        #[arg(short, long)]
+        global_buffer: Option<NonZeroU32>,
+        #[arg(short, long)]
+        routine_buffer: Option<NonZeroU32>,
     },
     ///Create a new database file
     Create {
@@ -80,15 +79,8 @@ fn main() -> Result<(), String> {
             jobs,
             global_buffer,
             routine_buffer,
-            additional_buffer,
         } => {
-            let _ = interpreter::start::start(
-                args.name,
-                jobs,
-                global_buffer,
-                routine_buffer,
-                additional_buffer,
-            );
+            let _ = interpreter::start::start(args.name, jobs, global_buffer, routine_buffer);
         }
         Create {
             block_num,
@@ -105,15 +97,15 @@ fn main() -> Result<(), String> {
                 Kibibytes(block_size as usize),
                 map.map(|x| Kibibytes(x as usize)),
             )
-                .map_err(|errors| {
-                    errors
-                        .iter()
-                        .map(|e| e.to_string())
-                        .intersperse("\n".to_string())
-                        .collect::<String>()
-                })?
+            .map_err(|errors| {
+                errors
+                    .iter()
+                    .map(|e| e.to_string())
+                    .intersperse("\n".to_string())
+                    .collect::<String>()
+            })?
             .create()
-                .map_err(|_| "error writing file")?;
+            .map_err(|_| "error writing file")?;
         }
         Run { env, command } => {
             let env = CString::new(env).unwrap();
