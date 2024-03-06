@@ -1,4 +1,4 @@
-use crate::{units::*, sys_tab};
+use crate::{sys_tab, units::*};
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use rsm::bindings::{label_block, DB_VER, RSM_SYSTEM, SHMAT_SEED};
 use std::ffi::CString;
@@ -6,9 +6,10 @@ use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
 use std::num::NonZeroU32;
+use std::path::Path;
 use thiserror::Error;
 
-unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
+pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut((p as *mut T) as *mut u8, ::std::mem::size_of::<T>())
 }
 
@@ -46,7 +47,11 @@ pub struct StartConfig {
     file_name: String,
     jobs: u32,
     global_buffer: Megbibytes,
+    ///The numbber of blocks in the global buffer
+    num_global_descriptor: usize,
     routine_buffer: Megbibytes,
+    lock_size: Pages,
+    label: label_block,
 }
 
 impl StartConfig {
@@ -59,10 +64,8 @@ impl StartConfig {
     ) -> Result<StartConfig, Vec<StartError>> {
         let mut errors = vec![];
 
-        let global_buffer = global_buffer
-            .unwrap_or(Megbibytes((jobs.get() / 2).max(1) as usize));
-        let routine_buffer = routine_buffer
-            .unwrap_or(Megbibytes((jobs.get() / 8).max(1) as usize));
+        let mut global_buffer = global_buffer.unwrap_or(Megbibytes((jobs.get() / 2).max(1) as usize));
+        let routine_buffer = routine_buffer.unwrap_or(Megbibytes((jobs.get() / 8).max(1) as usize));
 
         if MAX_JOBS < jobs.into() {
             errors.push(StartError::InvalidNumberOfJobs);
@@ -73,48 +76,53 @@ impl StartConfig {
         if Megbibytes(MAX_ROUTINE_BUFFERS as usize) < routine_buffer {
             errors.push(StartError::InvalidRoutineBufferSize);
         }
-        if errors.is_empty() {
+        let label_load = Self::load_lable_info(&Path::new(&file_name));
+
+        if let Ok(label) = label_load
+            && errors.is_empty()
+        {
+            use rsm::bindings::MIN_GBD;
+            let min_global_buffer_size =
+                Bytes((label.block_size * MIN_GBD) as usize).megbi_round_up();
+            global_buffer = global_buffer.max(min_global_buffer_size);
+            let num_global_descriptor = Bytes::from(global_buffer).0 / label.block_size as usize;
+
             Ok(Self {
                 file_name,
-                jobs:jobs.get(),
+                jobs: jobs.get(),
                 global_buffer,
                 routine_buffer,
+                lock_size: Bytes((jobs.get() * rsm::bindings::LOCKTAB_SIZE) as usize).pages_ceil(),
+                label,
+                num_global_descriptor
             })
         } else {
+            errors.extend(label_load.err());
             Err(errors)
         }
     }
 
     pub fn start(self) -> Result<(), StartError> {
-        let locksize = (self.jobs * LOCKTAB_SIZE).next_multiple_of(pagesize() as u32);
-
-        let lable = self.load_lable_info()?;
-
-        let min_global_buff_size = Bytes((lable.block_size * rsm::bindings::MIN_GBD) as usize)
-            .megbi_round_up();
-        let global_buffer_size = min_global_buff_size.max(self.global_buffer);
-        let num_global_descriptor = Bytes::from(global_buffer_size).0 as u32 / lable.block_size;
-
         use std::alloc::Layout;
-
         let systab_layout = Layout::new::<sys_tab::SYSTAB>();
         let todo_what_is_this = Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap();
         let job_tabs_layout = Layout::array::<jobtab>(self.jobs as usize).unwrap();
 
-        let meta_data_tab_size = (systab_layout.size()
+        let meta_data_tab_size = Bytes(systab_layout.size()
                                   + todo_what_is_this.size()
                                   + job_tabs_layout.size()
-                                  + locksize as usize)
-            .next_multiple_of(pagesize());
+                                  + Bytes::from(self.lock_size).0 as usize)
+            .pages_ceil();
 
-        let global_buffer_descriptors = Layout::array::<GBD>(num_global_descriptor as usize).unwrap();
-        let volset_size = (size_of::<vol_def>()
-                           + lable.header_bytes as usize
-                           + global_buffer_descriptors.size()
-                           + Bytes::from(global_buffer_size).0
-                           + lable.block_size as usize
-                           + Bytes::from(self.routine_buffer).0)
-            .next_multiple_of(pagesize());
+        let global_buffer_descriptors =
+            Layout::array::<GBD>(self.num_global_descriptor as usize).unwrap();
+        let volset_size = Bytes(size_of::<vol_def>()
+                                  + self.label.header_bytes as usize
+                                  + global_buffer_descriptors.size()
+                                  + Bytes::from(self.global_buffer).0
+                                  + self.label.block_size as usize
+                                  + Bytes::from(self.routine_buffer).0)
+            .pages_ceil();
 
         let share_size = meta_data_tab_size + volset_size;
 
@@ -150,23 +158,19 @@ impl StartConfig {
         Volume Data
          */
 
-
         //TODO clean up of shared memory on errors.
 
-        let (shared_mem_start_address,shar_mem_id) = self.create_shared_mem(share_size)?;
-        let job_tab = unsafe{
+        let (shared_mem_start_address, shar_mem_id) = self.create_shared_mem(share_size.into())?;
+        let job_tab = unsafe {
             shared_mem_start_address
                 .byte_add(systab_layout.size())
-                .byte_add(todo_what_is_this.size())as *mut jobtab
+                .byte_add(todo_what_is_this.size()) as *mut jobtab
         };
-        let lock_tab = unsafe{
-            job_tab.byte_add(job_tabs_layout.size()) as *mut locktab
-        };
-        let volumes_start = unsafe{
-            shared_mem_start_address.byte_add(meta_data_tab_size) as *mut VOL_DEF
-        };
+        let lock_tab = unsafe { job_tab.byte_add(job_tabs_layout.size()) as *mut locktab };
+        let volumes_start =
+            unsafe { shared_mem_start_address.byte_add(Bytes::from(meta_data_tab_size).0) as *mut VOL_DEF };
         unsafe {
-            systab =  shared_mem_start_address as *mut SYSTAB;
+            systab = shared_mem_start_address as *mut SYSTAB;
         };
 
         use crate::bindings::*;
@@ -191,10 +195,10 @@ impl StartConfig {
             }; 8],
             start_user: 0, //TODO
             lockstart: lock_tab as *mut c_void,
-            locksize: locksize as i32,
+            locksize: Bytes::from(self.lock_size).0 as i32,
             lockhead: std::ptr::null_mut(),
             lockfree: lock_tab,
-            addoff: share_size as u64,
+            addoff: Bytes::from(share_size).0 as u64,
             addsize: 0,
             vol: [std::ptr::null_mut(); 1],
             //TODO consider switching over to rust verstion of the struct.
@@ -212,7 +216,7 @@ impl StartConfig {
                 (*systab).lockfree,
                 locktab {
                     fwd_link: std::ptr::null_mut(),
-                    size: locksize as i32,
+                    size: Bytes::from(self.lock_size).0 as i32,
                     job: -1,
                     //not explictly set in the c code
                     //however this entire memory reagon is memset to 0
@@ -252,21 +256,26 @@ impl StartConfig {
 
         unsafe {
             {
-                let vollab = volumes_start.byte_add(std::mem::size_of::<vol_def>())
-                    as *mut LABEL_BLOCK;
-                let map = vollab.byte_add(std::mem::size_of::<label_block>()) as *mut c_void;
+                let mut cursor = volumes_start;
+
+                cursor = cursor.byte_add(size_of::<vol_def>());
+
+                let vollab = cursor as *mut LABEL_BLOCK;
+                cursor = cursor.byte_add(size_of::<label_block>());
+
+                let map = cursor as *mut c_void;
                 let first_free = map;
-                let gbd_head = vollab.byte_add(lable.max_block as usize) as *mut GBD;
-                let num_gbd = num_global_descriptor;
-                let global_buf = gbd_head.add(num_global_descriptor as usize) as *mut c_void;
-                let zero_block = global_buf.add(Bytes::from(global_buffer_size).0 as usize); //TODO check the math on this.
-                let rbd_head = zero_block.add(lable.header_bytes as usize);
+                let gbd_head = vollab.byte_add(self.label.max_block as usize) as *mut GBD;
+                let num_gbd = self.num_global_descriptor;
+                let global_buf = gbd_head.add(self.num_global_descriptor as usize) as *mut c_void;
+                let zero_block = global_buf.add(Bytes::from(self.global_buffer).0 as usize); //TODO check the math on this.
+                let rbd_head = zero_block.add(self.label.header_bytes as usize);
                 let rbd_end = systab
                     .byte_add(share_size)
                     .byte_sub((*systab).addsize as usize)
                     as *mut c_void;
                 //TODO I have not handled the journaling case yet.
-                assert!((*systab).maxjob ==1);
+                assert!((*systab).maxjob == 1);
                 std::ptr::write(
                     (*systab).vol[0],
                     vol_def {
@@ -274,7 +283,7 @@ impl StartConfig {
                         map,
                         first_free,
                         gbd_head,
-                        num_gbd,
+                        num_gbd: num_gbd.try_into().unwrap(),
                         global_buf,
                         zero_block,
                         rbd_head,
@@ -328,14 +337,14 @@ impl StartConfig {
         Ok(())
     }
 
-    fn load_lable_info(&self) -> Result<label_block, StartError> {
+    fn load_lable_info(file: &Path) -> Result<label_block, StartError> {
         let mut file = OpenOptions::new()
             .truncate(true)
             .write(true)
             .read(true)
             .create_new(true)
-            .open(self.file_name.clone())
-            .map_err(|_| StartError::CouldNotOpenDatabase(self.file_name.clone()))?;
+            .open(file)
+            .map_err(|_| StartError::CouldNotOpenDatabase(file.to_string_lossy().into()))?;
 
         //TODO this unsafe code needs to be tested.
         let mut label = MaybeUninit::<label_block>::zeroed();
@@ -350,7 +359,7 @@ impl StartConfig {
         }
     }
 
-    fn create_shared_mem(&self, size: usize) -> Result<(*mut libc::c_void,i32), StartError> {
+    fn create_shared_mem(&self, size: Bytes) -> Result<(*mut libc::c_void, i32), StartError> {
         use libc::*;
         let cfile = CString::new(self.file_name.clone()).unwrap();
 
@@ -359,11 +368,11 @@ impl StartConfig {
             .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
 
         //Check that the shared memeory segment has not allready be initialized.
-        if unsafe { shmget(shar_mem_key, 0, 0) }==-1{
+        if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
             let shar_mem_id = unsafe {
                 shmget(
                     shar_mem_key,
-                    size,
+                    size.0,
                     SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
                 )
             }
@@ -374,16 +383,14 @@ impl StartConfig {
             .wrap_error()
                 .map_err(|_| StartError::CouldNotAttachSysTab)?;
             unsafe {
-                libc::memset(address, 0, size);
+                libc::memset(address, 0, size.0);
             }
-            Ok((address,shar_mem_id))
-
-        }else{
+            Ok((address, shar_mem_id))
+        } else {
             Err(StartError::DatabaseAllreadyInitialized)
         }
     }
 }
-
 
 pub fn start(
     file_name: String,
@@ -394,8 +401,8 @@ pub fn start(
     StartConfig::new(
         file_name,
         jobs,
-        global_buffer.map(|x|Megbibytes(x.get() as usize)),
-        routine_buffer.map(|x|Megbibytes(x.get() as usize))
+        global_buffer.map(|x| Megbibytes(x.get() as usize)),
+        routine_buffer.map(|x| Megbibytes(x.get() as usize)),
     )?
         .start()
         .map_err(|x| vec![x])

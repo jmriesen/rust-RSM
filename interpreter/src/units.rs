@@ -34,6 +34,13 @@ impl From<Words> for Bytes {
     }
 }
 
+impl From<Pages> for Bytes {
+    fn from(pages: Pages) -> Self {
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+        Self(pages.0 * page_size)
+    }
+}
+
 impl From<Kibibytes> for Words {
     fn from(kibi: Kibibytes) -> Self {
         Bytes::from(kibi).try_into().unwrap()
@@ -58,6 +65,11 @@ impl Bytes {
     pub fn megbi_round_up(self) -> Megbibytes{
         Megbibytes(self.0.div_ceil(rsm::bindings::MBYTE as usize))
     }
+    ///Round up to nearest page file
+    pub fn pages_ceil(self) -> Pages{
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+        Pages(self.0.div_ceil(page_size))
+    }
 }
 
 impl std::fmt::Display for Kibibytes {
@@ -67,6 +79,13 @@ impl std::fmt::Display for Kibibytes {
 }
 
 impl std::ops::Add for Kibibytes {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+impl std::ops::Add for Pages{
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self(self.0 + other.0)

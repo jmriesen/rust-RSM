@@ -1,4 +1,5 @@
 #![feature(int_roundings)]
+#![feature(let_chains)]
 #[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
