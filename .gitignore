@@ -15,3 +15,5 @@ TODO
 *.m
 *.html
 *.DS_Store
+*.org
+/interpreter/temp

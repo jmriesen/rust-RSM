@@ -1,6 +1,5 @@
 use super::*;
 
-use crate::OpCode;
 
 impl<'a> OpCode for models::UnaryOpp<'a> {
     fn op_code(&self) -> u8 {

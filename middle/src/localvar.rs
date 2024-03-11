@@ -54,7 +54,6 @@ impl<'a> HeadingExt for Option<VariableHeading<'a>> {
         matches!(self, Some(IndirectVariable(_)))
     }
 }
-use crate::Compileable;
 impl<'a> Compileable for crate::models::Variable<'a> {
     type Context = VarTypes;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {

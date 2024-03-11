@@ -39,29 +39,50 @@ pub struct SYSTAB {
     //pub last_blk_used: [u_int; 1],
 }
 
-/*
+
 fn assert_sys_tab_eq(left: *const SYSTAB, right: *const SYSTAB) {
-let left = *left;
-let right = *right;
 
-println!("left:{:?} right:{:?}",left,right);
-assert_eq!(
-crate::start::any_as_mut_u8_slice(left),
-crate::start::any_as_mut_u8_slice(right),
-    );
+    //primative values.
+    assert_eq!(unsafe{(*left).maxjob}, unsafe{(*right).maxjob});
+    assert_eq!(unsafe{(*left).sem_id}, unsafe{(*right).sem_id});
+    assert_eq!(unsafe{(*left).historic}, unsafe{(*right).historic});
+    assert_eq!(unsafe{(*left).precision}, unsafe{(*right).precision});
+    assert_eq!(unsafe{(*left).max_tt}, unsafe{(*right).max_tt});
+    assert_eq!(unsafe{(*left).start_user}, unsafe{(*right).start_user});
+    assert_eq!(unsafe{(*left).locksize}, unsafe{(*right).locksize});
+    assert_eq!(unsafe{(*left).lockfree}, unsafe{(*right).lockfree});
+    assert_eq!(unsafe{(*left).addoff}, unsafe{(*right).addoff});
 
-        assert_eq!((*left).maxjob, (*right).maxjob);
-        assert_eq!((*left).sem_id, (*right).sem_id);
-        assert_eq!((*left).historic, (*right).historic);
-        assert_eq!((*left).precision, (*right).precision);
-        assert_eq!((*left).max_tt, (*right).max_tt);
-        assert_eq!((*left).start_user, (*right).start_user);
-        assert_eq!((*left).lockstart, (*right).lockstart);
-        assert_eq!((*left).locksize, (*right).locksize);
-        assert_eq!((*left).lockhead, (*right).lockhead);
-        assert_eq!((*left).lockfree, (*right).lockfree);
-        assert_eq!((*left).addoff, (*right).addoff);
-        assert_eq!((*left).addsize, (*right).addsize);
-        assert_eq!((*left).vol, (*right).vol);
+
+    //tt
+
+    //comairing offsets
+    assert_eq!(SYSTAB::offsets(left),SYSTAB::offsets(right));
+    //let right_jobtab_offset = unsafe{(*right).jobtab - (*right).address};
+    //assert_eq!(left_jobtab_offset,right_jobtab_offset);
+
+    //jobtab
+    //lockstart
+    //lockhead
+    //lockfree
+    //vol
 }
-         */
+
+impl SYSTAB {
+    fn offsets(sys_tab: *const Self)->(
+        isize,
+        isize,
+        isize,
+        isize,
+    ){
+        unsafe{
+            (
+                (*sys_tab).jobtab.byte_offset_from((*sys_tab).address),
+                (*sys_tab).lockstart.byte_offset_from((*sys_tab).address),
+                (*sys_tab).lockhead.byte_offset_from((*sys_tab).address),
+                (*sys_tab).lockfree.byte_offset_from((*sys_tab).address),
+            )
+        }
+
+    }
+}

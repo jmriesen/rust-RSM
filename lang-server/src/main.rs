@@ -2,7 +2,7 @@
 
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-use lang_model::{self, commandChildren, BlockChildren};
+use lang_model::{commandChildren, BlockChildren};
 use std::fs;
 
 struct ServerState {

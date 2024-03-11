@@ -311,16 +311,19 @@ int INIT_Start(char  *file,                                                     
     partab.vol_fds[0] = dbfd;                                                   // so the daemons can close inherited FD
     fflush(stdout);                                                             // force a flush before forking
 
-    for (u_int indx = 0; indx < jobs; indx++) {                                 // for each required daemon
-        i = DB_Daemon(indx, 1);                                                 // start each daemon (volume 1)
+    /*
+      DB_Deamon forks the process and apprently forking and multi threading dont play nicely.
+      So for right now I am just commenting this section out.
+    for (u_int indx = 0; indx < jobs; indx++) { // for each required daemon i =
+    DB_Daemon(indx, 1);                                                 // start
+    each daemon (volume 1)
 
-        if (i != 0) {                                                           // in case of error
-            fprintf(stderr, "*** Died on error - %s ***\n\n", strerror(i));     // what was returned
-            shmdt(systab);                                                      // detach the shared mem
-            return errno;                                                       // exit with error
+        if (i != 0) { // in case of error fprintf(stderr, "*** Died on error -
+    %s ***\n\n", strerror(i));     // what was returned shmdt(systab); // detach
+    the shared mem return errno; // exit with error
         }
-    }                                                                           // all daemons started
-
+    } // all daemons started
+*/
     if (systab->maxjob == 1) {                                                  // if in single user mode
         printf("WARNING: Single user, journaling not started.\n");
     } else if (systab->vol[0]->vollab->journal_requested && systab->vol[0]->vollab->journal_file[0]) {
