@@ -90,7 +90,7 @@ impl FileConfig {
                 number_of_blocks,
                 block_size,
                 env: env.unwrap_or_else(|| "MGR".try_into().unwrap()),
-                header_size: header_size,
+                header_size,
             })
         } else {
             Err(errors)
@@ -273,6 +273,6 @@ mod tests {
                 println!("old:{:x},new:{:x}", old, new);
             }
         }
-        assert_eq!(true, old_bytes == new_butes);
+        assert!(old_bytes == new_butes);
     }
 }

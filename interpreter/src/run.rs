@@ -202,9 +202,7 @@ fn get_env_index(env: &str) -> Result<usize, ()> {
     let env: VAR_U = env.try_into().unwrap();
     let (i, _) = uci_tab
         .iter()
-        .enumerate()
-        .filter(|(_, uci)| uci.name == env)
-        .next()
+        .enumerate().find(|(_, uci)| uci.name == env)
         .ok_or(())?;
     Ok(i)
 }

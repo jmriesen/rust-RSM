@@ -10,7 +10,7 @@ impl AlphaVAR_U {
     pub fn inner(&self) -> &VAR_U {
         &self.inner
     }
-    pub fn parse<'a>(val: &'a str) -> Result<Self, String> {
+    pub fn parse(val: &str) -> Result<Self, String> {
         val.try_into()
     }
 }

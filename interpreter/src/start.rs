@@ -77,7 +77,7 @@ impl StartConfig {
         if Megbibytes(MAX_ROUTINE_BUFFERS as usize) < routine_buffer {
             errors.push(StartError::InvalidRoutineBufferSize);
         }
-        let label_load = Self::load_lable_info(&Path::new(&file_name));
+        let label_load = Self::load_lable_info(Path::new(&file_name));
 
         if let Ok(label) = label_load
             && errors.is_empty()
@@ -113,12 +113,12 @@ impl StartConfig {
             systab_layout.size()
                 + todo_what_is_this.size()
                 + job_tabs_layout.size()
-                + Bytes::from(self.lock_size).0 as usize,
+                + Bytes::from(self.lock_size).0,
         )
         .pages_ceil();
 
         let global_buffer_descriptors =
-            Layout::array::<GBD>(self.num_global_descriptor as usize).unwrap();
+            Layout::array::<GBD>(self.num_global_descriptor).unwrap();
         let volset_size = Bytes(
             size_of::<vol_def>()
                 + self.label.header_bytes as usize
@@ -184,7 +184,7 @@ impl StartConfig {
             //is mapped to the same address space in each proccess.
             address: shared_mem_segment,
             jobtab: job_tab,
-            maxjob: self.jobs.into(),
+            maxjob: self.jobs,
             sem_id: 0, //TODO
             historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_EOK) as i32,
             precision: DEFAULT_PREC as i32,
@@ -270,8 +270,8 @@ impl StartConfig {
                 let first_free = map;
                 let gbd_head = vollab.byte_add(self.label.max_block as usize) as *mut GBD;
                 let num_gbd = self.num_global_descriptor;
-                let global_buf = gbd_head.add(self.num_global_descriptor as usize) as *mut c_void;
-                let zero_block = global_buf.add(Bytes::from(self.global_buffer).0 as usize); //TODO check the math on this.
+                let global_buf = gbd_head.add(self.num_global_descriptor) as *mut c_void;
+                let zero_block = global_buf.add(Bytes::from(self.global_buffer).0); //TODO check the math on this.
                 let rbd_head = zero_block.add(self.label.header_bytes as usize);
                 let rbd_end =sys_tab
                     .byte_add(Bytes::from(share_size).0)
@@ -444,7 +444,7 @@ trait CError {
 
 impl CError for i32 {
     fn wrap_error(self) -> Result<Self, ()> {
-        if self as i32 == -1 {
+        if self == -1 {
             Err(())
         } else {
             Ok(self)
@@ -466,11 +466,10 @@ impl CError for *mut libc::c_void {
 #[cfg(test)]
 mod tests{
     use super::*;
-    use crate::units::Megbibytes;
 
     #[test]
     fn validate_mem_seg_layout(){
-        let sys_tab = StartConfig::new(
+        let _sys_tab = StartConfig::new(
             "temp".into(),
             NonZeroU32::new(1).unwrap(),
             Some(Megbibytes(1)),
