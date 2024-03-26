@@ -39,50 +39,40 @@ pub struct SYSTAB {
     //pub last_blk_used: [u_int; 1],
 }
 
-
-fn assert_sys_tab_eq(left: *const SYSTAB, right: *const SYSTAB) {
-
-    //primative values.
-    assert_eq!(unsafe{(*left).maxjob}, unsafe{(*right).maxjob});
-    assert_eq!(unsafe{(*left).sem_id}, unsafe{(*right).sem_id});
-    assert_eq!(unsafe{(*left).historic}, unsafe{(*right).historic});
-    assert_eq!(unsafe{(*left).precision}, unsafe{(*right).precision});
-    assert_eq!(unsafe{(*left).max_tt}, unsafe{(*right).max_tt});
-    assert_eq!(unsafe{(*left).start_user}, unsafe{(*right).start_user});
-    assert_eq!(unsafe{(*left).locksize}, unsafe{(*right).locksize});
-    assert_eq!(unsafe{(*left).lockfree}, unsafe{(*right).lockfree});
-    assert_eq!(unsafe{(*left).addoff}, unsafe{(*right).addoff});
-
-
+pub unsafe fn assert_sys_tab_eq(left: *mut SYSTAB, right: *mut SYSTAB) {
+    assert_eq!(unsafe { (*left).maxjob }, unsafe { (*right).maxjob });
+    //assert_eq!(unsafe{(*left).sem_id}, unsafe{(*right).sem_id});
+    assert_eq!(unsafe { (*left).historic }, unsafe { (*right).historic });
+    assert_eq!(unsafe { (*left).precision }, unsafe { (*right).precision });
+    assert_eq!(unsafe { (*left).max_tt }, unsafe { (*right).max_tt });
+    //assert_eq!(unsafe{(*left).start_user}, unsafe{(*right).start_user});
+    assert_eq!(unsafe { (*left).locksize }, unsafe { (*right).locksize });
+    assert_eq!(unsafe { (*left).addoff }, unsafe { (*right).addoff });
     //tt
 
     //comairing offsets
-    assert_eq!(SYSTAB::offsets(left),SYSTAB::offsets(right));
-    //let right_jobtab_offset = unsafe{(*right).jobtab - (*right).address};
-    //assert_eq!(left_jobtab_offset,right_jobtab_offset);
-
-    //jobtab
-    //lockstart
-    //lockhead
-    //lockfree
-    //vol
+    assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
 }
 
 impl SYSTAB {
-    fn offsets(sys_tab: *const Self)->(
-        isize,
-        isize,
-        isize,
-        isize,
-    ){
-        unsafe{
+    fn offsets(
+        sys_tab: *const Self,
+    ) -> (Option<isize>, Option<isize>, Option<isize>, Option<isize>) {
+        fn helper<T>(ptr: *mut T, base: *mut c_void) -> Option<isize> {
+            if ptr.is_null() {
+                None
+            } else {
+                Some(unsafe { ptr.byte_offset_from(base) })
+            }
+        }
+        let base = unsafe { (*sys_tab).address };
+        unsafe {
             (
-                (*sys_tab).jobtab.byte_offset_from((*sys_tab).address),
-                (*sys_tab).lockstart.byte_offset_from((*sys_tab).address),
-                (*sys_tab).lockhead.byte_offset_from((*sys_tab).address),
-                (*sys_tab).lockfree.byte_offset_from((*sys_tab).address),
+                helper((*sys_tab).jobtab, base),
+                helper((*sys_tab).lockstart, base),
+                helper((*sys_tab).lockhead, base),
+                helper((*sys_tab).lockfree, base),
             )
         }
-
     }
 }

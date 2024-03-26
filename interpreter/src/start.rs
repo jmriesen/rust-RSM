@@ -1,7 +1,6 @@
 use crate::{sys_tab, units::*};
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
-use rsm::bindings::{label_block, DB_VER, RSM_SYSTEM, SHMAT_SEED, systab};
-use std::ffi::CString;
+use rsm::bindings::{label_block, systab, DB_VER};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
@@ -82,7 +81,7 @@ impl StartConfig {
         if let Ok(label) = label_load
             && errors.is_empty()
         {
-            use rsm::bindings::{MIN_GBD,LOCKTAB_SIZE};
+            use rsm::bindings::{LOCKTAB_SIZE, MIN_GBD};
             let min_global_buffer_size =
                 Bytes((label.block_size * MIN_GBD) as usize).megbi_round_up();
             global_buffer = global_buffer.max(min_global_buffer_size);
@@ -117,8 +116,7 @@ impl StartConfig {
         )
         .pages_ceil();
 
-        let global_buffer_descriptors =
-            Layout::array::<GBD>(self.num_global_descriptor).unwrap();
+        let global_buffer_descriptors = Layout::array::<GBD>(self.num_global_descriptor).unwrap();
         let volset_size = Bytes(
             size_of::<vol_def>()
                 + self.label.header_bytes as usize
@@ -165,7 +163,7 @@ impl StartConfig {
 
         //TODO clean up of shared memory on errors.
 
-        let (shared_mem_segment, shar_mem_id) = self.create_shared_mem(share_size.into())?;
+        let (shared_mem_segment, _shar_mem_id) = self.create_shared_mem(share_size.into())?;
         let job_tab = unsafe {
             shared_mem_segment
                 .byte_add(systab_layout.size())
@@ -175,6 +173,7 @@ impl StartConfig {
         let volumes_start = unsafe {
             shared_mem_segment.byte_add(Bytes::from(meta_data_tab_size).0) as *mut VOL_DEF
         };
+
         let sys_tab = shared_mem_segment as *mut sys_tab::SYSTAB;
 
         use crate::bindings::*;
@@ -186,7 +185,7 @@ impl StartConfig {
             jobtab: job_tab,
             maxjob: self.jobs,
             sem_id: 0, //TODO
-            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_EOK) as i32,
+            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
             precision: DEFAULT_PREC as i32,
             max_tt: 0,
             tt: [TRANTAB {
@@ -197,7 +196,7 @@ impl StartConfig {
                 to_vol: 0,
                 to_uci: 0,
             }; 8],
-            start_user: 0, //TODO
+            start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
             lockstart: lock_tab as *mut c_void,
             locksize: Bytes::from(self.lock_size).0 as i32,
             lockhead: std::ptr::null_mut(),
@@ -205,7 +204,6 @@ impl StartConfig {
             addoff: Bytes::from(share_size).0 as u64,
             addsize: 0,
             vol: [std::ptr::null_mut(); 1],
-            //TODO consider switching over to rust verstion of the struct.
         };
 
         unsafe { (*sys_tab).vol[0] = volumes_start };
@@ -235,7 +233,7 @@ impl StartConfig {
 
         //TODO factor out.
         use libc::c_char;
-        let volume_name: [c_char; VOL_FILENAME_MAX as usize] = {
+        let _volume_name: [c_char; VOL_FILENAME_MAX as usize] = {
             let name: Vec<_> = std::fs::canonicalize(&self.file_name)
                 //Convert into a string
                 //TODO NOTE rust strings must be valid UTF-8.
@@ -267,19 +265,19 @@ impl StartConfig {
                 cursor = cursor.byte_add(size_of::<label_block>());
 
                 let map = cursor as *mut c_void;
-                let first_free = map;
+                let _first_free = map;
                 let gbd_head = vollab.byte_add(self.label.max_block as usize) as *mut GBD;
-                let num_gbd = self.num_global_descriptor;
+                let _num_gbd = self.num_global_descriptor;
                 let global_buf = gbd_head.add(self.num_global_descriptor) as *mut c_void;
                 let zero_block = global_buf.add(Bytes::from(self.global_buffer).0); //TODO check the math on this.
-                let rbd_head = zero_block.add(self.label.header_bytes as usize);
-                let rbd_end =sys_tab
+                let _rbd_head = zero_block.add(self.label.header_bytes as usize);
+                let _rbd_end = sys_tab
                     .byte_add(Bytes::from(share_size).0)
                     .byte_sub((*sys_tab).addsize as usize)
                     as *mut c_void;
                 //TODO I have not handled the journaling case yet.
                 assert!((*sys_tab).maxjob == 1);
-                std::ptr::write(
+                /*std::ptr::write(
                     (*sys_tab).vol[0],
                     vol_def {
                         vollab,
@@ -332,9 +330,9 @@ impl StartConfig {
                             blkreorg: 0,
                             diskerrors: 0,
                         },
-                        //TODO nost specificly called out in C code so they would have been zeroed by memset.
+                      sdkfo  //TODO nost specificly called out in C code so they would have been zeroed by memset.
                     },
-                );
+                );*/
             }
         }
 
@@ -383,10 +381,11 @@ impl StartConfig {
     }
 
     fn create_shared_mem(&self, size: Bytes) -> Result<(*mut libc::c_void, i32), StartError> {
+        /*
         use libc::*;
         let cfile = CString::new(self.file_name.clone()).unwrap();
 
-        let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32) }
+        let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
             .wrap_error()
             .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
 
@@ -409,9 +408,19 @@ impl StartConfig {
                 libc::memset(address, 0, size.0);
             }
             Ok((address, shar_mem_id))
+        TODO implement with shared memory.
+        */
+        use core::alloc::Layout;
+        use std::alloc;
+        Ok((
+            unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()) as *mut libc::c_void },
+            0,
+        ))
+        /*
         } else {
             Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
         }
+            */
     }
 }
 
@@ -430,11 +439,12 @@ pub fn start(
     .setup_shared_mem_segemnt()
     .map_err(|x| vec![x])?;
 
-    unsafe{
+    unsafe {
         systab = core::mem::transmute(sys_tab);
     };
     Ok(())
 }
+/*
 
 trait CError {
     fn wrap_error(self) -> Result<Self, ()>
@@ -461,33 +471,71 @@ impl CError for *mut libc::c_void {
         }
     }
 }
-
+*/
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
+    use std::ffi::CString;
 
     #[test]
-    fn validate_mem_seg_layout(){
-        let _sys_tab = StartConfig::new(
+    fn validate_mem_seg_layout() {
+        let sys_tab = StartConfig::new(
             "temp".into(),
             NonZeroU32::new(1).unwrap(),
             Some(Megbibytes(1)),
-            Some(Megbibytes(1))
+            Some(Megbibytes(1)),
         )
-            .unwrap()
-            .setup_shared_mem_segemnt()
-            .unwrap();
+        .unwrap()
+        .setup_shared_mem_segemnt()
+        .unwrap();
+
+        let code = unsafe {
+            rsm::bindings::INIT_Start(CString::new("temp").unwrap().into_raw(), 1, 1, 1, 0)
+        };
+        //NOTE INIT_start unmounts the shared meme segment after starting demons.
+        unsafe {
+            rsm::bindings::UTIL_Share(CString::new("temp").unwrap().into_raw());
+        }
+
+        println!("code: {:?}", code);
+        assert!(code == 0);
+        unsafe {
+            sys_tab::assert_sys_tab_eq(sys_tab, systab as *mut sys_tab::SYSTAB);
+        }
+        let mut sbuf = libc::shmid_ds {
+            shm_atime: 0,
+            shm_cpid: 0,
+            shm_ctime: 0,
+            shm_dtime: 0,
+            shm_internal: std::ptr::null_mut(),
+            shm_lpid: 0,
+            shm_nattch: 0,
+            shm_perm: libc::ipc_perm {
+                _key: 0,
+                uid: 0,
+                gid: 0,
+                cuid: 0,
+                cgid: 0,
+                mode: 0,
+                _seq: 0,
+            },
+            shm_segsz: 0,
+        };
+        //TODO see is I should be useing the shutdown function.
+        unsafe {
+            //signal that the shared mem segment should be destoyed.
+            libc::shmctl(libc::shmget(839184324, 0, 0), libc::IPC_RMID, &mut sbuf);
+            //detaching shared meme segment.
+            libc::shmdt(systab as *mut libc::c_void);
+        }
+
         /*
-        unsafe{
-        rsm::bindings::INIT_Start(
-        CString::new("temp").unwrap().into_raw(),
-        1,
-        1,
-        1,
-        0
-    );
-    }
-         */
+        if code == 0 {
+            unsafe {
+                rsm::bindings::shutdown(CString::new("temp").unwrap().into_raw());
+            }
+        }
+        */
     }
 }
