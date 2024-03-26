@@ -57,14 +57,17 @@ impl TryFrom<Bytes> for Words {
 
 impl Bytes {
     ///Round up to nearest kibi
+    #[must_use]
     pub fn kibi_round_up(self) -> Kibibytes {
         Kibibytes(self.0.div_ceil(1024))
     }
     ///Round up to nearest Megbiyte
+    #[must_use]
     pub fn megbi_round_up(self) -> Megbibytes {
         Megbibytes(self.0.div_ceil(rsm::bindings::MBYTE as usize))
     }
     ///Round up to nearest page file
+    #[must_use]
     pub fn pages_ceil(self) -> Pages {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
         Pages(self.0.div_ceil(page_size))

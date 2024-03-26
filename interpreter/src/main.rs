@@ -59,7 +59,7 @@ fn main() -> Result<(), String> {
     let name = CString::new(args.name.clone()).unwrap();
     match args.command {
         Info => {
-            interpreter::util::info(args.name.clone());
+            interpreter::util::info(&args.name);
             println!("-----------------------------");
             //TODO create some A/B tests
             /*
@@ -90,7 +90,7 @@ fn main() -> Result<(), String> {
             env,
         } => {
             interpreter::create::FileConfig::new(
-                args.name.try_into().unwrap(),
+                args.name,
                 volnam,
                 env,
                 block_num,

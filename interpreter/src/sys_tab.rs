@@ -39,6 +39,7 @@ pub struct SYSTAB {
     //pub last_blk_used: [u_int; 1],
 }
 
+#[cfg(test)]
 pub unsafe fn assert_sys_tab_eq(left: *mut SYSTAB, right: *mut SYSTAB) {
     assert_eq!(unsafe { (*left).maxjob }, unsafe { (*right).maxjob });
     //assert_eq!(unsafe{(*left).sem_id}, unsafe{(*right).sem_id});
@@ -54,6 +55,7 @@ pub unsafe fn assert_sys_tab_eq(left: *mut SYSTAB, right: *mut SYSTAB) {
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
 }
 
+#[cfg(test)]
 impl SYSTAB {
     fn offsets(
         sys_tab: *const Self,

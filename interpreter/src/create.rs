@@ -1,12 +1,15 @@
 use crate::label_block;
-use crate::units::*;
+use crate::units::{Bytes, Kibibytes, Words};
 use crate::var_u::AlphaVAR_U;
 use std::{fs::OpenOptions, io::Seek};
 
 use crate::{current_time, DB_Block, DB_VER, IDX_START, MAX_MAP_SIZE, RSM_MAGIC, TRUE, UCI_TAB};
 
 unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
+    ::std::slice::from_raw_parts(
+        std::ptr::from_ref::<T>(p).cast::<u8>(),
+        ::std::mem::size_of::<T>(),
+    )
 }
 
 ///Config for how to create a database file
@@ -15,7 +18,7 @@ pub struct FileConfig {
     name: String,
     volume: AlphaVAR_U,
     env: AlphaVAR_U,
-    ///MAX_DATABASE_BLKS is i32::Max not u32::Max
+    ///`MAX_DATABASE_BLKS` is `i32::Max` not `u32::Max`
     number_of_blocks: u32,
     block_size: Kibibytes,
     header_size: Kibibytes,
@@ -39,9 +42,9 @@ pub enum FileConfigError {
 }
 
 impl FileConfig {
-    /// The header size will always be at least as large as a block_size,
+    /// The header size will always be at least as large as a `block_size`,
     /// but could larger.
-    /// If reserve_header_kibibytes is None or to less the the
+    /// If `reserve_header_kibibytes` is None or to less the the
     /// minimum required header size then minimum head size will be used.
     /// See [`FileConfigError`] for more details on valid values.
     pub fn new(
@@ -57,7 +60,7 @@ impl FileConfig {
         //Round up to 8*n-1
         number_of_blocks |= 7;
         if !(100..i32::MAX as u32).contains(&number_of_blocks) {
-            errors.push(FileConfigError::InvalidDatabaseSize)
+            errors.push(FileConfigError::InvalidDatabaseSize);
         }
         let header_min_size = Bytes(
             std::mem::size_of::<label_block>()
@@ -75,13 +78,13 @@ impl FileConfig {
         );
 
         if !(Kibibytes(4)..Kibibytes(256)).contains(&block_size) {
-            errors.push(FileConfigError::InvalidBlockSize)
+            errors.push(FileConfigError::InvalidBlockSize);
         }
         if header_size > Kibibytes(rsm::bindings::MAX_MAP_SIZE as usize) {
-            errors.push(FileConfigError::InvalidMapSize)
+            errors.push(FileConfigError::InvalidMapSize);
         }
         if header_min_size > header_size.into() {
-            errors.push(FileConfigError::InsufficentMapSize(header_size))
+            errors.push(FileConfigError::InsufficentMapSize(header_size));
         }
         if errors.is_empty() {
             Ok(Self {
@@ -99,6 +102,7 @@ impl FileConfig {
 
     ///TODO this does not currently verify everthing was written.
     pub fn create(self) -> std::io::Result<()> {
+        use rsm::bindings::CSTRING;
         use std::io::SeekFrom::Start;
         use std::io::Write;
         //In source they also restricted permissions.
@@ -181,7 +185,6 @@ impl FileConfig {
         ))?;
 
         //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
-        use rsm::bindings::CSTRING;
 
         file.write_all(unsafe { &any_as_u8_slice(&block_identifier)[..24] })?;
 
@@ -218,7 +221,7 @@ mod tests {
         //tests run in parrallel, uuids are used to avoid file conflicts.
         let file_name = uuid::Uuid::new_v4().to_string();
 
-        let c_file_name = format!("{}_c.dat", file_name);
+        let c_file_name = format!("{file_name}_c.dat");
         {
             let vol = CString::new(volume).unwrap();
             let file = CString::new(c_file_name.as_str()).unwrap();
@@ -235,7 +238,7 @@ mod tests {
             };
         }
 
-        let rust_file_name = format!("{}_rust.dat", file_name);
+        let rust_file_name = format!("{file_name}_rust.dat");
         FileConfig::new(
             rust_file_name.clone(),
             volume.try_into().unwrap(),
@@ -257,20 +260,14 @@ mod tests {
         let mut old_bytes = Vec::new();
         let mut new_butes = Vec::new();
         // read the whole file
-        File::open(old)
-            .unwrap()
-            .read_to_end(&mut old_bytes)
-            .unwrap();
-        File::open(new)
-            .unwrap()
-            .read_to_end(&mut new_butes)
-            .unwrap();
+        let _ = File::open(old).unwrap().read_to_end(&mut old_bytes);
+        let _ = File::open(new).unwrap().read_to_end(&mut new_butes);
 
         assert_eq!(old_bytes.len(), new_butes.len());
         for (i, (old, new)) in old_bytes.iter().zip(new_butes.iter()).enumerate() {
             if old != new {
-                println!("{:x}", i);
-                println!("old:{:x},new:{:x}", old, new);
+                println!("{i:x}");
+                println!("old:{old:x},new:{new:x}");
             }
         }
         assert!(old_bytes == new_butes);

@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    partab, strstk, systab, CleanJob, SemOp, UTIL_Share, Vhorolog, DO_FRAME, IN_TERM, JOBTAB,
+    MAX_SSTK, MVAR, SEM_SYS, SERVERTAB, SQ_CHAN, TYPE_JOB, TYPE_RUN, VAR_U, VOL_DEF,
+};
 use std::ffi::CString;
 use std::fs::OpenOptions;
 
@@ -18,20 +21,21 @@ u_short prompt_len = 8;                                                         
 
 */
 
-fn run(file: String, env: Option<String>, _command: String) -> Result<(), String> {
+fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
+    use std::os::fd::AsRawFd;
     unsafe {
-        partab.jobtab = std::ptr::null::<JOBTAB>() as *mut JOBTAB;
+        partab.jobtab = std::ptr::null::<JOBTAB>().cast_mut();
     }
     let start_type = TYPE_RUN;
-    let cfile = CString::new(file.clone()).unwrap();
+    let cfile = CString::new(file.to_string()).unwrap();
     if start_type == TYPE_RUN {
-        let mut file = OpenOptions::new().read(true).open(file.clone()).unwrap();
+        let mut file = OpenOptions::new().read(true).open(file).unwrap();
         (unsafe { UTIL_Share(cfile.into_raw()) } == 0)
             .then_some(0)
             .ok_or("RSM environment is not initialized.".to_string())?;
 
         let vol = unsafe { (*systab).vol[0] };
-        (vol != std::ptr::null::<VOL_DEF>() as *mut VOL_DEF)
+        (vol != std::ptr::null::<VOL_DEF>().cast_mut())
             .then_some(0)
             .ok_or(
                 "Error occurred in process - Environment does not match runtime image version."
@@ -40,7 +44,7 @@ fn run(file: String, env: Option<String>, _command: String) -> Result<(), String
         //TODO exit
 
         let env_num = if let Some(env) = env {
-            get_env_index(&env).unwrap() as u8
+            get_env_index(env).unwrap() as u8
         } else {
             1
         };
@@ -166,7 +170,7 @@ fn run(file: String, env: Option<String>, _command: String) -> Result<(), String
             jobtab.lvol = 1;
             jobtab.ruci = env_num;
             jobtab.rvol = 1;
-            jobtab.start_len = unsafe { Vhorolog(jobtab.start_dh.as_ptr() as *mut u8) };
+            jobtab.start_len = unsafe { Vhorolog(jobtab.start_dh.as_ptr().cast_mut()) };
             jobtab.dostk[0].type_ = TYPE_RUN as u8;
         }
         let mut tty_settings = libc::termios {
@@ -190,7 +194,6 @@ fn run(file: String, env: Option<String>, _command: String) -> Result<(), String
         unsafe { partab.strstk_start = strstk.as_mut_ptr() }; // address of strstk
         unsafe { partab.strstk_last = strstk.as_mut_ptr().add(MAX_SSTK as usize) };
         unsafe { partab.varlst = std::ptr::null_mut() }; // used by compiler
-        use std::os::fd::AsRawFd;
         unsafe { partab.vol_fds[0] = file.as_raw_fd() }; // make sure fd is right
                                                          //ST_Init();
     }

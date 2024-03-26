@@ -1,5 +1,14 @@
-use crate::{sys_tab, units::*};
+use crate::bindings::{
+    jobtab, locktab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
+    HISTORIC_OFFOK, LABEL_BLOCK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF, VOL_FILENAME_MAX,
+};
+use crate::{
+    sys_tab,
+    units::{Bytes, Megbibytes, Pages},
+};
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
+use libc::c_char;
+use libc::c_void;
 use rsm::bindings::{label_block, systab, DB_VER};
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -7,13 +16,15 @@ use std::mem::{size_of, MaybeUninit};
 use std::num::NonZeroU32;
 use std::path::Path;
 use thiserror::Error;
-
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
-    ::std::slice::from_raw_parts_mut((p as *mut T) as *mut u8, ::std::mem::size_of::<T>())
+    ::std::slice::from_raw_parts_mut(
+        std::ptr::from_mut::<T>(p).cast::<u8>(),
+        ::std::mem::size_of::<T>(),
+    )
 }
 
 #[derive(Error, Debug)]
-pub enum StartError {
+pub enum Error {
     #[error("Number of jobs must not exceed {}", MAX_JOBS)]
     InvalidNumberOfJobs,
     #[error("Global buffer size must not exceed {} MiB", MAX_GLOBAL_BUFFERS)]
@@ -42,7 +53,7 @@ pub enum StartError {
     CouldNotAttachSysTab,
 }
 
-pub struct StartConfig {
+pub struct Config {
     file_name: String,
     jobs: u32,
     global_buffer: Megbibytes,
@@ -53,14 +64,18 @@ pub struct StartConfig {
     label: label_block,
 }
 
-impl StartConfig {
+impl Config {
+    /// # Errors
+    /// Errors out if the buffer sizes/number of jobs is to large/small
+    /// or the Database file we are attempting to open does not exist/is invalid.
     pub fn new(
         file_name: String,
         //TODO think about what 0 jobs would mean.
         jobs: NonZeroU32,
         global_buffer: Option<Megbibytes>,
         routine_buffer: Option<Megbibytes>,
-    ) -> Result<StartConfig, Vec<StartError>> {
+    ) -> Result<Self, Vec<Error>> {
+        use Error::{InvalidGlobalBufferSize, InvalidNumberOfJobs, InvalidRoutineBufferSize};
         let mut errors = vec![];
 
         let mut global_buffer =
@@ -68,13 +83,13 @@ impl StartConfig {
         let routine_buffer = routine_buffer.unwrap_or(Megbibytes((jobs.get() / 8).max(1) as usize));
 
         if MAX_JOBS < jobs.into() {
-            errors.push(StartError::InvalidNumberOfJobs);
+            errors.push(InvalidNumberOfJobs);
         }
         if Megbibytes(MAX_GLOBAL_BUFFERS as usize) < global_buffer {
-            errors.push(StartError::InvalidGlobalBufferSize);
+            errors.push(InvalidGlobalBufferSize);
         }
         if Megbibytes(MAX_ROUTINE_BUFFERS as usize) < routine_buffer {
-            errors.push(StartError::InvalidRoutineBufferSize);
+            errors.push(InvalidRoutineBufferSize);
         }
         let label_load = Self::load_lable_info(Path::new(&file_name));
 
@@ -102,7 +117,12 @@ impl StartConfig {
         }
     }
 
-    pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, StartError> {
+    /// # Errors
+    ///
+    /// Shared memory initialization error issues will be propagated up to the caller
+    /// # Panics
+    /// TODO I need to implement proper panic handling
+    pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, Error> {
         use std::alloc::Layout;
         let systab_layout = Layout::new::<sys_tab::SYSTAB>();
         let todo_what_is_this = Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap();
@@ -163,21 +183,22 @@ impl StartConfig {
 
         //TODO clean up of shared memory on errors.
 
-        let (shared_mem_segment, _shar_mem_id) = self.create_shared_mem(share_size.into())?;
+        let (shared_mem_segment, _shar_mem_id) = Self::create_shared_mem(share_size.into())?;
         let job_tab = unsafe {
             shared_mem_segment
                 .byte_add(systab_layout.size())
-                .byte_add(todo_what_is_this.size()) as *mut jobtab
+                .byte_add(todo_what_is_this.size())
+                .cast::<jobtab>()
         };
-        let lock_tab = unsafe { job_tab.byte_add(job_tabs_layout.size()) as *mut locktab };
+        let lock_tab = unsafe { job_tab.byte_add(job_tabs_layout.size()).cast::<locktab>() };
         let volumes_start = unsafe {
-            shared_mem_segment.byte_add(Bytes::from(meta_data_tab_size).0) as *mut VOL_DEF
+            shared_mem_segment
+                .byte_add(Bytes::from(meta_data_tab_size).0)
+                .cast::<VOL_DEF>()
         };
 
-        let sys_tab = shared_mem_segment as *mut sys_tab::SYSTAB;
+        let sys_tab = shared_mem_segment.cast::<sys_tab::SYSTAB>();
 
-        use crate::bindings::*;
-        use libc::c_void;
         let system_tab = sys_tab::SYSTAB {
             //This is used to verify the shared memeory segment
             //is mapped to the same address space in each proccess.
@@ -185,7 +206,9 @@ impl StartConfig {
             jobtab: job_tab,
             maxjob: self.jobs,
             sem_id: 0, //TODO
+            #[allow(clippy::cast_possible_wrap)]
             historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
+            #[allow(clippy::cast_possible_wrap)]
             precision: DEFAULT_PREC as i32,
             max_tt: 0,
             tt: [TRANTAB {
@@ -197,7 +220,8 @@ impl StartConfig {
                 to_uci: 0,
             }; 8],
             start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
-            lockstart: lock_tab as *mut c_void,
+            lockstart: lock_tab.cast::<c_void>(),
+            #[allow(clippy::cast_possible_wrap)]
             locksize: Bytes::from(self.lock_size).0 as i32,
             lockhead: std::ptr::null_mut(),
             lockfree: lock_tab,
@@ -217,6 +241,7 @@ impl StartConfig {
                 (*sys_tab).lockfree,
                 locktab {
                     fwd_link: std::ptr::null_mut(),
+                    #[allow(clippy::cast_possible_wrap)]
                     size: Bytes::from(self.lock_size).0 as i32,
                     job: -1,
                     //not explictly set in the c code
@@ -228,12 +253,12 @@ impl StartConfig {
                     uci: 0,
                     vol: 0,
                 },
-            )
+            );
         };
 
         //TODO factor out.
-        use libc::c_char;
         let _volume_name: [c_char; VOL_FILENAME_MAX as usize] = {
+            #[allow(clippy::cast_possible_wrap)]
             let name: Vec<_> = std::fs::canonicalize(&self.file_name)
                 //Convert into a string
                 //TODO NOTE rust strings must be valid UTF-8.
@@ -261,20 +286,20 @@ impl StartConfig {
 
                 cursor = cursor.byte_add(size_of::<vol_def>());
 
-                let vollab = cursor as *mut LABEL_BLOCK;
+                let vollab = cursor.cast::<LABEL_BLOCK>();
                 cursor = cursor.byte_add(size_of::<label_block>());
 
-                let map = cursor as *mut c_void;
+                let map = cursor.cast::<c_void>();
                 let _first_free = map;
-                let gbd_head = vollab.byte_add(self.label.max_block as usize) as *mut GBD;
+                let gbd_head = vollab.byte_add(self.label.max_block as usize).cast::<GBD>();
                 let _num_gbd = self.num_global_descriptor;
-                let global_buf = gbd_head.add(self.num_global_descriptor) as *mut c_void;
+                let global_buf = gbd_head.add(self.num_global_descriptor).cast::<c_void>();
                 let zero_block = global_buf.add(Bytes::from(self.global_buffer).0); //TODO check the math on this.
                 let _rbd_head = zero_block.add(self.label.header_bytes as usize);
                 let _rbd_end = sys_tab
                     .byte_add(Bytes::from(share_size).0)
                     .byte_sub((*sys_tab).addsize as usize)
-                    as *mut c_void;
+                    .cast::<c_void>();
                 //TODO I have not handled the journaling case yet.
                 assert!((*sys_tab).maxjob == 1);
                 /*std::ptr::write(
@@ -361,26 +386,27 @@ impl StartConfig {
         Ok(sys_tab)
     }
 
-    fn load_lable_info(file: &Path) -> Result<label_block, StartError> {
+    fn load_lable_info(file: &Path) -> Result<label_block, Error> {
         let mut file = OpenOptions::new()
             .read(true)
             .open(file)
-            .map_err(|_| StartError::CouldNotOpenDatabase(file.to_string_lossy().into()))?;
+            .map_err(|_| Error::CouldNotOpenDatabase(file.to_string_lossy().into()))?;
 
         //TODO this unsafe code needs to be tested.
         let mut label = MaybeUninit::<label_block>::zeroed();
         file.read_exact(unsafe { any_as_mut_u8_slice(&mut label) })
-            .map_err(|_| StartError::CouldNotReadLableBlock)?;
+            .map_err(|_| Error::CouldNotReadLableBlock)?;
         let label = unsafe { label.assume_init() };
-        if label.db_ver != DB_VER as u16 {
-            Err(StartError::MissmachedDatabaseVerstions(label.db_ver))
-            // C also gives instrcutions on how to update image.
-        } else {
+        if label.db_ver == DB_VER as u16 {
             Ok(label)
+        } else {
+            Err(Error::MissmachedDatabaseVerstions(label.db_ver))
+            // TODO C also gives instrcutions on how to update image.
         }
     }
 
-    fn create_shared_mem(&self, size: Bytes) -> Result<(*mut libc::c_void, i32), StartError> {
+    #[allow(clippy::unnecessary_wraps)]
+    fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), Error> {
         /*
         use libc::*;
         let cfile = CString::new(self.file_name.clone()).unwrap();
@@ -413,7 +439,7 @@ impl StartConfig {
         use core::alloc::Layout;
         use std::alloc;
         Ok((
-            unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()) as *mut libc::c_void },
+            unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()).cast::<libc::c_void>() },
             0,
         ))
         /*
@@ -424,13 +450,17 @@ impl StartConfig {
     }
 }
 
+///# Errors
+///
+/// There are multiple reasons starting the DB could fail, including invalied configuration, Bad database file, insuffishent shared memeory exetra.
+/// Check `StartError` for more details
 pub fn start(
     file_name: String,
     jobs: NonZeroU32,
     global_buffer: Option<NonZeroU32>,  //MEGBE
     routine_buffer: Option<NonZeroU32>, //MEGBE
-) -> Result<(), Vec<StartError>> {
-    let sys_tab = StartConfig::new(
+) -> Result<(), Vec<Error>> {
+    let sys_tab = Config::new(
         file_name,
         jobs,
         global_buffer.map(|x| Megbibytes(x.get() as usize)),
@@ -440,7 +470,7 @@ pub fn start(
     .map_err(|x| vec![x])?;
 
     unsafe {
-        systab = core::mem::transmute(sys_tab);
+        systab = sys_tab.cast();
     };
     Ok(())
 }
@@ -480,7 +510,7 @@ mod tests {
 
     #[test]
     fn validate_mem_seg_layout() {
-        let sys_tab = StartConfig::new(
+        let sys_tab = Config::new(
             "temp".into(),
             NonZeroU32::new(1).unwrap(),
             Some(Megbibytes(1)),
@@ -498,10 +528,10 @@ mod tests {
             rsm::bindings::UTIL_Share(CString::new("temp").unwrap().into_raw());
         }
 
-        println!("code: {:?}", code);
+        println!("code: {code:?}");
         assert!(code == 0);
         unsafe {
-            sys_tab::assert_sys_tab_eq(sys_tab, systab as *mut sys_tab::SYSTAB);
+            sys_tab::assert_sys_tab_eq(sys_tab, systab.cast::<sys_tab::SYSTAB>());
         }
         let mut sbuf = libc::shmid_ds {
             shm_atime: 0,
@@ -525,9 +555,9 @@ mod tests {
         //TODO see is I should be useing the shutdown function.
         unsafe {
             //signal that the shared mem segment should be destoyed.
-            libc::shmctl(libc::shmget(839184324, 0, 0), libc::IPC_RMID, &mut sbuf);
+            libc::shmctl(libc::shmget(839_184_324, 0, 0), libc::IPC_RMID, &mut sbuf);
             //detaching shared meme segment.
-            libc::shmdt(systab as *mut libc::c_void);
+            libc::shmdt(systab.cast::<libc::c_void>());
         }
 
         /*
