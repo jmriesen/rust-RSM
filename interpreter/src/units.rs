@@ -1,6 +1,5 @@
 //TODO The newtype pattern is farily common. so a lot of the bolier plate could probubly be removed buy using a 3rd party crate.
 
-
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Pages(pub usize);
 ///interger number of Megbiytes
@@ -62,11 +61,11 @@ impl Bytes {
         Kibibytes(self.0.div_ceil(1024))
     }
     ///Round up to nearest Megbiyte
-    pub fn megbi_round_up(self) -> Megbibytes{
+    pub fn megbi_round_up(self) -> Megbibytes {
         Megbibytes(self.0.div_ceil(rsm::bindings::MBYTE as usize))
     }
     ///Round up to nearest page file
-    pub fn pages_ceil(self) -> Pages{
+    pub fn pages_ceil(self) -> Pages {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
         Pages(self.0.div_ceil(page_size))
     }
@@ -85,7 +84,7 @@ impl std::ops::Add for Kibibytes {
     }
 }
 
-impl std::ops::Add for Pages{
+impl std::ops::Add for Pages {
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self(self.0 + other.0)
