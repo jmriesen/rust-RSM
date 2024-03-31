@@ -123,31 +123,30 @@ impl Config {
     /// # Panics
     /// TODO I need to implement proper panic handling
     pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, Error> {
-        use std::alloc::Layout;
-        let systab_layout = Layout::new::<sys_tab::SYSTAB>();
-        let todo_what_is_this = Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap();
-        let job_tabs_layout = Layout::array::<jobtab>(self.jobs as usize).unwrap();
+        let meta_data_tab = unsafe {
+            TabLayout::<sys_tab::SYSTAB, u_int, jobtab, locktab, (), ()>::new(
+                Layout::new::<sys_tab::SYSTAB>(),
+                //I am not sure what this u_int section is for.
+                Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
+                Layout::array::<jobtab>(self.jobs as usize).unwrap(),
+                Layout::array::<u8>(Bytes::from(self.lock_size).0).unwrap(),
+                Layout::new::<()>(),
+                Layout::new::<()>(),
+            )
+        };
 
-        let meta_data_tab_size = Bytes(
-            systab_layout.size()
-                + todo_what_is_this.size()
-                + job_tabs_layout.size()
-                + Bytes::from(self.lock_size).0,
-        )
-        .pages_ceil();
+        let volset_layout = unsafe {
+            TabLayout::<vol_def, c_void, GBD, c_void, c_void, c_void>::new(
+                Layout::new::<vol_def>(),
+                Layout::array::<u8>(self.label.header_bytes.try_into().unwrap()).unwrap(),
+                Layout::array::<GBD>(self.num_global_descriptor).unwrap(),
+                Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
+                Layout::array::<u8>(self.label.block_size.try_into().unwrap()).unwrap(),
+                Layout::array::<u8>(Bytes::from(self.routine_buffer).0 ).unwrap(),
+            )
+        };
 
-        let global_buffer_descriptors = Layout::array::<GBD>(self.num_global_descriptor).unwrap();
-        let volset_size = Bytes(
-            size_of::<vol_def>()
-                + self.label.header_bytes as usize
-                + global_buffer_descriptors.size()
-                + Bytes::from(self.global_buffer).0
-                + self.label.block_size as usize
-                + Bytes::from(self.routine_buffer).0,
-        )
-        .pages_ceil();
-
-        let share_size = meta_data_tab_size + volset_size;
+        let share_size = meta_data_tab.num_pages() + volset_layout.num_pages();
 
         /*
             let sem_id = unsafe{semget(
@@ -184,56 +183,43 @@ impl Config {
         //TODO clean up of shared memory on errors.
 
         let (shared_mem_segment, _shar_mem_id) = Self::create_shared_mem(share_size.into())?;
-        let job_tab = unsafe {
-            shared_mem_segment
-                .byte_add(systab_layout.size())
-                .byte_add(todo_what_is_this.size())
-                .cast::<jobtab>()
-        };
-        let lock_tab = unsafe { job_tab.byte_add(job_tabs_layout.size()).cast::<locktab>() };
-        let volumes_start = unsafe {
-            shared_mem_segment
-                .byte_add(Bytes::from(meta_data_tab_size).0)
-                .cast::<VOL_DEF>()
-        };
-
-        let sys_tab = shared_mem_segment.cast::<sys_tab::SYSTAB>();
-
-        let system_tab = sys_tab::SYSTAB {
-            //This is used to verify the shared memeory segment
-            //is mapped to the same address space in each proccess.
-            address: shared_mem_segment,
-            jobtab: job_tab,
-            maxjob: self.jobs,
-            sem_id: 0, //TODO
-            #[allow(clippy::cast_possible_wrap)]
-            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
-            #[allow(clippy::cast_possible_wrap)]
-            precision: DEFAULT_PREC as i32,
-            max_tt: 0,
-            tt: [TRANTAB {
-                from_global: VAR_U { var_cu: [0; 32] },
-                from_vol: 0,
-                from_uci: 0,
-                to_global: VAR_U { var_cu: [0; 32] },
-                to_vol: 0,
-                to_uci: 0,
-            }; 8],
-            start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
-            lockstart: lock_tab.cast::<c_void>(),
-            #[allow(clippy::cast_possible_wrap)]
-            locksize: Bytes::from(self.lock_size).0 as i32,
-            lockhead: std::ptr::null_mut(),
-            lockfree: lock_tab,
-            addoff: Bytes::from(share_size).0 as u64,
-            addsize: 0,
-            vol: [std::ptr::null_mut(); 1],
-        };
-
-        unsafe { (*sys_tab).vol[0] = volumes_start };
+        let (sys_tab, _, job_tab, lock_tab, _, _, volumes_start) =
+            unsafe { meta_data_tab.calculate_offsets(shared_mem_segment) };
 
         unsafe {
-            std::ptr::write(sys_tab, system_tab);
+            std::ptr::write(
+                sys_tab,
+                sys_tab::SYSTAB {
+                    //This is used to verify the shared memeory segment
+                    //is mapped to the same address space in each proccess.
+                    address: shared_mem_segment,
+                    jobtab: job_tab,
+                    maxjob: self.jobs,
+                    sem_id: 0, //TODO
+                    #[allow(clippy::cast_possible_wrap)]
+                    historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
+                    #[allow(clippy::cast_possible_wrap)]
+                    precision: DEFAULT_PREC as i32,
+                    max_tt: 0,
+                    tt: [TRANTAB {
+                        from_global: VAR_U { var_cu: [0; 32] },
+                        from_vol: 0,
+                        from_uci: 0,
+                        to_global: VAR_U { var_cu: [0; 32] },
+                        to_vol: 0,
+                        to_uci: 0,
+                    }; 8],
+                    start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
+                    lockstart: lock_tab.cast::<c_void>(),
+                    #[allow(clippy::cast_possible_wrap)]
+                    locksize: Bytes::from(self.lock_size).0 as i32,
+                    lockhead: std::ptr::null_mut(),
+                    lockfree: lock_tab,
+                    addoff: Bytes::from(share_size).0 as u64,
+                    addsize: 0,
+                    vol: [std::ptr::null_mut()],
+                },
+            );
         }
 
         unsafe {
@@ -255,77 +241,61 @@ impl Config {
                 },
             );
         };
+        /*
+        let canonical_name = std::fs::canonicalize(&self.file_name)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .bytes()
+            .collect();
 
-        //TODO factor out.
-        let _volume_name: [c_char; VOL_FILENAME_MAX as usize] = {
-            #[allow(clippy::cast_possible_wrap)]
-            let name: Vec<_> = std::fs::canonicalize(&self.file_name)
-                //Convert into a string
-                //TODO NOTE rust strings must be valid UTF-8.
-                //C strings do not have this restriction.
-                //I am not going to wory about this right now.
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .bytes()
-                .map(|x| x as c_char)
-                //Take the last N charactors of the path.
-                .rev()
-                .take(VOL_FILENAME_MAX as usize)
-                .rev()
-                //Padd out the rest of the array with zeros.
-                .chain(std::iter::repeat(0))
-                .take(VOL_FILENAME_MAX as usize)
-                .collect();
-            name.try_into().unwrap()
-        };
+        let volume_name = canonical_name[canonical_name.len()-VOL_FILENAME_MAX as usize..]
+        .iter()
+        .chain(std::iter::repeat(0))
+        .take(VOL_FILENAME_MAX as usize)
+        .collect();
 
+        */
         unsafe {
             {
-                let mut cursor = volumes_start;
+                //volumes_start|volDef
+                //-----------------
+                //HEADER SECTION
+                //-----------------
+                //Vollab|Label_Block
+                //Map| rest of section
+                //-----------------
+                //gbd_head | array of GBDs
+                //global_buf | global buffer size
+                //zero block | block size
+                //rbd_head | routine buffer size
+                let (vol_def, header, gbd_head, global_buf, zero_block, rbd_head,rbd_end) = volset_layout.calculate_offsets(volumes_start);
 
-                cursor = cursor.byte_add(size_of::<vol_def>());
+                let vollab = header.cast::<label_block>();
+                let map = vollab.add(1).cast();
 
-                let vollab = cursor.cast::<LABEL_BLOCK>();
-                cursor = cursor.byte_add(size_of::<label_block>());
-
-                let map = cursor.cast::<c_void>();
-                let _first_free = map;
-                let gbd_head = vollab.byte_add(self.label.max_block as usize).cast::<GBD>();
-                let _num_gbd = self.num_global_descriptor;
-                let global_buf = gbd_head.add(self.num_global_descriptor).cast::<c_void>();
-                let zero_block = global_buf.add(Bytes::from(self.global_buffer).0); //TODO check the math on this.
-                let _rbd_head = zero_block.add(self.label.header_bytes as usize);
-                let _rbd_end = sys_tab
-                    .byte_add(Bytes::from(share_size).0)
-                    .byte_sub((*sys_tab).addsize as usize)
-                    .cast::<c_void>();
-                //TODO I have not handled the journaling case yet.
                 assert!((*sys_tab).maxjob == 1);
-                /*std::ptr::write(
-                    (*sys_tab).vol[0],
+                std::ptr::write(
+                    vol_def,
                     vol_def {
                         vollab,
                         map,
-                        first_free,
+                        first_free:map.cast(),
                         gbd_head,
-                        num_gbd: num_gbd.try_into().unwrap(),
-                        global_buf,
-                        zero_block,
-                        rbd_head,
+                        num_gbd: self.num_global_descriptor.try_into().unwrap(),
                         rbd_end,
-                        shm_id: shar_mem_id,
-                        file_name: volume_name,
+                        shm_id: 0,
+                        file_name: [0;256],
                         //TODO fix these values
                         //I am just zeroinging them out for now so I can start runningn some tests.
                         map_dirty_flag: 0,
                         gbd_hash: [std::ptr::null_mut(); 1025],
                         rbd_hash: [std::ptr::null_mut(); 1024],
                         num_of_daemons: 0,
-                        wd_tab: [WD_TAB {
+                        wd_tab: [rsm::bindings::WD_TAB {
                             pid: 0,
                             doing: 0,
-                            currmsg: DATA_UNION { intdata: 0 },
+                            currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
                         }; 20],
                         dismount_flag: 0,
                         writelock: 0,
@@ -337,7 +307,7 @@ impl Config {
                         garbQw: 0,
                         garbQr: 0,
                         jrn_next: 0,
-                        stats: DB_STAT {
+                        stats: rsm::bindings::DB_STAT {
                             dbget: 0,
                             dbset: 0,
                             dbkil: 0,
@@ -355,9 +325,12 @@ impl Config {
                             blkreorg: 0,
                             diskerrors: 0,
                         },
-                      sdkfo  //TODO nost specificly called out in C code so they would have been zeroed by memset.
+                        global_buf,
+                        zero_block,
+                        rbd_head,
+                        //TODO nost specificly called out in C code so they would have been zeroed by memset.
                     },
-                );*/
+                );
             }
         }
 
@@ -370,19 +343,6 @@ impl Config {
         //One for semephores.
         //TODO not these require clean up/error handleing.
 
-        //debug informaiton printed here.
-        //--evertying above this is just verifying we can initat the database.
-        /*
-            unsafe {
-            INIT_Start(
-            cfile.into_raw(),
-            jobs.into(),
-            global_buffer.into(),
-            routine_buffer.into(),
-            additional_buffer,
-        );
-        };
-             */
         Ok(sys_tab)
     }
 
@@ -408,34 +368,34 @@ impl Config {
     #[allow(clippy::unnecessary_wraps)]
     fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), Error> {
         /*
-        use libc::*;
-        let cfile = CString::new(self.file_name.clone()).unwrap();
+            use libc::*;
+            let cfile = CString::new(self.file_name.clone()).unwrap();
 
-        let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
+            let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
             .wrap_error()
             .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
 
-        //Check that the shared memeory segment has not allready be initialized.
-        if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
+            //Check that the shared memeory segment has not allready be initialized.
+            if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
             let shar_mem_id = unsafe {
-                shmget(
-                    shar_mem_key,
-                    size.0,
-                    SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
-                )
-            }
+            shmget(
+            shar_mem_key,
+            size.0,
+            SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
+        )
+        }
             .wrap_error()
             .map_err(|_| StartError::CouldNotCreateSharedMemorySection)?;
 
             let address = unsafe { shmat(shar_mem_id, SHMAT_SEED, 0) }
-                .wrap_error()
-                .map_err(|_| StartError::CouldNotAttachSysTab)?;
+            .wrap_error()
+            .map_err(|_| StartError::CouldNotAttachSysTab)?;
             unsafe {
-                libc::memset(address, 0, size.0);
-            }
+            libc::memset(address, 0, size.0);
+        }
             Ok((address, shar_mem_id))
-        TODO implement with shared memory.
-        */
+            TODO implement with shared memory.
+             */
         use core::alloc::Layout;
         use std::alloc;
         Ok((
@@ -444,9 +404,9 @@ impl Config {
         ))
         /*
         } else {
-            Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
+                Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
         }
-            */
+             */
     }
 }
 
@@ -477,9 +437,9 @@ pub fn start(
 /*
 
 trait CError {
-    fn wrap_error(self) -> Result<Self, ()>
-    where
-        Self: Sized;
+fn wrap_error(self) -> Result<Self, ()>
+where
+Self: Sized;
 }
 
 impl CError for i32 {
@@ -567,5 +527,75 @@ mod tests {
             }
         }
         */
+    }
+}
+
+use core::marker::PhantomData;
+use std::alloc::Layout;
+struct TabLayout<A, B, C, D, E, F> {
+    a_layout: Layout,
+    b_layout: Layout,
+    c_layout: Layout,
+    d_layout: Layout,
+    e_layout: Layout,
+    f_layout: Layout,
+    a_phantom: PhantomData<A>,
+    b_phantom: PhantomData<B>,
+    c_phantom: PhantomData<C>,
+    d_phantom: PhantomData<D>,
+    e_phantom: PhantomData<E>,
+    f_phantom: PhantomData<F>,
+}
+
+impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
+    unsafe fn new(
+        a_layout: Layout,
+        b_layout: Layout,
+        c_layout: Layout,
+        d_layout: Layout,
+        e_layout: Layout,
+        f_layout: Layout,
+    ) -> Self {
+        Self {
+            a_layout,
+            b_layout,
+            c_layout,
+            d_layout,
+            e_layout,
+            f_layout,
+            a_phantom: Default::default(),
+            b_phantom: Default::default(),
+            c_phantom: Default::default(),
+            d_phantom: Default::default(),
+            e_phantom: Default::default(),
+            f_phantom: Default::default(),
+        }
+    }
+    fn num_pages(&self) -> Pages {
+        (Bytes(self.a_layout.size())
+            + Bytes(self.b_layout.size())
+            + Bytes(self.c_layout.size())
+            + Bytes(self.d_layout.size())
+            + Bytes(self.e_layout.size())
+            + Bytes(self.f_layout.size()))
+        .pages_ceil()
+    }
+    unsafe fn calculate_offsets(
+        &self,
+        mut cursor: *mut c_void,
+    ) -> (*mut A, *mut B, *mut C, *mut D, *mut E, *mut F, *mut c_void) {
+        let a = cursor.cast::<A>();
+        cursor = cursor.byte_add(self.a_layout.size());
+        let b = cursor.cast::<B>();
+        cursor = cursor.byte_add(self.b_layout.size());
+        let c = cursor.cast::<C>();
+        cursor = cursor.byte_add(self.c_layout.size());
+        let d = cursor.cast::<D>();
+        cursor = cursor.byte_add(self.d_layout.size());
+        let e = cursor.cast::<E>();
+        cursor = cursor.byte_add(self.e_layout.size());
+        let f = cursor.cast::<F>();
+        cursor = cursor.byte_add(self.f_layout.size());
+        (a, b, c, d, e, f, cursor)
     }
 }
