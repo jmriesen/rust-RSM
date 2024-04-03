@@ -18,6 +18,7 @@ pub mod create;
 
 #[allow(unused)]
 pub mod run;
+pub mod alloc;
 pub mod start;
 pub mod sys_tab;
 pub mod units;

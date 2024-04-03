@@ -2,6 +2,8 @@ use crate::bindings::{
     jobtab, locktab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
     HISTORIC_OFFOK, LABEL_BLOCK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF, VOL_FILENAME_MAX,
 };
+use core::alloc::Layout;
+use crate::alloc::{create_shared_mem, TabLayout};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
@@ -153,41 +155,7 @@ impl Config {
 
         let share_size = meta_data_tab.size() + volset_layout.size();
 
-        /*
-            let sem_id = unsafe{semget(
-            shar_mem_key,
-            rsm::bindings::SEM_MAX as i32,
-            SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT
-        )};
-            TODO semephores
-            let sbuf :shmid_ds;
-            if sem_id < 0 {
-            unsafe {shmctl(shar_mem_id, IPC_RMID, &sbuf)};
-            return Err(vec![StartError::CouldNotCreateSemaphores])
-        }
-
-            let cleared = semctl(sem_id, 0, SETALL, semvals);
-
-            if cleared ==-1{
-            shmctl(shar_mem_id, IPC_RMID, &sbuf);
-            semctl(sem_id, 0, IPC_RMID, semvals);
-            return Err(vec![StartError::CouldNotClearSemaphores])
-        }
-
-             */
-
-        /*
-        Shared memory segement layout.
-        system tab (size of system tab - vol, last_block_used)
-        Volume data [mut vol_def;jobs*MAX_VOLS (ie 1)] NOTE space is caluclated uisng last_blk_used I am not 100% sure the c-rust type converstion is right right.
-        JobTab [jobtab;jobs]
-        LockTab
-        Volume Data
-         */
-
-        //TODO clean up of shared memory on errors.
-
-        let (shared_mem_segment, _shar_mem_id) = Self::create_shared_mem(share_size.into())?;
+        let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
         let (sys_tab, _, job_tab, lock_tab, _, _, volumes_start) =
             unsafe { meta_data_tab.calculate_offsets(shared_mem_segment) };
 
@@ -248,17 +216,6 @@ impl Config {
         };
         unsafe {
             {
-                //volumes_start|volDef
-                //-----------------
-                //HEADER SECTION
-                //-----------------
-                //Vollab|Label_Block
-                //Map| rest of section
-                //-----------------
-                //gbd_head | array of GBDs
-                //global_buf | global buffer size
-                //zero block | block size
-                //rbd_head | routine buffer size
                 let (vol_def_ptr, header, gbd_head, global_buf, zero_block, rbd_head, end) =
                     volset_layout.calculate_offsets(volumes_start);
 
@@ -322,7 +279,6 @@ impl Config {
                         global_buf,
                         zero_block,
                         rbd_head,
-                        //TODO nost specificly called out in C code so they would have been zeroed by memset.
                     },
                 );
                 unsafe { (*sys_tab).vol[0] = vol_def_ptr };
@@ -379,7 +335,6 @@ impl Config {
             .open(file)
             .map_err(|_| Error::CouldNotOpenDatabase(file.into()))?;
 
-        //TODO this unsafe code needs to be tested.
         let mut label = MaybeUninit::<label_block>::zeroed();
         file.read_exact(unsafe { any_as_mut_u8_slice(&mut label) })
             .map_err(|_| Error::CouldNotReadLableBlock)?;
@@ -392,61 +347,6 @@ impl Config {
         }
     }
 
-    #[allow(clippy::unnecessary_wraps)]
-    fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), Error> {
-        /*
-            use libc::*;
-            let cfile = CString::new(self.file_name.clone()).unwrap();
-
-            let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
-
-            //Check that the shared memeory segment has not allready be initialized.
-            if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
-            let shar_mem_id = unsafe {
-            shmget(
-            shar_mem_key,
-            size.0,
-            SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
-        )
-        }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotCreateSharedMemorySection)?;
-
-            let address = unsafe { shmat(shar_mem_id, SHMAT_SEED, 0) }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotAttachSysTab)?;
-            unsafe {
-            libc::memset(address, 0, size.0);
-        }
-            Ok((address, shar_mem_id))
-            TODO implement with shared memory.
-             */
-        use core::alloc::Layout;
-        use std::alloc;
-        let mem = unsafe{alloc::alloc(Layout::array::<u8>(size.0).unwrap())};
-        #[cfg(test)]
-        {
-            //NOTE randomizing data so that it is easier to find bugs.
-            //We are initializing a lot of stuff to zero.
-            //Since by default the allocation is mostly zeros
-            //some bugs were being masked.
-            use rand::{thread_rng, Rng};
-            let mem_slice = unsafe{std::slice::from_raw_parts_mut(mem, size.0)};
-            thread_rng().fill(&mut mem_slice[..]);
-        }
-
-        Ok((
-            mem.cast::<libc::c_void>(),
-            0,
-        ))
-        /*
-        } else {
-                Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
-        }
-             */
-    }
 }
 
 ///# Errors
@@ -473,34 +373,8 @@ pub fn start(
     };
     Ok(())
 }
-/*
 
-trait CError {
-fn wrap_error(self) -> Result<Self, ()>
-where
-Self: Sized;
-}
 
-impl CError for i32 {
-    fn wrap_error(self) -> Result<Self, ()> {
-        if self == -1 {
-            Err(())
-        } else {
-            Ok(self)
-        }
-    }
-}
-
-impl CError for *mut libc::c_void {
-    fn wrap_error(self) -> Result<Self, ()> {
-        if self as i32 == -1 {
-            Err(())
-        } else {
-            Ok(self)
-        }
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {
@@ -569,82 +443,3 @@ mod tests {
     }
 }
 
-use core::marker::PhantomData;
-use std::alloc::Layout;
-
-/// This represents the layout for a bunch of types placed one after the other.
-/// NOTE This always rounds up to a hole number of page files.
-struct TabLayout<A, B, C, D, E, F> {
-    a_layout: Layout,
-    b_layout: Layout,
-    c_layout: Layout,
-    d_layout: Layout,
-    e_layout: Layout,
-    f_layout: Layout,
-    a_phantom: PhantomData<A>,
-    b_phantom: PhantomData<B>,
-    c_phantom: PhantomData<C>,
-    d_phantom: PhantomData<D>,
-    e_phantom: PhantomData<E>,
-    f_phantom: PhantomData<F>,
-}
-
-impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
-    ///constructs a TabLayout
-    ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
-    unsafe fn new(
-        a_layout: Layout,
-        b_layout: Layout,
-        c_layout: Layout,
-        d_layout: Layout,
-        e_layout: Layout,
-        f_layout: Layout,
-    ) -> Self {
-        Self {
-            a_layout,
-            b_layout,
-            c_layout,
-            d_layout,
-            e_layout,
-            f_layout,
-            a_phantom: Default::default(),
-            b_phantom: Default::default(),
-            c_phantom: Default::default(),
-            d_phantom: Default::default(),
-            e_phantom: Default::default(),
-            f_phantom: Default::default(),
-        }
-    }
-
-    ///Size of the tab.
-    fn size(&self) -> Pages {
-        (Bytes(self.a_layout.size())
-            + Bytes(self.b_layout.size())
-            + Bytes(self.c_layout.size())
-            + Bytes(self.d_layout.size())
-            + Bytes(self.e_layout.size())
-            + Bytes(self.f_layout.size()))
-        .pages_ceil()
-    }
-
-    /// Calculates where each value should start and where the end of the tab is.
-    /// The caller needs to ensure that the pointer points to large enough region of memory.
-    unsafe fn calculate_offsets(
-        &self,
-        mut cursor: *mut c_void,
-    ) -> (*mut A, *mut B, *mut C, *mut D, *mut E, *mut F, *mut c_void) {
-        let a = cursor.cast::<A>();
-        cursor = cursor.byte_add(self.a_layout.size());
-        let b = cursor.cast::<B>();
-        cursor = cursor.byte_add(self.b_layout.size());
-        let c = cursor.cast::<C>();
-        cursor = cursor.byte_add(self.c_layout.size());
-        let d = cursor.cast::<D>();
-        cursor = cursor.byte_add(self.d_layout.size());
-        let e = cursor.cast::<E>();
-        cursor = cursor.byte_add(self.e_layout.size());
-        let f = cursor.cast::<F>();
-        let end = a.cast::<c_void>().byte_add(Bytes::from(self.size()).0);
-        (a, b, c, d, e, f, end)
-    }
-}
