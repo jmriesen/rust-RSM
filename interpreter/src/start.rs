@@ -1,25 +1,24 @@
+use crate::alloc::{create_shared_mem, TabLayout};
 use crate::bindings::{
     jobtab, locktab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
-    HISTORIC_OFFOK, LABEL_BLOCK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF, VOL_FILENAME_MAX,
+    HISTORIC_OFFOK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF,
 };
-use core::alloc::Layout;
-use crate::alloc::{create_shared_mem, TabLayout};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
 };
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
-use libc::c_char;
+use core::alloc::Layout;
 use libc::c_void;
 use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, RBD_HASH};
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::mem::{size_of, MaybeUninit};
+use std::mem::{MaybeUninit};
 use std::num::NonZeroU32;
 use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::path::PathBuf;
-use std::ptr::{null, null_mut};
+use std::ptr::{null_mut};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(
@@ -178,66 +177,61 @@ impl Config {
             );
         };
 
-                let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
-            unsafe{volset_layout.calculate_offsets(volumes_start)};
-        {//Read header section from db file.
-            let (vollab, map)= {
+        let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
+            unsafe { volset_layout.calculate_offsets(volumes_start) };
+        {
+            //Read header section from db file.
+            let (vollab, map) = {
                 use std::slice::from_raw_parts_mut;
                 let mut file = OpenOptions::new()
                     .read(true)
                     .open(&self.file_name)
                     .map_err(|_| Error::CouldNotOpenDatabase(self.file_name.clone()))?;
-                file.read_exact(unsafe{
-                    from_raw_parts_mut(
-                        header.cast(),
-                        self.label.header_bytes.try_into().unwrap(),
-                    )})
-                    .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
+                file.read_exact(unsafe {
+                    from_raw_parts_mut(header.cast(), self.label.header_bytes.try_into().unwrap())
+                })
+                .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
 
                 let vollab = header.cast::<label_block>();
-                let map = unsafe{vollab.add(1).cast()};
+                let map = unsafe { vollab.add(1).cast() };
                 //NOTE should this be reported as an error?
-                if unsafe{(*vollab).clean} == 0 {
+                if unsafe { (*vollab).clean } == 0 {
                     eprintln!("WARNING: Volume was not dismounted properly!");
                 }
                 //NOTE the C code says this was to facilitate forking.
                 //I am not comfortable really comfortable forking so this may not be needed.
-                unsafe{rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();}
-                (vollab,map)
+                unsafe {
+                    rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();
+                }
+                (vollab, map)
             };
-            let gbd_blocks = { //Initializing the GBD blocks
-                for i in (0..self.num_global_descriptor){
+
+            let gbd_blocks = {
+                //Initializing the GBD blocks
+                use std::slice::from_raw_parts_mut;
+                for i in 0..self.num_global_descriptor {
                     let gbd = GBD {
                         block: 0,
                         next: null_mut(),
                         //TODO mem's value is not initialized.
-                        mem: unsafe {
-                            global_buf
-                                .byte_add(
-                                    i*(*vollab).block_size as usize
-                                )
-                        }.cast(),
+                        mem: unsafe { global_buf.byte_add(i * (*vollab).block_size as usize) }
+                        .cast(),
                         dirty: null_mut(),
                         last_accessed: 0,
                     };
-                    unsafe{std::ptr::write(gbd_head.add(i), gbd)};
+                    unsafe { std::ptr::write(gbd_head.add(i), gbd) };
                 }
-                use std::slice::from_raw_parts_mut;
-                let gbd_blocks = unsafe {
-                    from_raw_parts_mut(gbd_head,
-                                       self.num_global_descriptor
-                    )};
+                let gbd_blocks =
+                    unsafe { from_raw_parts_mut(gbd_head, self.num_global_descriptor) };
 
-                { //setting up the next pointers
-                    //TODO find a more elegant way of writing this.
-                    for i in (0..gbd_blocks.len() - 1) {
-                        use std::ops::IndexMut;
-                        gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
-                    }
+                //TODO find a more elegant way of writing this.
+                for i in 0..gbd_blocks.len() - 1 {
+                    use std::ops::IndexMut;
+                    gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
+                }
 
-                    if let Some(last) = gbd_blocks.last_mut() {
-                        last.next = null_mut();
-                    }
+                if let Some(last) = gbd_blocks.last_mut() {
+                    last.next = null_mut();
                 }
                 gbd_blocks
             };
@@ -253,16 +247,16 @@ impl Config {
                 global_buf,
                 zero_block,
                 num_gbd: gbd_blocks.len().try_into().unwrap(),
-                gbd_head:gbd_blocks.as_mut_ptr(),
+                gbd_head: gbd_blocks.as_mut_ptr(),
                 gbd_hash: {
-                    let mut temp = [std::ptr::null_mut(); GBD_HASH as usize+1];
+                    let mut temp = [std::ptr::null_mut(); GBD_HASH as usize + 1];
                     temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
                     temp
                 },
                 rbd_head,
                 rbd_end: end,
                 rbd_hash: {
-                    let mut temp = [std::ptr::null_mut(); RBD_HASH as usize+1];
+                    let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
                     temp[RBD_HASH as usize] = rbd_head.cast();
                     temp
                 },
@@ -307,10 +301,8 @@ impl Config {
                     diskerrors: 0,
                 },
             };
-            unsafe{std::ptr::write(
-                volume,
-                vol_def,
-            );
+            unsafe {
+                std::ptr::write(volume, vol_def);
             }
         }
 
@@ -346,14 +338,11 @@ impl Config {
         };
 
         unsafe {
-            std::ptr::write(
-                sys_tab,
-                sys_tab_description
-            );
+            std::ptr::write(sys_tab, sys_tab_description);
         }
 
-                //TODO Deal with journaling
-                assert!(unsafe{(*sys_tab).maxjob} == 1);
+        //TODO Deal with journaling
+        assert!(unsafe { (*sys_tab).maxjob } == 1);
         Ok(sys_tab)
     }
 
@@ -374,7 +363,6 @@ impl Config {
             // TODO C also gives instrcutions on how to update image.
         }
     }
-
 }
 
 ///# Errors
@@ -401,8 +389,6 @@ pub fn start(
     };
     Ok(())
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -470,4 +456,3 @@ mod tests {
         */
     }
 }
-

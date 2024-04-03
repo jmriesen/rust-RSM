@@ -16,9 +16,9 @@
 pub mod bindings;
 pub mod create;
 
+pub mod alloc;
 #[allow(unused)]
 pub mod run;
-pub mod alloc;
 pub mod start;
 pub mod sys_tab;
 pub mod units;

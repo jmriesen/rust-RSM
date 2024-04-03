@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use libc::{c_char, c_void};
+use libc::{c_char};
 use rsm::bindings::VOL_FILENAME_MAX;
 
 fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
@@ -15,10 +15,10 @@ fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
     }
 }
 
-/// Formats the file name so it fits in vol_def.
-/// If to long grab the last VOL_FILENAME_MAX chars.
+/// Formats the file name so it fits in `vol_def`.
+/// If to long grab the last `VOL_FILENAME_MAX` chars.
 /// If to short otherwise pad with trailing 0s.
-pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
+#[must_use] pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     //TODO test edge cases
     std::fs::canonicalize(path)
         .unwrap()
@@ -35,7 +35,6 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
         .try_into()
         .unwrap()
 }
-
 
 #[cfg(test)]
 pub mod tests {
@@ -100,10 +99,10 @@ pub mod tests {
         assert_eq!(l_vollab, r_vollab);
         assert_eq!(l_map, r_map);
         assert_eq!(l_first_free, r_first_free);
-        assert_eq!(l_gdb_hash,r_gdb_hash);
+        assert_eq!(l_gdb_hash, r_gdb_hash);
         assert_eq!(l_global_buf, r_global_buf);
         assert_eq!(l_zero_block, r_zero_block);
-        assert_eq!(l_rbd_hash,r_rbd_hash);
+        assert_eq!(l_rbd_hash, r_rbd_hash);
         assert_eq!(l_rbd_head, r_rbd_head);
         assert_eq!(l_rbd_end, r_rbd_end);
         //assert_eq!(l_dirtyQ,r_dirtyQ);
@@ -114,8 +113,13 @@ pub mod tests {
 
         assert_eq!({ (*left).num_gbd }, { (*right).num_gbd });
         assert_eq!(l_gbd_head, r_gbd_head);
-        for i in (0..(*left).num_gbd as usize){
-            assert_gbd_eq((*left).gbd_head.add(i), left.cast(),(*right).gbd_head.add(i),right.cast());
+        for i in 0..(*left).num_gbd as usize {
+            assert_gbd_eq(
+                (*left).gbd_head.add(i),
+                left.cast(),
+                (*right).gbd_head.add(i),
+                right.cast(),
+            );
         }
 
         let l_rbd = (*left).rbd_head.cast::<RBD>();
@@ -124,14 +128,13 @@ pub mod tests {
             helper((*l_rbd).fwd_link,left.cast()),
             helper((*r_rbd).fwd_link,right.cast())
         );*/
-        assert_eq!({(*l_rbd).chunk_size},{(*r_rbd).chunk_size});
-        assert_eq!({(*l_rbd).attached},{(*r_rbd).attached});
-        assert_eq!({(*l_rbd).last_access},{(*r_rbd).last_access});
-        assert_eq!((*l_rbd).rnam,(*r_rbd).rnam);
-        assert_eq!((*l_rbd).uci,(*r_rbd).uci);
-        assert_eq!((*l_rbd).vol,(*r_rbd).vol);
-        assert_eq!({(*l_rbd).rou_size},{(*r_rbd).rou_size});
-
+        assert_eq!({ (*l_rbd).chunk_size }, { (*r_rbd).chunk_size });
+        assert_eq!({ (*l_rbd).attached }, { (*r_rbd).attached });
+        assert_eq!({ (*l_rbd).last_access }, { (*r_rbd).last_access });
+        assert_eq!((*l_rbd).rnam, (*r_rbd).rnam);
+        assert_eq!((*l_rbd).uci, (*r_rbd).uci);
+        assert_eq!((*l_rbd).vol, (*r_rbd).vol);
+        assert_eq!({ (*l_rbd).rou_size }, { (*r_rbd).rou_size });
     }
 
     fn offsets(
@@ -167,11 +170,22 @@ pub mod tests {
         }
     }
 
-    pub unsafe fn assert_gbd_eq(left: *const GBD,left_base:*const c_void, right: *const GBD,right_base:*const c_void) {
-        assert_eq!(helper(left,left_base),helper(right,right_base));
+    pub unsafe fn assert_gbd_eq(
+        left: *const GBD,
+        left_base: *const c_void,
+        right: *const GBD,
+        right_base: *const c_void,
+    ) {
+        assert_eq!(helper(left, left_base), helper(right, right_base));
         //assert_eq!({(*left).block},{(*right).block});
-        assert_eq!(helper((*left).mem,left_base),helper((*right).mem,right_base));
-        assert_eq!(helper((*left).next,left_base),helper((*right).next,right_base));
+        assert_eq!(
+            helper((*left).mem, left_base),
+            helper((*right).mem, right_base)
+        );
+        assert_eq!(
+            helper((*left).next, left_base),
+            helper((*right).next, right_base)
+        );
         //assert_eq!(helper((*left).dirty,left_base),helper((*right).dirty,right_base));
         //assert_eq!({(*left).last_accessed},{(*right).last_accessed});
     }

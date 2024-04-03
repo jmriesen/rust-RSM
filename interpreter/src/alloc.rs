@@ -1,7 +1,7 @@
 use crate::units::{Bytes, Pages};
+use core::ffi::c_void;
 use core::marker::PhantomData;
 use std::alloc::Layout;
-use core::ffi::c_void;
 /*
 let sem_id = unsafe{semget(
 shar_mem_key,
@@ -25,65 +25,61 @@ SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT
 
  */
 
-               //TODO clean up of shared memory on errors.
+//TODO clean up of shared memory on errors.
 ///NOTE Allocation shared memory via C and Rust requires more memory then my computer will allow.
 /// There is probably a way around this, however until I get to oxidizing the multi process stuff it the rust code does not really need the a shared memory segment.
 /// For now this just allocates a normal block of memory.
-#[allow(clippy::unnecessary_wraps)]
+#[allow(clippy::unnecessary_wraps,clippy::result_unit_err)]
 pub fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), ()> {
-        /*
-            use libc::*;
-            let cfile = CString::new(self.file_name.clone()).unwrap();
+    /*
+        use libc::*;
+        let cfile = CString::new(self.file_name.clone()).unwrap();
 
-            let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
+        let shar_mem_key = unsafe { libc::ftok(cfile.as_ptr(), RSM_SYSTEM as i32+1) }
+        .wrap_error()
+        .map_err(|_| StartError::CouldNotAccessDatabase(self.file_name.clone()))?;
 
-            //Check that the shared memeory segment has not allready be initialized.
-            if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
-            let shar_mem_id = unsafe {
-            shmget(
-            shar_mem_key,
-            size.0,
-            SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
-        )
-        }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotCreateSharedMemorySection)?;
-
-            let address = unsafe { shmat(shar_mem_id, SHMAT_SEED, 0) }
-            .wrap_error()
-            .map_err(|_| StartError::CouldNotAttachSysTab)?;
-            unsafe {
-            libc::memset(address, 0, size.0);
-        }
-            Ok((address, shar_mem_id))
-            TODO implement with shared memory.
-             */
-        use core::alloc::Layout;
-        use std::alloc;
-        let mem = unsafe{alloc::alloc(Layout::array::<u8>(size.0).unwrap())};
-        #[cfg(test)]
-        {
-            //NOTE randomizing data so that it is easier to find bugs.
-            //We are initializing a lot of stuff to zero.
-            //Since by default the allocation is mostly zeros
-            //some bugs were being masked.
-            use rand::{thread_rng, Rng};
-            let mem_slice = unsafe{std::slice::from_raw_parts_mut(mem, size.0)};
-            thread_rng().fill(&mut mem_slice[..]);
-        }
-
-        Ok((
-            mem.cast::<libc::c_void>(),
-            0,
-        ))
-        /*
-        } else {
-                Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
-        }
-             */
+        //Check that the shared memeory segment has not allready be initialized.
+        if unsafe { shmget(shar_mem_key, 0, 0) } == -1 {
+        let shar_mem_id = unsafe {
+        shmget(
+        shar_mem_key,
+        size.0,
+        SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT,
+    )
     }
+        .wrap_error()
+        .map_err(|_| StartError::CouldNotCreateSharedMemorySection)?;
+
+        let address = unsafe { shmat(shar_mem_id, SHMAT_SEED, 0) }
+        .wrap_error()
+        .map_err(|_| StartError::CouldNotAttachSysTab)?;
+        unsafe {
+        libc::memset(address, 0, size.0);
+    }
+        Ok((address, shar_mem_id))
+        TODO implement with shared memory.
+         */
+    use std::alloc;
+    let mem = unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()) };
+    #[cfg(test)]
+    {
+        //NOTE randomizing data so that it is easier to find bugs.
+        //We are initializing a lot of stuff to zero.
+        //Since by default the allocation is mostly zeros
+        //some bugs were being masked.
+        use rand::{thread_rng, Rng};
+        let mem_slice = unsafe { std::slice::from_raw_parts_mut(mem, size.0) };
+        thread_rng().fill(&mut mem_slice[..]);
+    }
+
+    Ok((mem.cast::<libc::c_void>(), 0))
+    /*
+    } else {
+            Err(StartError::DatabaseAllreadyInitialized(shar_mem_key))
+    }
+         */
+}
 
 /*
 trait CError {
@@ -131,9 +127,9 @@ pub struct TabLayout<A, B, C, D, E, F> {
 }
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
-    ///constructs a TabLayout
+    ///constructs a `TabLayout`
     ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
-    pub unsafe fn new(
+    #[must_use] pub unsafe fn new(
         a_layout: Layout,
         b_layout: Layout,
         c_layout: Layout,
@@ -148,17 +144,17 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             d_layout,
             e_layout,
             f_layout,
-            a_phantom: Default::default(),
-            b_phantom: Default::default(),
-            c_phantom: Default::default(),
-            d_phantom: Default::default(),
-            e_phantom: Default::default(),
-            f_phantom: Default::default(),
+            a_phantom: PhantomData,
+            b_phantom: PhantomData,
+            c_phantom: PhantomData,
+            d_phantom: PhantomData,
+            e_phantom: PhantomData,
+            f_phantom: PhantomData,
         }
     }
 
     ///Size of the tab.
-    pub fn size(&self) -> Pages {
+    #[must_use] pub fn size(&self) -> Pages {
         (Bytes(self.a_layout.size())
             + Bytes(self.b_layout.size())
             + Bytes(self.c_layout.size())
@@ -170,6 +166,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
 
     /// Calculates where each value should start and where the end of the tab is.
     /// The caller needs to ensure that the pointer points to large enough region of memory.
+    #[allow(clippy::many_single_char_names)]
     pub unsafe fn calculate_offsets(
         &self,
         mut cursor: *mut c_void,
