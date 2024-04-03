@@ -180,154 +180,180 @@ impl Config {
 
                 let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
             unsafe{volset_layout.calculate_offsets(volumes_start)};
-        //TODO check if this unsafe is actually needed.
-unsafe {
-            {
-
-                let vollab = header.cast::<label_block>();
-                let map = vollab.add(1).cast();
-
-                std::ptr::write(
-                    volume,
-                    vol_def {
-                        vollab,
-                        map,
-                        first_free: map.cast(),
-                        gbd_head,
-                        num_gbd: self.num_global_descriptor.try_into().unwrap(),
-                        rbd_end: end,
-                        shm_id: 0,
-                        file_name: crate::vol_def::format_name(&self.file_name),
-                        //TODO fix these values
-                        //I am just zeroinging them out for now so I can start runningn some tests.
-                        map_dirty_flag: 0,
-                        gbd_hash: [std::ptr::null_mut(); 1025],
-                        rbd_hash: [std::ptr::null_mut(); 1024],
-                        //TODO add test that cover these bounds.
-                        num_of_daemons: (self.jobs / rsm::bindings::DAEMONS)
-                            .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
-                            .try_into()
-                            .unwrap(),
-                        wd_tab: [rsm::bindings::WD_TAB {
-                            pid: 0,
-                            doing: 0,
-                            currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
-                        }; 20],
-                        dismount_flag: 0,
-                        writelock: 0,
-                        upto: 0,
-                        dirtyQ: [std::ptr::null_mut(); 1024],
-                        dirtyQw: 0,
-                        dirtyQr: 0,
-                        garbQ: [0; 8192],
-                        garbQw: 0,
-                        garbQr: 0,
-                        jrn_next: 0,
-                        stats: rsm::bindings::DB_STAT {
-                            dbget: 0,
-                            dbset: 0,
-                            dbkil: 0,
-                            dbdat: 0,
-                            dbord: 0,
-                            dbqry: 0,
-                            lasttry: 0,
-                            lastok: 0,
-                            logrd: 0,
-                            phyrd: 0,
-                            logwt: 0,
-                            phywt: 0,
-                            blkalloc: 0,
-                            blkdeall: 0,
-                            blkreorg: 0,
-                            diskerrors: 0,
-                        },
-                        global_buf,
-                        zero_block,
-                        rbd_head,
-                    },
-                );
+        {//Read header section from db file.
+            let (vollab, map)= {
+                use std::slice::from_raw_parts_mut;
                 let mut file = OpenOptions::new()
                     .read(true)
                     .open(&self.file_name)
-                    .map_err(|_| Error::CouldNotOpenDatabase(self.file_name))?;
-                file.read_exact(std::slice::from_raw_parts_mut(
-                    (*volume).vollab.cast::<u8>(),
-                    self.label.header_bytes.try_into().unwrap(),
-                ))
-                .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
+                    .map_err(|_| Error::CouldNotOpenDatabase(self.file_name.clone()))?;
+                file.read_exact(unsafe{
+                    from_raw_parts_mut(
+                        header.cast(),
+                        self.label.header_bytes.try_into().unwrap(),
+                    )})
+                    .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
+
+                let vollab = header.cast::<label_block>();
+                let map = unsafe{vollab.add(1).cast()};
                 //NOTE should this be reported as an error?
-                if (*(*volume).vollab).clean == 0 {
+                if unsafe{(*vollab).clean} == 0 {
                     eprintln!("WARNING: Volume was not dismounted properly!");
                 }
                 //NOTE the C code says this was to facilitate forking.
                 //I am not comfortable really comfortable forking so this may not be needed.
-                rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();
-
-                //TODO Deal with journaling
-                assert!((*sys_tab).maxjob == 1);
-                //TODO I am not sure if this is technically safe, I have not written here yet.
-                let gbd_blocks =
-                    std::slice::from_raw_parts_mut(unsafe { (*volume) }.gbd_head, unsafe {
-                        (*volume).num_gbd as usize
-                    });
-
-                let mut cursor = unsafe { (*volume) }.global_buf.cast();
-
-                for db_block in gbd_blocks.iter_mut() {
-                    (*db_block).mem = cursor;
-                    cursor =
-                        cursor.byte_add(unsafe { (*(*volume).vollab).block_size as usize })
+                unsafe{rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();}
+                (vollab,map)
+            };
+            let gbd_blocks = { //Initializing the GBD blocks
+                for i in (0..self.num_global_descriptor){
+                    let gbd = GBD {
+                        block: 0,
+                        next: null_mut(),
+                        //TODO mem's value is not initialized.
+                        mem: unsafe {
+                            global_buf
+                                .byte_add(
+                                    i*(*vollab).block_size as usize
+                                )
+                        }.cast(),
+                        dirty: null_mut(),
+                        last_accessed: 0,
+                    };
+                    unsafe{std::ptr::write(gbd_head.add(i), gbd)};
                 }
+                use std::slice::from_raw_parts_mut;
+                let gbd_blocks = unsafe {
+                    from_raw_parts_mut(gbd_head,
+                                       self.num_global_descriptor
+                    )};
 
-                for i in (0..gbd_blocks.len() - 1) {
-                    use std::ops::IndexMut;
-                    gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
+                { //setting up the next pointers
+                    //TODO find a more elegant way of writing this.
+                    for i in (0..gbd_blocks.len() - 1) {
+                        use std::ops::IndexMut;
+                        gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
+                    }
+
+                    if let Some(last) = gbd_blocks.last_mut() {
+                        last.next = null_mut();
+                    }
                 }
-                if let Some(last) = gbd_blocks.last_mut() {
-                    last.next = null_mut();
-                }
-                (*volume).gbd_hash[GBD_HASH as usize] = (*volume).gbd_head;
-                (*volume).rbd_hash[RBD_HASH as usize] = (*volume).rbd_head.cast();
+                gbd_blocks
+            };
+
+            let vol_def = VOL_DEF {
+                file_name: crate::vol_def::format_name(&self.file_name),
+                vollab,
+
+                map,
+                map_dirty_flag: 0,
+                first_free: map.cast(),
+
+                global_buf,
+                zero_block,
+                num_gbd: gbd_blocks.len().try_into().unwrap(),
+                gbd_head:gbd_blocks.as_mut_ptr(),
+                gbd_hash: {
+                    let mut temp = [std::ptr::null_mut(); GBD_HASH as usize+1];
+                    temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
+                    temp
+                },
+                rbd_head,
+                rbd_end: end,
+                rbd_hash: {
+                    let mut temp = [std::ptr::null_mut(); RBD_HASH as usize+1];
+                    temp[RBD_HASH as usize] = rbd_head.cast();
+                    temp
+                },
+
+                shm_id: 0,
+                //TODO add test that cover these bounds.
+                num_of_daemons: (self.jobs / rsm::bindings::DAEMONS)
+                    .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
+                    .try_into()
+                    .unwrap(),
+                wd_tab: [rsm::bindings::WD_TAB {
+                    pid: 0,
+                    doing: 0,
+                    currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
+                }; 20],
+                dismount_flag: 0,
+                writelock: 0,
+                upto: 0,
+                dirtyQ: [std::ptr::null_mut(); 1024],
+                dirtyQw: 0,
+                dirtyQr: 0,
+                garbQ: [0; 8192],
+                garbQw: 0,
+                garbQr: 0,
+                jrn_next: 0,
+                stats: rsm::bindings::DB_STAT {
+                    dbget: 0,
+                    dbset: 0,
+                    dbkil: 0,
+                    dbdat: 0,
+                    dbord: 0,
+                    dbqry: 0,
+                    lasttry: 0,
+                    lastok: 0,
+                    logrd: 0,
+                    phyrd: 0,
+                    logwt: 0,
+                    phywt: 0,
+                    blkalloc: 0,
+                    blkdeall: 0,
+                    blkreorg: 0,
+                    diskerrors: 0,
+                },
+            };
+            unsafe{std::ptr::write(
+                volume,
+                vol_def,
+            );
             }
         }
+
+        let sys_tab_description = sys_tab::SYSTAB {
+            //This is used to verify the shared memeory segment
+            //is mapped to the same address space in each proccess.
+            address: shared_mem_segment,
+            jobtab: job_tab,
+            maxjob: self.jobs,
+            sem_id: 0, //TODO
+            #[allow(clippy::cast_possible_wrap)]
+            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
+            #[allow(clippy::cast_possible_wrap)]
+            precision: DEFAULT_PREC as i32,
+            max_tt: 0,
+            tt: [TRANTAB {
+                from_global: VAR_U { var_cu: [0; 32] },
+                from_vol: 0,
+                from_uci: 0,
+                to_global: VAR_U { var_cu: [0; 32] },
+                to_vol: 0,
+                to_uci: 0,
+            }; 8],
+            start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
+            lockstart: lock_tab.cast::<c_void>(),
+            #[allow(clippy::cast_possible_wrap)]
+            locksize: Bytes::from(self.lock_size).0 as i32,
+            lockhead: std::ptr::null_mut(),
+            lockfree: lock_tab,
+            addoff: Bytes::from(share_size).0 as u64,
+            addsize: 0,
+            vol: [volume],
+        };
 
         unsafe {
             std::ptr::write(
                 sys_tab,
-                sys_tab::SYSTAB {
-                    //This is used to verify the shared memeory segment
-                    //is mapped to the same address space in each proccess.
-                    address: shared_mem_segment,
-                    jobtab: job_tab,
-                    maxjob: self.jobs,
-                    sem_id: 0, //TODO
-                    #[allow(clippy::cast_possible_wrap)]
-                    historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
-                    #[allow(clippy::cast_possible_wrap)]
-                    precision: DEFAULT_PREC as i32,
-                    max_tt: 0,
-                    tt: [TRANTAB {
-                        from_global: VAR_U { var_cu: [0; 32] },
-                        from_vol: 0,
-                        from_uci: 0,
-                        to_global: VAR_U { var_cu: [0; 32] },
-                        to_vol: 0,
-                        to_uci: 0,
-                    }; 8],
-                    start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
-                    lockstart: lock_tab.cast::<c_void>(),
-                    #[allow(clippy::cast_possible_wrap)]
-                    locksize: Bytes::from(self.lock_size).0 as i32,
-                    lockhead: std::ptr::null_mut(),
-                    lockfree: lock_tab,
-                    addoff: Bytes::from(share_size).0 as u64,
-                    addsize: 0,
-                    vol: [volume],
-                },
+                sys_tab_description
             );
         }
 
-        
+                //TODO Deal with journaling
+                assert!(unsafe{(*sys_tab).maxjob} == 1);
         Ok(sys_tab)
     }
 
