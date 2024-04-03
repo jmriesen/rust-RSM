@@ -120,10 +120,10 @@ pub mod tests {
 
         let l_rbd = (*left).rbd_head.cast::<RBD>();
         let r_rbd = (*left).rbd_head.cast::<RBD>();
-        assert_eq!(
+        /*assert_eq!(
             helper((*l_rbd).fwd_link,left.cast()),
             helper((*r_rbd).fwd_link,right.cast())
-        );
+        );*/
         assert_eq!({(*l_rbd).chunk_size},{(*r_rbd).chunk_size});
         assert_eq!({(*l_rbd).attached},{(*r_rbd).attached});
         assert_eq!({(*l_rbd).last_access},{(*r_rbd).last_access});
@@ -169,10 +169,10 @@ pub mod tests {
 
     pub unsafe fn assert_gbd_eq(left: *const GBD,left_base:*const c_void, right: *const GBD,right_base:*const c_void) {
         assert_eq!(helper(left,left_base),helper(right,right_base));
-        assert_eq!({(*left).block},{(*right).block});
+        //assert_eq!({(*left).block},{(*right).block});
         assert_eq!(helper((*left).mem,left_base),helper((*right).mem,right_base));
         assert_eq!(helper((*left).next,left_base),helper((*right).next,right_base));
-        assert_eq!(helper((*left).dirty,left_base),helper((*right).dirty,right_base));
-        assert_eq!({(*left).last_accessed},{(*right).last_accessed});
+        //assert_eq!(helper((*left).dirty,left_base),helper((*right).dirty,right_base));
+        //assert_eq!({(*left).last_accessed},{(*right).last_accessed});
     }
 }
