@@ -14,7 +14,10 @@ use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
 use std::num::NonZeroU32;
+use std::os::fd::AsRawFd;
 use std::path::Path;
+use std::path::PathBuf;
+use std::ptr::{null, null_mut};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(
@@ -31,10 +34,12 @@ pub enum Error {
     InvalidGlobalBufferSize,
     #[error("Routine buffer size must not exceed {} MiB", MAX_ROUTINE_BUFFERS)]
     InvalidRoutineBufferSize,
-    #[error("open of database {} failed",.0)]
-    CouldNotOpenDatabase(String),
+    #[error("open of database {} failed",.0.display())]
+    CouldNotOpenDatabase(PathBuf),
     #[error("Read of label block failed")]
     CouldNotReadLableBlock,
+    #[error("Read of label/map block failed")]
+    CouldNotReadLableSlashMapBlock,
     #[error("Database is version {}, image requires version {} - start failed!!",DB_VER,.0)]
     MissmachedDatabaseVerstions(u16),
     #[error("Invalid RSM database (wrone magic) - start failed")]
@@ -54,7 +59,7 @@ pub enum Error {
 }
 
 pub struct Config {
-    file_name: String,
+    file_name: PathBuf,
     jobs: u32,
     global_buffer: Megbibytes,
     ///The numbber of blocks in the global buffer
@@ -69,7 +74,7 @@ impl Config {
     /// Errors out if the buffer sizes/number of jobs is to large/small
     /// or the Database file we are attempting to open does not exist/is invalid.
     pub fn new(
-        file_name: String,
+        file_name: PathBuf,
         //TODO think about what 0 jobs would mean.
         jobs: NonZeroU32,
         global_buffer: Option<Megbibytes>,
@@ -142,11 +147,11 @@ impl Config {
                 Layout::array::<GBD>(self.num_global_descriptor).unwrap(),
                 Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
                 Layout::array::<u8>(self.label.block_size.try_into().unwrap()).unwrap(),
-                Layout::array::<u8>(Bytes::from(self.routine_buffer).0 ).unwrap(),
+                Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
             )
         };
 
-        let share_size = meta_data_tab.num_pages() + volset_layout.num_pages();
+        let share_size = meta_data_tab.size() + volset_layout.size();
 
         /*
             let sem_id = unsafe{semget(
@@ -241,21 +246,6 @@ impl Config {
                 },
             );
         };
-        /*
-        let canonical_name = std::fs::canonicalize(&self.file_name)
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .bytes()
-            .collect();
-
-        let volume_name = canonical_name[canonical_name.len()-VOL_FILENAME_MAX as usize..]
-        .iter()
-        .chain(std::iter::repeat(0))
-        .take(VOL_FILENAME_MAX as usize)
-        .collect();
-
-        */
         unsafe {
             {
                 //volumes_start|volDef
@@ -269,29 +259,33 @@ impl Config {
                 //global_buf | global buffer size
                 //zero block | block size
                 //rbd_head | routine buffer size
-                let (vol_def, header, gbd_head, global_buf, zero_block, rbd_head,rbd_end) = volset_layout.calculate_offsets(volumes_start);
+                let (vol_def_ptr, header, gbd_head, global_buf, zero_block, rbd_head, end) =
+                    volset_layout.calculate_offsets(volumes_start);
 
                 let vollab = header.cast::<label_block>();
                 let map = vollab.add(1).cast();
 
-                assert!((*sys_tab).maxjob == 1);
                 std::ptr::write(
-                    vol_def,
+                    vol_def_ptr,
                     vol_def {
                         vollab,
                         map,
-                        first_free:map.cast(),
+                        first_free: map.cast(),
                         gbd_head,
                         num_gbd: self.num_global_descriptor.try_into().unwrap(),
-                        rbd_end,
+                        rbd_end: end,
                         shm_id: 0,
-                        file_name: [0;256],
+                        file_name: crate::vol_def::format_name(&self.file_name),
                         //TODO fix these values
                         //I am just zeroinging them out for now so I can start runningn some tests.
                         map_dirty_flag: 0,
                         gbd_hash: [std::ptr::null_mut(); 1025],
                         rbd_hash: [std::ptr::null_mut(); 1024],
-                        num_of_daemons: 0,
+                        //TODO add test that cover these bounds.
+                        num_of_daemons: (self.jobs / rsm::bindings::DAEMONS)
+                            .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
+                            .try_into()
+                            .unwrap(),
                         wd_tab: [rsm::bindings::WD_TAB {
                             pid: 0,
                             doing: 0,
@@ -314,8 +308,8 @@ impl Config {
                             dbdat: 0,
                             dbord: 0,
                             dbqry: 0,
-                            lasttry:0,
-                            lastok:0,
+                            lasttry: 0,
+                            lastok: 0,
                             logrd: 0,
                             phyrd: 0,
                             logwt: 0,
@@ -331,18 +325,48 @@ impl Config {
                         //TODO nost specificly called out in C code so they would have been zeroed by memset.
                     },
                 );
+                unsafe { (*sys_tab).vol[0] = vol_def_ptr };
+                let mut file = OpenOptions::new()
+                    .read(true)
+                    .open(&self.file_name)
+                    .map_err(|_| Error::CouldNotOpenDatabase(self.file_name))?;
+                file.read_exact(std::slice::from_raw_parts_mut(
+                    (*(*sys_tab).vol[0]).vollab.cast::<u8>(),
+                    self.label.header_bytes.try_into().unwrap(),
+                ))
+                .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
+                //NOTE should this be reported as an error?
+                if (*(*(*sys_tab).vol[0]).vollab).clean == 0 {
+                    eprintln!("WARNING: Volume was not dismounted properly!");
+                }
+                //NOTE the C code says this was to facilitate forking.
+                //I am not comfortable really comfortable forking so this may not be needed.
+                rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();
+
+                //TODO Deal with journaling
+                assert!((*sys_tab).maxjob == 1);
+                let gbd_blocks =
+                    std::slice::from_raw_parts_mut(unsafe { (*vol_def_ptr) }.gbd_head, unsafe {
+                        (*vol_def_ptr).num_gbd as usize
+                    });
+
+                let mut cursor = unsafe { (*vol_def_ptr) }.global_buf.cast();
+
+                for db_block in gbd_blocks.iter_mut() {
+                    (*db_block).mem = cursor;
+                    cursor =
+                        cursor.byte_add(unsafe { (*(*vol_def_ptr).vollab).block_size as usize })
+                }
+
+                for i in (0..gbd_blocks.len() - 1) {
+                    use std::ops::IndexMut;
+                    gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
+                }
+                if let Some(last) = gbd_blocks.last_mut() {
+                    last.next = null_mut();
+                }
             }
         }
-
-        //TODO set Vol[0] correctly.
-
-        //TODO Prefome error handleing.
-        //TODO Savefilename into the volume
-        //create two shared memeory segments.
-        //One for header/locks/jobs/Volset
-        //One for semephores.
-        //TODO not these require clean up/error handleing.
-
         Ok(sys_tab)
     }
 
@@ -350,7 +374,7 @@ impl Config {
         let mut file = OpenOptions::new()
             .read(true)
             .open(file)
-            .map_err(|_| Error::CouldNotOpenDatabase(file.to_string_lossy().into()))?;
+            .map_err(|_| Error::CouldNotOpenDatabase(file.into()))?;
 
         //TODO this unsafe code needs to be tested.
         let mut label = MaybeUninit::<label_block>::zeroed();
@@ -398,6 +422,7 @@ impl Config {
              */
         use core::alloc::Layout;
         use std::alloc;
+        println!("shared size {}", size.0);
         Ok((
             unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()).cast::<libc::c_void>() },
             0,
@@ -421,7 +446,7 @@ pub fn start(
     routine_buffer: Option<NonZeroU32>, //MEGBE
 ) -> Result<(), Vec<Error>> {
     let sys_tab = Config::new(
-        file_name,
+        file_name.into(),
         jobs,
         global_buffer.map(|x| Megbibytes(x.get() as usize)),
         routine_buffer.map(|x| Megbibytes(x.get() as usize)),
@@ -532,6 +557,9 @@ mod tests {
 
 use core::marker::PhantomData;
 use std::alloc::Layout;
+
+/// This represents the layout for a bunch of types placed one after the other.
+/// NOTE This always rounds up to a hole number of page files.
 struct TabLayout<A, B, C, D, E, F> {
     a_layout: Layout,
     b_layout: Layout,
@@ -548,6 +576,8 @@ struct TabLayout<A, B, C, D, E, F> {
 }
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
+    ///constructs a TabLayout
+    ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
     unsafe fn new(
         a_layout: Layout,
         b_layout: Layout,
@@ -571,7 +601,9 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             f_phantom: Default::default(),
         }
     }
-    fn num_pages(&self) -> Pages {
+
+    ///Size of the tab.
+    fn size(&self) -> Pages {
         (Bytes(self.a_layout.size())
             + Bytes(self.b_layout.size())
             + Bytes(self.c_layout.size())
@@ -580,6 +612,9 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             + Bytes(self.f_layout.size()))
         .pages_ceil()
     }
+
+    /// Calculates where each value should start and where the end of the tab is.
+    /// The caller needs to ensure that the pointer points to large enough region of memory.
     unsafe fn calculate_offsets(
         &self,
         mut cursor: *mut c_void,
@@ -595,7 +630,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         let e = cursor.cast::<E>();
         cursor = cursor.byte_add(self.e_layout.size());
         let f = cursor.cast::<F>();
-        cursor = cursor.byte_add(self.f_layout.size());
-        (a, b, c, d, e, f, cursor)
+        let end = a.cast::<c_void>().byte_add(Bytes::from(self.size()).0);
+        (a, b, c, d, e, f, end)
     }
 }

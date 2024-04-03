@@ -49,24 +49,37 @@ pub unsafe fn assert_sys_tab_eq(left: *mut SYSTAB, right: *mut SYSTAB) {
     //assert_eq!(unsafe{(*left).start_user}, unsafe{(*right).start_user});
     assert_eq!(unsafe { (*left).locksize }, unsafe { (*right).locksize });
     assert_eq!(unsafe { (*left).addoff }, unsafe { (*right).addoff });
+    assert_eq!(unsafe { (*left).addsize }, unsafe { (*right).addsize });
     //tt
 
     //comairing offsets
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
+    for i in 0..rsm::bindings::MAX_VOL as usize {
+        use crate::vol_def::tests::assert_vol_def_eq;
+        unsafe { assert_vol_def_eq((*left).vol[i], (*right).vol[i]) }
+    }
+}
+
+#[cfg(test)]
+pub fn helper<T>(ptr: *mut T, base: *mut c_void) -> Option<isize> {
+    if ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { ptr.byte_offset_from(base) })
+    }
 }
 
 #[cfg(test)]
 impl SYSTAB {
     fn offsets(
         sys_tab: *const Self,
-    ) -> (Option<isize>, Option<isize>, Option<isize>, Option<isize>) {
-        fn helper<T>(ptr: *mut T, base: *mut c_void) -> Option<isize> {
-            if ptr.is_null() {
-                None
-            } else {
-                Some(unsafe { ptr.byte_offset_from(base) })
-            }
-        }
+    ) -> (
+        Option<isize>,
+        Option<isize>,
+        Option<isize>,
+        Option<isize>,
+        [Option<isize>; 1],
+    ) {
         let base = unsafe { (*sys_tab).address };
         unsafe {
             (
@@ -74,6 +87,7 @@ impl SYSTAB {
                 helper((*sys_tab).lockstart, base),
                 helper((*sys_tab).lockhead, base),
                 helper((*sys_tab).lockfree, base),
+                (*sys_tab).vol.map(|x| helper(x, base)),
             )
         }
     }
