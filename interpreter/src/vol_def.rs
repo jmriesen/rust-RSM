@@ -36,12 +36,15 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
         .unwrap()
 }
 
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
     use libc::c_void;
     use rsm::bindings::vol_def;
-    pub fn helper<T>(ptr: *mut T, base: *const c_void) -> Option<isize> {
+    use rsm::bindings::GBD;
+    use rsm::bindings::RBD;
+    pub fn helper<T>(ptr: *const T, base: *const c_void) -> Option<isize> {
         if ptr.is_null() {
             None
         } else {
@@ -97,11 +100,10 @@ pub mod tests {
         assert_eq!(l_vollab, r_vollab);
         assert_eq!(l_map, r_map);
         assert_eq!(l_first_free, r_first_free);
-        //assert_eq!(l_gdb_hash,r_gdb_hash);
-        assert_eq!(l_gbd_head, r_gbd_head);
+        assert_eq!(l_gdb_hash,r_gdb_hash);
         assert_eq!(l_global_buf, r_global_buf);
         assert_eq!(l_zero_block, r_zero_block);
-        //assert_eq!(l_rbd_hash,r_rbd_hash);
+        assert_eq!(l_rbd_hash,r_rbd_hash);
         assert_eq!(l_rbd_head, r_rbd_head);
         assert_eq!(l_rbd_end, r_rbd_end);
         //assert_eq!(l_dirtyQ,r_dirtyQ);
@@ -109,6 +111,27 @@ pub mod tests {
             map_as_slice(unsafe { left.as_ref() }.unwrap()),
             map_as_slice(unsafe { right.as_ref() }.unwrap())
         );
+
+        assert_eq!({ (*left).num_gbd }, { (*right).num_gbd });
+        assert_eq!(l_gbd_head, r_gbd_head);
+        for i in (0..(*left).num_gbd as usize){
+            assert_gbd_eq((*left).gbd_head.add(i), left.cast(),(*right).gbd_head.add(i),right.cast());
+        }
+
+        let l_rbd = (*left).rbd_head.cast::<RBD>();
+        let r_rbd = (*left).rbd_head.cast::<RBD>();
+        assert_eq!(
+            helper((*l_rbd).fwd_link,left.cast()),
+            helper((*r_rbd).fwd_link,right.cast())
+        );
+        assert_eq!({(*l_rbd).chunk_size},{(*r_rbd).chunk_size});
+        assert_eq!({(*l_rbd).attached},{(*r_rbd).attached});
+        assert_eq!({(*l_rbd).last_access},{(*r_rbd).last_access});
+        assert_eq!((*l_rbd).rnam,(*r_rbd).rnam);
+        assert_eq!((*l_rbd).uci,(*r_rbd).uci);
+        assert_eq!((*l_rbd).vol,(*r_rbd).vol);
+        assert_eq!({(*l_rbd).rou_size},{(*r_rbd).rou_size});
+
     }
 
     fn offsets(
@@ -142,5 +165,14 @@ pub mod tests {
                 (*def).dirtyQ.map(|x| helper(x, base)),
             )
         }
+    }
+
+    pub unsafe fn assert_gbd_eq(left: *const GBD,left_base:*const c_void, right: *const GBD,right_base:*const c_void) {
+        assert_eq!(helper(left,left_base),helper(right,right_base));
+        assert_eq!({(*left).block},{(*right).block});
+        assert_eq!(helper((*left).mem,left_base),helper((*right).mem,right_base));
+        assert_eq!(helper((*left).next,left_base),helper((*right).next,right_base));
+        assert_eq!(helper((*left).dirty,left_base),helper((*right).dirty,right_base));
+        assert_eq!({(*left).last_accessed},{(*right).last_accessed});
     }
 }

@@ -9,7 +9,7 @@ use crate::{
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use libc::c_char;
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER};
+use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, RBD_HASH};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::{size_of, MaybeUninit};
@@ -345,6 +345,7 @@ impl Config {
 
                 //TODO Deal with journaling
                 assert!((*sys_tab).maxjob == 1);
+                //TODO I am not sure if this is technically safe, I have not written here yet.
                 let gbd_blocks =
                     std::slice::from_raw_parts_mut(unsafe { (*vol_def_ptr) }.gbd_head, unsafe {
                         (*vol_def_ptr).num_gbd as usize
@@ -365,6 +366,8 @@ impl Config {
                 if let Some(last) = gbd_blocks.last_mut() {
                     last.next = null_mut();
                 }
+                (*vol_def_ptr).gbd_hash[GBD_HASH as usize] = (*vol_def_ptr).gbd_head;
+                (*vol_def_ptr).rbd_hash[RBD_HASH as usize] = (*vol_def_ptr).rbd_head.cast();
             }
         }
         Ok(sys_tab)
@@ -422,9 +425,10 @@ impl Config {
              */
         use core::alloc::Layout;
         use std::alloc;
-        println!("shared size {}", size.0);
+        let mem = unsafe{alloc::alloc(Layout::array::<u8>(size.0).unwrap())};
+
         Ok((
-            unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()).cast::<libc::c_void>() },
+            mem.cast::<libc::c_void>(),
             0,
         ))
         /*
