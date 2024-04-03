@@ -426,6 +426,16 @@ impl Config {
         use core::alloc::Layout;
         use std::alloc;
         let mem = unsafe{alloc::alloc(Layout::array::<u8>(size.0).unwrap())};
+        #[cfg(test)]
+        {
+            //NOTE randomizing data so that it is easier to find bugs.
+            //We are initializing a lot of stuff to zero.
+            //Since by default the allocation is mostly zeros
+            //some bugs were being masked.
+            use rand::{thread_rng, Rng};
+            let mem_slice = unsafe{std::slice::from_raw_parts_mut(mem, size.0)};
+            thread_rng().fill(&mut mem_slice[..]);
+        }
 
         Ok((
             mem.cast::<libc::c_void>(),
