@@ -158,46 +158,9 @@ impl Config {
         let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
         let (sys_tab, _, job_tab, lock_tab, _, _, volumes_start) =
             unsafe { meta_data_tab.calculate_offsets(shared_mem_segment) };
-
         unsafe {
             std::ptr::write(
-                sys_tab,
-                sys_tab::SYSTAB {
-                    //This is used to verify the shared memeory segment
-                    //is mapped to the same address space in each proccess.
-                    address: shared_mem_segment,
-                    jobtab: job_tab,
-                    maxjob: self.jobs,
-                    sem_id: 0, //TODO
-                    #[allow(clippy::cast_possible_wrap)]
-                    historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
-                    #[allow(clippy::cast_possible_wrap)]
-                    precision: DEFAULT_PREC as i32,
-                    max_tt: 0,
-                    tt: [TRANTAB {
-                        from_global: VAR_U { var_cu: [0; 32] },
-                        from_vol: 0,
-                        from_uci: 0,
-                        to_global: VAR_U { var_cu: [0; 32] },
-                        to_vol: 0,
-                        to_uci: 0,
-                    }; 8],
-                    start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
-                    lockstart: lock_tab.cast::<c_void>(),
-                    #[allow(clippy::cast_possible_wrap)]
-                    locksize: Bytes::from(self.lock_size).0 as i32,
-                    lockhead: std::ptr::null_mut(),
-                    lockfree: lock_tab,
-                    addoff: Bytes::from(share_size).0 as u64,
-                    addsize: 0,
-                    vol: [std::ptr::null_mut()],
-                },
-            );
-        }
-
-        unsafe {
-            std::ptr::write(
-                (*sys_tab).lockfree,
+                lock_tab,
                 locktab {
                     fwd_link: std::ptr::null_mut(),
                     #[allow(clippy::cast_possible_wrap)]
@@ -214,16 +177,18 @@ impl Config {
                 },
             );
         };
-        unsafe {
+
+                let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
+            unsafe{volset_layout.calculate_offsets(volumes_start)};
+        //TODO check if this unsafe is actually needed.
+unsafe {
             {
-                let (vol_def_ptr, header, gbd_head, global_buf, zero_block, rbd_head, end) =
-                    volset_layout.calculate_offsets(volumes_start);
 
                 let vollab = header.cast::<label_block>();
                 let map = vollab.add(1).cast();
 
                 std::ptr::write(
-                    vol_def_ptr,
+                    volume,
                     vol_def {
                         vollab,
                         map,
@@ -281,18 +246,17 @@ impl Config {
                         rbd_head,
                     },
                 );
-                unsafe { (*sys_tab).vol[0] = vol_def_ptr };
                 let mut file = OpenOptions::new()
                     .read(true)
                     .open(&self.file_name)
                     .map_err(|_| Error::CouldNotOpenDatabase(self.file_name))?;
                 file.read_exact(std::slice::from_raw_parts_mut(
-                    (*(*sys_tab).vol[0]).vollab.cast::<u8>(),
+                    (*volume).vollab.cast::<u8>(),
                     self.label.header_bytes.try_into().unwrap(),
                 ))
                 .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
                 //NOTE should this be reported as an error?
-                if (*(*(*sys_tab).vol[0]).vollab).clean == 0 {
+                if (*(*volume).vollab).clean == 0 {
                     eprintln!("WARNING: Volume was not dismounted properly!");
                 }
                 //NOTE the C code says this was to facilitate forking.
@@ -303,16 +267,16 @@ impl Config {
                 assert!((*sys_tab).maxjob == 1);
                 //TODO I am not sure if this is technically safe, I have not written here yet.
                 let gbd_blocks =
-                    std::slice::from_raw_parts_mut(unsafe { (*vol_def_ptr) }.gbd_head, unsafe {
-                        (*vol_def_ptr).num_gbd as usize
+                    std::slice::from_raw_parts_mut(unsafe { (*volume) }.gbd_head, unsafe {
+                        (*volume).num_gbd as usize
                     });
 
-                let mut cursor = unsafe { (*vol_def_ptr) }.global_buf.cast();
+                let mut cursor = unsafe { (*volume) }.global_buf.cast();
 
                 for db_block in gbd_blocks.iter_mut() {
                     (*db_block).mem = cursor;
                     cursor =
-                        cursor.byte_add(unsafe { (*(*vol_def_ptr).vollab).block_size as usize })
+                        cursor.byte_add(unsafe { (*(*volume).vollab).block_size as usize })
                 }
 
                 for i in (0..gbd_blocks.len() - 1) {
@@ -322,10 +286,48 @@ impl Config {
                 if let Some(last) = gbd_blocks.last_mut() {
                     last.next = null_mut();
                 }
-                (*vol_def_ptr).gbd_hash[GBD_HASH as usize] = (*vol_def_ptr).gbd_head;
-                (*vol_def_ptr).rbd_hash[RBD_HASH as usize] = (*vol_def_ptr).rbd_head.cast();
+                (*volume).gbd_hash[GBD_HASH as usize] = (*volume).gbd_head;
+                (*volume).rbd_hash[RBD_HASH as usize] = (*volume).rbd_head.cast();
             }
         }
+
+        unsafe {
+            std::ptr::write(
+                sys_tab,
+                sys_tab::SYSTAB {
+                    //This is used to verify the shared memeory segment
+                    //is mapped to the same address space in each proccess.
+                    address: shared_mem_segment,
+                    jobtab: job_tab,
+                    maxjob: self.jobs,
+                    sem_id: 0, //TODO
+                    #[allow(clippy::cast_possible_wrap)]
+                    historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
+                    #[allow(clippy::cast_possible_wrap)]
+                    precision: DEFAULT_PREC as i32,
+                    max_tt: 0,
+                    tt: [TRANTAB {
+                        from_global: VAR_U { var_cu: [0; 32] },
+                        from_vol: 0,
+                        from_uci: 0,
+                        to_global: VAR_U { var_cu: [0; 32] },
+                        to_vol: 0,
+                        to_uci: 0,
+                    }; 8],
+                    start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
+                    lockstart: lock_tab.cast::<c_void>(),
+                    #[allow(clippy::cast_possible_wrap)]
+                    locksize: Bytes::from(self.lock_size).0 as i32,
+                    lockhead: std::ptr::null_mut(),
+                    lockfree: lock_tab,
+                    addoff: Bytes::from(share_size).0 as u64,
+                    addsize: 0,
+                    vol: [volume],
+                },
+            );
+        }
+
+        
         Ok(sys_tab)
     }
 
