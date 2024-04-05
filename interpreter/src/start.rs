@@ -3,14 +3,16 @@ use crate::bindings::{
     jobtab, locktab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
     HISTORIC_OFFOK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF,
 };
+use crate::global_buf::init_Global_Buffer_Descriptors;
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
 };
-use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
+use crate::{lock_tab, MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
+use std::slice::{from_ptr_range, from_raw_parts_mut};
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, RBD_HASH};
+use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, LOCKTAB, RBD_HASH};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::{MaybeUninit};
@@ -130,7 +132,7 @@ impl Config {
     /// TODO I need to implement proper panic handling
     pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, Error> {
         let meta_data_tab = unsafe {
-            TabLayout::<sys_tab::SYSTAB, u_int, jobtab, locktab, (), ()>::new(
+            TabLayout::<sys_tab::SYSTAB, u_int, jobtab, MaybeUninit<LOCKTAB>, (), ()>::new(
                 Layout::new::<sys_tab::SYSTAB>(),
                 //I am not sure what this u_int section is for.
                 Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
@@ -142,7 +144,7 @@ impl Config {
         };
 
         let volset_layout = unsafe {
-            TabLayout::<vol_def, c_void, GBD, c_void, c_void, c_void>::new(
+            TabLayout::<vol_def, c_void, MaybeUninit<GBD>, c_void, c_void, c_void>::new(
                 Layout::new::<vol_def>(),
                 Layout::array::<u8>(self.label.header_bytes.try_into().unwrap()).unwrap(),
                 Layout::array::<GBD>(self.num_global_descriptor).unwrap(),
@@ -157,32 +159,13 @@ impl Config {
         let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
         let (sys_tab, _, job_tab, lock_tab, _, _, volumes_start) =
             unsafe { meta_data_tab.calculate_offsets(shared_mem_segment) };
-        unsafe {
-            std::ptr::write(
-                lock_tab,
-                locktab {
-                    fwd_link: std::ptr::null_mut(),
-                    #[allow(clippy::cast_possible_wrap)]
-                    size: Bytes::from(self.lock_size).0 as i32,
-                    job: -1,
-                    //not explictly set in the c code
-                    //however this entire memory reagon is memset to 0
-                    byte_count: 0,
-                    key: [0; 256],
-                    lock_count: 0,
-                    name: VAR_U { var_cu: [0; 32] },
-                    uci: 0,
-                    vol: 0,
-                },
-            );
-        };
+        let lock_tab = unsafe{lock_tab::init(lock_tab, self.lock_size)};
 
         let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
             unsafe { volset_layout.calculate_offsets(volumes_start) };
         {
             //Read header section from db file.
             let (vollab, map) = {
-                use std::slice::from_raw_parts_mut;
                 let mut file = OpenOptions::new()
                     .read(true)
                     .open(&self.file_name)
@@ -206,35 +189,12 @@ impl Config {
                 (vollab, map)
             };
 
-            let gbd_blocks = {
-                //Initializing the GBD blocks
-                use std::slice::from_raw_parts_mut;
-                for i in 0..self.num_global_descriptor {
-                    let gbd = GBD {
-                        block: 0,
-                        next: null_mut(),
-                        //TODO mem's value is not initialized.
-                        mem: unsafe { global_buf.byte_add(i * (*vollab).block_size as usize) }
-                        .cast(),
-                        dirty: null_mut(),
-                        last_accessed: 0,
-                    };
-                    unsafe { std::ptr::write(gbd_head.add(i), gbd) };
-                }
-                let gbd_blocks =
-                    unsafe { from_raw_parts_mut(gbd_head, self.num_global_descriptor) };
-
-                //TODO find a more elegant way of writing this.
-                for i in 0..gbd_blocks.len() - 1 {
-                    use std::ops::IndexMut;
-                    gbd_blocks[i].next = gbd_blocks.index_mut(i + 1);
-                }
-
-                if let Some(last) = gbd_blocks.last_mut() {
-                    last.next = null_mut();
-                }
-                gbd_blocks
-            };
+            let gbd_blocks = unsafe {
+                init_Global_Buffer_Descriptors(
+                    from_raw_parts_mut(gbd_head,self.num_global_descriptor),
+                        global_buf,
+                        Bytes(self.label.block_size as usize)
+                )};
 
             let vol_def = VOL_DEF {
                 file_name: crate::vol_def::format_name(&self.file_name),
