@@ -10,7 +10,6 @@ clap = { version = "4.0.8", features = ["derive"] }
 libc = "0.2.139"
 uname = "0.1.1"
 rsm= { path = "../middle"}
-easy-ext = "1.0.1"
 thiserror = "1.0.56"
 
 [dev-dependencies]
