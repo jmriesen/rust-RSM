@@ -2,6 +2,8 @@ use crate::units::{Bytes, Pages};
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use std::alloc::Layout;
+use std::mem::{transmute, MaybeUninit};
+use std::slice::from_mut_ptr_range;
 /*
 let sem_id = unsafe{semget(
 shar_mem_key,
@@ -25,11 +27,11 @@ SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT
 
  */
 
-//TODO clean up of shared memory on errors.
+/// Allocates a zeroed block of memory (eventually will be from the shared memory segment see NOTE)
 ///NOTE Allocation shared memory via C and Rust requires more memory then my computer will allow.
 /// There is probably a way around this, however until I get to oxidizing the multi process stuff it the rust code does not really need the a shared memory segment.
 /// For now this just allocates a normal block of memory.
-#[allow(clippy::unnecessary_wraps,clippy::result_unit_err)]
+#[allow(clippy::unnecessary_wraps)]
 pub fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), ()> {
     /*
         use libc::*;
@@ -61,18 +63,7 @@ pub fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), ()> {
         TODO implement with shared memory.
          */
     use std::alloc;
-    let mem = unsafe { alloc::alloc(Layout::array::<u8>(size.0).unwrap()) };
-    #[cfg(test)]
-    {
-        //NOTE randomizing data so that it is easier to find bugs.
-        //We are initializing a lot of stuff to zero.
-        //Since by default the allocation is mostly zeros
-        //some bugs were being masked.
-        use rand::{thread_rng, Rng};
-        let mem_slice = unsafe { std::slice::from_raw_parts_mut(mem, size.0) };
-        thread_rng().fill(&mut mem_slice[..]);
-    }
-
+    let mem = unsafe { alloc::alloc_zeroed(Layout::array::<u8>(size.0).unwrap()) };
     Ok((mem.cast::<libc::c_void>(), 0))
     /*
     } else {
@@ -109,8 +100,42 @@ impl CError for *mut libc::c_void {
 }
 */
 
+
+/// A chunk of memory returned from a TabLayout
+/// The memory is guaranteed to have been zeroed.
+pub struct Allocation<T>{
+    pub ptr:*mut MaybeUninit<T>,
+    pub layout:Layout
+}
+
+impl <T> Allocation<T>{
+    /// Creates a new Allocation struct starting a cursor and moves the cursor to the end of the allocation.
+    /// # Safety
+    /// The cursor must be pointing to a memory regen at least as large as the layout, and that memory region must be zeroed.
+    unsafe fn new(cursor:&mut *mut c_void,layout:Layout)->Self{
+        let ptr = cursor.cast();
+        *cursor = cursor.byte_add(layout.size());
+        Self{
+            ptr,
+            layout
+        }
+    }
+    pub fn to_slice<'a>(self)->&'a mut[MaybeUninit<T>]{
+        unsafe{
+            from_mut_ptr_range(
+                self.ptr..self.ptr.byte_add(self.layout.size())
+            )}
+    }
+}
+
+impl Allocation<u8>{
+    pub fn to_void_ptr(self)->*mut c_void{
+        unsafe{transmute(self.ptr)}
+    }
+}
+
 /// This represents the layout for a bunch of types placed one after the other.
-/// NOTE This always rounds up to a hole number of page files.
+/// NOTE This always rounds up to a whole number of page files.
 pub struct TabLayout<A, B, C, D, E, F> {
     a_layout: Layout,
     b_layout: Layout,
@@ -165,24 +190,23 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     }
 
     /// Calculates where each value should start and where the end of the tab is.
-    /// The caller needs to ensure that the pointer points to large enough region of memory.
+    /// Safety
+    /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
     #[allow(clippy::many_single_char_names)]
     pub unsafe fn calculate_offsets(
         &self,
         mut cursor: *mut c_void,
-    ) -> (*mut A, *mut B, *mut C, *mut D, *mut E, *mut F, *mut c_void) {
-        let a = cursor.cast::<A>();
-        cursor = cursor.byte_add(self.a_layout.size());
-        let b = cursor.cast::<B>();
-        cursor = cursor.byte_add(self.b_layout.size());
-        let c = cursor.cast::<C>();
-        cursor = cursor.byte_add(self.c_layout.size());
-        let d = cursor.cast::<D>();
-        cursor = cursor.byte_add(self.d_layout.size());
-        let e = cursor.cast::<E>();
-        cursor = cursor.byte_add(self.e_layout.size());
-        let f = cursor.cast::<F>();
-        let end = a.cast::<c_void>().byte_add(Bytes::from(self.size()).0);
-        (a, b, c, d, e, f, end)
+    ) -> (Allocation<A> , Allocation<B>, Allocation<C>, Allocation<D>, Allocation<E>, Allocation<F>, *mut c_void) {
+        let end  = cursor.byte_add(Bytes::from(self.size()).0);
+        (
+            Allocation::<A>::new(&mut cursor,self.a_layout),
+            Allocation::<B>::new(&mut cursor,self.b_layout),
+            Allocation::<C>::new(&mut cursor,self.c_layout),
+            Allocation::<D>::new(&mut cursor,self.d_layout),
+            Allocation::<E>::new(&mut cursor,self.e_layout),
+            Allocation::<F>::new(&mut cursor,self.f_layout),
+            //TODO pull out end into its own function.
+            end
+        )
     }
 }

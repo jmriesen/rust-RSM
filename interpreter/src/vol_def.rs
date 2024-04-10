@@ -1,7 +1,9 @@
-use std::path::Path;
+use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path, slice::from_raw_parts_mut};
 
-use libc::{c_char};
-use rsm::bindings::VOL_FILENAME_MAX;
+use libc::{c_char, c_void};
+use rsm::bindings::{LABEL_BLOCK, VOL_DEF, VOL_FILENAME_MAX};
+
+use crate::{alloc::Allocation, start::Error};
 
 fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
     use std::ops::Range;
@@ -34,6 +36,36 @@ fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()
+}
+
+/// This will panic if the path is not a valid db file or if the header allocation is 1= the header size.
+pub fn init_header_section(path:&Path,header:Allocation<u8>)->Result<(*mut LABEL_BLOCK,*mut c_void),Error>{
+    let mut file = OpenOptions::new()
+        .read(true)
+        .open(path)
+        .map_err(|_| Error::CouldNotOpenDatabase(path.to_path_buf()))?;
+    let buf_size = header.layout.size();
+    //NOTE it is safe to transmute right away since
+    //all bit patterns are a valid [u8]
+    let header:&mut[u8] = unsafe{transmute(header.to_slice())};
+    file.read_exact(&mut header[..])
+        .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
+
+    let vollab = header.as_mut_ptr().cast::<LABEL_BLOCK>();
+    let map = unsafe { vollab.add(1).cast() };
+    //Panic if header size on file does not match the header allocation's size
+    assert!(buf_size as u32 == unsafe{*vollab}.header_bytes);
+    //NOTE should this be reported as an error?
+    if unsafe { (*vollab).clean } == 0 {
+        eprintln!("WARNING: Volume was not dismounted properly!");
+    }
+    //NOTE the C code says this was to facilitate forking.
+    //I am not comfortable really comfortable forking so this may not be needed.
+    unsafe {
+        rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();
+    }
+
+    Ok((vollab, map))
 }
 
 #[cfg(test)]

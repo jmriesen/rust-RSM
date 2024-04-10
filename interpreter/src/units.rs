@@ -1,17 +1,17 @@
-//TODO The newtype pattern is farily common. so a lot of the bolier plate could probubly be removed buy using a 3rd party crate.
 
+///integer number of pages
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Pages(pub usize);
 ///interger number of Megbiytes
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Megbibytes(pub usize);
-///interger number of kibiytes.
+///interger number of Kibiytes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Kibibytes(pub usize);
 ///interger number of Words.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Words(pub usize);
-///interger number of bytes.
+///interger number of Bytes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Bytes(pub usize);
 

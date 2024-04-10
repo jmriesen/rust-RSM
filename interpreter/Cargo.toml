@@ -15,4 +15,3 @@ thiserror = "1.0.56"
 [dev-dependencies]
 uuid = { version = "1.7.0", features = ["v4"] }
 rstest = "0.18.2"
-rand = "0.8.5"

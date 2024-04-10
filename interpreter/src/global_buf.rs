@@ -1,24 +1,32 @@
-use std::{mem::{transmute, MaybeUninit}, ptr::null_mut, slice::from_raw_parts_mut};
+use std::{mem::{transmute, MaybeUninit}, ptr::null_mut, slice::{from_mut_ptr_range, from_raw_parts_mut}};
 
 use libc::c_void;
 use rsm::bindings::GBD;
 
-use crate::units::Bytes;
+use crate::{alloc::Allocation, units::Bytes};
 
 
 type GlobalBufferDescriptor = GBD;
 
-pub unsafe fn init_Global_Buffer_Descriptors(
-    descriptors:&mut [MaybeUninit<GlobalBufferDescriptor>],
-    buffer_start:*mut c_void,
+pub fn init_global_buffer_descriptors<'a>(
+    descriptors:Allocation<GlobalBufferDescriptor>,
+    buffer:&Allocation<u8>,
     block_size:Bytes,
-)->&mut [GlobalBufferDescriptor] {
+)->&'a mut [GlobalBufferDescriptor] {
+    let descriptors =
+        unsafe{
+            from_mut_ptr_range(
+                descriptors.ptr..descriptors.ptr.byte_add(descriptors.layout.size())
+            )};
+    //Validate that the buffer is large enough
+    assert!(buffer.layout.size()>=descriptors.len()*block_size.0);
+
     for (index,descriptor)in descriptors.iter_mut().enumerate(){
         descriptor.write(GlobalBufferDescriptor{
             block: 0,
             next: null_mut(),
             //TODO mem's value is not initialized.
-            mem: unsafe { buffer_start.byte_add(index * block_size.0 ) }
+            mem: unsafe { buffer.ptr.byte_add(index * block_size.0 ) }
             .cast(),
             dirty: null_mut(),
             last_accessed: 0,

@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ffi::CString;
 use std::ffi::CStr;
 use std::fmt;
@@ -67,3 +68,21 @@ impl TryFrom<String> for VAR_U {
     }
 }
 
+
+impl PartialEq<LABEL_BLOCK> for LABEL_BLOCK{
+    fn eq(&self,other:&Self)->bool{
+        self.magic ==other.magic &&
+            self.max_block==other.max_block &&
+            self.header_bytes == other.header_bytes &&
+            self.block_size == other.block_size &&
+            self.creation_time == other.creation_time &&
+            self.db_ver == other.db_ver &&
+            self.volnam == other.volnam &&
+            self.journal_available == other.journal_available &&
+            self.journal_requested == other.journal_requested &&
+            self.clean == other.clean &&
+            self.journal_file == other.journal_file
+            //TODO fix this at some point
+            //self.uci == other.uci
+    }
+}
