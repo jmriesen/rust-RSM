@@ -2,7 +2,7 @@ use crate::units::{Bytes, Pages};
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use std::alloc::Layout;
-use std::mem::{transmute, MaybeUninit};
+use std::mem::{MaybeUninit};
 use std::slice::from_mut_ptr_range;
 /*
 let sem_id = unsafe{semget(
@@ -32,6 +32,7 @@ SHM_R | SHM_W | (SHM_R >> 3) | (SHM_W >> 3) | IPC_CREAT
 /// There is probably a way around this, however until I get to oxidizing the multi process stuff it the rust code does not really need the a shared memory segment.
 /// For now this just allocates a normal block of memory.
 #[allow(clippy::unnecessary_wraps)]
+#[allow(clippy::result_unit_err)]
 pub fn create_shared_mem(size: Bytes) -> Result<(*mut libc::c_void, i32), ()> {
     /*
         use libc::*;
@@ -101,9 +102,10 @@ impl CError for *mut libc::c_void {
 */
 
 
-/// A chunk of memory returned from a TabLayout
+/// A chunk of memory returned from a `TabLayout`
 /// The memory is guaranteed to have been zeroed.
 pub struct Allocation<T>{
+    //Consider changing this to a reference
     pub ptr:*mut MaybeUninit<T>,
     pub layout:Layout
 }
@@ -120,7 +122,7 @@ impl <T> Allocation<T>{
             layout
         }
     }
-    pub fn to_slice<'a>(self)->&'a mut[MaybeUninit<T>]{
+    #[must_use] pub fn to_slice<'a>(self)->&'a mut[MaybeUninit<T>]{
         unsafe{
             from_mut_ptr_range(
                 self.ptr..self.ptr.byte_add(self.layout.size())
@@ -129,8 +131,8 @@ impl <T> Allocation<T>{
 }
 
 impl Allocation<u8>{
-    pub fn to_void_ptr(self)->*mut c_void{
-        unsafe{transmute(self.ptr)}
+    #[must_use] pub fn to_void_ptr(self)->*mut c_void{
+        self.ptr.cast::<c_void>()
     }
 }
 
@@ -192,7 +194,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     /// Calculates where each value should start and where the end of the tab is.
     /// Safety
     /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
-    #[allow(clippy::many_single_char_names)]
+    #[allow(clippy::many_single_char_names,clippy::type_complexity)]
     pub unsafe fn calculate_offsets(
         &self,
         mut cursor: *mut c_void,

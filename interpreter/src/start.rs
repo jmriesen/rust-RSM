@@ -1,6 +1,6 @@
 use crate::alloc::{create_shared_mem, TabLayout};
 use crate::bindings::{
-    jobtab, locktab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
+    jobtab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
     HISTORIC_OFFOK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF,
 };
 use crate::global_buf::{init_global_buffer_descriptors};
@@ -12,17 +12,14 @@ use crate::{
 };
 use crate::{lock_tab, MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
-use std::slice::{from_ptr_range, from_raw_parts_mut};
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, LOCKTAB, RBD_HASH};
+use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, JOBTAB, LOCKTAB, RBD_HASH};
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::mem::{transmute, MaybeUninit};
+use std::mem::{MaybeUninit};
 use std::num::NonZeroU32;
-use std::os::fd::AsRawFd;
 use std::path::Path;
 use std::path::PathBuf;
-use std::ptr::{null_mut};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(
@@ -193,7 +190,7 @@ impl Config {
                 temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
                 temp
             },
-            rbd_head:unsafe{transmute(rbd_head.ptr)} ,
+            rbd_head:rbd_head.ptr.cast::<c_void>(),
             rbd_end: end,
             rbd_hash: {
                 let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
@@ -242,13 +239,13 @@ impl Config {
             },
         };
         unsafe {volume.ptr.as_mut()}.unwrap().write(vol_def);
-        let volume = unsafe {transmute(volume.ptr)};
+        let volume = volume.ptr.cast::<VOL_DEF>();
 
         let sys_tab_description = sys_tab::SYSTAB {
             //This is used to verify the shared memeory segment
             //is mapped to the same address space in each proccess.
             address: shared_mem_segment,
-            jobtab: unsafe{transmute(job_tab.ptr)},
+            jobtab: job_tab.ptr.cast::<JOBTAB>(),
             maxjob: self.jobs,
             sem_id: 0, //TODO
             #[allow(clippy::cast_possible_wrap)]
@@ -276,7 +273,7 @@ impl Config {
         };
 
         unsafe {sys_tab.ptr.as_mut().unwrap().write(sys_tab_description)};
-        let sys_tab :*mut SYSTAB = unsafe{ transmute(sys_tab.ptr)};
+        let sys_tab :*mut SYSTAB = sys_tab.ptr.cast::<SYSTAB>();
 
         //TODO Deal with journaling
         assert!(unsafe { (*sys_tab).maxjob } == 1);

@@ -1,10 +1,11 @@
-use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path, slice::from_raw_parts_mut};
+use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path};
 
 use libc::{c_char, c_void};
-use rsm::bindings::{LABEL_BLOCK, VOL_DEF, VOL_FILENAME_MAX};
+use rsm::bindings::{LABEL_BLOCK, VOL_FILENAME_MAX};
 
 use crate::{alloc::Allocation, start::Error};
 
+#[cfg(test)]
 fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
     use std::ops::Range;
     use std::slice::from_ptr_range;
@@ -47,6 +48,7 @@ pub fn init_header_section(path:&Path,header:Allocation<u8>)->Result<(*mut LABEL
     let buf_size = header.layout.size();
     //NOTE it is safe to transmute right away since
     //all bit patterns are a valid [u8]
+    #[allow(clippy::transmute_ptr_to_ptr)]
     let header:&mut[u8] = unsafe{transmute(header.to_slice())};
     file.read_exact(&mut header[..])
         .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
@@ -71,7 +73,6 @@ pub fn init_header_section(path:&Path,header:Allocation<u8>)->Result<(*mut LABEL
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use libc::c_void;
     use rsm::bindings::vol_def;
     use rsm::bindings::GBD;
     use rsm::bindings::RBD;
@@ -112,7 +113,7 @@ pub mod tests {
             l_rbd_hash,
             l_rbd_head,
             l_rbd_end,
-            l_dirtyQ,
+            l_dirty_q,
         ) = offsets(left);
         let (
             r_vollab,
@@ -125,7 +126,7 @@ pub mod tests {
             r_rbd_hash,
             r_rbd_head,
             r_rbd_end,
-            r_dirtyQ,
+            r_dirty_q,
         ) = offsets(right);
 
         assert_eq!(l_vollab, r_vollab);
@@ -169,6 +170,9 @@ pub mod tests {
         assert_eq!({ (*l_rbd).rou_size }, { (*r_rbd).rou_size });
     }
 
+    #[allow(clippy::type_complexity)]
+    //TODO the type complexity lint is valid, however they type is conceptually quite simple
+    //I have higher priorities then fixing this right not, but it should be fixed at some point.
     fn offsets(
         def: *const vol_def,
     ) -> (

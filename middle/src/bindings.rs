@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::ffi::CString;
 use std::ffi::CStr;
 use std::fmt;
