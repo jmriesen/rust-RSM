@@ -127,7 +127,25 @@ pub unsafe fn init(
         },
     };
     unsafe { volume.ptr.as_mut() }.unwrap().write(vol_def);
-    Ok(volume.ptr.cast())
+    let volume = volume.ptr.cast::<VOL_DEF>();
+    {
+        // Was the volume cleanly dismounted?
+        let volume = unsafe{volume.as_mut()}.unwrap();
+        let vollab = unsafe{volume.vollab.as_mut()}.unwrap();
+        if vollab.clean == 0 {
+            eprintln!("WARNING: Volume was not dismounted properly!");
+            // mark for cleaning
+            volume.upto = 1;
+        } else {
+            //TODO branch is untested
+            // mark as mounted
+            vollab.clean = 1;
+            // and map needs writing
+            volume.map_dirty_flag = 1;
+        }
+
+    }
+    Ok(volume)
 }
 
 /// This will panic if the path is not a valid db file or if the header allocation is 1= the header size.
@@ -151,10 +169,7 @@ pub fn init_header_section(
     let map = unsafe { vollab.add(1).cast() };
     //Panic if header size on file does not match the header allocation's size
     assert!(buf_size as u32 == unsafe { *vollab }.header_bytes);
-    //NOTE should this be reported as an error?
-    if unsafe { (*vollab).clean } == 0 {
-        eprintln!("WARNING: Volume was not dismounted properly!");
-    }
+
     //NOTE the C code says this was to facilitate forking.
     //I am not comfortable really comfortable forking so this may not be needed.
     unsafe {
@@ -177,23 +192,24 @@ pub mod tests {
             Some(unsafe { ptr.byte_offset_from(base) })
         }
     }
+
     pub unsafe fn assert_vol_def_eq(left: *mut vol_def, right: *mut vol_def) {
         assert_eq!(unsafe { (*left).num_gbd }, unsafe { (*right).num_gbd });
         assert_eq!(unsafe { (*left).num_of_daemons }, unsafe {
             (*right).num_of_daemons
         });
         //assert_eq!(unsafe { (*left).wd_tab}, unsafe { (*right).wd_tab });
-        //assert_eq!(unsafe { (*left).dismount_flag }, unsafe { (*right).dismount_flag });
-        //assert_eq!(unsafe { (*left).map_dirty_flag }, unsafe { (*right).map_dirty_flag });
-        //assert_eq!(unsafe { (*left).writelock }, unsafe { (*right).writelock });
-        //assert_eq!(unsafe { (*left).upto }, unsafe { (*right).upto });
+        assert_eq!(unsafe { (*left).dismount_flag }, unsafe { (*right).dismount_flag });
+        assert_eq!(unsafe { (*left).map_dirty_flag }, unsafe { (*right).map_dirty_flag });
+        assert_eq!(unsafe { (*left).writelock }, unsafe { (*right).writelock });
+        assert_eq!(unsafe { (*left).upto }, unsafe { (*right).upto });
         //assert_eq!(unsafe { (*left).shm_id }, unsafe { (*right).shm_id });
-        //assert_eq!(unsafe { (*left).dirtyQr }, unsafe { (*right).dirtyQr });
-        //assert_eq!(unsafe { (*left).dirtyQw}, unsafe { (*right).dirtyQw });
-        //assert_eq!(unsafe { (*left).garbQ}, unsafe { (*right).garbQ});
-        //assert_eq!(unsafe { (*left).garbQw}, unsafe { (*right).garbQw});
-        //assert_eq!(unsafe { (*left).garbQr}, unsafe { (*right).garbQr});
-        //assert_eq!(unsafe { (*left).jrn_next}, unsafe { (*right).jrn_next});
+        assert_eq!(unsafe { (*left).dirtyQr }, unsafe { (*right).dirtyQr });
+        assert_eq!(unsafe { (*left).dirtyQw}, unsafe { (*right).dirtyQw });
+        assert_eq!(unsafe { (*left).garbQ}, unsafe { (*right).garbQ});
+        assert_eq!(unsafe { (*left).garbQw}, unsafe { (*right).garbQw});
+        assert_eq!(unsafe { (*left).garbQr}, unsafe { (*right).garbQr});
+        assert_eq!(unsafe { (*left).jrn_next}, unsafe { (*right).jrn_next});
         assert_eq!(unsafe { (*left).file_name }, unsafe { (*right).file_name });
         //assert_eq!(unsafe { (*left).stats}, unsafe { (*right).stats});
         let (
