@@ -1,4 +1,3 @@
-
 use rsm::bindings::{LOCKTAB, VAR_U};
 
 use crate::alloc::Allocation;
@@ -6,8 +5,9 @@ use crate::alloc::Allocation;
 /// Initialized the a Lock Tab
 //NOTE Initializing the block of memory should consume the allocation
 #[allow(clippy::needless_pass_by_value)]
-#[must_use] pub fn init(alloc:Allocation<LOCKTAB>) -> *mut LOCKTAB{
-    unsafe{alloc.ptr.as_mut()}.unwrap().write(LOCKTAB{
+#[must_use]
+pub fn init(alloc: Allocation<LOCKTAB>) -> *mut LOCKTAB {
+    unsafe { alloc.ptr.as_mut() }.unwrap().write(LOCKTAB{
         fwd_link: std::ptr::null_mut(),
         #[allow(clippy::cast_possible_wrap)]
         //TODO this has not been zeroed

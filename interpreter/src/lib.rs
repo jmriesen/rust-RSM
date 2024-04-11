@@ -17,8 +17,8 @@ pub mod bindings;
 pub mod create;
 
 pub mod alloc;
-pub mod lock_tab;
 pub mod global_buf;
+pub mod lock_tab;
 #[allow(unused)]
 pub mod run;
 pub mod start;

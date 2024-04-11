@@ -3,7 +3,12 @@ use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path
 use libc::{c_char, c_void};
 use rsm::bindings::{GBD, GBD_HASH, LABEL_BLOCK, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX};
 
-use crate::{alloc::{Allocation, TabLayout}, global_buf::init_global_buffer_descriptors, start::Error, units::Bytes};
+use crate::{
+    alloc::{Allocation, TabLayout},
+    global_buf::init_global_buffer_descriptors,
+    start::Error,
+    units::Bytes,
+};
 
 #[cfg(test)]
 fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
@@ -21,7 +26,8 @@ fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
 /// Formats the file name so it fits in `vol_def`.
 /// If to long grab the last `VOL_FILENAME_MAX` chars.
 /// If to short otherwise pad with trailing 0s.
-#[must_use] pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
+#[must_use]
+pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     //TODO test edge cases
     std::fs::canonicalize(path)
         .unwrap()
@@ -39,17 +45,21 @@ fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
         .unwrap()
 }
 
-pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<VOL_DEF, u8, GBD, u8, u8, c_void>) ->Result<*mut VOL_DEF,Error>{
+pub unsafe fn init(
+    name: &Path,
+    jobs: usize,
+    tab: *mut c_void,
+    layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, c_void>,
+) -> Result<*mut VOL_DEF, Error> {
+    let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
+        layout.calculate_offsets(tab);
+    let (vollab, map) = init_header_section(name, header)?;
 
-    let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) = layout.calculate_offsets(tab);
-    let (vollab,map) = init_header_section(name, header)?;
-
-    let gbd_blocks =
-        init_global_buffer_descriptors(
-            gbd_head,
-            &global_buf,
-            Bytes(unsafe{*vollab}.block_size as usize)
-        );
+    let gbd_blocks = init_global_buffer_descriptors(
+        gbd_head,
+        &global_buf,
+        Bytes(unsafe { *vollab }.block_size as usize),
+    );
 
     let vol_def = VOL_DEF {
         file_name: crate::vol_def::format_name(name),
@@ -59,8 +69,8 @@ pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<V
         map_dirty_flag: 0,
         first_free: map.cast(),
 
-        global_buf:global_buf.to_void_ptr(),
-        zero_block:zero_block.to_void_ptr(),
+        global_buf: global_buf.to_void_ptr(),
+        zero_block: zero_block.to_void_ptr(),
         num_gbd: gbd_blocks.len().try_into().unwrap(),
         gbd_head: gbd_blocks.as_mut_ptr(),
         gbd_hash: {
@@ -68,7 +78,7 @@ pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<V
             temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
             temp
         },
-        rbd_head:rbd_head.ptr.cast::<c_void>(),
+        rbd_head: rbd_head.ptr.cast::<c_void>(),
         rbd_end: end,
         rbd_hash: {
             let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
@@ -78,7 +88,7 @@ pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<V
 
         shm_id: 0,
         //TODO add test that cover these bounds.
-        num_of_daemons: (jobs as u32/ rsm::bindings::DAEMONS)
+        num_of_daemons: (jobs as u32 / rsm::bindings::DAEMONS)
             .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
             .try_into()
             .unwrap(),
@@ -116,12 +126,15 @@ pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<V
             diskerrors: 0,
         },
     };
-    unsafe {volume.ptr.as_mut()}.unwrap().write(vol_def);
+    unsafe { volume.ptr.as_mut() }.unwrap().write(vol_def);
     Ok(volume.ptr.cast())
 }
 
 /// This will panic if the path is not a valid db file or if the header allocation is 1= the header size.
-pub fn init_header_section(path:&Path,header:Allocation<u8>)->Result<(*mut LABEL_BLOCK,*mut c_void),Error>{
+pub fn init_header_section(
+    path: &Path,
+    header: Allocation<u8>,
+) -> Result<(*mut LABEL_BLOCK, *mut c_void), Error> {
     let mut file = OpenOptions::new()
         .read(true)
         .open(path)
@@ -130,14 +143,14 @@ pub fn init_header_section(path:&Path,header:Allocation<u8>)->Result<(*mut LABEL
     //NOTE it is safe to transmute right away since
     //all bit patterns are a valid [u8]
     #[allow(clippy::transmute_ptr_to_ptr)]
-    let header:&mut[u8] = unsafe{transmute(header.to_slice())};
+    let header: &mut [u8] = unsafe { transmute(header.to_slice()) };
     file.read_exact(&mut header[..])
         .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
 
     let vollab = header.as_mut_ptr().cast::<LABEL_BLOCK>();
     let map = unsafe { vollab.add(1).cast() };
     //Panic if header size on file does not match the header allocation's size
-    assert!(buf_size as u32 == unsafe{*vollab}.header_bytes);
+    assert!(buf_size as u32 == unsafe { *vollab }.header_bytes);
     //NOTE should this be reported as an error?
     if unsafe { (*vollab).clean } == 0 {
         eprintln!("WARNING: Volume was not dismounted properly!");

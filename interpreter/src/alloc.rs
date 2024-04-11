@@ -2,7 +2,7 @@ use crate::units::{Bytes, Pages};
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use std::alloc::Layout;
-use std::mem::{MaybeUninit};
+use std::mem::MaybeUninit;
 use std::slice::from_mut_ptr_range;
 /*
 let sem_id = unsafe{semget(
@@ -101,37 +101,32 @@ impl CError for *mut libc::c_void {
 }
 */
 
-
 /// A chunk of memory returned from a `TabLayout`
 /// The memory is guaranteed to have been zeroed.
-pub struct Allocation<T>{
+pub struct Allocation<T> {
     //Consider changing this to a reference
-    pub ptr:*mut MaybeUninit<T>,
-    pub layout:Layout
+    pub ptr: *mut MaybeUninit<T>,
+    pub layout: Layout,
 }
 
-impl <T> Allocation<T>{
+impl<T> Allocation<T> {
     /// Creates a new Allocation struct starting a cursor and moves the cursor to the end of the allocation.
     /// # Safety
     /// The cursor must be pointing to a memory regen at least as large as the layout, and that memory region must be zeroed.
-    unsafe fn new(cursor:&mut *mut c_void,layout:Layout)->Self{
+    unsafe fn new(cursor: &mut *mut c_void, layout: Layout) -> Self {
         let ptr = cursor.cast();
         *cursor = cursor.byte_add(layout.size());
-        Self{
-            ptr,
-            layout
-        }
+        Self { ptr, layout }
     }
-    #[must_use] pub fn to_slice<'a>(self)->&'a mut[MaybeUninit<T>]{
-        unsafe{
-            from_mut_ptr_range(
-                self.ptr..self.ptr.byte_add(self.layout.size())
-            )}
+    #[must_use]
+    pub fn to_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
+        unsafe { from_mut_ptr_range(self.ptr..self.ptr.byte_add(self.layout.size())) }
     }
 }
 
-impl Allocation<u8>{
-    #[must_use] pub fn to_void_ptr(self)->*mut c_void{
+impl Allocation<u8> {
+    #[must_use]
+    pub fn to_void_ptr(self) -> *mut c_void {
         self.ptr.cast::<c_void>()
     }
 }
@@ -156,7 +151,8 @@ pub struct TabLayout<A, B, C, D, E, F> {
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     ///constructs a `TabLayout`
     ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
-    #[must_use] pub unsafe fn new(
+    #[must_use]
+    pub unsafe fn new(
         a_layout: Layout,
         b_layout: Layout,
         c_layout: Layout,
@@ -181,7 +177,8 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     }
 
     ///Size of the tab.
-    #[must_use] pub fn size(&self) -> Pages {
+    #[must_use]
+    pub fn size(&self) -> Pages {
         (Bytes(self.a_layout.size())
             + Bytes(self.b_layout.size())
             + Bytes(self.c_layout.size())
@@ -194,21 +191,29 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     /// Calculates where each value should start and where the end of the tab is.
     /// Safety
     /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
-    #[allow(clippy::many_single_char_names,clippy::type_complexity)]
+    #[allow(clippy::many_single_char_names, clippy::type_complexity)]
     pub unsafe fn calculate_offsets(
         &self,
         mut cursor: *mut c_void,
-    ) -> (Allocation<A> , Allocation<B>, Allocation<C>, Allocation<D>, Allocation<E>, Allocation<F>, *mut c_void) {
-        let end  = cursor.byte_add(Bytes::from(self.size()).0);
+    ) -> (
+        Allocation<A>,
+        Allocation<B>,
+        Allocation<C>,
+        Allocation<D>,
+        Allocation<E>,
+        Allocation<F>,
+        *mut c_void,
+    ) {
+        let end = cursor.byte_add(Bytes::from(self.size()).0);
         (
-            Allocation::<A>::new(&mut cursor,self.a_layout),
-            Allocation::<B>::new(&mut cursor,self.b_layout),
-            Allocation::<C>::new(&mut cursor,self.c_layout),
-            Allocation::<D>::new(&mut cursor,self.d_layout),
-            Allocation::<E>::new(&mut cursor,self.e_layout),
-            Allocation::<F>::new(&mut cursor,self.f_layout),
+            Allocation::<A>::new(&mut cursor, self.a_layout),
+            Allocation::<B>::new(&mut cursor, self.b_layout),
+            Allocation::<C>::new(&mut cursor, self.c_layout),
+            Allocation::<D>::new(&mut cursor, self.d_layout),
+            Allocation::<E>::new(&mut cursor, self.e_layout),
+            Allocation::<F>::new(&mut cursor, self.f_layout),
             //TODO pull out end into its own function.
-            end
+            end,
         )
     }
 }

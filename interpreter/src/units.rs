@@ -1,4 +1,3 @@
-
 ///integer number of pages
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Pages(pub usize);
