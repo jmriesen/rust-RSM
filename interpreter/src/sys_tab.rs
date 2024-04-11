@@ -1,5 +1,7 @@
 use libc::{c_int, c_void};
-use rsm::bindings::{jobtab, locktab, trantab, u_int, u_long, vol_def};
+use rsm::bindings::{jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LOCKTAB, TRANTAB, VAR_U, VOL_DEF};
+
+use crate::{alloc::TabLayout, lock_tab};
 
 #[repr(C, packed(1))]
 pub struct SYSTAB {
@@ -37,6 +39,47 @@ pub struct SYSTAB {
     //This field was being used for alignment shananigans in the old c code.
     //Removing it since I don't want to rely on shananigans.
     //pub last_blk_used: [u_int; 1],
+}
+
+pub unsafe fn init(jobs: usize, volume:*mut VOL_DEF,addoff:u64,ptr:*mut c_void, layout:&TabLayout::<SYSTAB, u_int, JOBTAB, LOCKTAB, (), ()>)-> *mut SYSTAB{
+    let (sys_tab, _, job_tab, lock_tab, _, _, _) =
+            unsafe { layout.calculate_offsets(ptr) };
+        let lock_tab = lock_tab::init(lock_tab);
+        let sys_tab_description = SYSTAB {
+            //This is used to verify the shared memory segment
+            //is mapped to the same address space in each process.
+            address: ptr,
+            jobtab: job_tab.ptr.cast::<JOBTAB>(),
+            maxjob: jobs as u32,
+            sem_id: 0, //TODO
+            #[allow(clippy::cast_possible_wrap)]
+            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
+            #[allow(clippy::cast_possible_wrap)]
+            precision: DEFAULT_PREC as i32,
+            max_tt: 0,
+            tt: [TRANTAB {
+                from_global: VAR_U { var_cu: [0; 32] },
+                from_vol: 0,
+                from_uci: 0,
+                to_global: VAR_U { var_cu: [0; 32] },
+                to_vol: 0,
+                to_uci: 0,
+            }; 8],
+            start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
+            lockstart: lock_tab.cast::<c_void>(),
+            locksize: unsafe{*lock_tab}.size,
+            lockhead: std::ptr::null_mut(),
+            lockfree: lock_tab,
+            //TODO look into how this value is used.
+            //I feel like passing it in is the wrong call and that I should be able to calculate it.
+            //But until I understand more how it is I am going to stick to more or less what the C code does.
+            addoff,
+            addsize: 0,
+            vol: [volume],
+        };
+    unsafe {sys_tab.ptr.as_mut().unwrap().write(sys_tab_description)};
+    sys_tab.ptr.cast::<SYSTAB>()
+
 }
 
 #[cfg(test)]

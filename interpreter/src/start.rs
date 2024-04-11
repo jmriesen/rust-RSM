@@ -1,22 +1,16 @@
 use crate::alloc::{create_shared_mem, TabLayout};
-use crate::bindings::{
-    jobtab, u_int, vol_def, DEFAULT_PREC, GBD, HISTORIC_DNOK, HISTORIC_EOK,
-    HISTORIC_OFFOK, MAX_VOL, TRANTAB, VAR_U, VOL_DEF,
-};
-use crate::global_buf::{init_global_buffer_descriptors};
-use crate::sys_tab::SYSTAB;
-use crate::vol_def::init_header_section;
+use crate::bindings::{jobtab, u_int, vol_def, GBD, MAX_VOL};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
 };
-use crate::{lock_tab, MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
+use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER, GBD_HASH, JOBTAB, LOCKTAB, RBD_HASH};
+use rsm::bindings::{label_block, systab, DB_VER, LOCKTAB};
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::mem::{MaybeUninit};
+use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
@@ -86,8 +80,8 @@ impl Config {
         let mut errors = vec![];
 
         let routine_buffer = routine_buffer
-                    .unwrap_or(Megbibytes(jobs.get() as usize / 2))
-                    .max(Megbibytes(1));
+            .unwrap_or(Megbibytes(jobs.get() as usize / 2))
+            .max(Megbibytes(1));
 
         if MAX_JOBS < jobs.into() {
             errors.push(InvalidNumberOfJobs);
@@ -95,10 +89,9 @@ impl Config {
         if Megbibytes(MAX_ROUTINE_BUFFERS as usize) < routine_buffer {
             errors.push(InvalidRoutineBufferSize);
         }
-        match Self::load_lable_info(Path::new(&file_name)){
-            Ok(label)=>{
-                let global_buffer =
-                    global_buffer
+        match Self::load_lable_info(Path::new(&file_name)) {
+            Ok(label) => {
+                let global_buffer = global_buffer
                     .unwrap_or(Megbibytes(jobs.get() as usize / 2))
                     .max(Megbibytes(1))
                     .max(Bytes((label.block_size * MIN_GBD) as usize).megbi_round_up());
@@ -106,7 +99,7 @@ impl Config {
                     errors.push(InvalidGlobalBufferSize);
                 }
 
-                if errors.is_empty(){
+                if errors.is_empty() {
                     Ok(Self {
                         file_name,
                         jobs: jobs.get(),
@@ -115,11 +108,11 @@ impl Config {
                         lock_size: Bytes((jobs.get() * LOCKTAB_SIZE) as usize).pages_ceil(),
                         label,
                     })
-                }else{
+                } else {
                     Err(errors)
                 }
-            },
-            Err(err)=>{
+            }
+            Err(err) => {
                 errors.push(err);
                 Err(errors)
             }
@@ -148,7 +141,10 @@ impl Config {
             TabLayout::<vol_def, u8, GBD, u8, u8, c_void>::new(
                 Layout::new::<vol_def>(),
                 Layout::array::<u8>(self.label.header_bytes.try_into().unwrap()).unwrap(),
-                Layout::array::<GBD>(Bytes::from(self.global_buffer).0 / self.label.block_size as usize).unwrap(),
+                Layout::array::<GBD>(
+                    Bytes::from(self.global_buffer).0 / self.label.block_size as usize,
+                )
+                .unwrap(),
                 Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
                 Layout::array::<u8>(self.label.block_size.try_into().unwrap()).unwrap(),
                 Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
@@ -156,124 +152,28 @@ impl Config {
         };
 
         let share_size = meta_data_tab.size() + volset_layout.size();
-
         let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
-        let (sys_tab, _, job_tab, lock_tab, _, _, volumes_start) =
-            unsafe { meta_data_tab.calculate_offsets(shared_mem_segment) };
-        let lock_tab = lock_tab::init(lock_tab);
 
-        let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
-            unsafe { volset_layout.calculate_offsets(volumes_start) };
-        let (vollab,map) = init_header_section(&self.file_name, header)?;
+        let volumes_start =
+            unsafe { shared_mem_segment.byte_add(Bytes::from(meta_data_tab.size()).0) };
+        let volume = unsafe {
+            crate::vol_def::init(
+                &self.file_name,
+                self.jobs as usize,
+                volumes_start,
+                &volset_layout,
+            )
+        }?;
 
-        let gbd_blocks =
-            init_global_buffer_descriptors(
-                gbd_head,
-                &global_buf,
-                Bytes(self.label.block_size as usize)
-            );
-
-        let vol_def = VOL_DEF {
-            file_name: crate::vol_def::format_name(&self.file_name),
-            vollab,
-
-            map,
-            map_dirty_flag: 0,
-            first_free: map.cast(),
-
-            global_buf:global_buf.to_void_ptr(),
-            zero_block:zero_block.to_void_ptr(),
-            num_gbd: gbd_blocks.len().try_into().unwrap(),
-            gbd_head: gbd_blocks.as_mut_ptr(),
-            gbd_hash: {
-                let mut temp = [std::ptr::null_mut(); GBD_HASH as usize + 1];
-                temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
-                temp
-            },
-            rbd_head:rbd_head.ptr.cast::<c_void>(),
-            rbd_end: end,
-            rbd_hash: {
-                let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
-                temp[RBD_HASH as usize] = rbd_head.ptr.cast();
-                temp
-            },
-
-            shm_id: 0,
-            //TODO add test that cover these bounds.
-            num_of_daemons: (self.jobs / rsm::bindings::DAEMONS)
-                .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
-                .try_into()
-                .unwrap(),
-            wd_tab: [rsm::bindings::WD_TAB {
-                pid: 0,
-                doing: 0,
-                currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
-            }; 20],
-            dismount_flag: 0,
-            writelock: 0,
-            upto: 0,
-            dirtyQ: [std::ptr::null_mut(); 1024],
-            dirtyQw: 0,
-            dirtyQr: 0,
-            garbQ: [0; 8192],
-            garbQw: 0,
-            garbQr: 0,
-            jrn_next: 0,
-            stats: rsm::bindings::DB_STAT {
-                dbget: 0,
-                dbset: 0,
-                dbkil: 0,
-                dbdat: 0,
-                dbord: 0,
-                dbqry: 0,
-                lasttry: 0,
-                lastok: 0,
-                logrd: 0,
-                phyrd: 0,
-                logwt: 0,
-                phywt: 0,
-                blkalloc: 0,
-                blkdeall: 0,
-                blkreorg: 0,
-                diskerrors: 0,
-            },
+        let sys_tab = unsafe {
+            crate::sys_tab::init(
+                self.jobs as usize,
+                volume,
+                Bytes::from(share_size).0 as u64,
+                shared_mem_segment,
+                &meta_data_tab,
+            )
         };
-        unsafe {volume.ptr.as_mut()}.unwrap().write(vol_def);
-        let volume = volume.ptr.cast::<VOL_DEF>();
-
-        let sys_tab_description = sys_tab::SYSTAB {
-            //This is used to verify the shared memeory segment
-            //is mapped to the same address space in each proccess.
-            address: shared_mem_segment,
-            jobtab: job_tab.ptr.cast::<JOBTAB>(),
-            maxjob: self.jobs,
-            sem_id: 0, //TODO
-            #[allow(clippy::cast_possible_wrap)]
-            historic: (HISTORIC_EOK | HISTORIC_OFFOK | HISTORIC_DNOK) as i32,
-            #[allow(clippy::cast_possible_wrap)]
-            precision: DEFAULT_PREC as i32,
-            max_tt: 0,
-            tt: [TRANTAB {
-                from_global: VAR_U { var_cu: [0; 32] },
-                from_vol: 0,
-                from_uci: 0,
-                to_global: VAR_U { var_cu: [0; 32] },
-                to_vol: 0,
-                to_uci: 0,
-            }; 8],
-            start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
-            lockstart: lock_tab.cast::<c_void>(),
-            #[allow(clippy::cast_possible_wrap)]
-            locksize: Bytes::from(self.lock_size).0 as i32,
-            lockhead: std::ptr::null_mut(),
-            lockfree: lock_tab,
-            addoff: Bytes::from(share_size).0 as u64,
-            addsize: 0,
-            vol: [volume],
-        };
-
-        unsafe {sys_tab.ptr.as_mut().unwrap().write(sys_tab_description)};
-        let sys_tab :*mut SYSTAB = sys_tab.ptr.cast::<SYSTAB>();
 
         //TODO Deal with journaling
         assert!(unsafe { (*sys_tab).maxjob } == 1);
@@ -315,8 +215,8 @@ pub fn start(
         global_buffer.map(|x| Megbibytes(x.get() as usize)),
         routine_buffer.map(|x| Megbibytes(x.get() as usize)),
     )?
-        .setup_shared_mem_segemnt()
-        .map_err(|x| vec![x])?;
+    .setup_shared_mem_segemnt()
+    .map_err(|x| vec![x])?;
 
     unsafe {
         systab = sys_tab.cast();
@@ -337,9 +237,9 @@ mod tests {
             Some(Megbibytes(1)),
             Some(Megbibytes(1)),
         )
-            .unwrap()
-            .setup_shared_mem_segemnt()
-            .unwrap();
+        .unwrap()
+        .setup_shared_mem_segemnt()
+        .unwrap();
 
         let code = unsafe {
             rsm::bindings::INIT_Start(CString::new("temp").unwrap().into_raw(), 1, 1, 1, 0)
@@ -382,11 +282,11 @@ mod tests {
         }
 
         /*
-        if code == 0 {
-        unsafe {
-        rsm::bindings::shutdown(CString::new("temp").unwrap().into_raw());
-    }
-    }
-         */
+            if code == 0 {
+            unsafe {
+            rsm::bindings::shutdown(CString::new("temp").unwrap().into_raw());
+        }
+        }
+             */
     }
 }

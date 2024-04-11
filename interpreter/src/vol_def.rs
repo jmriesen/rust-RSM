@@ -1,9 +1,9 @@
 use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path};
 
 use libc::{c_char, c_void};
-use rsm::bindings::{LABEL_BLOCK, VOL_FILENAME_MAX};
+use rsm::bindings::{GBD, GBD_HASH, LABEL_BLOCK, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX};
 
-use crate::{alloc::Allocation, start::Error};
+use crate::{alloc::{Allocation, TabLayout}, global_buf::init_global_buffer_descriptors, start::Error, units::Bytes};
 
 #[cfg(test)]
 fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
@@ -37,6 +37,87 @@ fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()
+}
+
+pub unsafe fn init(name:&Path, jobs:usize, tab:*mut c_void,layout:&TabLayout::<VOL_DEF, u8, GBD, u8, u8, c_void>) ->Result<*mut VOL_DEF,Error>{
+
+    let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) = layout.calculate_offsets(tab);
+    let (vollab,map) = init_header_section(name, header)?;
+
+    let gbd_blocks =
+        init_global_buffer_descriptors(
+            gbd_head,
+            &global_buf,
+            Bytes(unsafe{*vollab}.block_size as usize)
+        );
+
+    let vol_def = VOL_DEF {
+        file_name: crate::vol_def::format_name(name),
+        vollab,
+
+        map,
+        map_dirty_flag: 0,
+        first_free: map.cast(),
+
+        global_buf:global_buf.to_void_ptr(),
+        zero_block:zero_block.to_void_ptr(),
+        num_gbd: gbd_blocks.len().try_into().unwrap(),
+        gbd_head: gbd_blocks.as_mut_ptr(),
+        gbd_hash: {
+            let mut temp = [std::ptr::null_mut(); GBD_HASH as usize + 1];
+            temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
+            temp
+        },
+        rbd_head:rbd_head.ptr.cast::<c_void>(),
+        rbd_end: end,
+        rbd_hash: {
+            let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
+            temp[RBD_HASH as usize] = rbd_head.ptr.cast();
+            temp
+        },
+
+        shm_id: 0,
+        //TODO add test that cover these bounds.
+        num_of_daemons: (jobs as u32/ rsm::bindings::DAEMONS)
+            .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
+            .try_into()
+            .unwrap(),
+        wd_tab: [rsm::bindings::WD_TAB {
+            pid: 0,
+            doing: 0,
+            currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
+        }; 20],
+        dismount_flag: 0,
+        writelock: 0,
+        upto: 0,
+        dirtyQ: [std::ptr::null_mut(); 1024],
+        dirtyQw: 0,
+        dirtyQr: 0,
+        garbQ: [0; 8192],
+        garbQw: 0,
+        garbQr: 0,
+        jrn_next: 0,
+        stats: rsm::bindings::DB_STAT {
+            dbget: 0,
+            dbset: 0,
+            dbkil: 0,
+            dbdat: 0,
+            dbord: 0,
+            dbqry: 0,
+            lasttry: 0,
+            lastok: 0,
+            logrd: 0,
+            phyrd: 0,
+            logwt: 0,
+            phywt: 0,
+            blkalloc: 0,
+            blkdeall: 0,
+            blkreorg: 0,
+            diskerrors: 0,
+        },
+    };
+    unsafe {volume.ptr.as_mut()}.unwrap().write(vol_def);
+    Ok(volume.ptr.cast())
 }
 
 /// This will panic if the path is not a valid db file or if the header allocation is 1= the header size.
