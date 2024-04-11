@@ -212,7 +212,6 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             Allocation::<D>::new(&mut cursor, self.d_layout),
             Allocation::<E>::new(&mut cursor, self.e_layout),
             Allocation::<F>::new(&mut cursor, self.f_layout),
-            //TODO pull out end into its own function.
             end,
         )
     }

@@ -37,7 +37,6 @@ pub struct SYSTAB {
     pub addoff: u_long,
     /// add buffer size
     pub addsize: u_long,
-    //TODO check if this is acutlly max_vol long or if c was just messing with stuff.
     pub vol: [*mut vol_def; rsm::bindings::MAX_VOL as usize],
     //This field was being used for alignment shananigans in the old c code.
     //Removing it since I don't want to rely on shananigans.
@@ -73,7 +72,7 @@ pub unsafe fn init(
             to_vol: 0,
             to_uci: 0,
         }; 8],
-        start_user: unsafe { libc::getuid().try_into().unwrap() }, //TODO
+        start_user: unsafe { libc::getuid().try_into().unwrap() }, 
         lockstart: lock_tab.cast::<c_void>(),
         locksize: unsafe { *lock_tab }.size,
         lockhead: std::ptr::null_mut(),

@@ -20,7 +20,6 @@ pub fn init_global_buffer_descriptors<'a>(
         descriptor.write(GlobalBufferDescriptor {
             block: 0,
             next: null_mut(),
-            //TODO mem's value is not initialized.
             mem: unsafe { buffer.ptr.byte_add(index * block_size.0) }.cast(),
             dirty: null_mut(),
             last_accessed: 0,

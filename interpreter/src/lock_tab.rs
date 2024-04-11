@@ -10,7 +10,6 @@ pub fn init(alloc: Allocation<LOCKTAB>) -> *mut LOCKTAB {
     unsafe { alloc.ptr.as_mut() }.unwrap().write(LOCKTAB{
         fwd_link: std::ptr::null_mut(),
         #[allow(clippy::cast_possible_wrap)]
-        //TODO this has not been zeroed
         size: alloc.layout.size() as i32,
         job: -1,
         byte_count: 0,

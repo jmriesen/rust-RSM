@@ -122,8 +122,6 @@ impl Config {
     /// # Errors
     ///
     /// Shared memory initialization error issues will be propagated up to the caller
-    /// # Panics
-    /// TODO I need to implement proper panic handling
     pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, Error> {
         let meta_data_tab = unsafe {
             TabLayout::<sys_tab::SYSTAB, u_int, jobtab, LOCKTAB, (), ()>::new(

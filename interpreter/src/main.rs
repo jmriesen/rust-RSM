@@ -37,7 +37,7 @@ enum Commands {
         block_size: u32,
         ///The minimum size of the header block.
         #[arg(short, long)]
-        map: Option<u32>, //TODO I don't know what this is
+        map: Option<u32>,
         #[arg(short, long, value_parser=AlphaVAR_U::parse)]
         ///Volume name
         volnam: AlphaVAR_U,
@@ -61,7 +61,6 @@ fn main() -> Result<(), String> {
         Info => {
             interpreter::util::info(&args.name);
             println!("-----------------------------");
-            //TODO create some A/B tests
             /*
             unsafe {
                 bindings::info(name.as_ptr());
