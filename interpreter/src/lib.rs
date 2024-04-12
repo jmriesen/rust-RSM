@@ -28,3 +28,6 @@ pub mod util;
 pub mod var_u;
 pub mod vol_def;
 pub use bindings::*;
+
+#[cfg(test)]
+pub mod test_helper;

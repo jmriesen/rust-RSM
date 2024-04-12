@@ -181,17 +181,11 @@ pub fn init_header_section(
 
 #[cfg(test)]
 pub mod tests {
+    use crate::test_helper::relitive_ptr;
+
     use super::*;
     use rsm::bindings::vol_def;
-    use rsm::bindings::GBD;
     use rsm::bindings::RBD;
-    pub fn helper<T>(ptr: *const T, base: *const c_void) -> Option<isize> {
-        if ptr.is_null() {
-            None
-        } else {
-            Some(unsafe { ptr.byte_offset_from(base) })
-        }
-    }
 
     pub unsafe fn assert_vol_def_eq(left: *mut vol_def, right: *mut vol_def) {
         assert_eq!(unsafe { (*left).num_gbd }, unsafe { (*right).num_gbd });
@@ -257,7 +251,7 @@ pub mod tests {
         assert_eq!({ (*left).num_gbd }, { (*right).num_gbd });
         assert_eq!(l_gbd_head, r_gbd_head);
         for i in 0..(*left).num_gbd as usize {
-            assert_gbd_eq(
+            crate::global_buf::test::assert_gbd_eq(
                 (*left).gbd_head.add(i),
                 left.cast(),
                 (*right).gbd_head.add(i),
@@ -301,38 +295,19 @@ pub mod tests {
         let base = def.cast::<c_void>();
         unsafe {
             (
-                helper((*def).vollab, base),
-                helper((*def).map, base),
-                helper((*def).first_free, base),
-                (*def).gbd_hash.map(|x| helper(x, base)),
-                helper((*def).gbd_head, base),
-                helper((*def).global_buf, base),
-                helper((*def).zero_block, base),
-                (*def).rbd_hash.map(|x| helper(x, base)),
-                helper((*def).rbd_head, base),
-                helper((*def).rbd_end, base),
-                (*def).dirtyQ.map(|x| helper(x, base)),
+                relitive_ptr((*def).vollab, base),
+                relitive_ptr((*def).map, base),
+                relitive_ptr((*def).first_free, base),
+                (*def).gbd_hash.map(|x| relitive_ptr(x, base)),
+                relitive_ptr((*def).gbd_head, base),
+                relitive_ptr((*def).global_buf, base),
+                relitive_ptr((*def).zero_block, base),
+                (*def).rbd_hash.map(|x| relitive_ptr(x, base)),
+                relitive_ptr((*def).rbd_head, base),
+                relitive_ptr((*def).rbd_end, base),
+                (*def).dirtyQ.map(|x| relitive_ptr(x, base)),
             )
         }
     }
 
-    pub unsafe fn assert_gbd_eq(
-        left: *const GBD,
-        left_base: *const c_void,
-        right: *const GBD,
-        right_base: *const c_void,
-    ) {
-        assert_eq!(helper(left, left_base), helper(right, right_base));
-        //assert_eq!({(*left).block},{(*right).block});
-        assert_eq!(
-            helper((*left).mem, left_base),
-            helper((*right).mem, right_base)
-        );
-        assert_eq!(
-            helper((*left).next, left_base),
-            helper((*right).next, right_base)
-        );
-        //assert_eq!(helper((*left).dirty,left_base),helper((*right).dirty,right_base));
-        //assert_eq!({(*left).last_accessed},{(*right).last_accessed});
-    }
 }
