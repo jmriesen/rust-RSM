@@ -184,6 +184,7 @@ pub mod tests {
 
     use super::*;
     use rsm::bindings::vol_def;
+    use rsm::bindings::DB_STAT;
     use rsm::bindings::RBD;
 
     pub unsafe fn assert_vol_def_eq(left: *mut vol_def, right: *mut vol_def) {
@@ -208,7 +209,7 @@ pub mod tests {
         assert_eq!(unsafe { (*left).garbQr }, unsafe { (*right).garbQr });
         assert_eq!(unsafe { (*left).jrn_next }, unsafe { (*right).jrn_next });
         assert_eq!(unsafe { (*left).file_name }, unsafe { (*right).file_name });
-        //assert_eq!(unsafe { (*left).stats}, unsafe { (*right).stats});
+        assert_stat_eq(&unsafe { *left}.stats, &unsafe { *right}.stats);
         let (
             l_vollab,
             l_map,
@@ -245,7 +246,7 @@ pub mod tests {
         assert_eq!(l_rbd_hash, r_rbd_hash);
         assert_eq!(l_rbd_head, r_rbd_head);
         assert_eq!(l_rbd_end, r_rbd_end);
-        //assert_eq!(l_dirtyQ,r_dirtyQ);
+        assert_eq!(l_dirty_q,r_dirty_q);
         assert_eq!(
             map_as_slice(unsafe { left.as_ref() }.unwrap()),
             map_as_slice(unsafe { right.as_ref() }.unwrap())
@@ -264,10 +265,10 @@ pub mod tests {
 
         let l_rbd = (*left).rbd_head.cast::<RBD>();
         let r_rbd = (*left).rbd_head.cast::<RBD>();
-        /*assert_eq!(
-            helper((*l_rbd).fwd_link,left.cast()),
-            helper((*r_rbd).fwd_link,right.cast())
-        );*/
+        assert_eq!(
+            relitive_ptr((*l_rbd).fwd_link,left.cast()),
+            relitive_ptr((*r_rbd).fwd_link,right.cast())
+        );
         assert_eq!({ (*l_rbd).chunk_size }, { (*r_rbd).chunk_size });
         assert_eq!({ (*l_rbd).attached }, { (*r_rbd).attached });
         assert_eq!({ (*l_rbd).last_access }, { (*r_rbd).last_access });
@@ -311,5 +312,27 @@ pub mod tests {
                 (*def).dirtyQ.map(|x| relitive_ptr(x, base)),
             )
         }
+    }
+
+    fn assert_stat_eq(left:&DB_STAT,right:&DB_STAT){
+        //NOTE the brackets are needed so the value is copied.
+        //otherwise assert_eq would end up creating unaligned references.
+        assert_eq!({left.dbget},{right.dbget});
+        assert_eq!({left.dbset},{right.dbset});
+        assert_eq!({left.dbkil},{right.dbkil});
+        assert_eq!({left.dbdat},{right.dbdat});
+        assert_eq!({left.dbord},{right.dbord});
+        assert_eq!({left.dbqry},{right.dbqry});
+        assert_eq!({left.lasttry},{right.lasttry});
+        assert_eq!({left.lastok},{right.lastok});
+        assert_eq!({left.logrd},{right.logrd});
+        assert_eq!({left.phyrd},{right.phyrd});
+        assert_eq!({left.logwt},{right.logwt});
+        assert_eq!({left.phywt},{right.phywt});
+        assert_eq!({left.blkalloc},{right.blkalloc});
+        assert_eq!({left.blkdeall},{right.blkdeall});
+        assert_eq!({left.blkreorg},{right.blkreorg});
+        assert_eq!({left.diskerrors},{right.diskerrors});
+        assert_eq!({left.diskerrors},{right.diskerrors});
     }
 }
