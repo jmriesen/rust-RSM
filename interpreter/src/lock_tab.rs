@@ -7,7 +7,7 @@ use crate::alloc::Allocation;
 #[allow(clippy::needless_pass_by_value)]
 #[must_use]
 pub fn init(alloc: Allocation<LOCKTAB>) -> *mut LOCKTAB {
-    unsafe { alloc.ptr.as_mut() }.unwrap().write(LOCKTAB {
+    alloc.as_mut().write(LOCKTAB {
         fwd_link: std::ptr::null_mut(),
         #[allow(clippy::cast_possible_wrap)]
         size: alloc.layout.size() as i32,
@@ -19,5 +19,5 @@ pub fn init(alloc: Allocation<LOCKTAB>) -> *mut LOCKTAB {
         uci: 0,
         vol: 0,
     });
-    alloc.ptr.cast()
+    unsafe{alloc.as_mut().assume_init_mut()}
 }

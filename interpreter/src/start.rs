@@ -250,7 +250,7 @@ mod tests {
         println!("code: {code:?}");
         assert!(code == 0);
         unsafe {
-            sys_tab::assert_sys_tab_eq(sys_tab, systab.cast::<sys_tab::SYSTAB>());
+            sys_tab::assert_sys_tab_eq(sys_tab.as_ref().unwrap(), systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap());
         }
         let mut sbuf = libc::shmid_ds {
             shm_atime: 0,

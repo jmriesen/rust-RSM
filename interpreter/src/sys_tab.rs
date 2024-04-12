@@ -4,7 +4,7 @@ use rsm::bindings::{
     HISTORIC_OFFOK, JOBTAB, LOCKTAB, TRANTAB, VAR_U, VOL_DEF,
 };
 
-use crate::{alloc::TabLayout, lock_tab};
+use crate::{alloc::TabLayout, lock_tab, test_helper::relitive_ptr};
 
 #[repr(C, packed(1))]
 pub struct SYSTAB {
@@ -89,39 +89,30 @@ pub unsafe fn init(
 }
 
 #[cfg(test)]
-pub unsafe fn assert_sys_tab_eq(left: *mut SYSTAB, right: *mut SYSTAB) {
-    assert_eq!(unsafe { (*left).maxjob }, unsafe { (*right).maxjob });
-    //assert_eq!(unsafe{(*left).sem_id}, unsafe{(*right).sem_id});
-    assert_eq!(unsafe { (*left).historic }, unsafe { (*right).historic });
-    assert_eq!(unsafe { (*left).precision }, unsafe { (*right).precision });
-    assert_eq!(unsafe { (*left).max_tt }, unsafe { (*right).max_tt });
-    //assert_eq!(unsafe{(*left).start_user}, unsafe{(*right).start_user});
-    assert_eq!(unsafe { (*left).locksize }, unsafe { (*right).locksize });
-    assert_eq!(unsafe { (*left).addoff }, unsafe { (*right).addoff });
-    assert_eq!(unsafe { (*left).addsize }, unsafe { (*right).addsize });
+pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
+    assert_eq!({ left.maxjob }, { right.maxjob });
+    //assert_eq!({left.sem_id}, {right.sem_id});
+    assert_eq!({ left.historic }, { right.historic });
+    assert_eq!({ left.precision }, { right.precision });
+    assert_eq!({ left.max_tt }, { right.max_tt });
+    assert_eq!({left.start_user}, {right.start_user});
+    assert_eq!({ left.locksize }, { right.locksize });
+    assert_eq!({ left.addoff }, { right.addoff });
+    assert_eq!({ left.addsize }, { right.addsize });
     //tt
 
-    //comairing offsets
+    //comparing offsets
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
     for i in 0..rsm::bindings::MAX_VOL as usize {
         use crate::vol_def::tests::assert_vol_def_eq;
-        unsafe { assert_vol_def_eq((*left).vol[i], (*right).vol[i]) }
-    }
-}
-
-#[cfg(test)]
-pub fn helper<T>(ptr: *mut T, base: *mut c_void) -> Option<isize> {
-    if ptr.is_null() {
-        None
-    } else {
-        Some(unsafe { ptr.byte_offset_from(base) })
+        assert_vol_def_eq(unsafe {(*left).vol[i].as_ref().unwrap()},unsafe { (*right).vol[i].as_ref().unwrap()});
     }
 }
 
 #[cfg(test)]
 impl SYSTAB {
     fn offsets(
-        sys_tab: *const Self,
+        sys_tab: &Self,
     ) -> (
         Option<isize>,
         Option<isize>,
@@ -129,15 +120,13 @@ impl SYSTAB {
         Option<isize>,
         [Option<isize>; 1],
     ) {
-        let base = unsafe { (*sys_tab).address };
-        unsafe {
+        let base = sys_tab.address;
             (
-                helper((*sys_tab).jobtab, base),
-                helper((*sys_tab).lockstart, base),
-                helper((*sys_tab).lockhead, base),
-                helper((*sys_tab).lockfree, base),
-                (*sys_tab).vol.map(|x| helper(x, base)),
+                relitive_ptr((*sys_tab).jobtab, base),
+                relitive_ptr((*sys_tab).lockstart, base),
+                relitive_ptr((*sys_tab).lockhead, base),
+                relitive_ptr((*sys_tab).lockfree, base),
+                (*sys_tab).vol.map(|x| relitive_ptr(x, base)),
             )
-        }
     }
 }

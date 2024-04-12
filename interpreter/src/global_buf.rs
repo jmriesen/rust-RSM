@@ -43,10 +43,10 @@ pub mod test {
     use crate::test_helper::relitive_ptr;
 
     use super::*;
-    pub unsafe fn assert_gbd_eq(
-        left: *const GBD,
+    pub fn assert_gbd_eq(
+        left: &GBD,
         left_base: *const c_void,
-        right: *const GBD,
+        right: &GBD,
         right_base: *const c_void,
     ) {
         assert_eq!(

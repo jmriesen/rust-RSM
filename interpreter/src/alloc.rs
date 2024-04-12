@@ -122,6 +122,9 @@ impl<T> Allocation<T> {
     pub fn to_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
         unsafe { from_mut_ptr_range(self.ptr..self.ptr.byte_add(self.layout.size())) }
     }
+    pub fn as_mut<'a>(&self)->&'a mut  MaybeUninit<T>{
+        unsafe{self.ptr.as_mut().unwrap()}
+    }
 }
 
 impl Allocation<u8> {
@@ -189,6 +192,10 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     }
 
     /// Calculates where each value should start and where the end of the tab is.
+    /// This function takes ownership of the memory at cursor.
+    /// NOTE currently I am just leaking the memory.
+    /// Leaking simplifies safety constraints.
+    /// Since this is only being used for shared memory segment it should not become a performance problem.
     /// Safety
     /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
     #[allow(clippy::many_single_char_names, clippy::type_complexity)]
