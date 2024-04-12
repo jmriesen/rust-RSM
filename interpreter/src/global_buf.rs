@@ -37,7 +37,7 @@ pub fn init_global_buffer_descriptors<'a>(
 }
 
 #[cfg(test)]
-pub mod test{
+pub mod test {
     use libc::c_void;
 
     use crate::test_helper::relitive_ptr;
@@ -49,8 +49,11 @@ pub mod test{
         right: *const GBD,
         right_base: *const c_void,
     ) {
-        assert_eq!(relitive_ptr(left, left_base), relitive_ptr(right, right_base));
-        assert_eq!({(*left).block},{(*right).block});
+        assert_eq!(
+            relitive_ptr(left, left_base),
+            relitive_ptr(right, right_base)
+        );
+        assert_eq!({ (*left).block }, { (*right).block });
         assert_eq!(
             relitive_ptr((*left).mem, left_base),
             relitive_ptr((*right).mem, right_base)
@@ -59,7 +62,10 @@ pub mod test{
             relitive_ptr((*left).next, left_base),
             relitive_ptr((*right).next, right_base)
         );
-        assert_eq!(relitive_ptr((*left).dirty,left_base),relitive_ptr((*right).dirty,right_base));
-        assert_eq!({(*left).last_accessed},{(*right).last_accessed});
+        assert_eq!(
+            relitive_ptr((*left).dirty, left_base),
+            relitive_ptr((*right).dirty, right_base)
+        );
+        assert_eq!({ (*left).last_accessed }, { (*right).last_accessed });
     }
 }

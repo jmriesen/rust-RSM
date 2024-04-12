@@ -11,6 +11,5 @@ pub fn relitive_ptr<T>(ptr: *const T, base: *const c_void) -> Option<isize> {
         //since we this is intended to be used while A/B testing the shared memory segment layout, that "should" always hold.
         //But it is simpler to not require that constraint. (otherwise I would need to mark this function as unsafe)
         Some(ptr as isize - base as isize)
-
     }
 }

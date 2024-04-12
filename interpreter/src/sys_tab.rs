@@ -72,7 +72,7 @@ pub unsafe fn init(
             to_vol: 0,
             to_uci: 0,
         }; 8],
-        start_user: unsafe { libc::getuid().try_into().unwrap() }, 
+        start_user: unsafe { libc::getuid().try_into().unwrap() },
         lockstart: lock_tab.cast::<c_void>(),
         locksize: unsafe { *lock_tab }.size,
         lockhead: std::ptr::null_mut(),

@@ -130,8 +130,8 @@ pub unsafe fn init(
     let volume = volume.ptr.cast::<VOL_DEF>();
     {
         // Was the volume cleanly dismounted?
-        let volume = unsafe{volume.as_mut()}.unwrap();
-        let vollab = unsafe{volume.vollab.as_mut()}.unwrap();
+        let volume = unsafe { volume.as_mut() }.unwrap();
+        let vollab = unsafe { volume.vollab.as_mut() }.unwrap();
         if vollab.clean == 0 {
             eprintln!("WARNING: Volume was not dismounted properly!");
             // mark for cleaning
@@ -143,7 +143,6 @@ pub unsafe fn init(
             // and map needs writing
             volume.map_dirty_flag = 1;
         }
-
     }
     Ok(volume)
 }
@@ -193,17 +192,21 @@ pub mod tests {
             (*right).num_of_daemons
         });
         //assert_eq!(unsafe { (*left).wd_tab}, unsafe { (*right).wd_tab });
-        assert_eq!(unsafe { (*left).dismount_flag }, unsafe { (*right).dismount_flag });
-        assert_eq!(unsafe { (*left).map_dirty_flag }, unsafe { (*right).map_dirty_flag });
+        assert_eq!(unsafe { (*left).dismount_flag }, unsafe {
+            (*right).dismount_flag
+        });
+        assert_eq!(unsafe { (*left).map_dirty_flag }, unsafe {
+            (*right).map_dirty_flag
+        });
         assert_eq!(unsafe { (*left).writelock }, unsafe { (*right).writelock });
         assert_eq!(unsafe { (*left).upto }, unsafe { (*right).upto });
         //assert_eq!(unsafe { (*left).shm_id }, unsafe { (*right).shm_id });
         assert_eq!(unsafe { (*left).dirtyQr }, unsafe { (*right).dirtyQr });
-        assert_eq!(unsafe { (*left).dirtyQw}, unsafe { (*right).dirtyQw });
-        assert_eq!(unsafe { (*left).garbQ}, unsafe { (*right).garbQ});
-        assert_eq!(unsafe { (*left).garbQw}, unsafe { (*right).garbQw});
-        assert_eq!(unsafe { (*left).garbQr}, unsafe { (*right).garbQr});
-        assert_eq!(unsafe { (*left).jrn_next}, unsafe { (*right).jrn_next});
+        assert_eq!(unsafe { (*left).dirtyQw }, unsafe { (*right).dirtyQw });
+        assert_eq!(unsafe { (*left).garbQ }, unsafe { (*right).garbQ });
+        assert_eq!(unsafe { (*left).garbQw }, unsafe { (*right).garbQw });
+        assert_eq!(unsafe { (*left).garbQr }, unsafe { (*right).garbQr });
+        assert_eq!(unsafe { (*left).jrn_next }, unsafe { (*right).jrn_next });
         assert_eq!(unsafe { (*left).file_name }, unsafe { (*right).file_name });
         //assert_eq!(unsafe { (*left).stats}, unsafe { (*right).stats});
         let (
@@ -309,5 +312,4 @@ pub mod tests {
             )
         }
     }
-
 }
