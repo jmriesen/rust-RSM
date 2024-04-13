@@ -1,7 +1,7 @@
-use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path};
+use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path, ptr::{from_mut, null_mut}};
 
 use libc::{c_char, c_void};
-use rsm::bindings::{GBD, GBD_HASH, LABEL_BLOCK, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX};
+use rsm::bindings::{GBD, GBD_HASH, LABEL_BLOCK, RBD, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX};
 
 use crate::{
     alloc::{Allocation, TabLayout},
@@ -49,7 +49,7 @@ pub unsafe fn init(
     name: &Path,
     jobs: usize,
     tab: *mut c_void,
-    layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, c_void>,
+    layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, RBD>,
 ) -> Result<*mut VOL_DEF, Error> {
     let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
         layout.calculate_offsets(tab);
@@ -60,6 +60,7 @@ pub unsafe fn init(
         &global_buf,
         Bytes(unsafe { *vollab }.block_size as usize),
     );
+    let rbd_head = unsafe{init_routine(rbd_head)};
 
     let vol_def = VOL_DEF {
         file_name: crate::vol_def::format_name(name),
@@ -78,11 +79,11 @@ pub unsafe fn init(
             temp[GBD_HASH as usize] = gbd_blocks.as_mut_ptr();
             temp
         },
-        rbd_head: rbd_head.ptr.cast::<c_void>(),
+        rbd_head: from_mut(rbd_head).cast::<c_void>(),
         rbd_end: end,
         rbd_hash: {
             let mut temp = [std::ptr::null_mut(); RBD_HASH as usize + 1];
-            temp[RBD_HASH as usize] = rbd_head.ptr.cast();
+            temp[RBD_HASH as usize] = from_mut(rbd_head).cast();
             temp
         },
 
@@ -178,6 +179,32 @@ pub fn init_header_section(
     Ok((vollab, map))
 }
 
+
+fn init_routine<'a>(alloc:Allocation<RBD>)->&'a mut RBD{
+    let rbd = alloc.as_mut();
+    rbd.write(RBD{
+        fwd_link: null_mut(),
+        chunk_size: alloc.layout.size() as u32,
+        attached: 0,
+        last_access: 0,
+        rnam: "".try_into().unwrap(),
+        uci: 0,
+        vol: 0,
+        rou_size: 0,
+        comp_ver: 0,
+        comp_user: 0,
+        comp_date: 0,
+        comp_time: 0,
+        tag_tbl: 0,
+        num_tags: 0,
+        var_tbl: 0,
+        num_vars: 0,
+        code: 0,
+        code_size: 0,
+    });
+    unsafe{rbd.assume_init_mut()}
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::ptr::from_ref;
@@ -187,8 +214,8 @@ pub mod tests {
     use super::*;
     use rsm::bindings::vol_def;
     use rsm::bindings::DB_STAT;
-    use rsm::bindings::RBD;
 
+    //TODO it would be nice if I could auto generate most of these asserts with a derive macro
     pub fn assert_vol_def_eq(left: &vol_def, right: &vol_def) {
         assert_eq!({ left.num_gbd }, { right.num_gbd });
         assert_eq!({ left.num_of_daemons }, {
@@ -275,7 +302,6 @@ pub mod tests {
             relitive_ptr(l_rbd.fwd_link,left_base),
             relitive_ptr(r_rbd.fwd_link,right_base)
         );
-        /*
         assert_eq!({ l_rbd.chunk_size }, { r_rbd.chunk_size });
         assert_eq!({ l_rbd.attached }, { r_rbd.attached });
         assert_eq!({ l_rbd.last_access }, { r_rbd.last_access });
@@ -283,7 +309,6 @@ pub mod tests {
         assert_eq!(l_rbd.uci, r_rbd.uci);
         assert_eq!(l_rbd.vol, r_rbd.vol);
         assert_eq!({ l_rbd.rou_size }, { r_rbd.rou_size });
-        */
     }
 
     #[allow(clippy::type_complexity)]

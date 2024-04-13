@@ -136,6 +136,8 @@ impl Allocation<u8> {
 
 /// This represents the layout for a bunch of types placed one after the other.
 /// NOTE This always rounds up to a whole number of page files.
+/// SAFETY I am assuming all the layouts have an alignment of 1.
+/// THis code could break if that is not upheld.
 pub struct TabLayout<A, B, C, D, E, F> {
     a_layout: Layout,
     b_layout: Layout,
@@ -178,16 +180,20 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             f_phantom: PhantomData,
         }
     }
+    /// The size of all they layouts
+    fn raw_size(&self)-> Bytes{
+        Bytes(self.a_layout.size())
+         + Bytes(self.b_layout.size())
+         + Bytes(self.c_layout.size())
+         + Bytes(self.d_layout.size())
+         + Bytes(self.e_layout.size())
+         + Bytes(self.f_layout.size())
+    }
 
-    ///Size of the tab.
+    ///Size of the tab rounded up to the next page.
     #[must_use]
     pub fn size(&self) -> Pages {
-        (Bytes(self.a_layout.size())
-            + Bytes(self.b_layout.size())
-            + Bytes(self.c_layout.size())
-            + Bytes(self.d_layout.size())
-            + Bytes(self.e_layout.size())
-            + Bytes(self.f_layout.size()))
+        self.raw_size()
         .pages_ceil()
     }
 
@@ -196,6 +202,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     /// NOTE currently I am just leaking the memory.
     /// Leaking simplifies safety constraints.
     /// Since this is only being used for shared memory segment it should not become a performance problem.
+    ///NOTE a Tab layout takes up a whole number of pages, therefor the last allocation may be larger then f_layout.
     /// Safety
     /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
     #[allow(clippy::many_single_char_names, clippy::type_complexity)]
@@ -211,6 +218,9 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         Allocation<F>,
         *mut c_void,
     ) {
+        //we allays round up to the next page file.
+        //padding is the "extra space" that was added.
+        let padding = Bytes::from(self.size()) - self.raw_size();
         let end = cursor.byte_add(Bytes::from(self.size()).0);
         (
             Allocation::<A>::new(&mut cursor, self.a_layout),
@@ -218,7 +228,8 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             Allocation::<C>::new(&mut cursor, self.c_layout),
             Allocation::<D>::new(&mut cursor, self.d_layout),
             Allocation::<E>::new(&mut cursor, self.e_layout),
-            Allocation::<F>::new(&mut cursor, self.f_layout),
+            Allocation::<F>::new(&mut cursor,
+            Layout::array::<u8>(self.f_layout.size() + padding.0).unwrap()),
             end,
         )
     }

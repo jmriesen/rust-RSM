@@ -1,10 +1,12 @@
+use std::ptr::{from_mut, from_ref};
+
 use libc::{c_int, c_void};
 use rsm::bindings::{
     jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK,
     HISTORIC_OFFOK, JOBTAB, LOCKTAB, TRANTAB, VAR_U, VOL_DEF,
 };
 
-use crate::{alloc::TabLayout, lock_tab, test_helper::relitive_ptr};
+use crate::{alloc::TabLayout, lock_tab, };
 
 #[repr(C, packed(1))]
 pub struct SYSTAB {
@@ -73,7 +75,7 @@ pub unsafe fn init(
             to_uci: 0,
         }; 8],
         start_user: unsafe { libc::getuid().try_into().unwrap() },
-        lockstart: lock_tab.cast::<c_void>(),
+        lockstart: from_mut(lock_tab).cast::<c_void>(),
         locksize: unsafe { *lock_tab }.size,
         lockhead: std::ptr::null_mut(),
         lockfree: lock_tab,
@@ -100,6 +102,10 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
     assert_eq!({ left.addoff }, { right.addoff });
     assert_eq!({ left.addsize }, { right.addsize });
     //tt
+    lock_tab::tests::assert_eq(
+        unsafe{left.lockfree.as_ref().unwrap()},
+        unsafe{right.lockfree.as_ref().unwrap()}
+    );
 
     //comparing offsets
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
@@ -120,6 +126,7 @@ impl SYSTAB {
         Option<isize>,
         [Option<isize>; 1],
     ) {
+        use crate::test_helper::relitive_ptr;
         let base = sys_tab.address;
             (
                 relitive_ptr((*sys_tab).jobtab, base),

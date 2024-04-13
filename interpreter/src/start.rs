@@ -7,7 +7,7 @@ use crate::{
 use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER, LOCKTAB};
+use rsm::bindings::{label_block, systab, DB_VER, LOCKTAB, RBD};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::MaybeUninit;
@@ -136,7 +136,7 @@ impl Config {
         };
 
         let volset_layout = unsafe {
-            TabLayout::<vol_def, u8, GBD, u8, u8, c_void>::new(
+            TabLayout::<vol_def, u8, GBD, u8, u8, RBD>::new(
                 Layout::new::<vol_def>(),
                 Layout::array::<u8>(self.label.header_bytes.try_into().unwrap()).unwrap(),
                 Layout::array::<GBD>(
