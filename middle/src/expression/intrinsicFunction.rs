@@ -7,7 +7,6 @@ use crate::{
 
 use super::{ncopy, ExpressionContext};
 
-use crate::bindings::PARTAB;
 
 trait ExpFunctionsExt<'a> {
     fn base_code_and_args(&self) -> (u8, Vec<Expression<'a>>);
@@ -106,7 +105,7 @@ impl<'a> Compileable for IntrinsicFunction<'a> {
                 }
 
                 if matches!(var_fun.children(), VarFunctionsChildren::Next(_)) {
-                    ncopy("2", &mut PARTAB::default(), comp);
+                    ncopy("2", comp);
                 }
 
                 comp.push(opcode + args.iter().len() as u8 + 1);

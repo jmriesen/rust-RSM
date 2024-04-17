@@ -16,12 +16,11 @@ use crate::Compileable;
 impl<'a> Compileable for Expression<'a> {
     type Context = ExpressionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
-        use crate::bindings::PARTAB;
         use ExpressionChildren::*;
         match self.children() {
             number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
-                ncopy(num, &mut PARTAB::default(), comp);
+                ncopy(num, comp);
             }
             string(value) => {
                 //TODO remove duplication.

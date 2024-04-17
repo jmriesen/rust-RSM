@@ -1,11 +1,13 @@
-use crate::{bindings::partab_struct, ffi::*};
+use crate::{ffi::*};
 use std::ffi::CString;
 
 /// TODO rerwrite this function
 /// currently function both formats number into canonacl represntation and
 /// compiles to [u8]. It should only do this first part.
 /// Note in the C implemnation +9 is parsed as a unaray exprestion not a number.
-pub fn ncopy(number: &str, _partab: &mut partab_struct, comp: &mut Vec<u8>) {
+pub fn ncopy(number: &str, comp: &mut Vec<u8>) {
+    //NOTE the C code also does bounds checking to prevent overflow.
+    //This should not be needed since I am using a vector.
     let sign = if number.chars().filter(|x| *x == '-').count() % 2 == 0 {
         ""
     } else {
