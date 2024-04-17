@@ -1,18 +1,11 @@
 [package]
-name = "rsm"
+name = "ffi"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tree-sitter-mumps = { path = "../tree-sitter-M"}
-tree-sitter = "0.20.10"
-lang-model = { path = "../lang-model"}
-ffi = { path = "../ffi"}
-
-[dev-dependencies]
-rstest = "0.18.2"
 
 
 [build-dependencies]

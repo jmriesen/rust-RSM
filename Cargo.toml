@@ -4,4 +4,4 @@ members=[
 "middle",
 "tree-sitter-M",
 "lang-model-macro",
-"lang-server", "lang-model", "interpreter"]
+"lang-server", "lang-model", "interpreter", "ffi"]
