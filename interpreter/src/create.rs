@@ -69,12 +69,8 @@ impl FileConfig {
         );
 
         let header_size = Kibibytes::max(
-            if let Some(kibibytes) = reserve_header {
-                kibibytes
-            } else {
-                header_min_size.kibi_round_up()
-            },
-            block_size,
+            reserve_header.unwrap_or(header_min_size.kibi_round_up()),
+            block_size
         );
 
         if !(Kibibytes(4)..Kibibytes(256)).contains(&block_size) {
@@ -100,7 +96,6 @@ impl FileConfig {
         }
     }
 
-    ///TODO this does not currently verify everthing was written.
     pub fn create(self) -> std::io::Result<()> {
         use rsm::bindings::CSTRING;
         use std::io::SeekFrom::Start;
@@ -115,7 +110,7 @@ impl FileConfig {
 
         write_zeros(
             &file,
-            Bytes::from(self.header_size + (self.block_size * self.number_of_blocks)).0,
+            self.header_size + (self.block_size * self.number_of_blocks),
         )?;
 
         file.seek(Start(0))?;
@@ -164,6 +159,8 @@ impl FileConfig {
         };
 
         file.write_all(unsafe { any_as_u8_slice(&mgrblk) })?;
+
+        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
         let block_identifier = CSTRING {
             len: 24,
             buf: {
@@ -184,7 +181,6 @@ impl FileConfig {
             (Bytes::from(self.header_size) + Bytes::from(us)).0 as u64,
         ))?;
 
-        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
 
         file.write_all(unsafe { &any_as_u8_slice(&block_identifier)[..24] })?;
 
@@ -194,9 +190,9 @@ impl FileConfig {
 
 ///Writes out zeros to a file.
 ///This is done in 512 kibibyte increments.
-///TODO this does not currently verify everthing was written.
-fn write_zeros<W: std::io::Write>(mut writer: W, bytes: usize) -> std::io::Result<()> {
+fn write_zeros<W: std::io::Write>(mut writer: W, kibibytes: Kibibytes) -> std::io::Result<()> {
     let zero_buffer = vec![0u8; 512 * 1024];
+    let bytes = Bytes::from(kibibytes).0;
     for _ in 0..bytes / zero_buffer.len() {
         writer.write_all(&zero_buffer)?;
     }

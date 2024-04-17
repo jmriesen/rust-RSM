@@ -71,11 +71,25 @@ impl Bytes {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
         Pages(self.0.div_ceil(page_size))
     }
+    #[must_use]
+    pub fn kibi_floor(self) -> Kibibytes{
+        Kibibytes(self.0.div_floor(1024))
+    }
+    #[must_use]
+    pub fn megbi_floor(self) -> Megbibytes{
+        Megbibytes(self.0.div_floor(rsm::bindings::MBYTE as usize))
+    }
 }
 
 impl std::fmt::Display for Kibibytes {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}, KiB)", self.0,)
+        write!(f, "{}KiB)", self.0,)
+    }
+}
+
+impl std::fmt::Display for Megbibytes{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}MiB)", self.0,)
     }
 }
 

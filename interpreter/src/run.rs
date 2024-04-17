@@ -1,3 +1,5 @@
+use crate::sys_tab::SYSTAB;
+
 use super::{
     partab, strstk, systab, CleanJob, SemOp, UTIL_Share, Vhorolog, DO_FRAME, IN_TERM, JOBTAB,
     MAX_SSTK, MVAR, SEM_SYS, SERVERTAB, SQ_CHAN, TYPE_JOB, TYPE_RUN, VAR_U, VOL_DEF,
@@ -43,11 +45,15 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
             )?;
         //TODO exit
 
-        let env_num = if let Some(env) = env {
-            get_env_index(env).unwrap() as u8
-        } else {
-            1
-        };
+
+        let env_num =  env.map(|env|{
+            let sys_tab = unsafe{systab.cast::<SYSTAB>().as_ref()}.unwrap();
+            sys_tab.get_env_index(env)
+        })
+            .flatten()
+            .unwrap_or(1);
+
+
         let pid = unsafe { libc::getpid() };
 
         let ret = unsafe { SemOp(SEM_SYS as i32, -((*systab).maxjob as i32)) };
@@ -198,17 +204,6 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
                                                          //ST_Init();
     }
     todo!();
-}
-
-fn get_env_index(env: &str) -> Result<usize, ()> {
-    let uci_tab = unsafe { (*(*(*systab).vol[0]).vollab).uci };
-    let env: VAR_U = env.try_into().unwrap();
-    let (i, _) = uci_tab
-        .iter()
-        .enumerate()
-        .find(|(_, uci)| uci.name == env)
-        .ok_or(())?;
-    Ok(i)
 }
 
 fn clean_old_job(pid: i32) {
