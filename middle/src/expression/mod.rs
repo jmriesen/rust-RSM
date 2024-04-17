@@ -1,4 +1,4 @@
-mod intrinsicFunction;
+mod intrinsic_function;
 mod literals;
 pub use literals::*;
 

@@ -106,6 +106,4 @@ pub mod test {
     }
 }
 
-use crate::bindings::{HISTORIC_DNOK, MVAR, TRANTAB, VAR_U};
-use core::ptr::null_mut;
 
