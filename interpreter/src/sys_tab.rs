@@ -1,8 +1,8 @@
-use std::{fmt::{write, Display}, num::NonZeroI32, ptr::{from_mut, from_ref}, str::from_utf8};
+use std::{fmt::{Display}, num::NonZeroI32, ptr::{from_mut}};
 
 use libc::{c_int, c_void};
 use ffi::{
-    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LABEL_BLOCK, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF, WD_TAB
+    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LABEL_BLOCK, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF
 };
 
 use crate::{alloc::TabLayout, lock_tab, units::Bytes, };
@@ -59,7 +59,7 @@ impl SYSTAB {
         self.vol.into_iter().map(|x| unsafe{x.as_ref()})
     }
 
-    pub fn get_env_index(&self,env: &str) -> Option<u8> {
+    #[must_use] pub fn get_env_index(&self,env: &str) -> Option<u8> {
         let env: VAR_U = env.try_into().unwrap();
         Volume(*(self.vols().next().unwrap().unwrap())).label().uci
             .iter()
@@ -74,7 +74,7 @@ impl Display for SYSTAB{
         writeln!(f,"Job Table Slots:\t{}\tJobs",{self.maxjob})?;
         writeln!(f,"Lock Table Size:\t{}\tKiB\n",self.lock_size().kibi_floor().0)?;
         //TODO printf("Semaphore Array ID:\t%d\n", systab->sem_id);
-        for vol in self.vols().filter_map(|x| x){
+        for vol in self.vols().flatten(){
             display_vol(vol, f)?;
         }
         Ok(())
@@ -108,7 +108,7 @@ fn display_vol(vol:&VOL_DEF, f: &mut std::fmt::Formatter<'_>)->std::fmt::Result{
         "--"
     };
     let journal_file_status = if label.journal_available!=0 {"ON"}else {"OFF"};
-    writeln!(f,"DB Journal File Path:\t{}[{}]",journal_file, journal_file_status)?;
+    writeln!(f,"DB Journal File Path:\t{journal_file}[{journal_file_status}]")?;
     writeln!(f,"DB Size in Blocks:\t{}",{label.max_block})?;
     writeln!(f,"DB Map Block Size:\t{}",Bytes(label.header_bytes as usize).kibi_floor())?;
     writeln!(f,"DB Block Size:\t{}",Bytes(label.block_size as usize).kibi_floor())?;
@@ -128,7 +128,7 @@ fn display_vol(vol:&VOL_DEF, f: &mut std::fmt::Formatter<'_>)->std::fmt::Result{
         //I find it incredibly annoying when applications assume my terminal size
         //I think the terminal should be responsible for the wrapping behavior.
         //Or better yet, Just put everything on its own line.
-        writeln!(f,"{}",pid)?;
+        writeln!(f,"{pid}")?;
     }
 
     Ok(())
@@ -198,7 +198,7 @@ impl Display for Volume{
 
         let journal_file = label.journal_file().unwrap_or("--".into());
         let journal_file_status = if label.0.journal_available!=0 {"ON"}else {"OFF"};
-        writeln!(f,"DB Journal File Path:\t{}[{}]",journal_file, journal_file_status)?;
+        writeln!(f,"DB Journal File Path:\t{journal_file}[{journal_file_status}]")?;
 
         writeln!(f,"DB Size in Blocks:\t{}",{label.0.max_block})?;
         writeln!(f,"DB Map Block Size:\t{}",label.header_size().kibi_floor())?;
@@ -219,7 +219,7 @@ impl Display for Volume{
             //I find it incredibly annoying when applications assume my terminal size
             //I think the terminal should be responsible for the wrapping behavior.
             //Or better yet, Just put everything on its own line.
-            writeln!(f,"{}",pid)?;
+            writeln!(f,"{pid}")?;
         }
 
         Ok(())
@@ -257,7 +257,7 @@ pub unsafe fn init(
         }; 8],
         start_user: unsafe { libc::getuid().try_into().unwrap() },
         lockstart: from_mut(lock_tab).cast::<c_void>(),
-        locksize: unsafe { *lock_tab }.size,
+        locksize: lock_tab.size,
         lockhead: std::ptr::null_mut(),
         lockfree: lock_tab,
         //TODO look into how this value is used.

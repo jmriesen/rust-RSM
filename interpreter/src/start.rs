@@ -6,7 +6,6 @@ use crate::{
 };
 use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
-use libc::c_void;
 use ffi::{label_block, systab, DB_VER, LOCKTAB, RBD};
 use std::fs::OpenOptions;
 use std::io::Read;

@@ -46,11 +46,10 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
         //TODO exit
 
 
-        let env_num =  env.map(|env|{
+        let env_num =  env.and_then(|env|{
             let sys_tab = unsafe{systab.cast::<SYSTAB>().as_ref()}.unwrap();
             sys_tab.get_env_index(env)
         })
-            .flatten()
             .unwrap_or(1);
 
 

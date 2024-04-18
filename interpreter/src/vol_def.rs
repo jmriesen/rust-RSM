@@ -60,7 +60,7 @@ pub unsafe fn init(
         &global_buf,
         Bytes(unsafe { *vollab }.block_size as usize),
     );
-    let rbd_head = unsafe{init_routine(rbd_head)};
+    let rbd_head = init_routine(rbd_head);
 
     let vol_def = VOL_DEF {
         file_name: crate::vol_def::format_name(name),
@@ -179,7 +179,7 @@ pub fn init_header_section(
     Ok((vollab, map))
 }
 
-
+#[allow(clippy::needless_pass_by_value)]
 fn init_routine<'a>(alloc:Allocation<RBD>)->&'a mut RBD{
     let rbd = alloc.as_mut();
     rbd.write(RBD{

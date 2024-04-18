@@ -122,7 +122,7 @@ impl<T> Allocation<T> {
     pub fn to_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
         unsafe { from_mut_ptr_range(self.ptr..self.ptr.byte_add(self.layout.size())) }
     }
-    pub fn as_mut<'a>(&self)->&'a mut  MaybeUninit<T>{
+    #[must_use] pub fn as_mut<'a>(&self)->&'a mut  MaybeUninit<T>{
         unsafe{self.ptr.as_mut().unwrap()}
     }
 }
@@ -137,7 +137,7 @@ impl Allocation<u8> {
 /// This represents the layout for a bunch of types placed one after the other.
 /// NOTE This always rounds up to a whole number of page files.
 /// SAFETY I am assuming all the layouts have an alignment of 1.
-/// THis code could break if that is not upheld.
+/// This code could break if that is not upheld.
 pub struct TabLayout<A, B, C, D, E, F> {
     a_layout: Layout,
     b_layout: Layout,
@@ -202,7 +202,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     /// NOTE currently I am just leaking the memory.
     /// Leaking simplifies safety constraints.
     /// Since this is only being used for shared memory segment it should not become a performance problem.
-    ///NOTE a Tab layout takes up a whole number of pages, therefor the last allocation may be larger then f_layout.
+    ///NOTE a Tab layout takes up a whole number of pages, therefor the last allocation may be larger then `f_layout`.
     /// Safety
     /// The caller needs to ensure that the pointer points to large enough region of memory and that the memory has been zeroed.
     #[allow(clippy::many_single_char_names, clippy::type_complexity)]
