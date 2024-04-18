@@ -1,13 +1,13 @@
 use crate::alloc::{create_shared_mem, TabLayout};
-use crate::bindings::{jobtab, u_int, vol_def, GBD, MAX_VOL};
+use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
 };
-use crate::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
+use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
 use libc::c_void;
-use rsm::bindings::{label_block, systab, DB_VER, LOCKTAB, RBD};
+use ffi::{label_block, systab, DB_VER, LOCKTAB, RBD};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::mem::MaybeUninit;
@@ -75,7 +75,7 @@ impl Config {
         global_buffer: Option<Megbibytes>,
         routine_buffer: Option<Megbibytes>,
     ) -> Result<Self, Vec<Error>> {
-        use rsm::bindings::{LOCKTAB_SIZE, MIN_GBD};
+        use ffi::{LOCKTAB_SIZE, MIN_GBD};
         use Error::{InvalidGlobalBufferSize, InvalidNumberOfJobs, InvalidRoutineBufferSize};
         let mut errors = vec![];
 
@@ -240,11 +240,11 @@ mod tests {
         .unwrap();
 
         let code = unsafe {
-            rsm::bindings::INIT_Start(CString::new("temp").unwrap().into_raw(), 1, 1, 1, 0)
+            ffi::INIT_Start(CString::new("temp").unwrap().into_raw(), 1, 1, 1, 0)
         };
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         unsafe {
-            rsm::bindings::UTIL_Share(CString::new("temp").unwrap().into_raw());
+            ffi::UTIL_Share(CString::new("temp").unwrap().into_raw());
         }
 
         println!("code: {code:?}");

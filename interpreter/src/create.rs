@@ -1,9 +1,9 @@
-use crate::label_block;
+use ffi::label_block;
 use crate::units::{Bytes, Kibibytes, Words};
 use crate::var_u::AlphaVAR_U;
 use std::{fs::OpenOptions, io::Seek};
 
-use crate::{current_time, DB_Block, DB_VER, IDX_START, MAX_MAP_SIZE, RSM_MAGIC, TRUE, UCI_TAB};
+use ffi::{current_time, DB_Block, DB_VER, IDX_START, MAX_MAP_SIZE, RSM_MAGIC, TRUE, UCI_TAB};
 
 unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts(
@@ -76,7 +76,7 @@ impl FileConfig {
         if !(Kibibytes(4)..Kibibytes(256)).contains(&block_size) {
             errors.push(FileConfigError::InvalidBlockSize);
         }
-        if header_size > Kibibytes(rsm::bindings::MAX_MAP_SIZE as usize) {
+        if header_size > Kibibytes(MAX_MAP_SIZE as usize) {
             errors.push(FileConfigError::InvalidMapSize);
         }
         if header_min_size > header_size.into() {
@@ -97,7 +97,7 @@ impl FileConfig {
     }
 
     pub fn create(self) -> std::io::Result<()> {
-        use rsm::bindings::CSTRING;
+        use ffi::CSTRING;
         use std::io::SeekFrom::Start;
         use std::io::Write;
         //In source they also restricted permissions.

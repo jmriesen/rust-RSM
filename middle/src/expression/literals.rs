@@ -1,5 +1,6 @@
-use crate::{ffi::*};
 use std::ffi::CString;
+
+use crate::test_harness::compile_string;
 
 /// TODO rerwrite this function
 /// currently function both formats number into canonacl represntation and

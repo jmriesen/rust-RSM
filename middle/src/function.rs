@@ -13,28 +13,28 @@ impl<'a> crate::OpCode for crate::models::XCallCode<'a> {
     fn op_code(&self) -> u8 {
         use crate::models::XCallCode::*;
         match self {
-            Directory(_) => crate::bindings::XCDIR,
-            Host(_) => crate::bindings::XCHOST,
-            File(_) => crate::bindings::XCFILE,
-            ErrMsg(_) => crate::bindings::XCERR,
-            OpCom(_) => crate::bindings::XCOPC,
-            Signal(_) => crate::bindings::XCSIG,
-            Spawn(_) => crate::bindings::XCSPA,
-            Version(_) => crate::bindings::XCVER,
-            Zwrite(_) => crate::bindings::XCZWR,
-            E(_) => crate::bindings::XCE,
-            Paschk(_) => crate::bindings::XCPAS,
-            V(_) => crate::bindings::XCV,
-            XCallX(_) => crate::bindings::XCX,
-            Xrsm(_) => crate::bindings::XCXRSM,
-            SetEnv(_) => crate::bindings::XCSETENV,
-            GetEnv(_) => crate::bindings::XCGETENV,
-            RouChk(_) => crate::bindings::XCROUCHK,
-            Fork(_) => crate::bindings::XCFORK,
-            IC(_) => crate::bindings::XCIC,
-            Wait(_) => crate::bindings::XCWAIT,
-            Debug(_) => crate::bindings::XCDEBUG,
-            Compress(_) => crate::bindings::XCCOMP,
+            Directory(_) => ffi::XCDIR,
+            Host(_) => ffi::XCHOST,
+            File(_) => ffi::XCFILE,
+            ErrMsg(_) => ffi::XCERR,
+            OpCom(_) => ffi::XCOPC,
+            Signal(_) => ffi::XCSIG,
+            Spawn(_) => ffi::XCSPA,
+            Version(_) => ffi::XCVER,
+            Zwrite(_) => ffi::XCZWR,
+            E(_) => ffi::XCE,
+            Paschk(_) => ffi::XCPAS,
+            V(_) => ffi::XCV,
+            XCallX(_) => ffi::XCX,
+            Xrsm(_) => ffi::XCXRSM,
+            SetEnv(_) => ffi::XCSETENV,
+            GetEnv(_) => ffi::XCGETENV,
+            RouChk(_) => ffi::XCROUCHK,
+            Fork(_) => ffi::XCFORK,
+            IC(_) => ffi::XCIC,
+            Wait(_) => ffi::XCWAIT,
+            Debug(_) => ffi::XCDEBUG,
+            Compress(_) => ffi::XCCOMP,
         }
     }
 }
@@ -43,23 +43,23 @@ impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
     fn op_code(&self) -> u8 {
         use crate::models::IntrinsicVarChildren::*;
         match self.children() {
-            Device(_) => crate::bindings::VARD,
-            Ecode(_) => crate::bindings::VAREC,
-            Estack(_) => crate::bindings::VARES,
-            Etrap(_) => crate::bindings::VARET,
-            Horolog(_) => crate::bindings::VARH,
-            Io(_) => crate::bindings::VARI,
-            Job(_) => crate::bindings::VARJ,
-            Key(_) => crate::bindings::VARK,
-            Principal(_) => crate::bindings::VARP,
-            Quit(_) => crate::bindings::VARQ,
-            Reference(_) => crate::bindings::VARR,
-            Storage(_) => crate::bindings::VARS,
-            StackVar(_) => crate::bindings::VARST,
-            System(_) => crate::bindings::VARSY,
-            Test(_) => crate::bindings::VART,
-            X(_) => crate::bindings::VARX,
-            Y(_) => crate::bindings::VARY,
+            Device(_) => ffi::VARD,
+            Ecode(_) => ffi::VAREC,
+            Estack(_) => ffi::VARES,
+            Etrap(_) => ffi::VARET,
+            Horolog(_) => ffi::VARH,
+            Io(_) => ffi::VARI,
+            Job(_) => ffi::VARJ,
+            Key(_) => ffi::VARK,
+            Principal(_) => ffi::VARP,
+            Quit(_) => ffi::VARQ,
+            Reference(_) => ffi::VARR,
+            Storage(_) => ffi::VARS,
+            StackVar(_) => ffi::VARST,
+            System(_) => ffi::VARSY,
+            Test(_) => ffi::VART,
+            X(_) => ffi::VARX,
+            Y(_) => ffi::VARY,
         }
     }
 }
@@ -68,13 +68,13 @@ impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
 mod test {
     use core::ops::RangeInclusive;
 
-    use crate::{bindings, ffi::test::compile_c, test_compile_command};
+    use crate::{test_harness::test::compile_c, test_compile_command};
     use rstest::rstest;
 
     #[test]
     fn select_test() {
         let source_code = "w $s(1:2,3:4,5:6)";
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let (orignal, _lock) = compile_c(source_code, ffi::parse);
         let temp = test_compile_command(source_code);
 
         assert_eq!(orignal, temp);
@@ -108,13 +108,13 @@ mod test {
 
             {
                 let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
 
                 assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
                 let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);
@@ -142,13 +142,13 @@ mod test {
             let args = repeat("variable").take(val).collect::<Vec<_>>().join(",");
             {
                 let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
 
                 assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
                 let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);

@@ -1,4 +1,4 @@
-use crate::{
+use ffi::{
     systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
     VERSION_TEST, VOL_DEF,
 };

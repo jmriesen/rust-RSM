@@ -1,8 +1,8 @@
 use std::{fmt::{write, Display}, num::NonZeroI32, ptr::{from_mut, from_ref}, str::from_utf8};
 
 use libc::{c_int, c_void};
-use rsm::bindings::{
-    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LABEL_BLOCK, LOCKTAB, TRANTAB, VAR_U, VOL_DEF, WD_TAB
+use ffi::{
+    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LABEL_BLOCK, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF, WD_TAB
 };
 
 use crate::{alloc::TabLayout, lock_tab, units::Bytes, };
@@ -24,7 +24,7 @@ pub struct SYSTAB {
     /// max TRANTAB used
     pub max_tt: c_int,
     /// translation tables
-    pub tt: [trantab; rsm::bindings::MAX_TRANTAB as usize],
+    pub tt: [trantab; MAX_TRANTAB as usize],
     pub start_user: c_int,
     /// head of lock table
     pub lockstart: *mut c_void,
@@ -38,7 +38,7 @@ pub struct SYSTAB {
     pub addoff: u_long,
     /// add buffer size
     pub addsize: u_long,
-    pub vol: [*mut vol_def; rsm::bindings::MAX_VOL as usize],
+    pub vol: [*mut vol_def; MAX_VOL as usize],
     //This field was being used for alignment shananigans in the old c code.
     //Removing it since I don't want to rely on shananigans.
     //pub last_blk_used: [u_int; 1],
@@ -290,7 +290,7 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
 
     //comparing offsets
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
-    for i in 0..rsm::bindings::MAX_VOL as usize {
+    for i in 0..MAX_VOL as usize {
         use crate::vol_def::tests::assert_vol_def_eq;
         assert_vol_def_eq(unsafe {(*left).vol[i].as_ref().unwrap()},unsafe { (*right).vol[i].as_ref().unwrap()});
     }

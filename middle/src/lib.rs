@@ -1,20 +1,22 @@
 #![feature(array_chunks)]
-pub mod bindings;
+
+use ffi as bindings;
 
 mod command;
 mod dollar;
 mod expression;
-mod ffi;
+mod test_harness;
 mod function;
 mod localvar;
 mod op_code;
 mod routine;
-mod var;
 
 use crate::function::{reserve_jump, write_jump};
 
+#[deprecated]
 mod models {
-    //TODO clean up and remove glob inport.
+    //TODO clean up and remove glob import.
+    #[deprecated]
     pub use lang_model::*;
 }
 
@@ -69,7 +71,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             }
             .map(|condition| {
                 condition.compile(source_code, &mut comp, ExpressionContext::Eval);
-                comp.push(crate::bindings::JMP0);
+                comp.push(bindings::JMP0);
                 reserve_jump(&mut comp)
             });
             use crate::models::commandChildren as E;
@@ -128,12 +130,12 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 E::NewCommand(_command) => {}
                 E::DoCommand(command) => {
                     if command.args().is_empty() {
-                        comp.push(crate::bindings::CMDON);
+                        comp.push(bindings::CMDON);
                     } else {
                         for arg in command.args() {
                             let post_condion = arg.post_condition().map(|x| {
                                 x.compile(source_code, &mut comp, ExpressionContext::Eval);
-                                comp.push(crate::bindings::JMP0);
+                                comp.push(bindings::JMP0);
                                 reserve_jump(&mut comp)
                             });
 
@@ -160,9 +162,9 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                             }
 
                             comp.push(match args.children().len() {
-                                1 => crate::bindings::CMFOR1,
-                                2 => crate::bindings::CMFOR2,
-                                3 => crate::bindings::CMFOR3,
+                                1 => bindings::CMFOR1,
+                                2 => bindings::CMFOR2,
+                                3 => bindings::CMFOR3,
                                 _ => unreachable!(),
                             });
                         }
@@ -171,7 +173,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                         for_jumps.push((exit, false));
                     }
                     None => {
-                        comp.push(crate::bindings::CMFOR0);
+                        comp.push(bindings::CMFOR0);
                         for_jumps.push((reserve_jump(&mut comp), true));
                     }
                 },
@@ -205,20 +207,20 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             }
         }
         for (exit, argless) in for_jumps.into_iter().rev() {
-            comp.push(crate::bindings::OPENDC);
+            comp.push(bindings::OPENDC);
             if argless {
                 //jump back to start of for loop.
-                comp.push(crate::bindings::JMP);
+                comp.push(bindings::JMP);
                 let jump = reserve_jump(&mut comp);
                 write_jump(jump, exit, &mut comp);
             } else {
-                comp.push(crate::bindings::CMFOREND);
+                comp.push(bindings::CMFOREND);
             }
             //jump out of for loop
             write_jump(exit, comp.len(), &mut comp);
-            comp.push(crate::bindings::OPNOP);
+            comp.push(bindings::OPNOP);
 
-            comp.push(crate::bindings::OPENDC);
+            comp.push(bindings::OPENDC);
         }
         comp.push(bindings::ENDLIN);
     }

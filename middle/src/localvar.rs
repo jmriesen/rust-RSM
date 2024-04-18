@@ -1,12 +1,13 @@
 use crate::models::{Expression, VariableHeading};
 
-use super::*;
+use super::models;
+use crate::Compileable;
 
 pub enum VarTypes {
-    Eval = crate::bindings::OPVAR as isize,
-    Build = crate::bindings::OPMVAR as isize,
-    BuildNullable = crate::bindings::OPMVARN as isize,
-    For = crate::bindings::CMFORSET as isize,
+    Eval = ffi::OPVAR as isize,
+    Build = ffi::OPMVAR as isize,
+    BuildNullable = ffi::OPMVARN as isize,
+    For = ffi::CMFORSET as isize,
 }
 
 trait HeadingExt {
@@ -15,19 +16,20 @@ trait HeadingExt {
     fn args(&self) -> Vec<Expression>;
     fn is_indirect(&self) -> bool;
 }
+
 impl<'a> HeadingExt for Option<VariableHeading<'a>> {
     fn op_code(&self) -> u8 {
         use models::VariableHeading::*;
         (if let Some(heading) = self {
             match heading {
-                NakedVariable(_) => bindings::TYPVARNAKED,
-                IndirectVariable(_) => bindings::TYPVARIND,
-                GlobalVariable(_) => bindings::TYPVARGBL,
-                GlobalUciVariable(_) => bindings::TYPVARGBLUCI,
-                GlobalUciEnvVariable(_) => bindings::TYPVARGBLUCIENV,
+                NakedVariable(_) => ffi::TYPVARNAKED,
+                IndirectVariable(_) => ffi::TYPVARIND,
+                GlobalVariable(_) => ffi::TYPVARGBL,
+                GlobalUciVariable(_) => ffi::TYPVARGBLUCI,
+                GlobalUciEnvVariable(_) => ffi::TYPVARGBLUCIENV,
             }
         } else {
-            bindings::TYPVARNAM
+            ffi::TYPVARNAM
         }) as u8
     }
     fn union_length(&self) -> bool {
@@ -57,7 +59,7 @@ impl<'a> HeadingExt for Option<VariableHeading<'a>> {
 impl<'a> Compileable for crate::models::Variable<'a> {
     type Context = VarTypes;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarTypes) {
-        use expression::ExpressionContext;
+        use crate::expression::ExpressionContext;
         let heading = self.heading();
 
         for arg in heading.args() {
@@ -65,7 +67,7 @@ impl<'a> Compileable for crate::models::Variable<'a> {
         }
 
         if heading.is_indirect() {
-            comp.push(bindings::INDMVAR);
+            comp.push(ffi::INDMVAR);
         }
 
         //NOTE c docs says subscripts heading,
@@ -84,9 +86,8 @@ impl<'a> Compileable for crate::models::Variable<'a> {
         }
 
         if let Some(name) = self.name() {
-            use bindings::VAR_U;
             //TODO abstract away.
-            let name:VAR_U = name.node()
+            let name:ffi::VAR_U = name.node()
                 .utf8_text(source_code.as_bytes())
                 .unwrap()
                 .try_into()
@@ -98,7 +99,7 @@ impl<'a> Compileable for crate::models::Variable<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{bindings, ffi::test::compile_c, test_compile_command};
+    use crate::{test_harness::test::compile_c, test_compile_command};
     use rstest::rstest;
     #[rstest]
     #[case("SomeString")]
@@ -120,7 +121,7 @@ mod test {
     //TODO index
     fn parse_var(#[case] num: &str) {
         let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, bindings::parse);
+        let (orignal, _lock) = compile_c(&source_code, ffi::parse);
 
         assert_eq!(orignal, test_compile_command(&source_code));
     }

@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path, ptr::{from_mut, null_mut}};
 
 use libc::{c_char, c_void};
-use rsm::bindings::{GBD, GBD_HASH, LABEL_BLOCK, RBD, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX};
+use ffi::{DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX, WD_TAB};
 
 use crate::{
     alloc::{Allocation, TabLayout},
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(test)]
-fn map_as_slice(val: &rsm::bindings::vol_def) -> &[u8] {
+fn map_as_slice(val: &VOL_DEF) -> &[u8] {
     use std::ops::Range;
     use std::slice::from_ptr_range;
     //TODO verify that gdb_head always Corresponds to the end off the map section.
@@ -89,14 +89,14 @@ pub unsafe fn init(
 
         shm_id: 0,
         //TODO add test that cover these bounds.
-        num_of_daemons: (jobs as u32 / rsm::bindings::DAEMONS)
-            .clamp(rsm::bindings::MIN_DAEMONS, rsm::bindings::MAX_DAEMONS)
+        num_of_daemons: (jobs as u32 / DAEMONS)
+            .clamp(MIN_DAEMONS, MAX_DAEMONS)
             .try_into()
             .unwrap(),
-        wd_tab: [rsm::bindings::WD_TAB {
+        wd_tab: [WD_TAB {
             pid: 0,
             doing: 0,
-            currmsg: rsm::bindings::DATA_UNION { intdata: 0 },
+            currmsg: DATA_UNION { intdata: 0 },
         }; 20],
         dismount_flag: 0,
         writelock: 0,
@@ -108,7 +108,7 @@ pub unsafe fn init(
         garbQw: 0,
         garbQr: 0,
         jrn_next: 0,
-        stats: rsm::bindings::DB_STAT {
+        stats: DB_STAT {
             dbget: 0,
             dbset: 0,
             dbkil: 0,
@@ -173,7 +173,7 @@ pub fn init_header_section(
     //NOTE the C code says this was to facilitate forking.
     //I am not comfortable really comfortable forking so this may not be needed.
     unsafe {
-        rsm::bindings::partab.vol_fds[0] = file.as_raw_fd();
+        ffi::partab.vol_fds[0] = file.as_raw_fd();
     }
 
     Ok((vollab, map))
@@ -212,11 +212,9 @@ pub mod tests {
     use crate::test_helper::relitive_ptr;
 
     use super::*;
-    use rsm::bindings::vol_def;
-    use rsm::bindings::DB_STAT;
 
     //TODO it would be nice if I could auto generate most of these asserts with a derive macro
-    pub fn assert_vol_def_eq(left: &vol_def, right: &vol_def) {
+    pub fn assert_vol_def_eq(left: &VOL_DEF, right: &VOL_DEF) {
         assert_eq!({ left.num_gbd }, { right.num_gbd });
         assert_eq!({ left.num_of_daemons }, {
             right.num_of_daemons

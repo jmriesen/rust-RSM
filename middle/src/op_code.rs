@@ -1,13 +1,12 @@
-use super::*;
-
-
+use crate::models;
+use super::OpCode;
 impl<'a> OpCode for models::UnaryOpp<'a> {
     fn op_code(&self) -> u8 {
         use models::UnaryOppChildren as E;
         match self.children() {
-            E::OPMINUS(_) => bindings::OPMINUS,
-            E::OPPLUS(_) => bindings::OPPLUS,
-            E::OPNOT(_) => bindings::OPNOT,
+            E::OPMINUS(_) => ffi::OPMINUS,
+            E::OPPLUS(_) => ffi::OPPLUS,
+            E::OPNOT(_) => ffi::OPNOT,
         }
     }
 }
@@ -16,8 +15,8 @@ impl<'a> OpCode for models::PatternOpp<'a> {
     fn op_code(&self) -> u8 {
         use models::PatternOppChildren as E;
         match self.children() {
-            E::OPPAT(_) => bindings::OPPAT,
-            E::OPNPAT(_) => bindings::OPNPAT,
+            E::OPPAT(_) => ffi::OPPAT,
+            E::OPNPAT(_) => ffi::OPNPAT,
         }
     }
 }
@@ -26,28 +25,28 @@ impl<'a> OpCode for crate::models::BinaryOpp<'a> {
     fn op_code(&self) -> u8 {
         use models::BinaryOppChildren::*;
         match self.children() {
-            OPADD(_) => bindings::OPADD,
-            OPSUB(_) => bindings::OPSUB,
-            OPMUL(_) => bindings::OPMUL,
-            OPDIV(_) => bindings::OPDIV,
-            OPINT(_) => bindings::OPINT,
-            OPMOD(_) => bindings::OPMOD,
-            OPPOW(_) => bindings::OPPOW,
-            OPCAT(_) => bindings::OPCAT,
-            OPGTR(_) => bindings::OPGTR,
-            OPAND(_) => bindings::OPAND,
-            OPCON(_) => bindings::OPCON,
-            OPFOL(_) => bindings::OPFOL,
-            OPEQL(_) => bindings::OPEQL,
-            OPLES(_) => bindings::OPLES,
-            OPNEQL(_) => bindings::OPNEQL,
-            OPNLES(_) => bindings::OPNLES,
-            OPNGTR(_) => bindings::OPNGTR,
-            OPNAND(_) => bindings::OPNAND,
-            OPNCON(_) => bindings::OPNCON,
-            OPNFOL(_) => bindings::OPNFOL,
-            OPNSAF(_) => bindings::OPNSAF,
-            OPSAF(_) => bindings::OPSAF,
+            OPADD(_) => ffi::OPADD,
+            OPSUB(_) => ffi::OPSUB,
+            OPMUL(_) => ffi::OPMUL,
+            OPDIV(_) => ffi::OPDIV,
+            OPINT(_) => ffi::OPINT,
+            OPMOD(_) => ffi::OPMOD,
+            OPPOW(_) => ffi::OPPOW,
+            OPCAT(_) => ffi::OPCAT,
+            OPGTR(_) => ffi::OPGTR,
+            OPAND(_) => ffi::OPAND,
+            OPCON(_) => ffi::OPCON,
+            OPFOL(_) => ffi::OPFOL,
+            OPEQL(_) => ffi::OPEQL,
+            OPLES(_) => ffi::OPLES,
+            OPNEQL(_) => ffi::OPNEQL,
+            OPNLES(_) => ffi::OPNLES,
+            OPNGTR(_) => ffi::OPNGTR,
+            OPNAND(_) => ffi::OPNAND,
+            OPNCON(_) => ffi::OPNCON,
+            OPNFOL(_) => ffi::OPNFOL,
+            OPNSAF(_) => ffi::OPNSAF,
+            OPSAF(_) => ffi::OPSAF,
         }
     }
 }

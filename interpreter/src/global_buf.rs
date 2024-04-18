@@ -1,6 +1,6 @@
 use std::{mem::transmute, ptr::null_mut};
 
-use rsm::bindings::GBD;
+use ffi::GBD;
 
 use crate::{alloc::Allocation, units::Bytes};
 

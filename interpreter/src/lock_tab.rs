@@ -1,4 +1,4 @@
-use rsm::bindings::{LOCKTAB, VAR_U};
+use ffi::{LOCKTAB, VAR_U};
 
 use crate::alloc::Allocation;
 
@@ -26,7 +26,7 @@ pub fn init<'a>(alloc: Allocation<LOCKTAB>) -> &'a mut LOCKTAB {
 pub mod tests{
     use std::ptr::from_ref;
 
-    use rsm::bindings::LOCKTAB;
+    use ffi::LOCKTAB;
 
     use crate::test_helper::relitive_ptr;
     pub fn assert_eq(left:&LOCKTAB,right:&LOCKTAB){

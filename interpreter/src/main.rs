@@ -112,7 +112,7 @@ fn main() -> Result<(), String> {
 
             //NOTE for right now I am just going to leak the strings passed to C.
             unsafe {
-                rsm::bindings::INIT_Run(name.into_raw(), env.into_raw(), command.into_raw());
+                ffi::INIT_Run(name.into_raw(), env.into_raw(), command.into_raw());
             };
         }
     }

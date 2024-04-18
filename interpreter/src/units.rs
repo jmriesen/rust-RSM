@@ -1,3 +1,5 @@
+use ffi::MBYTE;
+
 ///integer number of pages
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Pages(pub usize);
@@ -16,7 +18,7 @@ pub struct Bytes(pub usize);
 
 impl From<Megbibytes> for Bytes {
     fn from(megbi: Megbibytes) -> Self {
-        Self(megbi.0 * rsm::bindings::MBYTE as usize)
+        Self(megbi.0 * MBYTE as usize)
     }
 }
 
@@ -63,7 +65,7 @@ impl Bytes {
     ///Round up to nearest Megbiyte
     #[must_use]
     pub fn megbi_round_up(self) -> Megbibytes {
-        Megbibytes(self.0.div_ceil(rsm::bindings::MBYTE as usize))
+        Megbibytes(self.0.div_ceil(MBYTE as usize))
     }
     ///Round up to nearest page file
     #[must_use]
@@ -77,7 +79,7 @@ impl Bytes {
     }
     #[must_use]
     pub fn megbi_floor(self) -> Megbibytes{
-        Megbibytes(self.0.div_floor(rsm::bindings::MBYTE as usize))
+        Megbibytes(self.0.div_floor(MBYTE as usize))
     }
 }
 

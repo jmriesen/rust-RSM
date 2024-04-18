@@ -11,6 +11,7 @@ libc = "0.2.139"
 uname = "0.1.1"
 rsm= { path = "../middle"}
 thiserror = "1.0.56"
+ffi = { path = "../ffi"}
 
 [dev-dependencies]
 uuid = { version = "1.7.0", features = ["v4"] }

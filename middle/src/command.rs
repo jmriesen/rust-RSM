@@ -1,12 +1,13 @@
 #[cfg(test)]
 mod test {
-    use crate::{bindings, ffi::test::compile_c, test_compile_command};
     use rstest::rstest;
+
+    use crate::{test_compile_command, test_harness::test::compile_c};
 
     #[test]
     fn multiple_commands() {
         let source_code = "w 9 w 8 w 7 w 6 w 5 w 4 w 3";
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let (orignal, _lock) = compile_c(source_code, ffi::parse);
 
         assert_eq!(orignal, test_compile_command(source_code));
     }
@@ -37,7 +38,7 @@ mod test {
     #[case("f x=1:2:3 ")]
     #[case("f x=1,2:3,4:5:6 ")]
     fn command_test(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let (orignal, _lock) = compile_c(source_code, ffi::parse);
         let temp = test_compile_command(source_code);
 
         assert_eq!(orignal, temp);
@@ -51,7 +52,7 @@ mod test {
     #[case("w ?@temp")]
     #[case("w 1,#,!,?@temp")]
     fn write_command(#[case] source_code: &str) {
-        let (orignal, _lock) = compile_c(source_code, bindings::parse);
+        let (orignal, _lock) = compile_c(source_code, ffi::parse);
         let temp = test_compile_command(source_code);
 
         assert_eq!(orignal, temp);
