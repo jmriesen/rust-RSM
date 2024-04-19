@@ -1,11 +1,11 @@
-use std::{fmt::{Display}, num::NonZeroI32, ptr::{from_mut}};
+use std::{fmt::{Display},  ptr::{from_mut}};
 
 use libc::{c_int, c_void};
 use ffi::{
-    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LABEL_BLOCK, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF
+    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF
 };
 
-use crate::{alloc::TabLayout, lock_tab, units::Bytes, };
+use crate::{alloc::TabLayout, lock_tab, units::{Bytes, Pages}, };
 
 #[repr(C, packed(1))]
 pub struct SYSTAB {
@@ -49,19 +49,20 @@ impl SYSTAB {
     fn lock_size(&self)->Bytes{
         Bytes(self.locksize as usize)
     }
-    fn vols(&self)->impl Iterator<Item = Option<&VOL_DEF>>{
+    fn vols(&self)->impl Iterator<Item = Option<&Volume>>{
         //NOTE into iter copies the array in order to make this iterator.
         //I initially had reservations about copying the data since
         //since I did not want self.vols and the copy to get out of sync
         //However that should not be an issue.
         //Since we are taking and and returning a reference with the same life time
         //The barrow checker will prevent any unexpected mutations
-        self.vol.into_iter().map(|x| unsafe{x.as_ref()})
+        use ref_cast::RefCast;
+        self.vol.into_iter().map(|x|  unsafe{x.as_ref()}.map(Volume::ref_cast))
     }
 
     #[must_use] pub fn get_env_index(&self,env: &str) -> Option<u8> {
         let env: VAR_U = env.try_into().unwrap();
-        Volume(*(self.vols().next().unwrap().unwrap())).label().uci
+        self.vols().next().unwrap().unwrap().label().uci()
             .iter()
             .enumerate()
             .find(|(_, uci)| uci.name == env)
@@ -75,164 +76,23 @@ impl Display for SYSTAB{
         writeln!(f,"Lock Table Size:\t{}\tKiB\n",self.lock_size().kibi_floor().0)?;
         //TODO printf("Semaphore Array ID:\t%d\n", systab->sem_id);
         for vol in self.vols().flatten(){
-            display_vol(vol, f)?;
+            write!(f,"{}",vol)?;
         }
         Ok(())
     }
 }
 
 
-//TODO this should actually use the display trait.
-// just creating it as a function for not to avoid the orphan rule.
-fn display_vol(vol:&VOL_DEF, f: &mut std::fmt::Formatter<'_>)->std::fmt::Result{
-    use core::ffi::CStr;
-    writeln!(f, "*** Volume %d ***")?;
-    let file_name = vol.file_name.map(|x| x as u8);
-    let file_name = CStr::from_bytes_until_nul(&file_name)
-        .unwrap()
-        .to_str()
-        .unwrap();
-    writeln!(f,"DB File Path:\t\t{file_name}")?;
-    let label = unsafe{*vol.vollab};
-    writeln!(f,"DB Volume Name:\t\t{}",label.volnam)?;
-    writeln!(f,"DB Manager UCI name :\t{}",label.uci[0].name)?;
 
-    let journal_file = label.journal_file.map(|x| x as u8);
-    let journal_file = CStr::from_bytes_until_nul(&journal_file)
-        .unwrap()
-        .to_str()
-        .unwrap();
-    let journal_file = if journal_file.is_empty(){
-        journal_file
-    }else{
-        "--"
-    };
-    let journal_file_status = if label.journal_available!=0 {"ON"}else {"OFF"};
-    writeln!(f,"DB Journal File Path:\t{journal_file}[{journal_file_status}]")?;
-    writeln!(f,"DB Size in Blocks:\t{}",{label.max_block})?;
-    writeln!(f,"DB Map Block Size:\t{}",Bytes(label.header_bytes as usize).kibi_floor())?;
-    writeln!(f,"DB Block Size:\t{}",Bytes(label.block_size as usize).kibi_floor())?;
-    writeln!(f,"Global Buffers:\t\t{} ({} Buffers)",
-             Bytes(unsafe{vol.zero_block.byte_offset_from(vol.global_buf)} as usize ).megbi_floor(),
-             {vol.num_gbd}
-    )?;
+use crate::vol_def::Volume;
 
-    writeln!(f,"Routine Buffers Space:\t{}",
-             Bytes(unsafe{vol.rbd_end.byte_offset_from(vol.rbd_head)} as usize ).megbi_floor()
-    )?;
-
-    writeln!(f,"shared Memory ID: \t{}",{vol.shm_id})?;
-
-    for pid in vol.wd_tab.iter().filter_map(|x| NonZeroI32::new(x.pid)){
-        //NOTE C code wraps values a 80 columns
-        //I find it incredibly annoying when applications assume my terminal size
-        //I think the terminal should be responsible for the wrapping behavior.
-        //Or better yet, Just put everything on its own line.
-        writeln!(f,"{pid}")?;
-    }
-
-    Ok(())
-}
-
-struct Volume(VOL_DEF);
-
-
-impl Volume{
-    fn file_name(&self)->String{
-        use core::ffi::CStr;
-        let file_name = self.0.file_name.map(|x| x as u8);
-        CStr::from_bytes_until_nul(&file_name)
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
-    }
-
-    fn label(&self)->&LABEL_BLOCK{
-        unsafe{self.0.vollab.as_ref()}.unwrap()
-    }
-
-    fn global_buffer_size(&self)->Bytes{
-        Bytes(unsafe{self.0.zero_block.byte_offset_from(self.0.global_buf)} as usize)
-    }
-
-    fn routine_buffer_size(&self)->Bytes{
-        Bytes(unsafe{self.0.rbd_end.byte_offset_from(self.0.rbd_head)} as usize)
-    }
-
-}
-struct Label<'a>(&'a LABEL_BLOCK);
-
-impl <'a>Label<'a>{
-    fn journal_file(&self)->Option<String>{
-        use core::ffi::CStr;
-        let journal_file = self.0.journal_file.map(|x| x as u8);
-        let journal_file = CStr::from_bytes_until_nul(&journal_file)
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-        if journal_file.is_empty(){
-            None
-        }else{
-            Some(journal_file)
-        }
-    }
-
-    fn header_size(&self)->Bytes{
-        Bytes(self.0.header_bytes as usize)
-    }
-
-    fn block_size(&self)->Bytes{
-        Bytes(self.0.block_size as usize)
-    }
-}
-
-impl Display for Volume{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "*** Volume %d ***")?;
-        writeln!(f,"DB File Path:\t\t{}",self.file_name())?;
-        let label = Label(self.label());
-        writeln!(f,"DB Volume Name:\t\t{}",label.0.volnam)?;
-        writeln!(f,"DB Manager UCI name :\t{}",label.0.uci[0].name)?;
-
-        let journal_file = label.journal_file().unwrap_or("--".into());
-        let journal_file_status = if label.0.journal_available!=0 {"ON"}else {"OFF"};
-        writeln!(f,"DB Journal File Path:\t{journal_file}[{journal_file_status}]")?;
-
-        writeln!(f,"DB Size in Blocks:\t{}",{label.0.max_block})?;
-        writeln!(f,"DB Map Block Size:\t{}",label.header_size().kibi_floor())?;
-        writeln!(f,"DB Block Size:\t{}",label.block_size().kibi_floor())?;
-        writeln!(f,"Global Buffers:\t\t{} ({} Buffers)",
-                 self.global_buffer_size().megbi_floor(),
-                 {self.0.num_gbd}
-        )?;
-
-        writeln!(f,"Routine Buffers Space:\t{}",
-                 self.routine_buffer_size().megbi_floor()
-        )?;
-
-        writeln!(f,"shared Memory ID: \t{}",{self.0.shm_id})?;
-
-        for pid in self.0.wd_tab.iter().filter_map(|x| NonZeroI32::new(x.pid)){
-            //NOTE C code wraps values a 80 columns
-            //I find it incredibly annoying when applications assume my terminal size
-            //I think the terminal should be responsible for the wrapping behavior.
-            //Or better yet, Just put everything on its own line.
-            writeln!(f,"{pid}")?;
-        }
-
-        Ok(())
-    }
-
-}
-pub unsafe fn init(
+pub unsafe fn init<'a>(
     jobs: usize,
-    volume: *mut VOL_DEF,
-    addoff: u64,
+    volume: &mut Volume,
+    addoff: Pages,
     ptr: *mut c_void,
     layout: &TabLayout<SYSTAB, u_int, JOBTAB, LOCKTAB, (), ()>,
-) -> *mut SYSTAB {
+) -> &'a mut SYSTAB {
     let (sys_tab, _, job_tab, lock_tab, _, _, _) = unsafe { layout.calculate_offsets(ptr) };
     let lock_tab = lock_tab::init(lock_tab);
     let sys_tab_description = SYSTAB {
@@ -263,12 +123,12 @@ pub unsafe fn init(
         //TODO look into how this value is used.
         //I feel like passing it in is the wrong call and that I should be able to calculate it.
         //But until I understand more how it is I am going to stick to more or less what the C code does.
-        addoff,
+        addoff: Bytes::from(addoff).0 as u64,
         addsize: 0,
-        vol: [volume],
+        vol: [from_mut(volume.as_mut())],
     };
     unsafe { sys_tab.ptr.as_mut().unwrap().write(sys_tab_description) };
-    sys_tab.ptr.cast::<SYSTAB>()
+    sys_tab.ptr.cast::<SYSTAB>().as_mut().unwrap()
 }
 
 #[cfg(test)]
@@ -290,9 +150,14 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
 
     //comparing offsets
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
-    for i in 0..MAX_VOL as usize {
+
+    for (left, right) in left.vols().zip(right.vols()){
         use crate::vol_def::tests::assert_vol_def_eq;
-        assert_vol_def_eq(unsafe {(*left).vol[i].as_ref().unwrap()},unsafe { (*right).vol[i].as_ref().unwrap()});
+        match (left,right){
+            (Some(left),Some(right))=>assert_vol_def_eq(left,right),
+            (None, None) => (),
+            _ => panic!(),
+        }
     }
 }
 

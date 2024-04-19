@@ -1,5 +1,7 @@
 use ffi::MBYTE;
 
+use derive_more::Mul;
+
 ///integer number of pages
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Pages(pub usize);
@@ -14,6 +16,7 @@ pub struct Kibibytes(pub usize);
 pub struct Words(pub usize);
 ///interger number of Bytes.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
+#[derive(Mul)]
 pub struct Bytes(pub usize);
 
 impl From<Megbibytes> for Bytes {

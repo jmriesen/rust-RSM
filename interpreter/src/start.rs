@@ -1,5 +1,5 @@
-use crate::alloc::{create_shared_mem, TabLayout};
-use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
+use crate::{alloc::{create_shared_mem, TabLayout}, label::Label, sys_tab::SYSTAB};
+use ffi::{jobtab, u_int, vol_def, GBD, LABEL_BLOCK, MAX_VOL};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
@@ -7,7 +7,7 @@ use crate::{
 use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
 use ffi::{label_block, systab, DB_VER, LOCKTAB, RBD};
-use std::fs::OpenOptions;
+use std::{fs::OpenOptions, ptr::from_mut};
 use std::io::Read;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
@@ -60,7 +60,7 @@ pub struct Config {
     ///The numbber of blocks in the global buffer
     routine_buffer: Megbibytes,
     lock_size: Pages,
-    label: label_block,
+    label: Label,
 }
 
 impl Config {
@@ -88,12 +88,12 @@ impl Config {
         if Megbibytes(MAX_ROUTINE_BUFFERS as usize) < routine_buffer {
             errors.push(InvalidRoutineBufferSize);
         }
-        match Self::load_lable_info(Path::new(&file_name)) {
+        match Label::load(Path::new(&file_name)) {
             Ok(label) => {
                 let global_buffer = global_buffer
                     .unwrap_or(Megbibytes(jobs.get() as usize / 2))
                     .max(Megbibytes(1))
-                    .max(Bytes((label.block_size * MIN_GBD) as usize).megbi_round_up());
+                    .max((label.block_size() * MIN_GBD as usize).megbi_round_up());
                 if Megbibytes(MAX_GLOBAL_BUFFERS as usize) < global_buffer {
                     errors.push(InvalidGlobalBufferSize);
                 }
@@ -121,7 +121,8 @@ impl Config {
     /// # Errors
     ///
     /// Shared memory initialization error issues will be propagated up to the caller
-    pub fn setup_shared_mem_segemnt(self) -> Result<*mut sys_tab::SYSTAB, Error> {
+    pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SYSTAB, Error> {
+        //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = unsafe {
             TabLayout::<sys_tab::SYSTAB, u_int, jobtab, LOCKTAB, (), ()>::new(
                 Layout::new::<sys_tab::SYSTAB>(),
@@ -137,13 +138,13 @@ impl Config {
         let volset_layout = unsafe {
             TabLayout::<vol_def, u8, GBD, u8, u8, RBD>::new(
                 Layout::new::<vol_def>(),
-                Layout::array::<u8>(self.label.header_bytes.try_into().unwrap()).unwrap(),
+                Layout::array::<u8>(self.label.header_size().0).unwrap(),
                 Layout::array::<GBD>(
-                    Bytes::from(self.global_buffer).0 / self.label.block_size as usize,
+                    Bytes::from(self.global_buffer).0 / self.label.block_size().0,
                 )
                 .unwrap(),
                 Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
-                Layout::array::<u8>(self.label.block_size.try_into().unwrap()).unwrap(),
+                Layout::array::<u8>(self.label.block_size().0).unwrap(),
                 Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
             )
         };
@@ -153,47 +154,29 @@ impl Config {
 
         let volumes_start =
             unsafe { shared_mem_segment.byte_add(Bytes::from(meta_data_tab.size()).0) };
-        let volume = unsafe {
-            crate::vol_def::init(
-                &self.file_name,
-                self.jobs as usize,
-                volumes_start,
-                &volset_layout,
-            )
-        }?;
+
+        let volume = unsafe{ crate::vol_def::new(
+            &self.file_name,
+            self.jobs as usize,
+            volumes_start,
+            &volset_layout,
+        )}?;
 
         let sys_tab = unsafe {
             crate::sys_tab::init(
                 self.jobs as usize,
                 volume,
-                Bytes::from(share_size).0 as u64,
+                share_size,
                 shared_mem_segment,
                 &meta_data_tab,
             )
         };
 
         //TODO Deal with journaling
-        assert!(unsafe { (*sys_tab).maxjob } == 1);
+        assert_eq!({sys_tab.maxjob},1);
         Ok(sys_tab)
     }
 
-    fn load_lable_info(file: &Path) -> Result<label_block, Error> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(file)
-            .map_err(|_| Error::CouldNotOpenDatabase(file.into()))?;
-
-        let mut label = MaybeUninit::<label_block>::zeroed();
-        file.read_exact(unsafe { any_as_mut_u8_slice(&mut label) })
-            .map_err(|_| Error::CouldNotReadLableBlock)?;
-        let label = unsafe { label.assume_init() };
-        if label.db_ver == DB_VER as u16 {
-            Ok(label)
-        } else {
-            Err(Error::MissmachedDatabaseVerstions(label.db_ver))
-            // TODO C also gives instrcutions on how to update image.
-        }
-    }
 }
 
 ///# Errors
@@ -216,7 +199,7 @@ pub fn start(
     .map_err(|x| vec![x])?;
 
     unsafe {
-        systab = sys_tab.cast();
+        systab = from_mut(sys_tab).cast();
     };
     Ok(())
 }
@@ -249,7 +232,7 @@ mod tests {
         println!("code: {code:?}");
         assert!(code == 0);
         unsafe {
-            sys_tab::assert_sys_tab_eq(sys_tab.as_ref().unwrap(), systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap());
+            sys_tab::assert_sys_tab_eq(sys_tab, systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap());
         }
         let mut sbuf = libc::shmid_ds {
             shm_atime: 0,

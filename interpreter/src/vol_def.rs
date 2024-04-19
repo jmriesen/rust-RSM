@@ -1,14 +1,78 @@
-use std::{fs::OpenOptions, io::Read, mem::transmute, os::fd::AsRawFd, path::Path, ptr::{from_mut, null_mut}};
+use std::{fmt::Display, fs::OpenOptions, io::Read, mem::transmute, num::NonZeroI32, os::fd::AsRawFd, path::Path, ptr::{from_mut, from_ref, null_mut}};
 
 use libc::{c_char, c_void};
 use ffi::{DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX, WD_TAB};
 
 use crate::{
-    alloc::{Allocation, TabLayout},
-    global_buf::init_global_buffer_descriptors,
-    start::Error,
-    units::Bytes,
+    alloc::{Allocation, TabLayout}, global_buf::init_global_buffer_descriptors, label::Label, start::Error, units::Bytes
 };
+
+use ref_cast::RefCast;
+use derive_more::AsMut;
+
+
+#[derive(RefCast)]
+#[derive(AsMut)]
+#[repr(transparent)]
+pub struct Volume(VOL_DEF);
+
+impl Volume{
+    fn file_name(&self)->String{
+        use core::ffi::CStr;
+        let file_name = self.0.file_name.map(|x| x as u8);
+        CStr::from_bytes_until_nul(&file_name)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+    }
+
+    pub fn label(&self)->&Label{
+        Label::ref_cast(unsafe{self.0.vollab.as_ref()}.unwrap())
+    }
+
+    pub fn label_mut(&mut self)->&mut Label{
+        Label::ref_cast_mut(unsafe{self.0.vollab.as_mut()}.unwrap())
+    }
+
+    fn global_buffer_size(&self)->Bytes{
+        Bytes(unsafe{self.0.zero_block.byte_offset_from(self.0.global_buf)} as usize)
+    }
+
+    fn routine_buffer_size(&self)->Bytes{
+        Bytes(unsafe{self.0.rbd_end.byte_offset_from(self.0.rbd_head)} as usize)
+    }
+}
+
+
+impl Display for Volume{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "*** Volume %d ***")?;
+        writeln!(f,"DB File Path:\t\t{}",self.file_name())?;
+        write!(f,"{}",self.label())?;
+        writeln!(f,"Global Buffers:\t\t{} ({} Buffers)",
+                 self.global_buffer_size().megbi_floor(),
+                 {self.0.num_gbd}
+        )?;
+
+        writeln!(f,"Routine Buffers Space:\t{}",
+                 self.routine_buffer_size().megbi_floor()
+        )?;
+
+        writeln!(f,"shared Memory ID: \t{}",{self.0.shm_id})?;
+
+        for pid in self.0.wd_tab.iter().filter_map(|x| NonZeroI32::new(x.pid)){
+            //NOTE C code wraps values a 80 columns
+            //I find it incredibly annoying when applications assume my terminal size
+            //I think the terminal should be responsible for the wrapping behavior.
+            //Or better yet, Just put everything on its own line.
+            writeln!(f,"{pid}")?;
+        }
+
+        Ok(())
+    }
+
+}
 
 #[cfg(test)]
 fn map_as_slice(val: &VOL_DEF) -> &[u8] {
@@ -45,27 +109,27 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
         .unwrap()
 }
 
-pub unsafe fn init(
+pub unsafe fn new<'a>(
     name: &Path,
     jobs: usize,
     tab: *mut c_void,
+    //TODO I am ignoring this for now but this should probably be converted to some sort of builder
     layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, RBD>,
-) -> Result<*mut VOL_DEF, Error> {
+) -> Result<&'a mut Volume, Error> {
     let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
-        layout.calculate_offsets(tab);
-    let (vollab, map) = init_header_section(name, header)?;
+        unsafe{layout.calculate_offsets(tab)};
+    let (label, map) = init_header_section(name, header)?;
 
     let gbd_blocks = init_global_buffer_descriptors(
         gbd_head,
         &global_buf,
-        Bytes(unsafe { *vollab }.block_size as usize),
+        label.block_size(),
     );
     let rbd_head = init_routine(rbd_head);
 
     let vol_def = VOL_DEF {
         file_name: crate::vol_def::format_name(name),
-        vollab,
-
+        vollab: label.as_mut(),
         map,
         map_dirty_flag: 0,
         first_free: map.cast(),
@@ -127,48 +191,51 @@ pub unsafe fn init(
             diskerrors: 0,
         },
     };
+    //TODO this could be cleaned up.
     unsafe { volume.ptr.as_mut() }.unwrap().write(vol_def);
-    let volume = volume.ptr.cast::<VOL_DEF>();
+    let volume = Volume::ref_cast_mut(unsafe{volume.ptr.cast::<VOL_DEF>().as_mut()}.unwrap()) ;
     {
         // Was the volume cleanly dismounted?
-        let volume = unsafe { volume.as_mut() }.unwrap();
-        let vollab = unsafe { volume.vollab.as_mut() }.unwrap();
-        if vollab.clean == 0 {
+        if volume.label().clean(){
             eprintln!("WARNING: Volume was not dismounted properly!");
             // mark for cleaning
-            volume.upto = 1;
+            volume.0.upto = 1;
         } else {
             //TODO branch is untested
             // mark as mounted
-            vollab.clean = 1;
+            volume.label_mut().set_dirty(true);
             // and map needs writing
-            volume.map_dirty_flag = 1;
+            volume.0.map_dirty_flag = 1;
         }
     }
     Ok(volume)
 }
 
 /// This will panic if the path is not a valid db file or if the header allocation is 1= the header size.
-pub fn init_header_section(
+/// TODO considering factoring out the header file init section.
+pub fn init_header_section<'a>(
     path: &Path,
     header: Allocation<u8>,
-) -> Result<(*mut LABEL_BLOCK, *mut c_void), Error> {
+) -> Result<(&mut Label, *mut c_void), Error> {
     let mut file = OpenOptions::new()
         .read(true)
         .open(path)
         .map_err(|_| Error::CouldNotOpenDatabase(path.to_path_buf()))?;
-    let buf_size = header.layout.size();
+    let buf_size = Bytes(header.layout.size() as usize);
     //NOTE it is safe to transmute right away since
     //all bit patterns are a valid [u8]
     #[allow(clippy::transmute_ptr_to_ptr)]
     let header: &mut [u8] = unsafe { transmute(header.to_slice()) };
+
     file.read_exact(&mut header[..])
         .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;
-
-    let vollab = header.as_mut_ptr().cast::<LABEL_BLOCK>();
-    let map = unsafe { vollab.add(1).cast() };
+    // #Safety The database file layout starts with the header section (Label + Map).
+    // so, as long as the file is not corrupted we can just read in the header section.
+    // NOTE The Caller is responsible for giving ups a properly sized allocation
+    let label = Label::ref_cast_mut(unsafe{header.as_mut_ptr().cast::<LABEL_BLOCK>().as_mut()}.unwrap());
+    let map = unsafe { from_mut(label).add(1).cast() };
     //Panic if header size on file does not match the header allocation's size
-    assert!(buf_size as u32 == unsafe { *vollab }.header_bytes);
+    assert!(buf_size == label.header_size());
 
     //NOTE the C code says this was to facilitate forking.
     //I am not comfortable really comfortable forking so this may not be needed.
@@ -176,7 +243,7 @@ pub fn init_header_section(
         ffi::partab.vol_fds[0] = file.as_raw_fd();
     }
 
-    Ok((vollab, map))
+    Ok((label, map))
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -214,7 +281,9 @@ pub mod tests {
     use super::*;
 
     //TODO it would be nice if I could auto generate most of these asserts with a derive macro
-    pub fn assert_vol_def_eq(left: &VOL_DEF, right: &VOL_DEF) {
+    pub fn assert_vol_def_eq(left: &Volume, right: &Volume) {
+        let left = &left.0;
+        let right = &right.0;
         assert_eq!({ left.num_gbd }, { right.num_gbd });
         assert_eq!({ left.num_of_daemons }, {
             right.num_of_daemons

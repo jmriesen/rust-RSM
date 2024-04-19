@@ -11,6 +11,8 @@ libc = "0.2.139"
 uname = "0.1.1"
 thiserror = "1.0.56"
 ffi = { path = "../ffi"}
+ref-cast = "1.0.22"
+derive_more = "0.99.17"
 
 [dev-dependencies]
 uuid = { version = "1.7.0", features = ["v4"] }

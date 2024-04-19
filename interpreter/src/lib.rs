@@ -15,7 +15,7 @@
 #[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
-
+pub mod label;
 pub mod alloc;
 pub mod global_buf;
 pub mod lock_tab;
