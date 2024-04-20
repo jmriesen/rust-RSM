@@ -38,7 +38,7 @@ pub struct SYSTAB {
     pub addoff: u_long,
     /// add buffer size
     pub addsize: u_long,
-    pub vol: [*mut vol_def; MAX_VOL as usize],
+    vol: [*mut vol_def; MAX_VOL as usize],
     //This field was being used for alignment shananigans in the old c code.
     //Removing it since I don't want to rely on shananigans.
     //pub last_blk_used: [u_int; 1],
@@ -49,7 +49,7 @@ impl SYSTAB {
     fn lock_size(&self)->Bytes{
         Bytes(self.locksize as usize)
     }
-    fn vols(&self)->impl Iterator<Item = Option<&Volume>>{
+    pub fn vols(&self)->impl Iterator<Item = Option<&Volume>>{
         //NOTE into iter copies the array in order to make this iterator.
         //I initially had reservations about copying the data since
         //since I did not want self.vols and the copy to get out of sync
