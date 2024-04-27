@@ -92,11 +92,23 @@ fn map_as_slice(val: &VOL_DEF) -> &[u8] {
 /// If to short otherwise pad with trailing 0s.
 #[must_use]
 pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
-    //TODO test edge cases
-    std::fs::canonicalize(path)
-        .unwrap()
-        .to_str()
-        .unwrap()
+    //test canonicalize depends on the actual file system and is therefore hard to mock.
+    //for right now I have decided to not worry about getting canonicalize into a test harness, mostly for simplicities sake.
+    //testing this will become much easier if I decide to containorize the unit tests.
+    format_file_name_helper(
+        std::fs::canonicalize(path)
+            .unwrap()
+            .to_str()
+            .unwrap()
+    )
+}
+
+
+/// clips/pads with zeros the file name
+/// This should only be used by format_name, but was pulled out so it was easier to test.
+/// (canonicalized file names are absolute/have to actually exist witch makes it a pain to construct test file names of the correct length)
+fn format_file_name_helper(file_name:&str)->[libc::c_char; VOL_FILENAME_MAX as usize]{
+    file_name
         .bytes()
         .rev()
         .take(VOL_FILENAME_MAX as usize)
@@ -107,7 +119,7 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()
-}
+ }
 
 pub unsafe fn new<'a>(
     name: &Path,
@@ -274,7 +286,7 @@ fn init_routine<'a>(alloc:Allocation<RBD>)->&'a mut RBD{
 
 #[cfg(test)]
 pub mod tests {
-    use std::ptr::from_ref;
+    use std::{iter::once, ptr::from_ref};
 
     use crate::test_helper::relitive_ptr;
 
@@ -432,5 +444,35 @@ pub mod tests {
         assert_eq!({left.blkreorg},{right.blkreorg});
         assert_eq!({left.diskerrors},{right.diskerrors});
         assert_eq!({left.diskerrors},{right.diskerrors});
+    }
+
+    #[test]
+    fn name_is_small(){
+        let zeros = [0;VOL_FILENAME_MAX as usize];
+        let path = String::from("short_name");
+        let name = format_file_name_helper(&path);
+        let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        assert_eq!(&name[0..path.len()], &path[..]);
+        assert_eq!(&name[path.len()..], &zeros[path.len()..]);
+    }
+
+    #[test]
+    fn name_exact_size(){
+        let path:String = std::iter::repeat('a').take(VOL_FILENAME_MAX as usize).collect();
+        let name = format_file_name_helper(&path);
+        let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        assert_eq!(&name[..], &path[..]);
+
+    }
+
+    #[test]
+    fn name_is_to_large(){
+        use std::iter::{repeat,once};
+        // path = ab...bc
+        let path:String = once('a').chain(repeat('b').take(VOL_FILENAME_MAX as usize)).chain(once('b')).collect();
+        let name = format_file_name_helper(&path);
+        let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        //If the name is to long we only store the end of it.
+        assert_eq!(&name[..], &path[path.len()-VOL_FILENAME_MAX as usize..]);
     }
 }

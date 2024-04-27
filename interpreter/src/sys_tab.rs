@@ -1,8 +1,8 @@
-use std::{fmt::{Display},  ptr::{from_mut}};
+use std::{fmt::Display,  ptr::{from_mut, null_mut}, slice::from_raw_parts_mut};
 
 use libc::{c_int, c_void};
 use ffi::{
-    jobtab, locktab, trantab, u_int, u_long, vol_def, DEFAULT_PREC, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LOCKTAB, MAX_TRANTAB, MAX_VOL, TRANTAB, VAR_U, VOL_DEF
+    jobtab, locktab, trantab, u_int, u_long, vol_def, CleanJob, DB_ViewRel, LCK_Remove, Routine_Detach, SQ_Close, ST_KillAll, ST_Restore, ST_newtab, DEFAULT_PREC, DO_FLAG_ATT, HISTORIC_DNOK, HISTORIC_EOK, HISTORIC_OFFOK, JOBTAB, LOCKTAB, MAX_SEQ_IO, MAX_TRANTAB, MAX_VOL, MVAR, PARTAB, RBD, TRANTAB, UCI_IS_LOCALVAR, VAR_U, VOL_DEF
 };
 
 use crate::{alloc::TabLayout, lock_tab, units::{Bytes, Pages}, };
@@ -60,6 +60,10 @@ impl SYSTAB {
         self.vol.into_iter().map(|x|  unsafe{x.as_ref()}.map(Volume::ref_cast))
     }
 
+    pub fn jobs(&mut self)->&mut[JOBTAB]{
+        unsafe{from_raw_parts_mut(self.jobtab, self.maxjob as usize)}
+    }
+
     #[must_use] pub fn get_env_index(&self,env: &str) -> Option<u8> {
         let env: VAR_U = env.try_into().unwrap();
         self.vols().next().unwrap().unwrap().label().uci()
@@ -68,6 +72,25 @@ impl SYSTAB {
             .find(|(_, uci)| uci.name == env)
             .map(|(i,_)| i as u8)
     }
+    //Currently uese C code so only works for systab.
+    unsafe fn clean_jobs(&mut self,exclude_pid:i32){
+        let jobs = unsafe{from_raw_parts_mut(self.jobtab, self.maxjob as usize)};
+
+        let out_dated_indexs = jobs.iter().enumerate()
+            .filter(|(_,x)| x.pid !=0)
+            .filter(|(_,x)| x.pid != exclude_pid)
+            .filter(|(_,x)| !is_alive(x.pid))
+            .map(|(i,_)| i);
+
+        for index in out_dated_indexs{
+            unsafe { CleanJob(index as i32+ 1) };
+        }
+
+    }
+}
+
+fn is_alive(pid:i32)->bool{
+    !(unsafe { libc::kill(pid, 0) } != 0 && unsafe{*libc::__error() } == libc::ESRCH)
 }
 
 impl Display for SYSTAB{
@@ -80,6 +103,60 @@ impl Display for SYSTAB{
         }
         Ok(())
     }
+}
+
+fn clan_job(job: Option<usize>, par_tab:&mut PARTAB,sys_tab:&mut SYSTAB){
+    //I don't like this calculation.
+    let job_index = job.unwrap_or(unsafe{par_tab.jobtab.offset_from(sys_tab.jobtab)} as usize+1);
+    unsafe{LCK_Remove(job_index as i32)}
+    let mut job_tab = sys_tab.jobs()[job_index];
+    for stack_layer in (1..job_tab.cur_do as usize).into_iter().rev(){
+        let do_frame = &mut job_tab.dostk[stack_layer];
+        if job.is_some(){
+            let new_tab = do_frame.newtab.cast::<ST_newtab>();
+            if !new_tab.is_null(){
+                unsafe{ ST_Restore(new_tab)}
+            }
+            if (do_frame.flags & DO_FLAG_ATT as u8) !=0 && !do_frame.symbol.is_null(){
+                unsafe{ffi::ST_SymDet((*do_frame.routine.cast::<RBD>()).num_vars.into(), do_frame.symbol)};
+            }
+        }
+        if (do_frame.flags & DO_FLAG_ATT as u8) !=0{
+            unsafe{Routine_Detach(do_frame.routine.cast::<RBD>())}
+        }
+    }
+
+    if job.is_some(){
+        unsafe{ST_KillAll(0, null_mut())};
+        par_tab.src_var = MVAR{
+            //NOTE the C code leaves this with a value of $ECODE since they reuse the variable
+            //TODO check if these get optimized into memcpy?
+            name:"$ETRAP".try_into().unwrap(),
+            volset:0,
+            slen:0,
+            uci:UCI_IS_LOCALVAR as u8,
+            key:par_tab.src_var.key
+        };
+        unsafe{ffi::ST_Kill(from_mut(&mut par_tab.src_var))};
+        par_tab.src_var.name = "$ECODE".try_into().unwrap();
+        unsafe{ffi::ST_Kill(from_mut(&mut par_tab.src_var))};
+    }
+    for i in 0..MAX_VOL as usize{
+        if job_tab.view[i].is_null(){
+            unsafe{DB_ViewRel(i as u32+1,job_tab.view[i])};
+            job_tab.view[i] = null_mut();
+        }
+    }
+    job_tab.cur_do = 0;
+
+    if job.is_some(){
+        for i in 1..MAX_SEQ_IO as i32{
+            unsafe{ SQ_Close(i)};
+        }
+        par_tab.jobtab = null_mut();
+    }
+    //TODO here it memsets JobTab
+    //I am not sure what I want to do with this really it seems like it should become a Maybe uninit.
 }
 
 

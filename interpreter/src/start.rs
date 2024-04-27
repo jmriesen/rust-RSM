@@ -211,8 +211,9 @@ mod tests {
 
     #[test]
     fn validate_mem_seg_layout() {
+        let file_path = "test_artifacts/temp";
         let sys_tab = Config::new(
-            "temp".into(),
+            file_path.into(),
             NonZeroU32::new(1).unwrap(),
             Some(Megbibytes(1)),
             Some(Megbibytes(1)),
@@ -222,11 +223,11 @@ mod tests {
         .unwrap();
 
         let code = unsafe {
-            ffi::INIT_Start(CString::new("temp").unwrap().into_raw(), 1, 1, 1, 0)
+            ffi::INIT_Start(CString::new(file_path).unwrap().into_raw(), 1, 1, 1, 0)
         };
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         unsafe {
-            ffi::UTIL_Share(CString::new("temp").unwrap().into_raw());
+            ffi::UTIL_Share(CString::new(file_path).unwrap().into_raw());
         }
 
         println!("code: {code:?}");
