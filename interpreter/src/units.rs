@@ -15,8 +15,7 @@ pub struct Kibibytes(pub usize);
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
 pub struct Words(pub usize);
 ///interger number of Bytes.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone)]
-#[derive(Mul)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Mul)]
 pub struct Bytes(pub usize);
 
 impl From<Megbibytes> for Bytes {
@@ -77,11 +76,11 @@ impl Bytes {
         Pages(self.0.div_ceil(page_size))
     }
     #[must_use]
-    pub fn kibi_floor(self) -> Kibibytes{
+    pub fn kibi_floor(self) -> Kibibytes {
         Kibibytes(self.0.div_floor(1024))
     }
     #[must_use]
-    pub fn megbi_floor(self) -> Megbibytes{
+    pub fn megbi_floor(self) -> Megbibytes {
         Megbibytes(self.0.div_floor(MBYTE as usize))
     }
 }
@@ -92,7 +91,7 @@ impl std::fmt::Display for Kibibytes {
     }
 }
 
-impl std::fmt::Display for Megbibytes{
+impl std::fmt::Display for Megbibytes {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}MiB)", self.0,)
     }

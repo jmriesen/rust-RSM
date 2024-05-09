@@ -1,6 +1,6 @@
-use ffi::label_block;
 use crate::units::{Bytes, Kibibytes, Words};
 use crate::var_u::AlphaVAR_U;
+use ffi::label_block;
 use std::{fs::OpenOptions, io::Seek};
 
 use ffi::{current_time, DB_Block, DB_VER, IDX_START, MAX_MAP_SIZE, RSM_MAGIC, TRUE, UCI_TAB};
@@ -70,7 +70,7 @@ impl FileConfig {
 
         let header_size = Kibibytes::max(
             reserve_header.unwrap_or(header_min_size.kibi_round_up()),
-            block_size
+            block_size,
         );
 
         if !(Kibibytes(4)..Kibibytes(256)).contains(&block_size) {
@@ -180,7 +180,6 @@ impl FileConfig {
         file.seek(Start(
             (Bytes::from(self.header_size) + Bytes::from(us)).0 as u64,
         ))?;
-
 
         file.write_all(unsafe { &any_as_u8_slice(&block_identifier)[..24] })?;
 

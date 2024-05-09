@@ -1,23 +1,36 @@
-use std::{fmt::Display, fs::OpenOptions, io::Read, mem::transmute, num::NonZeroI32, os::fd::AsRawFd, path::Path, ptr::{from_mut, from_ref, null_mut}};
-
-use libc::{c_char, c_void};
-use ffi::{DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, VOL_DEF, VOL_FILENAME_MAX, WD_TAB};
-
-use crate::{
-    alloc::{Allocation, TabLayout}, global_buf::init_global_buffer_descriptors, label::Label, start::Error, units::Bytes
+use std::{
+    fmt::Display,
+    fs::OpenOptions,
+    io::Read,
+    mem::transmute,
+    num::NonZeroI32,
+    os::fd::AsRawFd,
+    path::Path,
+    ptr::{from_mut, null_mut},
 };
 
+use ffi::{
+    shared_memory_id, DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, RSM_SYSTEM, VOL_DEF, VOL_FILENAME_MAX, WD_TAB
+};
+use libc::{c_char, c_void};
+
+use crate::{
+    alloc::{Allocation, TabLayout},
+    global_buf::init_global_buffer_descriptors,
+    label::Label,
+    start::Error,
+    units::Bytes,
+};
+
+use derive_more::{AsRef,AsMut};
 use ref_cast::RefCast;
-use derive_more::AsMut;
 
-
-#[derive(RefCast)]
-#[derive(AsMut)]
+#[derive(RefCast, AsMut,AsRef)]
 #[repr(transparent)]
 pub struct Volume(VOL_DEF);
 
-impl Volume{
-    fn file_name(&self)->String{
+impl Volume {
+    fn file_name(&self) -> String {
         use core::ffi::CStr;
         let file_name = self.0.file_name.map(|x| x as u8);
         CStr::from_bytes_until_nul(&file_name)
@@ -27,51 +40,53 @@ impl Volume{
             .to_string()
     }
 
-    pub fn label(&self)->&Label{
-        Label::ref_cast(unsafe{self.0.vollab.as_ref()}.unwrap())
+    #[must_use] pub fn label(&self) -> &Label {
+        Label::ref_cast(unsafe { self.0.vollab.as_ref() }.unwrap())
     }
 
-    pub fn label_mut(&mut self)->&mut Label{
-        Label::ref_cast_mut(unsafe{self.0.vollab.as_mut()}.unwrap())
+    pub fn label_mut(&mut self) -> &mut Label {
+        Label::ref_cast_mut(unsafe { self.0.vollab.as_mut() }.unwrap())
     }
 
-    fn global_buffer_size(&self)->Bytes{
-        Bytes(unsafe{self.0.zero_block.byte_offset_from(self.0.global_buf)} as usize)
+    fn global_buffer_size(&self) -> Bytes {
+        Bytes(unsafe { self.0.zero_block.byte_offset_from(self.0.global_buf) } as usize)
     }
 
-    fn routine_buffer_size(&self)->Bytes{
-        Bytes(unsafe{self.0.rbd_end.byte_offset_from(self.0.rbd_head)} as usize)
+    fn routine_buffer_size(&self) -> Bytes {
+        Bytes(unsafe { self.0.rbd_end.byte_offset_from(self.0.rbd_head) } as usize)
     }
 }
 
-
-impl Display for Volume{
+impl Display for Volume {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "*** Volume %d ***")?;
-        writeln!(f,"DB File Path:\t\t{}",self.file_name())?;
-        write!(f,"{}",self.label())?;
-        writeln!(f,"Global Buffers:\t\t{} ({} Buffers)",
-                 self.global_buffer_size().megbi_floor(),
-                 {self.0.num_gbd}
+        writeln!(f, "DB File Path:\t\t{}", self.file_name())?;
+        write!(f, "{}", self.label())?;
+        writeln!(
+            f,
+            "Global Buffers:\t\t{} ({} Buffers)",
+            self.global_buffer_size().megbi_floor(),
+            { self.0.num_gbd }
         )?;
 
-        writeln!(f,"Routine Buffers Space:\t{}",
-                 self.routine_buffer_size().megbi_floor()
+        writeln!(
+            f,
+            "Routine Buffers Space:\t{}",
+            self.routine_buffer_size().megbi_floor()
         )?;
 
-        writeln!(f,"shared Memory ID: \t{}",{self.0.shm_id})?;
+        writeln!(f, "shared Memory ID: \t{}", { self.0.shm_id })?;
 
-        for pid in self.0.wd_tab.iter().filter_map(|x| NonZeroI32::new(x.pid)){
+        for pid in self.0.wd_tab.iter().filter_map(|x| NonZeroI32::new(x.pid)) {
             //NOTE C code wraps values a 80 columns
             //I find it incredibly annoying when applications assume my terminal size
             //I think the terminal should be responsible for the wrapping behavior.
             //Or better yet, Just put everything on its own line.
-            writeln!(f,"{pid}")?;
+            writeln!(f, "{pid}")?;
         }
 
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -95,19 +110,13 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     //test canonicalize depends on the actual file system and is therefore hard to mock.
     //for right now I have decided to not worry about getting canonicalize into a test harness, mostly for simplicities sake.
     //testing this will become much easier if I decide to containorize the unit tests.
-    format_file_name_helper(
-        std::fs::canonicalize(path)
-            .unwrap()
-            .to_str()
-            .unwrap()
-    )
+    format_file_name_helper(std::fs::canonicalize(path).unwrap().to_str().unwrap())
 }
 
-
 /// clips/pads with zeros the file name
-/// This should only be used by format_name, but was pulled out so it was easier to test.
+/// This should only be used by `format_name`, but was pulled out so it was easier to test.
 /// (canonicalized file names are absolute/have to actually exist witch makes it a pain to construct test file names of the correct length)
-fn format_file_name_helper(file_name:&str)->[libc::c_char; VOL_FILENAME_MAX as usize]{
+fn format_file_name_helper(file_name: &str) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     file_name
         .bytes()
         .rev()
@@ -119,7 +128,7 @@ fn format_file_name_helper(file_name:&str)->[libc::c_char; VOL_FILENAME_MAX as u
         .collect::<Vec<_>>()
         .try_into()
         .unwrap()
- }
+}
 
 pub unsafe fn new<'a>(
     name: &Path,
@@ -129,14 +138,10 @@ pub unsafe fn new<'a>(
     layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, RBD>,
 ) -> Result<&'a mut Volume, Error> {
     let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
-        unsafe{layout.calculate_offsets(tab)};
+        unsafe { layout.calculate_offsets(tab) };
     let (label, map) = init_header_section(name, header)?;
 
-    let gbd_blocks = init_global_buffer_descriptors(
-        gbd_head,
-        &global_buf,
-        label.block_size(),
-    );
+    let gbd_blocks = init_global_buffer_descriptors(gbd_head, &global_buf, label.block_size());
     let rbd_head = init_routine(rbd_head);
 
     let vol_def = VOL_DEF {
@@ -163,7 +168,7 @@ pub unsafe fn new<'a>(
             temp
         },
 
-        shm_id: 0,
+        shm_id: shared_memory_id(name, RSM_SYSTEM as i32).unwrap_or_default(),
         //TODO add test that cover these bounds.
         num_of_daemons: (jobs as u32 / DAEMONS)
             .clamp(MIN_DAEMONS, MAX_DAEMONS)
@@ -205,10 +210,10 @@ pub unsafe fn new<'a>(
     };
     //TODO this could be cleaned up.
     unsafe { volume.ptr.as_mut() }.unwrap().write(vol_def);
-    let volume = Volume::ref_cast_mut(unsafe{volume.ptr.cast::<VOL_DEF>().as_mut()}.unwrap()) ;
+    let volume = Volume::ref_cast_mut(unsafe { volume.ptr.cast::<VOL_DEF>().as_mut() }.unwrap());
     {
         // Was the volume cleanly dismounted?
-        if volume.label().clean(){
+        if volume.label().clean() {
             eprintln!("WARNING: Volume was not dismounted properly!");
             // mark for cleaning
             volume.0.upto = 1;
@@ -228,12 +233,12 @@ pub unsafe fn new<'a>(
 pub fn init_header_section<'a>(
     path: &Path,
     header: Allocation<u8>,
-) -> Result<(&mut Label, *mut c_void), Error> {
+) -> Result<(&'a mut Label, *mut c_void), Error> {
     let mut file = OpenOptions::new()
         .read(true)
         .open(path)
         .map_err(|_| Error::CouldNotOpenDatabase(path.to_path_buf()))?;
-    let buf_size = Bytes(header.layout.size() as usize);
+    let buf_size = Bytes(header.layout.size());
     //NOTE it is safe to transmute right away since
     //all bit patterns are a valid [u8]
     #[allow(clippy::transmute_ptr_to_ptr)]
@@ -244,7 +249,8 @@ pub fn init_header_section<'a>(
     // #Safety The database file layout starts with the header section (Label + Map).
     // so, as long as the file is not corrupted we can just read in the header section.
     // NOTE The Caller is responsible for giving ups a properly sized allocation
-    let label = Label::ref_cast_mut(unsafe{header.as_mut_ptr().cast::<LABEL_BLOCK>().as_mut()}.unwrap());
+    let label =
+        Label::ref_cast_mut(unsafe { header.as_mut_ptr().cast::<LABEL_BLOCK>().as_mut() }.unwrap());
     let map = unsafe { from_mut(label).add(1).cast() };
     //Panic if header size on file does not match the header allocation's size
     assert!(buf_size == label.header_size());
@@ -259,9 +265,9 @@ pub fn init_header_section<'a>(
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn init_routine<'a>(alloc:Allocation<RBD>)->&'a mut RBD{
+fn init_routine<'a>(alloc: Allocation<RBD>) -> &'a mut RBD {
     let rbd = alloc.as_mut();
-    rbd.write(RBD{
+    rbd.write(RBD {
         fwd_link: null_mut(),
         chunk_size: alloc.layout.size() as u32,
         attached: 0,
@@ -281,12 +287,12 @@ fn init_routine<'a>(alloc:Allocation<RBD>)->&'a mut RBD{
         code: 0,
         code_size: 0,
     });
-    unsafe{rbd.assume_init_mut()}
+    unsafe { rbd.assume_init_mut() }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use std::{iter::once, ptr::from_ref};
+    use std::{ptr::from_ref};
 
     use crate::test_helper::relitive_ptr;
 
@@ -297,16 +303,10 @@ pub mod tests {
         let left = &left.0;
         let right = &right.0;
         assert_eq!({ left.num_gbd }, { right.num_gbd });
-        assert_eq!({ left.num_of_daemons }, {
-            right.num_of_daemons
-        });
+        assert_eq!({ left.num_of_daemons }, { right.num_of_daemons });
         //assert_eq!(unsafe { (*left).wd_tab}, unsafe { (*right).wd_tab });
-        assert_eq!({ left.dismount_flag }, {
-            right.dismount_flag
-        });
-        assert_eq!({ left.map_dirty_flag }, {
-            right.map_dirty_flag
-        });
+        assert_eq!({ left.dismount_flag }, { right.dismount_flag });
+        assert_eq!({ left.map_dirty_flag }, { right.map_dirty_flag });
         assert_eq!({ left.writelock }, { right.writelock });
         assert_eq!({ left.upto }, { right.upto });
         //assert_eq!(unsafe { (*left).shm_id }, unsafe { (*right).shm_id });
@@ -354,32 +354,24 @@ pub mod tests {
         assert_eq!(l_rbd_hash, r_rbd_hash);
         assert_eq!(l_rbd_head, r_rbd_head);
         assert_eq!(l_rbd_end, r_rbd_end);
-        assert_eq!(l_dirty_q,r_dirty_q);
-        assert_eq!(
-            map_as_slice(left),
-            map_as_slice(right)
-        );
+        assert_eq!(l_dirty_q, r_dirty_q);
+        assert_eq!(map_as_slice(left), map_as_slice(right));
 
         assert_eq!({ left.num_gbd }, { right.num_gbd });
         assert_eq!(l_gbd_head, r_gbd_head);
         let left_base = from_ref(left).cast();
         let right_base = from_ref(right).cast();
-        let l_gbds = unsafe{core::slice::from_raw_parts(left.gbd_head, left.num_gbd as usize)};
-        let r_gbds = unsafe{core::slice::from_raw_parts(right.gbd_head, right.num_gbd as usize)};
-        for (left_gbd,right_gbd) in l_gbds.iter().zip(r_gbds){
-            crate::global_buf::test::assert_gbd_eq(
-                left_gbd,
-                left_base,
-                right_gbd,
-                right_base,
-            );
+        let l_gbds = unsafe { core::slice::from_raw_parts(left.gbd_head, left.num_gbd as usize) };
+        let r_gbds = unsafe { core::slice::from_raw_parts(right.gbd_head, right.num_gbd as usize) };
+        for (left_gbd, right_gbd) in l_gbds.iter().zip(r_gbds) {
+            crate::global_buf::test::assert_gbd_eq(left_gbd, left_base, right_gbd, right_base);
         }
 
-        let l_rbd = unsafe{(*left).rbd_head.cast::<RBD>().as_ref().unwrap()};
-        let r_rbd = unsafe{(*right).rbd_head.cast::<RBD>().as_ref().unwrap()};
+        let l_rbd = unsafe { left.rbd_head.cast::<RBD>().as_ref().unwrap() };
+        let r_rbd = unsafe { right.rbd_head.cast::<RBD>().as_ref().unwrap() };
         assert_eq!(
-            relitive_ptr(l_rbd.fwd_link,left_base),
-            relitive_ptr(r_rbd.fwd_link,right_base)
+            relitive_ptr(l_rbd.fwd_link, left_base),
+            relitive_ptr(r_rbd.fwd_link, right_base)
         );
         assert_eq!({ l_rbd.chunk_size }, { r_rbd.chunk_size });
         assert_eq!({ l_rbd.attached }, { r_rbd.attached });
@@ -409,46 +401,46 @@ pub mod tests {
         [Option<isize>; 1024],
     ) {
         let base = core::ptr::from_ref(def).cast::<c_void>();
-            (
-                relitive_ptr(def.vollab, base),
-                relitive_ptr(def.map, base),
-                relitive_ptr(def.first_free, base),
-                def.gbd_hash.map(|x| relitive_ptr(x, base)),
-                relitive_ptr(def.gbd_head, base),
-                relitive_ptr(def.global_buf, base),
-                relitive_ptr(def.zero_block, base),
-                def.rbd_hash.map(|x| relitive_ptr(x, base)),
-                relitive_ptr(def.rbd_head, base),
-                relitive_ptr(def.rbd_end, base),
-                def.dirtyQ.map(|x| relitive_ptr(x, base)),
-            )
+        (
+            relitive_ptr(def.vollab, base),
+            relitive_ptr(def.map, base),
+            relitive_ptr(def.first_free, base),
+            def.gbd_hash.map(|x| relitive_ptr(x, base)),
+            relitive_ptr(def.gbd_head, base),
+            relitive_ptr(def.global_buf, base),
+            relitive_ptr(def.zero_block, base),
+            def.rbd_hash.map(|x| relitive_ptr(x, base)),
+            relitive_ptr(def.rbd_head, base),
+            relitive_ptr(def.rbd_end, base),
+            def.dirtyQ.map(|x| relitive_ptr(x, base)),
+        )
     }
 
-    fn assert_stat_eq(left:&DB_STAT,right:&DB_STAT){
+    fn assert_stat_eq(left: &DB_STAT, right: &DB_STAT) {
         //NOTE the brackets are needed so the value is copied.
         //otherwise assert_eq would end up creating unaligned references.
-        assert_eq!({left.dbget},{right.dbget});
-        assert_eq!({left.dbset},{right.dbset});
-        assert_eq!({left.dbkil},{right.dbkil});
-        assert_eq!({left.dbdat},{right.dbdat});
-        assert_eq!({left.dbord},{right.dbord});
-        assert_eq!({left.dbqry},{right.dbqry});
-        assert_eq!({left.lasttry},{right.lasttry});
-        assert_eq!({left.lastok},{right.lastok});
-        assert_eq!({left.logrd},{right.logrd});
-        assert_eq!({left.phyrd},{right.phyrd});
-        assert_eq!({left.logwt},{right.logwt});
-        assert_eq!({left.phywt},{right.phywt});
-        assert_eq!({left.blkalloc},{right.blkalloc});
-        assert_eq!({left.blkdeall},{right.blkdeall});
-        assert_eq!({left.blkreorg},{right.blkreorg});
-        assert_eq!({left.diskerrors},{right.diskerrors});
-        assert_eq!({left.diskerrors},{right.diskerrors});
+        assert_eq!({ left.dbget }, { right.dbget });
+        assert_eq!({ left.dbset }, { right.dbset });
+        assert_eq!({ left.dbkil }, { right.dbkil });
+        assert_eq!({ left.dbdat }, { right.dbdat });
+        assert_eq!({ left.dbord }, { right.dbord });
+        assert_eq!({ left.dbqry }, { right.dbqry });
+        assert_eq!({ left.lasttry }, { right.lasttry });
+        assert_eq!({ left.lastok }, { right.lastok });
+        assert_eq!({ left.logrd }, { right.logrd });
+        assert_eq!({ left.phyrd }, { right.phyrd });
+        assert_eq!({ left.logwt }, { right.logwt });
+        assert_eq!({ left.phywt }, { right.phywt });
+        assert_eq!({ left.blkalloc }, { right.blkalloc });
+        assert_eq!({ left.blkdeall }, { right.blkdeall });
+        assert_eq!({ left.blkreorg }, { right.blkreorg });
+        assert_eq!({ left.diskerrors }, { right.diskerrors });
+        assert_eq!({ left.diskerrors }, { right.diskerrors });
     }
 
     #[test]
-    fn name_is_small(){
-        let zeros = [0;VOL_FILENAME_MAX as usize];
+    fn name_is_small() {
+        let zeros = [0; VOL_FILENAME_MAX as usize];
         let path = String::from("short_name");
         let name = format_file_name_helper(&path);
         let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
@@ -457,22 +449,24 @@ pub mod tests {
     }
 
     #[test]
-    fn name_exact_size(){
-        let path:String = std::iter::repeat('a').take(VOL_FILENAME_MAX as usize).collect();
+    fn name_exact_size() {
+        let path: String = "a".repeat(VOL_FILENAME_MAX as usize);
         let name = format_file_name_helper(&path);
         let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
         assert_eq!(&name[..], &path[..]);
-
     }
 
     #[test]
-    fn name_is_to_large(){
-        use std::iter::{repeat,once};
+    fn name_is_to_large() {
+        use std::iter::{once, repeat};
         // path = ab...bc
-        let path:String = once('a').chain(repeat('b').take(VOL_FILENAME_MAX as usize)).chain(once('b')).collect();
+        let path: String = once('a')
+            .chain(repeat('b').take(VOL_FILENAME_MAX as usize))
+            .chain(once('b'))
+            .collect();
         let name = format_file_name_helper(&path);
         let path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
         //If the name is to long we only store the end of it.
-        assert_eq!(&name[..], &path[path.len()-VOL_FILENAME_MAX as usize..]);
+        assert_eq!(&name[..], &path[path.len() - VOL_FILENAME_MAX as usize..]);
     }
 }

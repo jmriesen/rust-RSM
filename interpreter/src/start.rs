@@ -1,18 +1,22 @@
-use crate::{alloc::{create_shared_mem, TabLayout}, label::Label, sys_tab::SYSTAB};
-use ffi::{jobtab, u_int, vol_def, GBD, LABEL_BLOCK, MAX_VOL};
+use crate::{
+    alloc::{create_shared_mem, TabLayout},
+    label::Label,
+    sys_tab::SYSTAB,
+};
 use crate::{
     sys_tab,
     units::{Bytes, Megbibytes, Pages},
 };
-use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use core::alloc::Layout;
-use ffi::{label_block, systab, DB_VER, LOCKTAB, RBD};
-use std::{fs::OpenOptions, ptr::from_mut};
-use std::io::Read;
-use std::mem::MaybeUninit;
+use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
+use ffi::{systab, DB_VER, LOCKTAB, RBD};
+use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
+use std::{
+    ptr::{from_mut, from_ref},
+};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(
@@ -139,10 +143,8 @@ impl Config {
             TabLayout::<vol_def, u8, GBD, u8, u8, RBD>::new(
                 Layout::new::<vol_def>(),
                 Layout::array::<u8>(self.label.header_size().0).unwrap(),
-                Layout::array::<GBD>(
-                    Bytes::from(self.global_buffer).0 / self.label.block_size().0,
-                )
-                .unwrap(),
+                Layout::array::<GBD>(Bytes::from(self.global_buffer).0 / self.label.block_size().0)
+                    .unwrap(),
                 Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
                 Layout::array::<u8>(self.label.block_size().0).unwrap(),
                 Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
@@ -155,12 +157,14 @@ impl Config {
         let volumes_start =
             unsafe { shared_mem_segment.byte_add(Bytes::from(meta_data_tab.size()).0) };
 
-        let volume = unsafe{ crate::vol_def::new(
-            &self.file_name,
-            self.jobs as usize,
-            volumes_start,
-            &volset_layout,
-        )}?;
+        let volume = unsafe {
+            crate::vol_def::new(
+                &self.file_name,
+                self.jobs as usize,
+                volumes_start,
+                &volset_layout,
+            )
+        }?;
 
         let sys_tab = unsafe {
             crate::sys_tab::init(
@@ -171,12 +175,12 @@ impl Config {
                 &meta_data_tab,
             )
         };
+        dbg!(from_ref(sys_tab));
 
         //TODO Deal with journaling
-        assert_eq!({sys_tab.maxjob},1);
+        assert_eq!({ sys_tab.maxjob }, 1);
         Ok(sys_tab)
     }
-
 }
 
 ///# Errors
@@ -206,60 +210,39 @@ pub fn start(
 
 #[cfg(test)]
 mod tests {
+    use ffi::{util_share};
+    use libc::{c_void};
+
     use super::*;
-    use std::ffi::CString;
+    use std::{ffi::CString, mem::size_of, str::FromStr};
 
     #[test]
     fn validate_mem_seg_layout() {
         let file_path = "test_artifacts/temp";
+
+        let code =
+            unsafe { ffi::INIT_Start(CString::new(file_path).unwrap().into_raw(), 1, 1, 1, 0) };
+
+        let file_path = PathBuf::from_str(file_path).unwrap();
         let sys_tab = Config::new(
-            file_path.into(),
+            file_path.clone(),
             NonZeroU32::new(1).unwrap(),
             Some(Megbibytes(1)),
             Some(Megbibytes(1)),
         )
-        .unwrap()
-        .setup_shared_mem_segemnt()
-        .unwrap();
-
-        let code = unsafe {
-            ffi::INIT_Start(CString::new(file_path).unwrap().into_raw(), 1, 1, 1, 0)
-        };
+            .unwrap()
+            .setup_shared_mem_segemnt()
+            .unwrap();
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
-        unsafe {
-            ffi::UTIL_Share(CString::new(file_path).unwrap().into_raw());
-        }
+        let _mem_guard = util_share(&file_path);
 
         println!("code: {code:?}");
         assert!(code == 0);
         unsafe {
-            sys_tab::assert_sys_tab_eq(sys_tab, systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap());
-        }
-        let mut sbuf = libc::shmid_ds {
-            shm_atime: 0,
-            shm_cpid: 0,
-            shm_ctime: 0,
-            shm_dtime: 0,
-            shm_internal: std::ptr::null_mut(),
-            shm_lpid: 0,
-            shm_nattch: 0,
-            shm_perm: libc::ipc_perm {
-                _key: 0,
-                uid: 0,
-                gid: 0,
-                cuid: 0,
-                cgid: 0,
-                mode: 0,
-                _seq: 0,
-            },
-            shm_segsz: 0,
-        };
-        //TODO see is I should be useing the shutdown function.
-        unsafe {
-            //signal that the shared mem segment should be destoyed.
-            libc::shmctl(libc::shmget(839_184_324, 0, 0), libc::IPC_RMID, &mut sbuf);
-            //detaching shared meme segment.
-            libc::shmdt(systab.cast::<libc::c_void>());
+            dbg!(from_ref(sys_tab));
+            let c_ver = systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap();
+            sys_tab::assert_sys_tab_eq(sys_tab, c_ver);
+            test_memory_segment_equality(sys_tab.to_slice(), c_ver.to_slice());
         }
 
         /*
@@ -269,5 +252,52 @@ mod tests {
         }
         }
              */
+    }
+
+    fn test_memory_segment_equality(left: &[u8], right: &[u8]) {
+        const SIZE: usize = size_of::<*mut c_void>();
+        let left_base = std::ptr::from_ref(left).cast::<c_void>() as isize;
+        let right_base = std::ptr::from_ref(right).cast::<c_void>() as isize;
+        assert_eq!(left.len(), right.len());
+        let mut iter = left
+            .array_windows::<SIZE>()
+            .zip(right.array_windows::<SIZE>())
+            .enumerate();
+        let mut errors = vec![];
+        while let Some((index, (left, right))) = iter.next() {
+            let left_ptr = isize::from_le_bytes(*left).checked_sub(left_base);
+            let right_ptr = isize::from_le_bytes(*right).checked_sub(right_base);
+            if index == 20 {
+                //TODO set sem_id properly
+                // continue
+            } else if index == 22 {
+                //TODO set max_tt properly
+                // continue
+            } else if left_ptr == right_ptr && left_ptr.is_some(){
+                //continue
+                //advance the iterator and continue.
+                for _ in 1..SIZE {
+                    iter.next();
+                }
+            } else if left[0] == right[0] {
+                // continue
+            } else {
+                errors.push((index,left,right,left_ptr,right_ptr));
+            }
+        }
+        for (index,left,right,left_ptr,right_ptr) in &errors{
+            println!("{index}");
+            println!("left ptr :{left_ptr:?}");
+            println!("right ptr:{right_ptr:?}");
+            println!();
+
+            println!("left :{left:?}");
+            println!("right:{right:?}");
+
+            println!();
+            println!("left[0] :{}", left[0]);
+            println!("right[0]:{}", right[0]);
+        }
+        assert!(errors.is_empty());
     }
 }

@@ -122,8 +122,9 @@ impl<T> Allocation<T> {
     pub fn to_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
         unsafe { from_mut_ptr_range(self.ptr..self.ptr.byte_add(self.layout.size())) }
     }
-    #[must_use] pub fn as_mut<'a>(&self)->&'a mut  MaybeUninit<T>{
-        unsafe{self.ptr.as_mut().unwrap()}
+    #[must_use]
+    pub fn as_mut<'a>(&self) -> &'a mut MaybeUninit<T> {
+        unsafe { self.ptr.as_mut().unwrap() }
     }
 }
 
@@ -181,20 +182,19 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         }
     }
     /// The size of all they layouts
-    fn raw_size(&self)-> Bytes{
+    fn raw_size(&self) -> Bytes {
         Bytes(self.a_layout.size())
-         + Bytes(self.b_layout.size())
-         + Bytes(self.c_layout.size())
-         + Bytes(self.d_layout.size())
-         + Bytes(self.e_layout.size())
-         + Bytes(self.f_layout.size())
+            + Bytes(self.b_layout.size())
+            + Bytes(self.c_layout.size())
+            + Bytes(self.d_layout.size())
+            + Bytes(self.e_layout.size())
+            + Bytes(self.f_layout.size())
     }
 
     ///Size of the tab rounded up to the next page.
     #[must_use]
     pub fn size(&self) -> Pages {
-        self.raw_size()
-        .pages_ceil()
+        self.raw_size().pages_ceil()
     }
 
     /// Calculates where each value should start and where the end of the tab is.
@@ -228,8 +228,10 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             Allocation::<C>::new(&mut cursor, self.c_layout),
             Allocation::<D>::new(&mut cursor, self.d_layout),
             Allocation::<E>::new(&mut cursor, self.e_layout),
-            Allocation::<F>::new(&mut cursor,
-            Layout::array::<u8>(self.f_layout.size() + padding.0).unwrap()),
+            Allocation::<F>::new(
+                &mut cursor,
+                Layout::array::<u8>(self.f_layout.size() + padding.0).unwrap(),
+            ),
             end,
         )
     }

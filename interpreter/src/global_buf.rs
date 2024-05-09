@@ -53,19 +53,19 @@ pub mod test {
             relitive_ptr(left, left_base),
             relitive_ptr(right, right_base)
         );
-        assert_eq!({ (*left).block }, { (*right).block });
+        assert_eq!({ left.block }, { right.block });
         assert_eq!(
-            relitive_ptr((*left).mem, left_base),
-            relitive_ptr((*right).mem, right_base)
+            relitive_ptr(left.mem, left_base),
+            relitive_ptr(right.mem, right_base)
         );
         assert_eq!(
-            relitive_ptr((*left).next, left_base),
-            relitive_ptr((*right).next, right_base)
+            relitive_ptr(left.next, left_base),
+            relitive_ptr(right.next, right_base)
         );
         assert_eq!(
-            relitive_ptr((*left).dirty, left_base),
-            relitive_ptr((*right).dirty, right_base)
+            relitive_ptr(left.dirty, left_base),
+            relitive_ptr(right.dirty, right_base)
         );
-        assert_eq!({ (*left).last_accessed }, { (*right).last_accessed });
+        assert_eq!({ left.last_accessed }, { right.last_accessed });
     }
 }

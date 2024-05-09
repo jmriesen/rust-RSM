@@ -40,10 +40,10 @@ fn systab_info(file: &str) -> Result<String, String> {
         .then_some(0)
         .ok_or("Cannot connect to environment.".to_string())?;
 
-    let sys_tab = unsafe{systab.cast::<SYSTAB>().as_ref()}.unwrap();
-    let temp = if sys_tab.vols().next().unwrap().is_none(){
+    let sys_tab = unsafe { systab.cast::<SYSTAB>().as_ref() }.unwrap();
+    let temp = if sys_tab.vols().next().unwrap().is_none() {
         Err("Cannot connect to environment.".to_string())
-    }else{
+    } else {
         Ok(format!("{sys_tab}"))
     };
     //unmounting shared memory segment.

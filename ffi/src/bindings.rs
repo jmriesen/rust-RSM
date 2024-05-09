@@ -1,4 +1,3 @@
-
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -6,8 +5,8 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
 
-use std::ffi::CString;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::fmt;
 //bingen dose not seem to handle size of properly
 pub const MAX_MAP_SIZE: u32 =
@@ -17,7 +16,6 @@ pub const IDX_START: u16 = (std::mem::size_of::<DB_Block>() as u16) / 2;
 
 include!(concat!(env!("OUT_DIR"), "/opcodes.rs"));
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
 
 impl fmt::Debug for VAR_U {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -73,21 +71,20 @@ impl TryFrom<String> for VAR_U {
     }
 }
 
-
-impl PartialEq<LABEL_BLOCK> for LABEL_BLOCK{
-    fn eq(&self,other:&Self)->bool{
-        self.magic ==other.magic &&
-            self.max_block==other.max_block &&
-            self.header_bytes == other.header_bytes &&
-            self.block_size == other.block_size &&
-            self.creation_time == other.creation_time &&
-            self.db_ver == other.db_ver &&
-            self.volnam == other.volnam &&
-            self.journal_available == other.journal_available &&
-            self.journal_requested == other.journal_requested &&
-            self.clean == other.clean &&
-            self.journal_file == other.journal_file
-            //TODO fix this at some point
-            //self.uci == other.uci
+impl PartialEq<LABEL_BLOCK> for LABEL_BLOCK {
+    fn eq(&self, other: &Self) -> bool {
+        self.magic == other.magic
+            && self.max_block == other.max_block
+            && self.header_bytes == other.header_bytes
+            && self.block_size == other.block_size
+            && self.creation_time == other.creation_time
+            && self.db_ver == other.db_ver
+            && self.volnam == other.volnam
+            && self.journal_available == other.journal_available
+            && self.journal_requested == other.journal_requested
+            && self.clean == other.clean
+            && self.journal_file == other.journal_file
+        //TODO fix this at some point
+        //self.uci == other.uci
     }
 }

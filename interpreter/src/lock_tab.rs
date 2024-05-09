@@ -19,30 +19,30 @@ pub fn init<'a>(alloc: Allocation<LOCKTAB>) -> &'a mut LOCKTAB {
         uci: 0,
         vol: 0,
     });
-    unsafe{alloc.as_mut().assume_init_mut()}
+    unsafe { alloc.as_mut().assume_init_mut() }
 }
 
 #[cfg(test)]
-pub mod tests{
+pub mod tests {
     use std::ptr::from_ref;
 
     use ffi::LOCKTAB;
 
     use crate::test_helper::relitive_ptr;
-    pub fn assert_eq(left:&LOCKTAB,right:&LOCKTAB){
+    pub fn assert_eq(left: &LOCKTAB, right: &LOCKTAB) {
         let left_base = from_ref(left).cast();
         let right_base = from_ref(right).cast();
         assert_eq!(
             relitive_ptr(left.fwd_link, left_base),
             relitive_ptr(right.fwd_link, right_base)
         );
-        assert_eq!({left.size},{right.size});
-        assert_eq!({left.job},{right.job});
-        assert_eq!({left.byte_count},{right.byte_count});
-        assert_eq!(left.key,right.key);
-        assert_eq!({left.lock_count},{right.lock_count});
-        assert_eq!(left.name,right.name);
-        assert_eq!(left.uci,right.uci);
-        assert_eq!(left.vol,right.vol);
+        assert_eq!({ left.size }, { right.size });
+        assert_eq!({ left.job }, { right.job });
+        assert_eq!({ left.byte_count }, { right.byte_count });
+        assert_eq!(left.key, right.key);
+        assert_eq!({ left.lock_count }, { right.lock_count });
+        assert_eq!(left.name, right.name);
+        assert_eq!(left.uci, right.uci);
+        assert_eq!(left.vol, right.vol);
     }
 }
