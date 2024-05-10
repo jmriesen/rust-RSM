@@ -234,7 +234,7 @@ mod tests {
         }
 
         let rust_file_name = format!("{file_name}_rust.dat");
-        FileConfig::new(
+        let _ = FileConfig::new(
             rust_file_name.clone(),
             volume.try_into().unwrap(),
             None,

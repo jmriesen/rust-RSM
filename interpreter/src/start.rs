@@ -1,11 +1,5 @@
 use crate::{
-    alloc::{create_shared_mem, TabLayout},
-    label::Label,
-    sys_tab::SYSTAB,
-};
-use crate::{
-    sys_tab,
-    units::{Bytes, Megbibytes, Pages},
+    shared_seg::{alloc::{create_shared_mem, TabLayout}, sys_tab::SYSTAB, vol_def::label::Label}, units::{Bytes, Megbibytes, Pages}
 };
 use core::alloc::Layout;
 use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
@@ -14,9 +8,7 @@ use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::path::PathBuf;
-use std::{
-    ptr::{from_mut, from_ref},
-};
+use std::ptr::{from_mut, from_ref};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(
@@ -128,8 +120,8 @@ impl Config {
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SYSTAB, Error> {
         //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = unsafe {
-            TabLayout::<sys_tab::SYSTAB, u_int, jobtab, LOCKTAB, (), ()>::new(
-                Layout::new::<sys_tab::SYSTAB>(),
+            TabLayout::<SYSTAB, u_int, jobtab, LOCKTAB, (), ()>::new(
+                Layout::new::<SYSTAB>(),
                 //I am not sure what this u_int section is for.
                 Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
                 Layout::array::<jobtab>(self.jobs as usize).unwrap(),
@@ -158,16 +150,16 @@ impl Config {
             unsafe { shared_mem_segment.byte_add(Bytes::from(meta_data_tab.size()).0) };
 
         let volume = unsafe {
-            crate::vol_def::new(
+            crate::shared_seg::vol_def::new(
                 &self.file_name,
                 self.jobs as usize,
                 volumes_start,
                 &volset_layout,
-            )
+                )
         }?;
 
         let sys_tab = unsafe {
-            crate::sys_tab::init(
+            crate::shared_seg::sys_tab::init(
                 self.jobs as usize,
                 volume,
                 share_size,
@@ -210,8 +202,10 @@ pub fn start(
 
 #[cfg(test)]
 mod tests {
-    use ffi::{util_share};
-    use libc::{c_void};
+    use ffi::util_share;
+    use libc::c_void;
+
+    use crate::shared_seg::sys_tab::assert_sys_tab_eq;
 
     use super::*;
     use std::{ffi::CString, mem::size_of, str::FromStr};
@@ -240,8 +234,8 @@ mod tests {
         assert!(code == 0);
         unsafe {
             dbg!(from_ref(sys_tab));
-            let c_ver = systab.cast::<sys_tab::SYSTAB>().as_ref().unwrap();
-            sys_tab::assert_sys_tab_eq(sys_tab, c_ver);
+            let c_ver = systab.cast::<SYSTAB>().as_ref().unwrap();
+            assert_sys_tab_eq(sys_tab, c_ver);
             test_memory_segment_equality(sys_tab.to_slice(), c_ver.to_slice());
         }
 

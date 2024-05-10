@@ -1,4 +1,3 @@
-use crate::sys_tab::SYSTAB;
 
 use ffi::{
     partab, strstk, systab, CleanJob, SemOp, UTIL_Share, Vhorolog, DO_FRAME, IN_TERM, JOBTAB,
@@ -6,6 +5,8 @@ use ffi::{
 };
 use std::ffi::CString;
 use std::fs::OpenOptions;
+
+use crate::shared_seg::sys_tab::SYSTAB;
 
 /*
 static mut strstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];

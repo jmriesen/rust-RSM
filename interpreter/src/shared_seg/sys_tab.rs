@@ -12,10 +12,9 @@ use ffi::{
 };
 use libc::{c_int, c_void};
 
-use crate::{
-    alloc::TabLayout,
-    lock_tab,
-    units::{Bytes, Pages},
+use crate::units::{Bytes, Pages};
+use super::{
+    alloc::TabLayout, lock_tab, vol_def::Volume
 };
 
 #[repr(C, packed(1))]
@@ -119,7 +118,6 @@ impl SYSTAB {
         dbg!(diagnostic(self.jobtab.cast()));
         dbg!(diagnostic(self.lockfree.cast()));
         for volume in self.vols(){
-            let label = volume.unwrap().label();
             let volume = volume.unwrap().as_ref();
             dbg!(diagnostic(volume.vollab.cast()));
             dbg!(diagnostic(volume.map.cast()));
@@ -221,7 +219,6 @@ fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SYSTAB) {
     //I am not sure what I want to do with this really it seems like it should become a Maybe uninit.
 }
 
-use crate::vol_def::Volume;
 
 pub unsafe fn init<'a>(
     jobs: usize,
@@ -293,7 +290,7 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
     assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
 
     for (left, right) in left.vols().zip(right.vols()) {
-        use crate::vol_def::tests::assert_vol_def_eq;
+        use super::vol_def::tests::assert_vol_def_eq;
         match (left, right) {
             (Some(left), Some(right)) => assert_vol_def_eq(left, right),
             (None, None) => (),

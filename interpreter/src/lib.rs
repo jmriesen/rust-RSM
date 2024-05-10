@@ -12,21 +12,16 @@
     clippy::missing_errors_doc,
     clippy::missing_safety_doc
 )]
-pub mod alloc;
+mod shared_seg;
 #[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
-pub mod global_buf;
-pub mod label;
-pub mod lock_tab;
 #[allow(unused)]
 pub mod run;
 pub mod start;
-pub mod sys_tab;
 pub mod units;
 pub mod util;
 pub mod var_u;
-pub mod vol_def;
 pub use bindings::*;
 
 #[cfg(test)]

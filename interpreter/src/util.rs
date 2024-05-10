@@ -5,7 +5,7 @@ use ffi::{
 use std::ffi::CString;
 use std::fs::OpenOptions;
 
-use crate::sys_tab::SYSTAB;
+use crate::shared_seg::sys_tab::SYSTAB;
 
 //TODO this is currently only been manually tested.
 pub fn info(file: &str) {

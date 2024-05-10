@@ -2,7 +2,7 @@ use std::{mem::transmute, ptr::null_mut};
 
 use ffi::GBD;
 
-use crate::{alloc::Allocation, units::Bytes};
+use crate::{shared_seg::alloc::Allocation, units::Bytes};
 
 type GlobalBufferDescriptor = GBD;
 

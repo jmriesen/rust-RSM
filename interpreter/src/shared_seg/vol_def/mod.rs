@@ -14,16 +14,16 @@ use ffi::{
 };
 use libc::{c_char, c_void};
 
-use crate::{
-    alloc::{Allocation, TabLayout},
-    global_buf::init_global_buffer_descriptors,
-    label::Label,
-    start::Error,
-    units::Bytes,
-};
+
 
 use derive_more::{AsRef,AsMut};
 use ref_cast::RefCast;
+
+use crate::{start::Error, units::Bytes};
+
+use self::{global_buf::init_global_buffer_descriptors, label::Label};
+
+use super::alloc::{Allocation, TabLayout};
 
 #[derive(RefCast, AsMut,AsRef)]
 #[repr(transparent)]
@@ -115,6 +115,8 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
 
 /// clips/pads with zeros the file name
 /// This should only be used by `format_name`, but was pulled out so it was easier to test.
+pub mod label;
+pub mod global_buf;
 /// (canonicalized file names are absolute/have to actually exist witch makes it a pain to construct test file names of the correct length)
 fn format_file_name_helper(file_name: &str) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     file_name
@@ -145,7 +147,7 @@ pub unsafe fn new<'a>(
     let rbd_head = init_routine(rbd_head);
 
     let vol_def = VOL_DEF {
-        file_name: crate::vol_def::format_name(name),
+        file_name: format_name(name),
         vollab: label.as_mut(),
         map,
         map_dirty_flag: 0,
@@ -292,7 +294,9 @@ fn init_routine<'a>(alloc: Allocation<RBD>) -> &'a mut RBD {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{ptr::from_ref};
+    use std::ptr::from_ref;
+
+    use tests::global_buf::test::assert_gbd_eq;
 
     use crate::test_helper::relitive_ptr;
 
@@ -364,7 +368,7 @@ pub mod tests {
         let l_gbds = unsafe { core::slice::from_raw_parts(left.gbd_head, left.num_gbd as usize) };
         let r_gbds = unsafe { core::slice::from_raw_parts(right.gbd_head, right.num_gbd as usize) };
         for (left_gbd, right_gbd) in l_gbds.iter().zip(r_gbds) {
-            crate::global_buf::test::assert_gbd_eq(left_gbd, left_base, right_gbd, right_base);
+            assert_gbd_eq(left_gbd, left_base, right_gbd, right_base);
         }
 
         let l_rbd = unsafe { left.rbd_head.cast::<RBD>().as_ref().unwrap() };
