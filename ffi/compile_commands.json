@@ -1,0 +1,18 @@
+[
+    {
+        "directory": "./C",
+        "arguments": [
+            "/usr/bin/gcc",
+            "-Wall",
+            "-Wextra",
+            "-fsigned-char",
+            "-fwrapv",
+            "-std=gnu99",
+            "-c",
+            "-o",
+            "*/*.c",
+            "include/*.h"
+        ],
+        "file": "file.cc"
+    }
+]
