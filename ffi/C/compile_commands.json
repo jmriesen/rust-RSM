@@ -1027,26 +1027,5 @@
    "util/strerror.c"
   ],
   "file": "util/strerror.c"
- },
- {
-  "directory": "/Users/jacobriesen/ExplorationCode/rsm/ffi/C",
-  "arguments": [
-   "gcc",
-   "-O3",
-   "-Wall",
-   "-Wextra",
-   "-fsigned-char",
-   "-fwrapv",
-   "-std=gnu99",
-   "-Iinclude",
-   "-D_FILE_OFFSET_BITS=64",
-   "-DNDEBUG",
-   "-Wno-deprecated-declarations",
-   "-o",
-   "xcall/xcall.o",
-   "-c",
-   "xcall/xcall.c"
-  ],
-  "file": "xcall/xcall.c"
  }
 ]
