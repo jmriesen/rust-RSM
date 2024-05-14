@@ -44,7 +44,7 @@ void shutdown(char *file);                                                      
 int  restricted = FALSE;                                                        // whether RSM is in restricted mode or not
 
 // *** Main entry for create, init, run, help, info, and shutdown ***
-int main_old(int argc, char **argv)                                                 // main entry point
+int main(int argc, char **argv)                                                 // main entry point
 {
     int  c;                                                                     // for case
     int  bsize = 0;                                                             // block size

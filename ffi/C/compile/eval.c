@@ -39,7 +39,7 @@
 #include "error.h"                                                              // and the error defs
 #include "opcode.h"                                                             // and the opcodes
 #include "compile.h"                                                            // compiler stuff
-#include "rust.h"
+//#include "rust.h"
 
 u_char *source_ptr;                                                             // pointer to source code
 u_char *comp_ptr;                                                               // pointer to compiled code
