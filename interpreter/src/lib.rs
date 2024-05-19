@@ -23,6 +23,7 @@ pub mod units;
 pub mod util;
 pub mod var_u;
 pub use bindings::*;
+mod buildmvar;
 
 #[cfg(test)]
 pub mod test_helper;

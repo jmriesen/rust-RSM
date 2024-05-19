@@ -1,29 +1,9 @@
 #![allow(dead_code, mutable_transmutes, non_camel_case_types, non_snake_case, non_upper_case_globals, unused_assignments, unused_mut)]
-#![feature(extern_types)]
-extern "C" {
-    pub type GBD;
-    fn memcpy(
-        _: *mut libc::c_void,
-        _: *const libc::c_void,
-        _: libc::c_ulong,
-    ) -> *mut libc::c_void;
-    fn memmove(
-        _: *mut libc::c_void,
-        _: *const libc::c_void,
-        _: libc::c_ulong,
-    ) -> *mut libc::c_void;
-    fn memcmp(
-        _: *const libc::c_void,
-        _: *const libc::c_void,
-        _: libc::c_ulong,
-    ) -> libc::c_int;
-    static mut systab: *mut systab_struct;
-    static mut partab: partab_struct;
-    static mut addstk: [*mut u_char; 0];
-    static mut rsmpc: *mut u_char;
-    fn UTIL_Key_Build(src: *mut cstring, dest: *mut u_char) -> libc::c_short;
-    fn UTIL_Key_Last(var: *mut mvar) -> libc::c_int;
-}
+
+use std::ptr::from_mut;
+
+use ffi::{addstk, partab, rsmpc, systab, var_u, UTIL_Key_Build, UTIL_Key_Last, CSTRING, GBD,cstring};
+use libc::{memcpy, memmove};
 pub type __int64_t = libc::c_longlong;
 pub type __darwin_time_t = libc::c_long;
 pub type __darwin_off_t = __int64_t;
@@ -34,22 +14,6 @@ pub type u_int = libc::c_uint;
 pub type u_long = libc::c_ulong;
 pub type time_t = __darwin_time_t;
 pub type u_int64 = libc::c_ulonglong;
-#[derive(Copy, Clone)]
-#[repr(C, packed)]
-pub union VAR_U {
-    pub var_q: u_int64,
-    pub var_qu: [u_int64; 4],
-    pub var_cu: [u_char; 32],
-}
-pub type var_u = VAR_U;
-#[derive(Copy, Clone)]
-#[repr(C, packed)]
-pub struct CSTRING {
-    pub len: u_short,
-    pub buf: [u_char; 65535],
-}
-pub type cstring = CSTRING;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct MVAR {
     pub name: var_u,
@@ -59,7 +23,6 @@ pub struct MVAR {
     pub key: [u_char; 256],
 }
 pub type mvar = MVAR;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct RBD {
     pub fwd_link: *mut RBD,
@@ -81,21 +44,18 @@ pub struct RBD {
     pub code: u_short,
     pub code_size: u_short,
 }
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct UCI_TAB {
     pub name: var_u,
     pub global: u_int,
 }
 pub type uci_tab = UCI_TAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub union DATA_UNION {
     pub gbddata: *mut GBD,
     pub intdata: u_int,
 }
 pub type msg_data = DATA_UNION;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct WD_TAB {
     pub pid: libc::c_int,
@@ -103,7 +63,6 @@ pub struct WD_TAB {
     pub currmsg: msg_data,
 }
 pub type wdtab_struct = WD_TAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct LABEL_BLOCK {
     pub magic: u_int,
@@ -120,7 +79,6 @@ pub struct LABEL_BLOCK {
     pub uci: [uci_tab; 64],
 }
 pub type label_block = LABEL_BLOCK;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct DB_STAT {
     pub dbget: u_int,
@@ -141,7 +99,6 @@ pub struct DB_STAT {
     pub diskerrors: u_int,
 }
 pub type db_stat = DB_STAT;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct VOL_DEF {
     pub vollab: *mut label_block,
@@ -173,7 +130,6 @@ pub struct VOL_DEF {
     pub stats: db_stat,
 }
 pub type vol_def = VOL_DEF;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct DO_FRAME {
     pub routine: *mut u_char,
@@ -196,14 +152,12 @@ pub struct DO_FRAME {
     pub isp: libc::c_long,
 }
 pub type do_frame = DO_FRAME;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct FORKTAB {
     pub job_no: libc::c_int,
     pub pid: libc::c_int,
 }
 pub type forktab = FORKTAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct SERVERTAB {
     pub slots: libc::c_int,
@@ -213,14 +167,12 @@ pub struct SERVERTAB {
     pub forked: *mut forktab,
 }
 pub type servertab = SERVERTAB;
-#[derive(Copy, Clone)]
 #[repr(C)]
 pub union IN_TERM {
     pub iterm: u_int64,
     pub interm: [u_int64; 2],
 }
 pub type IN_Term = IN_TERM;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct SQ_CHAN {
     pub type_0: u_char,
@@ -239,7 +191,6 @@ pub struct SQ_CHAN {
     pub namespace: var_u,
 }
 pub type SQ_Chan = SQ_CHAN;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct JOBTAB {
     pub pid: libc::c_int,
@@ -271,7 +222,6 @@ pub struct JOBTAB {
     pub view: [*mut GBD; 1],
 }
 pub type jobtab = JOBTAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct LOCKTAB {
     pub fwd_link: *mut LOCKTAB,
@@ -285,7 +235,6 @@ pub struct LOCKTAB {
     pub key: [u_char; 256],
 }
 pub type locktab = LOCKTAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct TRANTAB {
     pub from_global: var_u,
@@ -296,7 +245,6 @@ pub struct TRANTAB {
     pub to_uci: u_char,
 }
 pub type trantab = TRANTAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct SYSTAB {
     pub address: *mut libc::c_void,
@@ -318,7 +266,6 @@ pub struct SYSTAB {
     pub last_blk_used: [u_int; 1],
 }
 pub type systab_struct = SYSTAB;
-#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct PARTAB {
     pub jobtab: *mut jobtab,
@@ -331,7 +278,7 @@ pub struct PARTAB {
     pub checkonly: libc::c_int,
     pub errors: u_int,
     pub sp: *mut *mut u_char,
-    pub lp: *mut *mut cstring,
+    pub lp: *mut *mut CSTRING,
     pub ln: *mut libc::c_int,
     pub src_var: mvar,
 }
@@ -358,7 +305,7 @@ pub unsafe extern "C" fn getvol(mut vol: *mut cstring) -> libc::c_short {
     while i < 1 as libc::c_int {
         if !((*systab).vol[i as usize]).is_null() {
             if !((*(*systab).vol[i as usize]).vollab).is_null() {
-                if !(memcmp(
+                if false/* !(memcmp(
                     ((*vol).buf).as_mut_ptr() as *const libc::c_void,
                     &mut *((*(**((*systab).vol).as_mut_ptr().offset(i as isize)).vollab)
                         .volnam
@@ -367,7 +314,7 @@ pub unsafe extern "C" fn getvol(mut vol: *mut cstring) -> libc::c_short {
                         .offset(0 as libc::c_int as isize) as *mut u_char
                         as *const libc::c_void,
                     s as libc::c_ulong,
-                ) != 0 as libc::c_int)
+                ) != 0 as libc::c_int)*/
                 {
                     return (i + 1 as libc::c_int) as libc::c_short;
                 }
@@ -397,7 +344,7 @@ pub unsafe extern "C" fn getuci(
     vol;
     i = 0 as libc::c_int;
     while i < 64 as libc::c_int {
-        if memcmp(
+        if true /*memcmp(
             ((*uci).buf).as_mut_ptr() as *const libc::c_void,
             &mut *((*((*(**((*systab).vol).as_mut_ptr().offset(vol as isize)).vollab)
                 .uci)
@@ -408,7 +355,7 @@ pub unsafe extern "C" fn getuci(
                 .as_mut_ptr()
                 .offset(0 as libc::c_int as isize) as *mut u_char as *const libc::c_void,
             s as libc::c_ulong,
-        ) == 0 as libc::c_int
+        ) == 0 as libc::c_int*/
         {
             return (i + 1 as libc::c_int) as libc::c_short;
         }
@@ -417,6 +364,7 @@ pub unsafe extern "C" fn getuci(
     }
     return -(26 as libc::c_int) as libc::c_short;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn buildmvar(
     mut var: *mut mvar,
@@ -451,8 +399,9 @@ pub unsafe extern "C" fn buildmvar(
     }) as u_char;
     (*var).slen = 0 as libc::c_int as u_char;
     if type_0 as libc::c_int == 252 as libc::c_int {
-        if var_empty((*partab.jobtab).last_ref.name) != 0 {
-            return -(1 as libc::c_int) as libc::c_short;
+        match var_empty((*partab.jobtab).last_ref.name) != 0 {
+            true => return -(1 as libc::c_int) as libc::c_short,
+            false => (),
         }
         i = UTIL_Key_Last(&mut (*partab.jobtab).last_ref);
         if i < 0 as libc::c_int {
@@ -460,10 +409,10 @@ pub unsafe extern "C" fn buildmvar(
         }
         memcpy(
             var as *mut libc::c_void,
-            &mut (*partab.jobtab).last_ref as *mut mvar as *const libc::c_void,
-            (::core::mem::size_of::<var_u>() as libc::c_ulong)
-                .wrapping_add(5 as libc::c_int as libc::c_ulong)
-                .wrapping_add(i as libc::c_ulong),
+            from_mut(&mut (*partab.jobtab).last_ref) as *mut mvar as *const libc::c_void,
+            (::core::mem::size_of::<var_u>())
+                .wrapping_add(5)
+                .wrapping_add(i as usize),
         );
         (*var).slen = i as u_char;
     } else if type_0 as libc::c_int == 255 as libc::c_int {
@@ -472,9 +421,9 @@ pub unsafe extern "C" fn buildmvar(
         memmove(
             var as *mut libc::c_void,
             ind as *const libc::c_void,
-            ((*ind).slen as libc::c_ulong)
-                .wrapping_add(::core::mem::size_of::<var_u>() as libc::c_ulong)
-                .wrapping_add(5 as libc::c_int as libc::c_ulong),
+            ((*ind).slen as usize)
+                .wrapping_add(::core::mem::size_of::<var_u>() )
+                .wrapping_add(5 ),
         );
     } else if type_0 as libc::c_int & 64 as libc::c_int != 0
         && (type_0 as libc::c_int) < 128 as libc::c_int
@@ -509,7 +458,7 @@ pub unsafe extern "C" fn buildmvar(
         memmove(
             &mut (*var).name as *mut var_u as *mut libc::c_void,
             rsmpc as *const libc::c_void,
-            32 as libc::c_int as libc::c_ulong,
+            32,
         );
         rsmpc = rsmpc.offset(32 as libc::c_int as isize);
     }
