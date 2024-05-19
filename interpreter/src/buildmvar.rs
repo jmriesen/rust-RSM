@@ -284,14 +284,11 @@ pub struct PARTAB {
 }
 pub type partab_struct = PARTAB;
 pub type rbd = RBD;
-#[inline]
-unsafe extern "C" fn var_empty(mut var: var_u) -> u_int {
-    if var.var_q == 0 as libc::c_int as u_int64 {
-        return 1 as libc::c_int as u_int
-    } else {
-        return 0 as libc::c_int as u_int
-    };
+
+fn var_empty(var: &var_u) -> bool {
+    unsafe{var.var_q == 0}
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn getvol(mut vol: *mut cstring) -> libc::c_short {
     let mut i: libc::c_int = 0;
@@ -325,6 +322,7 @@ pub unsafe extern "C" fn getvol(mut vol: *mut cstring) -> libc::c_short {
     }
     return -(26 as libc::c_int) as libc::c_short;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn getuci(
     mut uci: *mut cstring,
