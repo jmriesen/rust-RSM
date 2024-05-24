@@ -21,7 +21,11 @@ enum KeyInternal<'a> {
         dec_part: Box<dyn ExactSizeIterator<Item = u8> + 'a>,
     },
     String(&'a [u8]),
+    //TODO file issue request upstream
+    // it looks like the key "-." is not parsed properly
+    Bug,
 }
+
 
 impl<'a> KeyInternal<'a> {
     fn new(src: &'a CSTRING) -> Self {
@@ -29,7 +33,9 @@ impl<'a> KeyInternal<'a> {
             Self::Null
         } else if src.len == 1 && src.buf[0] == b'0' {
             Self::Zero
-        } else {
+        } else if src.len == 2 && src.buf[0..2] == [b'-',b'.']{
+            Self::Bug
+        }else {
             //attempt to parse as a number
             let contents = &src.buf[..src.len as usize];
             let negative = contents.starts_with(&[b'-']);
@@ -44,7 +50,7 @@ impl<'a> KeyInternal<'a> {
                 .next()
                 .expect("empty string case should have already been handled");
             let dec_part = parts.next();
-            let trailing_dot = dec_part == Some(&[]);
+            let trailing_dot = dec_part == Some(&[]) && ! negative; // the anding with !negative seems like a but, but this matches the C codes behavior
             let dec_part = dec_part.unwrap_or_default();
 
             let leading_traling_zeros =
@@ -52,8 +58,9 @@ impl<'a> KeyInternal<'a> {
 
             let is_numaric = |x: &[u8]| x.iter().all(|x| (b'0'..=b'9').contains(x));
             let numaric = is_numaric(int_part) && is_numaric(dec_part);
+            let contains_no_digets = int_part.is_empty() && dec_part.is_empty();
 
-            if !numaric || trailing_dot || leading_traling_zeros || parts.next().is_some()  {
+            if !numaric || trailing_dot || leading_traling_zeros || parts.next().is_some() || contains_no_digets {
                 Self::String(contents)
             } else if negative {
                 Self::Negative {
@@ -74,6 +81,9 @@ impl<'a> KeyInternal<'a> {
             x if x & STRING_FLAG != 0 => {
                 //TODO check if I should be including the null string.
                 Self::String(data.split(|x| *x == 0).next().unwrap())
+            }
+            63 if data[0] == 255 =>{
+                Self::Bug
             }
             x => {
                 let non_negative = x & NON_NEGATIVE != 0;
@@ -135,6 +145,13 @@ pub fn key_build(src: &CSTRING) -> Key {
             key.push(STRING_FLAG);
             key.extend(contents);
             None
+        },
+        KeyInternal::Bug =>{
+            //I think this case is a bug in the C code
+            //For now I am replicating the behavior
+            //Encoding as -0
+            key.extend([63,255]);
+            return key;
         }
     };
     //Adding end markers
@@ -171,6 +188,9 @@ fn key_extract(buff: &[u8]) -> Key {
             key
         }
         KeyInternal::String(string) => Vec::from(string),
+        KeyInternal::Bug=>{
+            vec![45]
+        }
     }
 }
 
@@ -213,12 +233,14 @@ mod tests {
     #[case("-10E")]
     #[case("-10.4")]
     #[case("-.4")]
+    #[case("-.")]
+    #[case("-4.")]
     #[case("-10.4E")]
     #[case("-10.0")]
     #[case("-010")]
     #[case("-10.5.")]
     fn simple_string(#[case] input: &str) {
-        let string = create_cstring(dbg!(input));
+        let string = create_cstring(input);
         let key = key_build(&string);
         let mut buffer = [0; MAX_STR_LEN as usize + 1];
         let len = unsafe { UTIL_Key_Build(from_ref(&string).cast_mut(), buffer.as_mut_ptr()) };
@@ -246,6 +268,8 @@ mod tests {
     #[case("-10E")]
     #[case("-10.4")]
     #[case("-.4")]
+    #[case("-.")]
+    #[case("-4.")]
     #[case("-10.4E")]
     #[case("-10.0")]
     #[case("-010")]
@@ -253,7 +277,7 @@ mod tests {
     fn test_extraction(#[case] input: &str) {
         use ffi::UTIL_Key_Extract;
 
-        let string = create_cstring(dbg!(input));
+        let string = create_cstring(input);
         let mut input_buffer = [0; MAX_STR_LEN as usize + 1];
         let _ = unsafe { UTIL_Key_Build(from_ref(&string).cast_mut(), input_buffer.as_mut_ptr()) };
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
