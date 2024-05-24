@@ -4,4 +4,4 @@ members=[
 "compiler",
 "tree-sitter-M",
 "lang-model-macro",
-"lang-server", "lang-model", "interpreter", "ffi"]
+"lang-server", "lang-model", "interpreter","interpreter/fuzz", "ffi"]

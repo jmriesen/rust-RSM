@@ -28,4 +28,4 @@ mod buildmvar;
 #[cfg(test)]
 pub mod test_helper;
 
-mod key;
+pub mod key;

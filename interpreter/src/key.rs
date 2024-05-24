@@ -39,10 +39,13 @@ impl<'a> KeyInternal<'a> {
                 &contents[..]
             }
             .split(|x| *x == b'.');
+
             let int_part = parts
                 .next()
                 .expect("empty string case should have already been handled");
-            let dec_part = parts.next().unwrap_or_default();
+            let dec_part = parts.next();
+            let trailing_dot = dec_part == Some(&[]);
+            let dec_part = dec_part.unwrap_or_default();
 
             let leading_traling_zeros =
                 int_part.starts_with(&[b'0']) || dec_part.ends_with(&[b'0']);
@@ -50,7 +53,7 @@ impl<'a> KeyInternal<'a> {
             let is_numaric = |x: &[u8]| x.iter().all(|x| (b'0'..=b'9').contains(x));
             let numaric = is_numaric(int_part) && is_numaric(dec_part);
 
-            if !numaric || leading_traling_zeros || parts.next().is_some() {
+            if !numaric || trailing_dot || leading_traling_zeros || parts.next().is_some()  {
                 Self::String(contents)
             } else if negative {
                 Self::Negative {
@@ -103,7 +106,7 @@ impl<'a> KeyInternal<'a> {
     }
 }
 
-fn key_build(src: &CSTRING) -> Key {
+pub fn key_build(src: &CSTRING) -> Key {
     let mut key = Key::new();
     let internal_key = KeyInternal::new(&src);
     let end_mark = match internal_key {
@@ -192,8 +195,10 @@ mod tests {
 
     //This has limited side effect and may a good candidate for fuz testing.
     #[rstest]
-    #[case("test string")]
     #[case("")]
+    #[case(".")]
+    #[case("1.")]
+    #[case("test string")]
     #[case("0")]
     #[case("10")]
     #[case("10E")]
@@ -203,6 +208,7 @@ mod tests {
     #[case("10.0")]
     #[case("010")]
     #[case("10.5.")]
+    #[case("-")]
     #[case("-10")]
     #[case("-10E")]
     #[case("-10.4")]
@@ -223,6 +229,8 @@ mod tests {
 
     #[rstest]
     #[case("")]
+    #[case(".")]
+    #[case("1.")]
     #[case("test string")]
     #[case("0")]
     #[case("10")]
@@ -233,6 +241,7 @@ mod tests {
     #[case("10.0")]
     #[case("010")]
     #[case("10.5.")]
+    #[case("-")]
     #[case("-10")]
     #[case("-10E")]
     #[case("-10.4")]
