@@ -1,6 +1,6 @@
 use std::{fmt::Display, fs::OpenOptions, io::Read, mem::MaybeUninit, path::Path};
 
-use derive_more::{AsMut,AsRef};
+use derive_more::{AsMut, AsRef};
 use ffi::{DB_VER, LABEL_BLOCK, UCI_TAB};
 use ref_cast::RefCast;
 
@@ -9,7 +9,7 @@ use crate::{
     units::Bytes,
 };
 
-#[derive(RefCast, AsMut,AsRef)]
+#[derive(RefCast, AsMut, AsRef)]
 #[repr(transparent)]
 pub struct Label(LABEL_BLOCK);
 
@@ -29,19 +29,23 @@ impl Label {
         }
     }
 
-    #[must_use] pub fn header_size(&self) -> Bytes {
+    #[must_use]
+    pub fn header_size(&self) -> Bytes {
         Bytes(self.0.header_bytes as usize)
     }
 
-    #[must_use] pub fn block_size(&self) -> Bytes {
+    #[must_use]
+    pub fn block_size(&self) -> Bytes {
         Bytes(self.0.block_size as usize)
     }
 
-    #[must_use] pub fn uci(&self) -> &[UCI_TAB] {
+    #[must_use]
+    pub fn uci(&self) -> &[UCI_TAB] {
         &self.0.uci
     }
 
-    #[must_use] pub fn clean(&self) -> bool {
+    #[must_use]
+    pub fn clean(&self) -> bool {
         self.0.clean == 0
     }
     pub fn set_dirty(&mut self, is_dirty: bool) {

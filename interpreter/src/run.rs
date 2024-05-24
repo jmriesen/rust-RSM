@@ -1,4 +1,3 @@
-
 use ffi::{
     partab, strstk, systab, CleanJob, SemOp, UTIL_Share, Vhorolog, DO_FRAME, IN_TERM, JOBTAB,
     MAX_SSTK, MVAR, SEM_SYS, SERVERTAB, SQ_CHAN, TYPE_JOB, TYPE_RUN, VAR_U, VOL_DEF,

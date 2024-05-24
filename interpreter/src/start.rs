@@ -1,5 +1,10 @@
 use crate::{
-    shared_seg::{alloc::{create_shared_mem, TabLayout}, sys_tab::SYSTAB, vol_def::label::Label}, units::{Bytes, Megbibytes, Pages}
+    shared_seg::{
+        alloc::{create_shared_mem, TabLayout},
+        sys_tab::SYSTAB,
+        vol_def::label::Label,
+    },
+    units::{Bytes, Megbibytes, Pages},
 };
 use core::alloc::Layout;
 use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
@@ -155,7 +160,7 @@ impl Config {
                 self.jobs as usize,
                 volumes_start,
                 &volset_layout,
-                )
+            )
         }?;
 
         let sys_tab = unsafe {
@@ -224,9 +229,9 @@ mod tests {
             Some(Megbibytes(1)),
             Some(Megbibytes(1)),
         )
-            .unwrap()
-            .setup_shared_mem_segemnt()
-            .unwrap();
+        .unwrap()
+        .setup_shared_mem_segemnt()
+        .unwrap();
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         let _mem_guard = util_share(&file_path);
 
@@ -267,7 +272,7 @@ mod tests {
             } else if index == 22 {
                 //TODO set max_tt properly
                 // continue
-            } else if left_ptr == right_ptr && left_ptr.is_some(){
+            } else if left_ptr == right_ptr && left_ptr.is_some() {
                 //continue
                 //advance the iterator and continue.
                 for _ in 1..SIZE {
@@ -276,10 +281,10 @@ mod tests {
             } else if left[0] == right[0] {
                 // continue
             } else {
-                errors.push((index,left,right,left_ptr,right_ptr));
+                errors.push((index, left, right, left_ptr, right_ptr));
             }
         }
-        for (index,left,right,left_ptr,right_ptr) in &errors{
+        for (index, left, right, left_ptr, right_ptr) in &errors {
             println!("{index}");
             println!("left ptr :{left_ptr:?}");
             println!("right ptr:{right_ptr:?}");

@@ -12,12 +12,12 @@
     clippy::missing_errors_doc,
     clippy::missing_safety_doc
 )]
-mod shared_seg;
 #[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
 #[allow(unused)]
 pub mod run;
+mod shared_seg;
 pub mod start;
 pub mod units;
 pub mod util;
@@ -27,3 +27,5 @@ mod buildmvar;
 
 #[cfg(test)]
 pub mod test_helper;
+
+mod key;

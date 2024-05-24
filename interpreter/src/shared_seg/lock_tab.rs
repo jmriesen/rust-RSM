@@ -2,7 +2,6 @@ use ffi::{LOCKTAB, VAR_U};
 
 use super::alloc::Allocation;
 
-
 /// Initialized the a Lock Tab
 //NOTE Initializing the block of memory should consume the allocation
 #[allow(clippy::needless_pass_by_value)]

@@ -10,13 +10,12 @@ use std::{
 };
 
 use ffi::{
-    shared_memory_id, DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, RSM_SYSTEM, VOL_DEF, VOL_FILENAME_MAX, WD_TAB
+    shared_memory_id, DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS,
+    MIN_DAEMONS, RBD, RBD_HASH, RSM_SYSTEM, VOL_DEF, VOL_FILENAME_MAX, WD_TAB,
 };
 use libc::{c_char, c_void};
 
-
-
-use derive_more::{AsRef,AsMut};
+use derive_more::{AsMut, AsRef};
 use ref_cast::RefCast;
 
 use crate::{start::Error, units::Bytes};
@@ -25,12 +24,12 @@ use self::{global_buf::init_global_buffer_descriptors, label::Label};
 
 use super::alloc::{Allocation, TabLayout};
 
-#[derive(RefCast, AsMut,AsRef)]
+#[derive(RefCast, AsMut, AsRef)]
 #[repr(transparent)]
 pub struct Volume(VOL_DEF);
 
 impl Volume {
-    fn file_name(&self) -> String {
+    pub fn file_name(&self) -> String {
         use core::ffi::CStr;
         let file_name = self.0.file_name.map(|x| x as u8);
         CStr::from_bytes_until_nul(&file_name)
@@ -40,7 +39,8 @@ impl Volume {
             .to_string()
     }
 
-    #[must_use] pub fn label(&self) -> &Label {
+    #[must_use]
+    pub fn label(&self) -> &Label {
         Label::ref_cast(unsafe { self.0.vollab.as_ref() }.unwrap())
     }
 
@@ -113,10 +113,10 @@ pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     format_file_name_helper(std::fs::canonicalize(path).unwrap().to_str().unwrap())
 }
 
+pub mod global_buf;
 /// clips/pads with zeros the file name
 /// This should only be used by `format_name`, but was pulled out so it was easier to test.
 pub mod label;
-pub mod global_buf;
 /// (canonicalized file names are absolute/have to actually exist witch makes it a pain to construct test file names of the correct length)
 fn format_file_name_helper(file_name: &str) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
     file_name

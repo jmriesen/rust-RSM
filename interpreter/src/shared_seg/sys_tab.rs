@@ -12,10 +12,8 @@ use ffi::{
 };
 use libc::{c_int, c_void};
 
+use super::{alloc::TabLayout, lock_tab, vol_def::Volume};
 use crate::units::{Bytes, Pages};
-use super::{
-    alloc::TabLayout, lock_tab, vol_def::Volume
-};
 
 #[repr(C, packed(1))]
 pub struct SYSTAB {
@@ -90,6 +88,14 @@ impl SYSTAB {
             .find(|(_, uci)| uci.name == env)
             .map(|(i, _)| i as u8)
     }
+
+    pub fn get_vol(&self, name: &str) -> Option<usize> {
+        self.vols()
+            .enumerate()
+            .filter_map(|(i, x)| x.map(|x| (i, x)))
+            .find(|(_, x)| x.file_name() == name)
+            .map(|(i, _)| i)
+    }
     //Currently uese C code so only works for systab.
     unsafe fn clean_jobs(&mut self, exclude_pid: i32) {
         let jobs = unsafe { from_raw_parts_mut(self.jobtab, self.maxjob as usize) };
@@ -108,16 +114,19 @@ impl SYSTAB {
     }
 
     #[cfg(test)]
-    #[must_use] pub fn to_slice(&self) -> &[u8] {
+    #[must_use]
+    pub fn to_slice(&self) -> &[u8] {
         use std::ptr::addr_of;
 
         let diagnostic = |pointer: *mut c_void| {
-            format!("{:?}/t:{}",pointer,unsafe{pointer.byte_offset_from(self.address)})
+            format!("{:?}/t:{}", pointer, unsafe {
+                pointer.byte_offset_from(self.address)
+            })
         };
         dbg!(diagnostic(self.address.cast()));
         dbg!(diagnostic(self.jobtab.cast()));
         dbg!(diagnostic(self.lockfree.cast()));
-        for volume in self.vols(){
+        for volume in self.vols() {
             let volume = volume.unwrap().as_ref();
             dbg!(diagnostic(volume.vollab.cast()));
             dbg!(diagnostic(volume.map.cast()));
@@ -127,8 +136,11 @@ impl SYSTAB {
             dbg!(diagnostic(addr_of!(volume.shm_id).cast_mut().cast()));
         }
         dbg!(diagnostic(self.vol[0].cast()));
-        dbg!(diagnostic(unsafe{*self.vol[0]}.vollab.cast()));
-        dbg!((unsafe{self.address.byte_add(self.addoff as usize)},self.addoff));
+        dbg!(diagnostic(unsafe { *self.vol[0] }.vollab.cast()));
+        dbg!((
+            unsafe { self.address.byte_add(self.addoff as usize) },
+            self.addoff
+        ));
 
         unsafe {
             ::std::slice::from_raw_parts(
@@ -218,7 +230,6 @@ fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SYSTAB) {
     //TODO here it memsets JobTab
     //I am not sure what I want to do with this really it seems like it should become a Maybe uninit.
 }
-
 
 pub unsafe fn init<'a>(
     jobs: usize,

@@ -28,6 +28,7 @@ struct Node {
 
 #[proc_macro]
 pub fn models(_: TokenStream) -> TokenStream {
+    //TODO remove this hard coding at some point.
     let data = include_str!("../../tree-sitter-M/src/node-types.json");
     let mut nodes: Vec<Node> = serde_json::from_str(data).expect("Unable to parse");
 

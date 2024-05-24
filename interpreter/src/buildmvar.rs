@@ -1,9 +1,18 @@
-#![allow(dead_code, mutable_transmutes, non_camel_case_types, non_snake_case, non_upper_case_globals, unused_assignments, unused_mut)]
+/*
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
-use std::ptr::from_mut;
+use std::iter;
 
-use ffi::{addstk, partab, rsmpc, systab, var_u, UTIL_Key_Build, UTIL_Key_Last, CSTRING, GBD,cstring};
-use libc::{memcpy, memmove};
+use ffi::{addstk, cstring, partab, systab, var_u, CSTRING, ERRM26, GBD, MVAR, TYPVARNAKED};
+
 pub type __int64_t = libc::c_longlong;
 pub type __darwin_time_t = libc::c_long;
 pub type __darwin_off_t = __int64_t;
@@ -14,14 +23,6 @@ pub type u_int = libc::c_uint;
 pub type u_long = libc::c_ulong;
 pub type time_t = __darwin_time_t;
 pub type u_int64 = libc::c_ulonglong;
-#[repr(C, packed)]
-pub struct MVAR {
-    pub name: var_u,
-    pub volset: u_char,
-    pub uci: u_char,
-    pub slen: u_char,
-    pub key: [u_char; 256],
-}
 pub type mvar = MVAR;
 #[repr(C, packed)]
 pub struct RBD {
@@ -246,26 +247,6 @@ pub struct TRANTAB {
 }
 pub type trantab = TRANTAB;
 #[repr(C, packed)]
-pub struct SYSTAB {
-    pub address: *mut libc::c_void,
-    pub jobtab: *mut jobtab,
-    pub maxjob: u_int,
-    pub sem_id: libc::c_int,
-    pub historic: libc::c_int,
-    pub precision: libc::c_int,
-    pub max_tt: libc::c_int,
-    pub tt: [trantab; 8],
-    pub start_user: libc::c_int,
-    pub lockstart: *mut libc::c_void,
-    pub locksize: libc::c_int,
-    pub lockhead: *mut locktab,
-    pub lockfree: *mut locktab,
-    pub addoff: u_long,
-    pub addsize: u_long,
-    pub vol: [*mut vol_def; 1],
-    pub last_blk_used: [u_int; 1],
-}
-pub type systab_struct = SYSTAB;
 #[repr(C, packed)]
 pub struct PARTAB {
     pub jobtab: *mut jobtab,
@@ -285,49 +266,27 @@ pub struct PARTAB {
 pub type partab_struct = PARTAB;
 pub type rbd = RBD;
 
-fn var_empty(var: &var_u) -> bool {
-    unsafe{var.var_q == 0}
+fn var_empty(var: &var_u) -> libc::c_int {
+    unsafe { var.var_q == 0 }.into()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn getvol(mut vol: *mut cstring) -> libc::c_short {
-    let mut i: libc::c_int = 0;
-    let mut s: u_short = 0;
-    s = (*vol).len;
-    if (s as libc::c_int) < 32 as libc::c_int {
-        s = s.wrapping_add(1);
-        s;
-    }
-    i = 0 as libc::c_int;
-    while i < 1 as libc::c_int {
-        if !((*systab).vol[i as usize]).is_null() {
-            if !((*(*systab).vol[i as usize]).vollab).is_null() {
-                if false/* !(memcmp(
-                    ((*vol).buf).as_mut_ptr() as *const libc::c_void,
-                    &mut *((*(**((*systab).vol).as_mut_ptr().offset(i as isize)).vollab)
-                        .volnam
-                        .var_cu)
-                        .as_mut_ptr()
-                        .offset(0 as libc::c_int as isize) as *mut u_char
-                        as *const libc::c_void,
-                    s as libc::c_ulong,
-                ) != 0 as libc::c_int)*/
-                {
-                    return (i + 1 as libc::c_int) as libc::c_short;
-                }
-            }
-        }
-        i += 1;
-        i;
-    }
-    return -(26 as libc::c_int) as libc::c_short;
+    let vol = String::from_utf8((*vol).buf[..((*vol).len as usize)].to_vec())
+        //As far as I know cstrings should only contain ASCII
+        //ASCII is valid UTF8 I think this should just work.
+        //NOTE I am not using from_utf8_unchecked since I am not 100% my assumption is correct.
+        .unwrap();
+
+    let sys_tab = unsafe { systab.cast::<crate::shared_seg::sys_tab::SYSTAB>().as_mut() }.unwrap();
+    sys_tab
+        .get_vol(&vol)
+        .map(|x| (x + 1) as libc::c_short)
+        .unwrap_or(-(ERRM26 as libc::c_short))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn getuci(
-    mut uci: *mut cstring,
-    mut vol: libc::c_int,
-) -> libc::c_short {
+pub unsafe extern "C" fn getuci(mut uci: *mut cstring, mut vol: libc::c_int) -> libc::c_short {
     let mut i: libc::c_int = 0;
     let mut s: u_short = 0;
     s = (*uci).len;
@@ -342,7 +301,8 @@ pub unsafe extern "C" fn getuci(
     vol;
     i = 0 as libc::c_int;
     while i < 64 as libc::c_int {
-        if true /*memcmp(
+        if true
+        /*memcmp(
             ((*uci).buf).as_mut_ptr() as *const libc::c_void,
             &mut *((*((*(**((*systab).vol).as_mut_ptr().offset(vol as isize)).vollab)
                 .uci)
@@ -363,155 +323,127 @@ pub unsafe extern "C" fn getuci(
     return -(26 as libc::c_int) as libc::c_short;
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn buildmvar(
-    mut var: *mut mvar,
-    mut nul_ok: libc::c_int,
-    mut asp: libc::c_int,
-) -> libc::c_short {
-    let mut type_0: u_char = 0;
-    let mut subs: libc::c_int = 0;
-    let mut i: libc::c_int = 0;
-    let mut ptr: *mut cstring = 0 as *mut cstring;
-    let mut s: libc::c_short = 0;
-    let mut vt: *mut var_u = 0 as *mut var_u;
-    let mut p: *mut rbd = 0 as *mut rbd;
-    let mut ind: *mut mvar = 0 as *mut mvar;
-    let fresh0 = rsmpc;
-    rsmpc = rsmpc.offset(1);
-    type_0 = *fresh0;
-    if (type_0 as libc::c_int) < 252 as libc::c_int {
-        subs = type_0 as libc::c_int & 63 as libc::c_int;
-        type_0 = (type_0 as libc::c_int & !(63 as libc::c_int)) as u_char;
-    } else {
-        let fresh1 = rsmpc;
-        rsmpc = rsmpc.offset(1);
-        subs = *fresh1 as libc::c_int;
-    }
-    (*var).volset = 0 as libc::c_int as u_char;
-    (*var)
-        .uci = (if (type_0 as libc::c_int) < 128 as libc::c_int {
-        255 as libc::c_int
-    } else {
-        0 as libc::c_int
-    }) as u_char;
-    (*var).slen = 0 as libc::c_int as u_char;
-    if type_0 as libc::c_int == 252 as libc::c_int {
-        match var_empty((*partab.jobtab).last_ref.name) != 0 {
-            true => return -(1 as libc::c_int) as libc::c_short,
-            false => (),
-        }
-        i = UTIL_Key_Last(&mut (*partab.jobtab).last_ref);
-        if i < 0 as libc::c_int {
-            return -(1 as libc::c_int) as libc::c_short;
-        }
-        memcpy(
-            var as *mut libc::c_void,
-            from_mut(&mut (*partab.jobtab).last_ref) as *mut mvar as *const libc::c_void,
-            (::core::mem::size_of::<var_u>())
-                .wrapping_add(5)
-                .wrapping_add(i as usize),
-        );
-        (*var).slen = i as u_char;
-    } else if type_0 as libc::c_int == 255 as libc::c_int {
-        ind = *addstk.as_mut_ptr().offset((asp - subs - 1 as libc::c_int) as isize)
-            as *mut mvar;
-        memmove(
-            var as *mut libc::c_void,
-            ind as *const libc::c_void,
-            ((*ind).slen as usize)
-                .wrapping_add(::core::mem::size_of::<var_u>() )
-                .wrapping_add(5 ),
-        );
-    } else if type_0 as libc::c_int & 64 as libc::c_int != 0
-        && (type_0 as libc::c_int) < 128 as libc::c_int
-    {
-        let fresh2 = rsmpc;
-        rsmpc = rsmpc.offset(1);
-        i = *fresh2 as libc::c_int;
-        if i < 255 as libc::c_int {
-            (*var).volset = (i + 1 as libc::c_int) as u_char;
-            let mut var_i: u_int = 0 as libc::c_int as u_int;
-            while var_i < (32 as libc::c_int / 8 as libc::c_int) as u_int {
-                (*var).name.var_qu[var_i as usize] = 0 as libc::c_int as u_int64;
-                var_i = var_i.wrapping_add(1);
-                var_i;
-            }
-        } else {
-            p = (*partab.jobtab).dostk[(*partab.jobtab).cur_do as usize].routine
-                as *mut rbd;
-            vt = (p as *mut u_char).offset((*p).var_tbl as libc::c_int as isize)
-                as *mut var_u;
-            let mut var_i_0: u_int = 0 as libc::c_int as u_int;
-            while var_i_0 < (32 as libc::c_int / 8 as libc::c_int) as u_int {
-                (*var)
-                    .name
-                    .var_qu[var_i_0
-                    as usize] = (*vt.offset(i as isize)).var_qu[var_i_0 as usize];
-                var_i_0 = var_i_0.wrapping_add(1);
-                var_i_0;
-            }
-        }
-    } else {
-        memmove(
-            &mut (*var).name as *mut var_u as *mut libc::c_void,
-            rsmpc as *const libc::c_void,
-            32,
-        );
-        rsmpc = rsmpc.offset(32 as libc::c_int as isize);
-    }
-    i = 0 as libc::c_int;
-    while i < subs {
-        ptr = *addstk.as_mut_ptr().offset((asp - subs + i) as isize) as *mut cstring;
-        if (*ptr).len as libc::c_int == 0 as libc::c_int
-            && (nul_ok == 0 || i != subs - 1 as libc::c_int)
-        {
-            return -(16 as libc::c_int + 200 as libc::c_int) as libc::c_short;
-        }
-        s = UTIL_Key_Build(
-            ptr,
-            &mut *((*var).key).as_mut_ptr().offset((*var).slen as isize),
-        );
-        if (s as libc::c_int) < 0 as libc::c_int {
-            return s;
-        }
-        if s as libc::c_int + (*var).slen as libc::c_int > 255 as libc::c_int {
-            return -(2 as libc::c_int + 200 as libc::c_int) as libc::c_short;
-        }
-        (*var).slen = (s as libc::c_int + (*var).slen as libc::c_int) as u_char;
-        i += 1;
-        i;
-    }
-    if type_0 as libc::c_int == 254 as libc::c_int {
-        ptr = *addstk.as_mut_ptr().offset((asp - subs - 1 as libc::c_int) as isize)
-            as *mut cstring;
-        s = getvol(ptr);
-        if (s as libc::c_int) < 0 as libc::c_int {
-            return s;
-        }
-        (*var).volset = s as u_char;
-    }
-    if type_0 as libc::c_int == 253 as libc::c_int
-        || type_0 as libc::c_int == 254 as libc::c_int
-    {
-        ptr = *addstk
-            .as_mut_ptr()
-            .offset(
-                (asp - subs - 1 as libc::c_int
-                    - (type_0 as libc::c_int == 254 as libc::c_int) as libc::c_int)
-                    as isize,
-            ) as *mut cstring;
-        s = getuci(ptr, (*var).volset as libc::c_int);
-        if (s as libc::c_int) < 0 as libc::c_int {
-            return s;
-        }
-        (*var).uci = s as u_char;
-    }
-    if type_0 as libc::c_int == 255 as libc::c_int {
-        asp -= 1;
-        asp;
-    }
-    return (asp - subs - (type_0 as libc::c_int == 253 as libc::c_int) as libc::c_int
-        - (type_0 as libc::c_int == 254 as libc::c_int) as libc::c_int
-            * 2 as libc::c_int) as libc::c_short;
+unsafe fn is_null(string: *mut CSTRING) -> bool {
+    (*string).len == 0
 }
+
+pub fn buildmvar(
+    mut var: *mut mvar,
+    mut nul_ok: bool,
+    mut asp: usize,
+    //TODO update return type so it returns the new mvar.
+) -> Result<usize, libc::c_short> {
+    use ffi::rsmpc;
+    let pop = || {
+        //TODO build an abstraction over the rsmpc type.
+        let temp = unsafe { *rsmpc };
+        unsafe { rsmpc = rsmpc.offset(1) };
+        temp
+    };
+    let (var_type, numb_subs) = {
+        let metadata = pop();
+        if (metadata) < TYPVARNAKED as u8 {
+            (
+                metadata & !ffi::TYPMAXSUB as u8,
+                metadata & ffi::TYPMAXSUB as u8,
+            )
+        } else {
+            (metadata, pop())
+        }
+    };
+
+    //see if I can get ride of the var param.
+    unsafe {
+        (*var).volset = 0;
+        (*var).uci = if var_type < ffi::TYPVARGBL as u8 {
+            ffi::UCI_IS_LOCALVAR as u8
+        } else {
+            0
+        };
+        (*var).slen = 0;
+    }
+
+    match var_type as u32 {
+        ffi::TYPVARNAKED => {
+            todo!()
+            /*
+               if (var_empty(partab.jobtab->last_ref.name)) return -ERRM1;
+               i = UTIL_Key_Last(&partab.jobtab->last_ref)
+               if (i < 0) return -ERRM1;
+               memcpy(var, &partab.jobtab->last_ref, sizeof(var_u) + 5 + i)
+               var->slen = (u_char) i;
+            */
+        }
+        ffi::TYPVARIND => {
+            todo!()
+            /*
+               ind = (mvar *) addstk[asp - subs - 1]
+               memmove(var, ind, ind->slen + sizeof(var_u) + 5)
+            */
+        }
+        x if (x & ffi::TYPVARIDX != 0 && x < ffi::TYPVARGBL) => {
+            todo!()
+            /*
+                    i = *rsmpc+
+
+                    if (i < 255) {
+                    var->volset = i + 1;
+                    VAR_CLEAR(var->name)
+            } else {
+                    p = (rbd *) (partab.jobtab->dostk[partab.jobtab->cur_do].routine);
+                    vt = (var_u *) (((u_char *) p) + p->var_tbl)
+                    VAR_COPY(var->name, vt[i]
+            }
+                 */
+        }
+        _ => iter::repeat_with(|| pop())
+            .take(ffi::VAR_LEN as usize)
+            .map(|x| char::from(x))
+            .collect::<String>(),
+    };
+
+    for i in (0..numb_subs as usize).rev() {
+        let sub = unsafe {
+            //TODO build abstraction over the addstk
+            // this should be a pop
+            addstk[asp - i].cast::<CSTRING>()
+        };
+        //Null is only allowed if it is the last index and nul_ok is true.
+        if unsafe { is_null(sub) } && (!nul_ok || (i != 0)) {
+            return Err(-((ffi::ERRZ16 + ffi::ERRMLAST) as i16)); // complain
+        } else {
+
+            /*
+            s = UTIL_Key_Build(ptr, &var->key[var->slen]);                          // get one subscript
+            if (s < 0) return s;                                                    // die on error
+            if ((s + var->slen) > 255) return -(ERRZ2 + ERRMLAST);                  // check how big and complain on error
+            var->slen = s + var->slen;                                              // add it in
+
+            */
+        }
+
+        /*
+            if (var_type == TYPVARGBLUCIENV) {                                              // need vol?
+            let ptr = unsafe{
+            addstk[asp - numb_subs -1].cast::<CSTRING>();
+        };
+            s = getvol(ptr);                                                        // get volume
+            if (s < 0) return s;                                                    // die on error
+            var->volset = (u_char) s;                                               // save the value
+        }
+
+            if ((type == TYPVARGBLUCI) || (type == TYPVARGBLUCIENV)) {                  // need UCI?
+            ptr = (cstring *) addstk[asp - subs - 1 - (type == TYPVARGBLUCIENV)];   // point at the string
+            s = getuci(ptr, var->volset);                                           // get UCI
+            if (s < 0) return s;                                                    // die on error
+            var->uci = (u_char) s;                                                  // save the value
+        }
+
+            if (type == TYPVARIND) asp--;                                               // fixup asp for return
+             */
+    }
+    //    return (asp - numb_subs - (var_type == TYPVARGBLUCI) - ((var_type == TYPVARGBLUCIENV) * 2)); // all done
+
+    0
+}
+*/

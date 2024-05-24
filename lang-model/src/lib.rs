@@ -13,6 +13,7 @@ pub fn create_tree(source_code: &str) -> tree_sitter::Tree {
 
     parser.parse(source_code, None).unwrap()
 }
+
 //TODO fix this lint.
 //This will require some major work to handle the error case properly.
 #[allow(clippy::result_unit_err)]
