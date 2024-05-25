@@ -1,11 +1,17 @@
 #![allow(dead_code)]
-use ffi::CSTRING;
+use ffi::{CSTRING, MAX_SUB_LEN};
 
 //TODO I will eventually want to be able to write a string in place.
 type Key = Vec<u8>;
 
 static STRING_FLAG: u8 = 0b1000_0000;
 static NON_NEGATIVE: u8 = 0b100_0000;
+
+#[derive(Debug,PartialEq)]
+pub enum KeyError {
+    InputToLarge,
+    ContainsNull
+}
 
 enum KeyInternal<'a> {
     Null,
@@ -20,24 +26,28 @@ enum KeyInternal<'a> {
         int_part: Box<dyn ExactSizeIterator<Item = u8> + 'a>,
         dec_part: Box<dyn ExactSizeIterator<Item = u8> + 'a>,
     },
+    ///NOTE if a number is to large it is encoded as a string
     String(&'a [u8]),
     //TODO file issue request upstream
     // it looks like the key "-." is not parsed properly
     Bug,
 }
 
-
 impl<'a> KeyInternal<'a> {
-    fn new(src: &'a CSTRING) -> Self {
-        if src.len == 0 {
-            Self::Null
-        } else if src.len == 1 && src.buf[0] == b'0' {
-            Self::Zero
-        } else if src.len == 2 && src.buf[0..2] == [b'-',b'.']{
-            Self::Bug
-        }else {
+    fn new(src: &'a CSTRING) -> Result<Self, KeyError> {
+        let contents = &src.buf[..src.len as usize];
+        if src.len > MAX_SUB_LEN as u16 {
+            //consider reevaluating this.
+            //the restrictions seems a bit arbitrary
+            Err(KeyError::InputToLarge)
+        }else if contents == &[] {
+            Ok(Self::Null)
+        } else if  contents == &[b'0'] {
+            Ok(Self::Zero)
+        } else if contents == &[b'-', b'.'] {
+            Ok(Self::Bug)
+        } else {
             //attempt to parse as a number
-            let contents = &src.buf[..src.len as usize];
             let negative = contents.starts_with(&[b'-']);
             let mut parts = if negative {
                 &contents[1..]
@@ -50,7 +60,7 @@ impl<'a> KeyInternal<'a> {
                 .next()
                 .expect("empty string case should have already been handled");
             let dec_part = parts.next();
-            let trailing_dot = dec_part == Some(&[]) && ! negative; // the anding with !negative seems like a but, but this matches the C codes behavior
+            let trailing_dot = dec_part == Some(&[]) && !negative; // the anding with !negative seems like a but, but this matches the C codes behavior
             let dec_part = dec_part.unwrap_or_default();
 
             let leading_traling_zeros =
@@ -60,15 +70,25 @@ impl<'a> KeyInternal<'a> {
             let numaric = is_numaric(int_part) && is_numaric(dec_part);
             let contains_no_digets = int_part.is_empty() && dec_part.is_empty();
 
-            if !numaric || trailing_dot || leading_traling_zeros || parts.next().is_some() || contains_no_digets {
-                Self::String(contents)
-            } else if negative {
-                Self::Negative {
+            if !numaric
+                || trailing_dot
+                || leading_traling_zeros
+                || parts.next().is_some()
+                || contains_no_digets
+                || int_part.len() > NON_NEGATIVE as usize -1
+            {
+                if contents.contains(&b'\0'){
+                    Err(KeyError::ContainsNull)
+                }else{
+                    Ok(Self::String(contents))
+                }
+            }else if negative {
+                Ok(Self::Negative {
                     int_part: Box::new(int_part.iter().map(|x| b'9' - x + b'0')),
                     dec_part: Box::new(dec_part.iter().map(|x| b'9' - x + b'0')),
-                }
+                })
             } else {
-                Self::Positive { int_part, dec_part }
+                Ok(Self::Positive { int_part, dec_part })
             }
         }
     }
@@ -82,9 +102,7 @@ impl<'a> KeyInternal<'a> {
                 //TODO check if I should be including the null string.
                 Self::String(data.split(|x| *x == 0).next().unwrap())
             }
-            63 if data[0] == 255 =>{
-                Self::Bug
-            }
+            63 if data[0] == 255 => Self::Bug,
             x => {
                 let non_negative = x & NON_NEGATIVE != 0;
                 let int_len = if non_negative {
@@ -116,9 +134,9 @@ impl<'a> KeyInternal<'a> {
     }
 }
 
-pub fn key_build(src: &CSTRING) -> Key {
+pub fn key_build(src: &CSTRING) -> Result<Key, KeyError> {
     let mut key = Key::new();
-    let internal_key = KeyInternal::new(&src);
+    let internal_key = KeyInternal::new(&src)?;
     let end_mark = match internal_key {
         KeyInternal::Null => {
             key.push(b'\0');
@@ -145,20 +163,20 @@ pub fn key_build(src: &CSTRING) -> Key {
             key.push(STRING_FLAG);
             key.extend(contents);
             None
-        },
-        KeyInternal::Bug =>{
+        }
+        KeyInternal::Bug => {
             //I think this case is a bug in the C code
             //For now I am replicating the behavior
             //Encoding as -0
-            key.extend([63,255]);
-            return key;
+            key.extend([63, 255]);
+            return Ok(key);
         }
     };
     //Adding end markers
     //NOTE Negatives use 255 as an end mark for some reason.
     //at some point when I understand 9's complement better I should se if I can remove this inconsistency
     key.push(end_mark.unwrap_or(b'\0'));
-    key
+    Ok(key)
 }
 
 //TODO remove use of the string type.
@@ -188,8 +206,8 @@ fn key_extract(buff: &[u8]) -> Key {
             key
         }
         KeyInternal::String(string) => Vec::from(string),
-        KeyInternal::Bug=>{
-            vec![45]
+        KeyInternal::Bug => {
+            vec![b'-']
         }
     }
 }
@@ -229,24 +247,48 @@ mod tests {
     #[case("010")]
     #[case("10.5.")]
     #[case("-")]
+    #[case("-.")]
     #[case("-10")]
     #[case("-10E")]
     #[case("-10.4")]
     #[case("-.4")]
-    #[case("-.")]
     #[case("-4.")]
     #[case("-10.4E")]
     #[case("-10.0")]
     #[case("-010")]
     #[case("-10.5.")]
-    fn simple_string(#[case] input: &str) {
+    fn build_key_a_b(#[case] input: &str) {
         let string = create_cstring(input);
-        let key = key_build(&string);
+        let key = key_build(&string).unwrap();
         let mut buffer = [0; MAX_STR_LEN as usize + 1];
         let len = unsafe { UTIL_Key_Build(from_ref(&string).cast_mut(), buffer.as_mut_ptr()) };
-        assert_eq!(key[..], buffer[..len as usize]);
+        assert_eq!(key[..], buffer[..dbg!(len) as usize]);
         //The c code should never write past key's len, but this is good to check.
         assert!(buffer[len as usize..].iter().all(|x| *x == 0));
+    }
+
+    fn build_key_max_size_tests() {
+        let max_key = key_build(&create_cstring(&"a".repeat(MAX_SUB_LEN as usize)));
+        assert!(max_key.is_ok());
+
+        let max_key_pluse_one = key_build(&create_cstring(&"a".repeat(MAX_SUB_LEN as usize + 1)));
+        assert_eq!(max_key_pluse_one,Err(KeyError::InputToLarge));
+    }
+
+    fn error_if_string_contains_null() {
+        let bad_string = key_build(&create_cstring(&"a\0b"));
+        assert_eq!(bad_string,Err(KeyError::ContainsNull));
+    }
+
+    fn build_key_int_to_large(){
+        let src = &"1".repeat(NON_NEGATIVE as usize);
+        let key = key_build(&create_cstring(&src)).unwrap();
+        if let KeyInternal::String(_)=  KeyInternal::from_slice(&key){
+            //large numbers are encoded as strings
+        }else{
+            panic!();
+        };
+
     }
 
     #[rstest]
