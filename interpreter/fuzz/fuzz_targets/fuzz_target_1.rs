@@ -1,19 +1,23 @@
 #![no_main]
 
-use std::ptr::from_ref;
+use std::ptr::{from_mut, from_ref};
 
 use interpreter::{
-    key::{key_build, KeyError}, UTIL_Key_Build, CSTRING, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN
+    key::{key_build, key_extract, KeyError}, UTIL_Key_Build, UTIL_Key_Extract, CSTRING, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN
 };
 use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|data: &[u8]| {
+fn create_cstring(data:&[u8])->CSTRING{
     let mut buf = [0; MAX_STR_LEN as usize + 1];
     buf[..data.len()].copy_from_slice(data);
-    let string = CSTRING {
+    CSTRING {
         len: data.len() as u16,
         buf,
-    };
+    }
+}
+
+fuzz_target!(|data: &[u8]| {
+    let string = create_cstring(data);
     let key = key_build(&string);
 
     let mut buffer = [0; MAX_STR_LEN as usize + 1];
@@ -33,3 +37,4 @@ fuzz_target!(|data: &[u8]| {
         }
     }
 });
+

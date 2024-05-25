@@ -181,7 +181,7 @@ pub fn key_build(src: &CSTRING) -> Result<Key, KeyError> {
 
 //TODO remove use of the string type.
 //There is no guarantee that the M string will be valid urf8
-fn key_extract(buff: &[u8]) -> Key {
+pub fn key_extract(buff: &[u8]) -> Key {
     match KeyInternal::from_slice(buff) {
         KeyInternal::Null => {
             vec![]

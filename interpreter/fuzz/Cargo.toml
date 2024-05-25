@@ -19,3 +19,10 @@ path = "fuzz_targets/fuzz_target_1.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "key_extract"
+path = "fuzz_targets/key_extract.rs"
+test = false
+doc = false
+bench = false
