@@ -17,3 +17,4 @@ TODO
 *.DS_Store
 *.org
 /interpreter/temp
+/interpreter/target/

@@ -1,5 +1,8 @@
 #![allow(dead_code)]
+use arbitrary::Arbitrary;
+use derive_more::{AsMut, AsRef};
 use ffi::{CSTRING, MAX_SUB_LEN};
+use ref_cast::RefCast;
 
 //TODO I will eventually want to be able to write a string in place.
 type Key = Vec<u8>;
@@ -7,10 +10,32 @@ type Key = Vec<u8>;
 static STRING_FLAG: u8 = 0b1000_0000;
 static NON_NEGATIVE: u8 = 0b100_0000;
 
-#[derive(Debug,PartialEq)]
+//TODO find a better name for this.
+//CString is already used by the std.
+#[derive(RefCast, AsMut, AsRef)]
+#[repr(transparent)]
+#[derive(Debug,Clone)]
+pub struct CArrayString(CSTRING);
+
+impl CArrayString {
+    fn content(&self) -> &[u8] {
+        &self.0.buf[..self.0.len as usize]
+    }
+}
+
+impl<'a> Arbitrary<'a> for CArrayString {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self(CSTRING {
+            len: u16::arbitrary(u)?,
+            buf: Arbitrary::arbitrary(u)?,
+        }))
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum KeyError {
     InputToLarge,
-    ContainsNull
+    ContainsNull,
 }
 
 enum KeyInternal<'a> {
@@ -34,15 +59,15 @@ enum KeyInternal<'a> {
 }
 
 impl<'a> KeyInternal<'a> {
-    fn new(src: &'a CSTRING) -> Result<Self, KeyError> {
-        let contents = &src.buf[..src.len as usize];
-        if src.len > MAX_SUB_LEN as u16 {
+    fn new(src: &'a CArrayString) -> Result<Self, KeyError> {
+        let contents = src.content();
+        if contents.len() > MAX_SUB_LEN as usize {
             //consider reevaluating this.
             //the restrictions seems a bit arbitrary
             Err(KeyError::InputToLarge)
-        }else if contents == &[] {
+        } else if contents == &[] {
             Ok(Self::Null)
-        } else if  contents == &[b'0'] {
+        } else if contents == &[b'0'] {
             Ok(Self::Zero)
         } else if contents == &[b'-', b'.'] {
             Ok(Self::Bug)
@@ -75,14 +100,14 @@ impl<'a> KeyInternal<'a> {
                 || leading_traling_zeros
                 || parts.next().is_some()
                 || contains_no_digets
-                || int_part.len() > NON_NEGATIVE as usize -1
+                || int_part.len() > NON_NEGATIVE as usize - 1
             {
-                if contents.contains(&b'\0'){
+                if contents.contains(&b'\0') {
                     Err(KeyError::ContainsNull)
-                }else{
+                } else {
                     Ok(Self::String(contents))
                 }
-            }else if negative {
+            } else if negative {
                 Ok(Self::Negative {
                     int_part: Box::new(int_part.iter().map(|x| b'9' - x + b'0')),
                     dec_part: Box::new(dec_part.iter().map(|x| b'9' - x + b'0')),
@@ -97,7 +122,7 @@ impl<'a> KeyInternal<'a> {
         let flag = slice[0];
         let data = &slice[1..];
         match flag {
-            0 => Self::Null,
+            0 if data[0] == 0 => Self::Null,
             x if x & STRING_FLAG != 0 => {
                 //TODO check if I should be including the null string.
                 Self::String(data.split(|x| *x == 0).next().unwrap())
@@ -134,7 +159,7 @@ impl<'a> KeyInternal<'a> {
     }
 }
 
-pub fn key_build(src: &CSTRING) -> Result<Key, KeyError> {
+pub fn key_build(src: &CArrayString) -> Result<Key, KeyError> {
     let mut key = Key::new();
     let internal_key = KeyInternal::new(&src)?;
     let end_mark = match internal_key {
@@ -212,128 +237,125 @@ pub fn key_extract(buff: &[u8]) -> Key {
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod a_b_testing {
     use std::ptr::{from_mut, from_ref};
 
-    use ffi::{UTIL_Key_Build, CSTRING, MAX_STR_LEN};
-    use rstest::rstest;
+    use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
     use super::*;
-
-    fn create_cstring(ascii: &str) -> CSTRING {
-        assert!(ascii.is_ascii());
-        let mut buf = [0; MAX_STR_LEN as usize + 1];
-        buf[..ascii.len()].copy_from_slice(ascii.as_bytes());
-        CSTRING {
-            len: ascii.len().try_into().unwrap(),
-            buf,
+    pub fn build(string: CArrayString) {
+        let key = key_build(&string);
+        let mut buffer = [0; MAX_STR_LEN as usize + 1];
+        let len =
+            unsafe { UTIL_Key_Build(from_ref(string.as_ref()).cast_mut(), buffer.as_mut_ptr()) };
+        match key {
+            Ok(key) => {
+                assert_eq!(key[..], buffer[..len as usize]);
+                //The c code should never write past key's len, but this is good to check.
+                assert!(buffer[len as usize..].iter().all(|x| *x == 0));
+            }
+            Err(KeyError::InputToLarge) => {
+                assert_eq!(-len, (ERRZ1 + ERRMLAST) as i16)
+            }
+            Err(KeyError::ContainsNull) => {
+                assert_eq!(-len, (ERRZ5 + ERRMLAST) as i16)
+            }
         }
     }
 
-    //This has limited side effect and may a good candidate for fuz testing.
-    #[rstest]
-    #[case("")]
-    #[case(".")]
-    #[case("1.")]
-    #[case("test string")]
-    #[case("0")]
-    #[case("10")]
-    #[case("10E")]
-    #[case("10.4")]
-    #[case(".4")]
-    #[case("10.4E")]
-    #[case("10.0")]
-    #[case("010")]
-    #[case("10.5.")]
-    #[case("-")]
-    #[case("-.")]
-    #[case("-10")]
-    #[case("-10E")]
-    #[case("-10.4")]
-    #[case("-.4")]
-    #[case("-4.")]
-    #[case("-10.4E")]
-    #[case("-10.0")]
-    #[case("-010")]
-    #[case("-10.5.")]
-    fn build_key_a_b(#[case] input: &str) {
-        let string = create_cstring(input);
-        let key = key_build(&string).unwrap();
-        let mut buffer = [0; MAX_STR_LEN as usize + 1];
-        let len = unsafe { UTIL_Key_Build(from_ref(&string).cast_mut(), buffer.as_mut_ptr()) };
-        assert_eq!(key[..], buffer[..dbg!(len) as usize]);
-        //The c code should never write past key's len, but this is good to check.
-        assert!(buffer[len as usize..].iter().all(|x| *x == 0));
-    }
-
-    fn build_key_max_size_tests() {
-        let max_key = key_build(&create_cstring(&"a".repeat(MAX_SUB_LEN as usize)));
-        assert!(max_key.is_ok());
-
-        let max_key_pluse_one = key_build(&create_cstring(&"a".repeat(MAX_SUB_LEN as usize + 1)));
-        assert_eq!(max_key_pluse_one,Err(KeyError::InputToLarge));
-    }
-
-    fn error_if_string_contains_null() {
-        let bad_string = key_build(&create_cstring(&"a\0b"));
-        assert_eq!(bad_string,Err(KeyError::ContainsNull));
-    }
-
-    fn build_key_int_to_large(){
-        let src = &"1".repeat(NON_NEGATIVE as usize);
-        let key = key_build(&create_cstring(&src)).unwrap();
-        if let KeyInternal::String(_)=  KeyInternal::from_slice(&key){
-            //large numbers are encoded as strings
-        }else{
-            panic!();
-        };
-
-    }
-
-    #[rstest]
-    #[case("")]
-    #[case(".")]
-    #[case("1.")]
-    #[case("test string")]
-    #[case("0")]
-    #[case("10")]
-    #[case("10E")]
-    #[case("10.4")]
-    #[case(".4")]
-    #[case("10.4E")]
-    #[case("10.0")]
-    #[case("010")]
-    #[case("10.5.")]
-    #[case("-")]
-    #[case("-10")]
-    #[case("-10E")]
-    #[case("-10.4")]
-    #[case("-.4")]
-    #[case("-.")]
-    #[case("-4.")]
-    #[case("-10.4E")]
-    #[case("-10.0")]
-    #[case("-010")]
-    #[case("-10.5.")]
-    fn test_extraction(#[case] input: &str) {
-        use ffi::UTIL_Key_Extract;
-
-        let string = create_cstring(input);
-        let mut input_buffer = [0; MAX_STR_LEN as usize + 1];
-        let _ = unsafe { UTIL_Key_Build(from_ref(&string).cast_mut(), input_buffer.as_mut_ptr()) };
+    pub fn extract(string: CArrayString) -> Result<(), KeyError> {
+        //let result = unsafe { UTIL_Key_Build(from_ref(string.as_ref()).cast_mut(), input_buffer.as_mut_ptr()) };
+        let key = super::key_build(&string)?;
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
         let mut cnt = 0;
-        //TODO figure out what temp correspond to.
+
+        //less then zero means there was a error building the key.
         let len = unsafe {
             UTIL_Key_Extract(
-                input_buffer.as_mut_ptr(),
+                key.clone().as_mut_ptr(),
                 output_buffer.as_mut_ptr(),
                 from_mut(&mut cnt),
             )
         };
 
-        let output = key_extract(&input_buffer);
+        let output = key_extract(&key);
         assert_eq!(output[..], output_buffer[..len as usize]);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use ffi::{CSTRING, MAX_STR_LEN};
+    use rstest::rstest;
+
+    use super::*;
+
+    impl From<&str> for CArrayString{
+        fn from(value: &str) -> Self {
+            let mut buf = [0; MAX_STR_LEN as usize + 1];
+            buf[..value.len()].copy_from_slice(value.as_bytes());
+            CArrayString(CSTRING {
+                len: value.len().try_into().unwrap(),
+                buf,
+            })
+        }
+    }
+
+
+    #[rstest]
+    #[case("")]
+    #[case(".")]
+    #[case("1.")]
+    #[case("test string")]
+    #[case("0")]
+    #[case("10")]
+    #[case("10E")]
+    #[case("10.4")]
+    #[case(".4")]
+    #[case("10.4E")]
+    #[case("10.0")]
+    #[case("010")]
+    #[case("10.5.")]
+    #[case("-")]
+    #[case("-.")]
+    #[case("-10")]
+    #[case("-10E")]
+    #[case("-10.4")]
+    #[case("-.4")]
+    #[case("-4.")]
+    #[case("-10.4E")]
+    #[case("-10.0")]
+    #[case("-010")]
+    #[case("-10.5.")]
+    fn build_a_b_test_cases(#[case] input: &str) {
+        super::a_b_testing::build(input.into());
+        super::a_b_testing::extract(input.into())
+            .expect("all of the test strings should produce valid keys");
+    }
+
+    fn build_key_max_size_tests() {
+        let max_key = key_build(&"a".repeat(MAX_SUB_LEN as usize).as_str().into());
+        assert!(max_key.is_ok());
+
+        let max_key_pluse_one = key_build(&"a".repeat(MAX_SUB_LEN as usize + 1).as_str().into());
+        assert_eq!(max_key_pluse_one, Err(KeyError::InputToLarge));
+    }
+
+    fn error_if_string_contains_null() {
+        let bad_string = key_build(&"a\0b".into());
+        assert_eq!(bad_string, Err(KeyError::ContainsNull));
+    }
+
+    fn build_key_int_to_large() {
+        let src = &"1".repeat(NON_NEGATIVE as usize);
+        let key = key_build(&src.as_str().into()).unwrap();
+        if let KeyInternal::String(_) = KeyInternal::from_slice(&key) {
+            //large numbers are encoded as strings
+        } else {
+            panic!();
+        };
     }
 }
