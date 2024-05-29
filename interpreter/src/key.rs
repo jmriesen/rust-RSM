@@ -14,12 +14,21 @@ static NON_NEGATIVE: u8 = 0b100_0000;
 //CString is already used by the std.
 #[derive(RefCast, AsMut, AsRef)]
 #[repr(transparent)]
-#[derive(Debug,Clone)]
+#[derive(Clone)] //NOTE keep the Manual Debug implementation in sync
 pub struct CArrayString(CSTRING);
 
 impl CArrayString {
-    fn content(&self) -> &[u8] {
+    pub fn content(&self) -> &[u8] {
         &self.0.buf[..self.0.len as usize]
+    }
+}
+
+impl std::fmt::Debug for CArrayString{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CArrayString")
+            .field("contnet", &self.content())
+            .field("contnet_as_utf8", &std::str::from_utf8(&self.content()))
+            .finish()
     }
 }
 
@@ -336,6 +345,7 @@ mod tests {
             .expect("all of the test strings should produce valid keys");
     }
 
+    #[test]
     fn build_key_max_size_tests() {
         let max_key = key_build(&"a".repeat(MAX_SUB_LEN as usize).as_str().into());
         assert!(max_key.is_ok());
@@ -344,18 +354,16 @@ mod tests {
         assert_eq!(max_key_pluse_one, Err(KeyError::InputToLarge));
     }
 
+    #[test]
     fn error_if_string_contains_null() {
         let bad_string = key_build(&"a\0b".into());
         assert_eq!(bad_string, Err(KeyError::ContainsNull));
     }
 
+    #[test]
     fn build_key_int_to_large() {
         let src = &"1".repeat(NON_NEGATIVE as usize);
         let key = key_build(&src.as_str().into()).unwrap();
-        if let KeyInternal::String(_) = KeyInternal::from_slice(&key) {
-            //large numbers are encoded as strings
-        } else {
-            panic!();
-        };
+        assert!(matches!(KeyInternal::from_slice(&key),KeyInternal::String(_)));
     }
 }
