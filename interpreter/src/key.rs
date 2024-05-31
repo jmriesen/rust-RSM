@@ -23,11 +23,11 @@ impl CArrayString {
     }
 }
 
-impl std::fmt::Debug for CArrayString{
+impl std::fmt::Debug for CArrayString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CArrayString")
-            .field("contnet", &self.content())
-            .field("contnet_as_utf8", &std::str::from_utf8(&self.content()))
+            .field("content", &self.content())
+            .field("content_as_utf8", &std::str::from_utf8(&self.content()))
             .finish()
     }
 }
@@ -292,6 +292,29 @@ pub mod a_b_testing {
         assert_eq!(output[..], output_buffer[..len as usize]);
         Ok(())
     }
+    /*
+    pub fn string_key(keys:&[CArrayString]) ->Result<(),KeyError>{
+        let mut key_list = KeyList::new();
+        key_list.extend(keys.iter.cloned())?;
+
+        let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
+        let mut cnt = 0;
+
+        //less then zero means there was a error building the key.
+        let len = unsafe {
+            UTIL_String_key(
+                key_list,
+                output_buffer.as_mut_ptr(),
+                max_subs
+            )
+        };
+
+        let output = key_list.string_key();
+        assert_eq!(output[..], output_buffer[..len as usize]);
+        Ok(())
+
+    }
+    */
 }
 
 #[cfg(test)]
@@ -302,7 +325,7 @@ mod tests {
 
     use super::*;
 
-    impl From<&str> for CArrayString{
+    impl From<&str> for CArrayString {
         fn from(value: &str) -> Self {
             let mut buf = [0; MAX_STR_LEN as usize + 1];
             buf[..value.len()].copy_from_slice(value.as_bytes());
@@ -312,7 +335,6 @@ mod tests {
             })
         }
     }
-
 
     #[rstest]
     #[case("")]
@@ -364,6 +386,9 @@ mod tests {
     fn build_key_int_to_large() {
         let src = &"1".repeat(NON_NEGATIVE as usize);
         let key = key_build(&src.as_str().into()).unwrap();
-        assert!(matches!(KeyInternal::from_slice(&key),KeyInternal::String(_)));
+        assert!(matches!(
+            KeyInternal::from_slice(&key),
+            KeyInternal::String(_)
+        ));
     }
 }
