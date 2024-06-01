@@ -51,30 +51,27 @@ impl KeyList {
         Self(vec![0])
     }
 
-    /// Remove once refactor is compleate.
-    fn from_raw_key(buff: &[u8]) -> Self {
-        let mut temp = vec![0];
-        temp.extend(buff);
-        Self(temp)
-    }
-
     fn extend(
         &mut self,
         iter: impl std::iter::Iterator<Item = CArrayString>,
     ) -> Result<(), KeyError> {
-        for key in iter.map(|x| key_build(&x)).collect::<Result<Vec<_>, _>>()? {
-            self.0.extend(key);
+        for key in iter {
+            self.push(&key)?;
         }
         self.0[0] = (self.0.len() + 1) as u8;
         Ok(())
     }
 
     fn string_key(&self) -> Vec<u8> {
-        dbg!(&self.0);
-        let mut tmp = key_extract(&self.0[1..], true);
-        tmp.insert(0, b'(');
-        tmp.push(b')');
-        dbg!(tmp)
+        let mut output = vec![b'('];
+        let keys = self.iter().map(|x| x.to_external(true)).peekable();
+        for key in keys {
+            output.extend(key);
+            output.push(b',');
+        }
+        //change the last ',' to a ')'.
+        *output.last_mut().unwrap() = b')';
+        output
     }
 
     fn len(&self) -> usize {
@@ -131,49 +128,34 @@ impl KeyList {
     }
 
     pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        match KeyInternal::from_slice(self.raw_keys()) {
-            KeyInternal::Null => {
-                if quote_strings {
-                    vec![b'"', b'"']
-                } else {
-                    vec![]
-                }
-            }
-            KeyInternal::Zero => vec![b'0'],
-            KeyInternal::Positive { int_part, dec_part } => {
-                let mut key = Vec::from(int_part);
-                if !dec_part.is_empty() {
-                    key.push(b'.');
-                    key.extend(dec_part);
-                }
-                key
-            }
-            KeyInternal::Negative { int_part, dec_part } => {
-                let mut key = vec![b'-'];
-                key.extend(int_part.map(|x| b'9' + b'0' - x));
-                let mut dec_part = dec_part.peekable();
-                if dec_part.peek().is_some() {
-                    key.push(b'.');
-                    key.extend(dec_part.map(|x| b'9' + b'0' - x));
-                }
-                key
-            }
-            KeyInternal::String(string) => {
-                let mut string = Vec::from(string);
-                if quote_strings {
-                    string.insert(0, b'"');
-                    string.push(b'"');
-                }
-                string
-            }
-            KeyInternal::Bug => {
-                vec![b'-']
-            }
-        }
+        //Note I should probublby remove this at some point.
+        //It currently assumes there is at least one key in storage.
+        self.iter().next().unwrap().to_external(quote_strings)
+    }
+    fn iter(&self) -> KeyIter {
+        KeyIter { tail: &self.0[1..] }
     }
 
     unsafe fn as_raw(&mut self) -> *mut u8 {
         dbg!(&mut self.0).as_mut_ptr()
+    }
+}
+
+struct KeyIter<'a> {
+    tail: &'a [u8],
+}
+
+impl<'a> std::iter::Iterator for KeyIter<'a> {
+    type Item = KeyInternal<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.tail.is_empty() {
+            None
+        } else {
+            let (key, tail) = KeyInternal::from_internal(self.tail);
+            self.tail = tail;
+            Some(key)
+        }
     }
 }
 
@@ -263,16 +245,21 @@ impl<'a> KeyInternal<'a> {
         }
     }
 
-    fn from_slice(slice: &'a [u8]) -> Self {
+    // I don't really like returing the tail as part of the tuple
+    // but it will work for now.
+    fn from_internal(slice: &'a [u8]) -> (Self, &'a [u8]) {
         let flag = slice[0];
         let data = &slice[1..];
         match flag {
-            0 if data[0] == 0 => Self::Null,
+            0 if data[0] == 0 => (Self::Null, &data[1..]),
             x if x & STRING_FLAG != 0 => {
                 //TODO check if I should be including the null string.
-                Self::String(data.split(|x| *x == 0).next().unwrap())
+                let (string, tail) = data
+                    .split_once(|x| *x == 0)
+                    .expect("There should always be an end marker");
+                (Self::String(string), tail)
             }
-            63 if data[0] == 255 => Self::Bug,
+            63 if data[0] == 255 => (Self::Bug, &data[1..]),
             x => {
                 let non_negative = x & NON_NEGATIVE != 0;
                 let int_len = if non_negative {
@@ -284,12 +271,11 @@ impl<'a> KeyInternal<'a> {
                 let end_marker = if non_negative { 0 } else { 255 };
 
                 let int_part = &data[0..int_len as usize];
-                let dec_part = data[int_len as usize..]
-                    .split(|x| *x == end_marker)
-                    .next()
-                    .unwrap();
+                let (dec_part, tail) = data[int_len as usize..]
+                    .split_once(|x| *x == end_marker)
+                    .expect("There should always be an end marker");
 
-                if int_part.is_empty() && dec_part.is_empty() {
+                let val = if int_part.is_empty() && dec_part.is_empty() {
                     Self::Zero
                 } else if non_negative {
                     Self::Positive { int_part, dec_part }
@@ -298,23 +284,55 @@ impl<'a> KeyInternal<'a> {
                         int_part: Box::new(int_part.iter().map(|x| *x)),
                         dec_part: Box::new(dec_part.iter().map(|x| *x)),
                     }
-                }
+                };
+                (val, tail)
             }
         }
     }
-}
 
-pub fn key_build(src: &CArrayString) -> Result<Key, KeyError> {
-    let mut list = KeyList::new();
-    list.push(src)?;
-    Ok(Key::from(list.raw_keys()))
-}
-
-//TODO remove use of the string type.
-//There is no guarantee that the M string will be valid urf8
-pub fn key_extract(buff: &[u8], quote_strings: bool) -> Key {
-    let tmp = KeyList::from_raw_key(buff);
-    tmp.key_extract(quote_strings)
+    //TODO consider removing alocation.
+    //There is nothing inharent to this method that requires allocation.
+    fn to_external(self, quote_strings: bool) -> Vec<u8> {
+        match self {
+            KeyInternal::Null => {
+                if quote_strings {
+                    vec![b'"', b'"']
+                } else {
+                    vec![]
+                }
+            }
+            KeyInternal::Zero => vec![b'0'],
+            KeyInternal::Positive { int_part, dec_part } => {
+                let mut key = Vec::from(int_part);
+                if !dec_part.is_empty() {
+                    key.push(b'.');
+                    key.extend(dec_part);
+                }
+                key
+            }
+            KeyInternal::Negative { int_part, dec_part } => {
+                let mut key = vec![b'-'];
+                key.extend(int_part.map(|x| b'9' + b'0' - x));
+                let mut dec_part = dec_part.peekable();
+                if dec_part.peek().is_some() {
+                    key.push(b'.');
+                    key.extend(dec_part.map(|x| b'9' + b'0' - x));
+                }
+                key
+            }
+            KeyInternal::String(string) => {
+                let mut string = Vec::from(string);
+                if quote_strings {
+                    string.insert(0, b'"');
+                    string.push(b'"');
+                }
+                string
+            }
+            KeyInternal::Bug => {
+                vec![b'-']
+            }
+        }
+    }
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
@@ -325,13 +343,14 @@ pub mod a_b_testing {
 
     use super::*;
     pub fn build(string: CArrayString) {
-        let key = key_build(&string);
+        let mut keys = super::KeyList::new();
+        let result = keys.push(&string);
         let mut buffer = [0; MAX_STR_LEN as usize + 1];
         let len =
             unsafe { UTIL_Key_Build(from_ref(string.as_ref()).cast_mut(), buffer.as_mut_ptr()) };
-        match key {
-            Ok(key) => {
-                assert_eq!(key[..], buffer[..len as usize]);
+        match result {
+            Ok(()) => {
+                assert_eq!(keys.raw_keys(), &buffer[..len as usize]);
                 //The c code should never write past key's len, but this is good to check.
                 assert!(buffer[len as usize..].iter().all(|x| *x == 0));
             }
@@ -345,21 +364,21 @@ pub mod a_b_testing {
     }
 
     pub fn extract(string: CArrayString) -> Result<(), KeyError> {
-        //let result = unsafe { UTIL_Key_Build(from_ref(string.as_ref()).cast_mut(), input_buffer.as_mut_ptr()) };
-        let key = super::key_build(&string)?;
+        let mut key_list = super::KeyList::new();
+        key_list.push(&string)?;
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
         let mut cnt = 0;
 
         //less then zero means there was a error building the key.
         let len = unsafe {
             UTIL_Key_Extract(
-                key.clone().as_mut_ptr(),
+                key_list.raw_keys().as_ptr().cast_mut(),
                 output_buffer.as_mut_ptr(),
                 from_mut(&mut cnt),
             )
         };
 
-        let output = key_extract(&key, false);
+        let output = key_list.key_extract(false);
         assert_eq!(output[..], output_buffer[..len as usize]);
         Ok(())
     }
@@ -437,26 +456,32 @@ mod tests {
     }
 
     #[test]
-    fn build_key_max_size_tests() {
-        let max_key = key_build(&"a".repeat(MAX_SUB_LEN as usize).as_str().into());
-        assert!(max_key.is_ok());
-
-        let max_key_pluse_one = key_build(&"a".repeat(MAX_SUB_LEN as usize + 1).as_str().into());
-        assert_eq!(max_key_pluse_one, Err(KeyError::InputToLarge));
+    fn max_key_size() {
+        let mut keys = KeyList::new();
+        let result = keys.push(&"a".repeat(MAX_SUB_LEN as usize).as_str().into());
+        assert_eq!(result, Ok(()));
+    }
+    #[test]
+    fn key_that_is_to_large() {
+        let mut keys = KeyList::new();
+        let result = keys.push(&"a".repeat(MAX_SUB_LEN as usize + 1).as_str().into());
+        assert_eq!(result, Err(KeyError::InputToLarge));
     }
 
     #[test]
     fn error_if_string_contains_null() {
-        let bad_string = key_build(&"a\0b".into());
-        assert_eq!(bad_string, Err(KeyError::ContainsNull));
+        let mut keys = KeyList::new();
+        let result = keys.push(&"a\0b".into());
+        assert_eq!(result, Err(KeyError::ContainsNull));
     }
 
     #[test]
     fn build_key_int_to_large() {
-        let src = &"1".repeat(NON_NEGATIVE as usize);
-        let key = key_build(&src.as_str().into()).unwrap();
+        let src: CArrayString = "1".repeat(NON_NEGATIVE as usize).as_str().into();
+        let mut keys = KeyList::new();
+        keys.push(&src).unwrap();
         assert!(matches!(
-            KeyInternal::from_slice(&key),
+            KeyInternal::from_internal(keys.raw_keys()).0,
             KeyInternal::String(_)
         ));
     }
@@ -474,6 +499,6 @@ mod tests {
             .into_iter()
             .map(|x| (*x).into())
             .collect::<Vec<_>>();
-        let keys = matches!(string_key(&keys), Ok(_));
+        matches!(string_key(&keys), Ok(_));
     }
 }
