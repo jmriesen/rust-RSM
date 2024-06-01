@@ -41,6 +41,142 @@ impl<'a> Arbitrary<'a> for CArrayString {
     }
 }
 
+/// Stores a list of keys.
+/// This is a work in progress
+///
+/// NOTE this currently only supports one key.
+struct KeyList(Vec<u8>);
+impl KeyList {
+    fn new() -> Self {
+        Self(vec![0])
+    }
+
+    /// Remove once refactor is compleate.
+    fn from_raw_key(buff: &[u8]) -> Self {
+        let mut temp = vec![0];
+        temp.extend(buff);
+        Self(temp)
+    }
+
+    fn extend(
+        &mut self,
+        iter: impl std::iter::Iterator<Item = CArrayString>,
+    ) -> Result<(), KeyError> {
+        for key in iter.map(|x| key_build(&x)).collect::<Result<Vec<_>, _>>()? {
+            self.0.extend(key);
+        }
+        self.0[0] = (self.0.len() + 1) as u8;
+        Ok(())
+    }
+
+    fn string_key(&self) -> Vec<u8> {
+        dbg!(&self.0);
+        let mut tmp = key_extract(&self.0[1..], true);
+        tmp.insert(0, b'(');
+        tmp.push(b')');
+        dbg!(tmp)
+    }
+
+    fn len(&self) -> usize {
+        self.0[0] as usize
+    }
+
+    fn raw_keys(&self) -> &[u8] {
+        &self.0[1..]
+    }
+
+    fn push(&mut self, src: &CArrayString) -> Result<(), KeyError> {
+        //TODO update the size
+        let internal_key = KeyInternal::new(&src)?;
+        let end_mark = match internal_key {
+            KeyInternal::Null => {
+                self.0.push(b'\0');
+                None
+            }
+            KeyInternal::Zero => {
+                self.0.push(NON_NEGATIVE);
+                None
+            }
+            KeyInternal::Positive { int_part, dec_part } => {
+                self.0.push(NON_NEGATIVE + int_part.len() as u8);
+                self.0.extend(int_part);
+                self.0.extend(dec_part);
+                None
+            }
+            KeyInternal::Negative { int_part, dec_part } => {
+                self.0.push(63 - int_part.len() as u8);
+                //TODO figure out how this complement is supposed to work.
+                self.0.extend(int_part);
+                self.0.extend(dec_part);
+                Some(255)
+            }
+            KeyInternal::String(contents) => {
+                self.0.push(STRING_FLAG);
+                self.0.extend(contents);
+                None
+            }
+            KeyInternal::Bug => {
+                //I think this case is a bug in the C code
+                //For now I am replicating the behavior
+                //Encoding as -0
+                self.0.extend([63, 255]);
+                return Ok(());
+            }
+        };
+        //Adding end markers
+        //NOTE Negatives use 255 as an end mark for some reason.
+        //at some point when I understand 9's complement better I should se if I can remove this
+        self.0.push(end_mark.unwrap_or(b'\0'));
+        Ok(())
+    }
+
+    pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
+        match KeyInternal::from_slice(self.raw_keys()) {
+            KeyInternal::Null => {
+                if quote_strings {
+                    vec![b'"', b'"']
+                } else {
+                    vec![]
+                }
+            }
+            KeyInternal::Zero => vec![b'0'],
+            KeyInternal::Positive { int_part, dec_part } => {
+                let mut key = Vec::from(int_part);
+                if !dec_part.is_empty() {
+                    key.push(b'.');
+                    key.extend(dec_part);
+                }
+                key
+            }
+            KeyInternal::Negative { int_part, dec_part } => {
+                let mut key = vec![b'-'];
+                key.extend(int_part.map(|x| b'9' + b'0' - x));
+                let mut dec_part = dec_part.peekable();
+                if dec_part.peek().is_some() {
+                    key.push(b'.');
+                    key.extend(dec_part.map(|x| b'9' + b'0' - x));
+                }
+                key
+            }
+            KeyInternal::String(string) => {
+                let mut string = Vec::from(string);
+                if quote_strings {
+                    string.insert(0, b'"');
+                    string.push(b'"');
+                }
+                string
+            }
+            KeyInternal::Bug => {
+                vec![b'-']
+            }
+        }
+    }
+
+    unsafe fn as_raw(&mut self) -> *mut u8 {
+        dbg!(&mut self.0).as_mut_ptr()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum KeyError {
     InputToLarge,
@@ -169,81 +305,16 @@ impl<'a> KeyInternal<'a> {
 }
 
 pub fn key_build(src: &CArrayString) -> Result<Key, KeyError> {
-    let mut key = Key::new();
-    let internal_key = KeyInternal::new(&src)?;
-    let end_mark = match internal_key {
-        KeyInternal::Null => {
-            key.push(b'\0');
-            None
-        }
-        KeyInternal::Zero => {
-            key.push(NON_NEGATIVE);
-            None
-        }
-        KeyInternal::Positive { int_part, dec_part } => {
-            key.push(NON_NEGATIVE + int_part.len() as u8);
-            key.extend(int_part);
-            key.extend(dec_part);
-            None
-        }
-        KeyInternal::Negative { int_part, dec_part } => {
-            key.push(63 - int_part.len() as u8);
-            //TODO figure out how this complement is supposed to work.
-            key.extend(int_part);
-            key.extend(dec_part);
-            Some(255)
-        }
-        KeyInternal::String(contents) => {
-            key.push(STRING_FLAG);
-            key.extend(contents);
-            None
-        }
-        KeyInternal::Bug => {
-            //I think this case is a bug in the C code
-            //For now I am replicating the behavior
-            //Encoding as -0
-            key.extend([63, 255]);
-            return Ok(key);
-        }
-    };
-    //Adding end markers
-    //NOTE Negatives use 255 as an end mark for some reason.
-    //at some point when I understand 9's complement better I should se if I can remove this inconsistency
-    key.push(end_mark.unwrap_or(b'\0'));
-    Ok(key)
+    let mut list = KeyList::new();
+    list.push(src)?;
+    Ok(Key::from(list.raw_keys()))
 }
 
 //TODO remove use of the string type.
 //There is no guarantee that the M string will be valid urf8
-pub fn key_extract(buff: &[u8]) -> Key {
-    match KeyInternal::from_slice(buff) {
-        KeyInternal::Null => {
-            vec![]
-        }
-        KeyInternal::Zero => vec![b'0'],
-        KeyInternal::Positive { int_part, dec_part } => {
-            let mut key = Vec::from(int_part);
-            if !dec_part.is_empty() {
-                key.push(b'.');
-                key.extend(dec_part);
-            }
-            key
-        }
-        KeyInternal::Negative { int_part, dec_part } => {
-            let mut key = vec![b'-'];
-            key.extend(int_part.map(|x| b'9' + b'0' - x));
-            let mut dec_part = dec_part.peekable();
-            if dec_part.peek().is_some() {
-                key.push(b'.');
-                key.extend(dec_part.map(|x| b'9' + b'0' - x));
-            }
-            key
-        }
-        KeyInternal::String(string) => Vec::from(string),
-        KeyInternal::Bug => {
-            vec![b'-']
-        }
-    }
+pub fn key_extract(buff: &[u8], quote_strings: bool) -> Key {
+    let tmp = KeyList::from_raw_key(buff);
+    tmp.key_extract(quote_strings)
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
@@ -288,38 +359,36 @@ pub mod a_b_testing {
             )
         };
 
-        let output = key_extract(&key);
+        let output = key_extract(&key, false);
         assert_eq!(output[..], output_buffer[..len as usize]);
         Ok(())
     }
-    /*
-    pub fn string_key(keys:&[CArrayString]) ->Result<(),KeyError>{
+
+    pub fn string_key(keys: &[CArrayString]) -> Result<(), KeyError> {
         let mut key_list = KeyList::new();
-        key_list.extend(keys.iter.cloned())?;
+        let _ = key_list.extend(keys.iter().cloned())?;
+        let output = key_list.string_key();
 
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
-        let mut cnt = 0;
 
         //less then zero means there was a error building the key.
         let len = unsafe {
-            UTIL_String_key(
-                key_list,
+            ffi::UTIL_String_Key(
+                key_list.as_raw(),
                 output_buffer.as_mut_ptr(),
-                max_subs
+                keys.len() as i32,
             )
         };
 
-        let output = key_list.string_key();
-        assert_eq!(output[..], output_buffer[..len as usize]);
+        assert_eq!(&output, &output_buffer[..dbg!(len) as usize]);
         Ok(())
-
     }
-    */
 }
 
 #[cfg(test)]
 mod tests {
 
+    use a_b_testing::string_key;
     use ffi::{CSTRING, MAX_STR_LEN};
     use rstest::rstest;
 
@@ -390,5 +459,21 @@ mod tests {
             KeyInternal::from_slice(&key),
             KeyInternal::String(_)
         ));
+    }
+
+    #[rstest]
+    #[case(&["only"])]
+    #[case(&[""])]
+    #[case(&["9"])]
+    #[case(&["-9"])]
+    #[case(&["-9.0"])]
+    #[case(&["f","s"])]
+    fn key_extract_string(#[case] raw_keys: &[&str]) {
+        //let keys = ["Test".into(), "Keys".into()];
+        let keys = raw_keys
+            .into_iter()
+            .map(|x| (*x).into())
+            .collect::<Vec<_>>();
+        let keys = matches!(string_key(&keys), Ok(_));
     }
 }
