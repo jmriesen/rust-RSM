@@ -27,3 +27,10 @@ path = "fuzz_targets/key_extract.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "key_string"
+path = "fuzz_targets/key_string.rs"
+test = false
+doc = false
+bench = false

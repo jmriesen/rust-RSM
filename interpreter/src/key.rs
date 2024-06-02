@@ -45,9 +45,9 @@ impl<'a> Arbitrary<'a> for CArrayString {
 /// This is a work in progress
 ///
 /// NOTE this currently only supports one key.
-struct KeyList(Vec<u8>);
+pub struct KeyList(Vec<u8>);
 impl KeyList {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self(vec![0])
     }
 
@@ -64,13 +64,19 @@ impl KeyList {
 
     fn string_key(&self) -> Vec<u8> {
         let mut output = vec![b'('];
-        let keys = self.iter().map(|x| x.to_external(true)).peekable();
+        let mut keys = self.iter().map(|x| x.to_external(true)).peekable();
+        let non_empty = keys.peek().is_some();
+
         for key in keys {
             output.extend(key);
             output.push(b',');
         }
-        //change the last ',' to a ')'.
-        *output.last_mut().unwrap() = b')';
+        if non_empty {
+            //change the last ',' to a ')'.
+            *output.last_mut().unwrap() = b')';
+        } else {
+            output.push(b')');
+        }
         output
     }
 
@@ -82,7 +88,7 @@ impl KeyList {
         &self.0[1..]
     }
 
-    fn push(&mut self, src: &CArrayString) -> Result<(), KeyError> {
+    pub fn push(&mut self, src: &CArrayString) -> Result<(), KeyError> {
         //TODO update the size
         let internal_key = KeyInternal::new(&src)?;
         let end_mark = match internal_key {
@@ -132,16 +138,16 @@ impl KeyList {
         //It currently assumes there is at least one key in storage.
         self.iter().next().unwrap().to_external(quote_strings)
     }
-    fn iter(&self) -> KeyIter {
+    pub fn iter(&self) -> KeyIter {
         KeyIter { tail: &self.0[1..] }
     }
 
     unsafe fn as_raw(&mut self) -> *mut u8 {
-        dbg!(&mut self.0).as_mut_ptr()
+        (&mut self.0).as_mut_ptr()
     }
 }
 
-struct KeyIter<'a> {
+pub struct KeyIter<'a> {
     tail: &'a [u8],
 }
 
@@ -165,7 +171,7 @@ pub enum KeyError {
     ContainsNull,
 }
 
-enum KeyInternal<'a> {
+pub enum KeyInternal<'a> {
     Null,
     Zero,
     Positive {
@@ -292,7 +298,7 @@ impl<'a> KeyInternal<'a> {
 
     //TODO consider removing alocation.
     //There is nothing inharent to this method that requires allocation.
-    fn to_external(self, quote_strings: bool) -> Vec<u8> {
+    pub fn to_external(self, quote_strings: bool) -> Vec<u8> {
         match self {
             KeyInternal::Null => {
                 if quote_strings {
@@ -321,12 +327,26 @@ impl<'a> KeyInternal<'a> {
                 key
             }
             KeyInternal::String(string) => {
-                let mut string = Vec::from(string);
                 if quote_strings {
-                    string.insert(0, b'"');
-                    string.push(b'"');
+                    let mut output = vec![b'"'];
+                    let ends_with_quote =
+                        *string.last().expect("empty strings are handle as null") == b'"';
+                    //strings are escaped by adding a second " so "\"" = """"
+                    let segments = string.split_inclusive(|x| *x == b'"');
+                    for segment in segments {
+                        output.extend(segment);
+                        output.push(b'"');
+                    }
+
+                    //if the last segment ends in a quote we need to
+                    //add an extra one due to how split_inclusive works.
+                    if ends_with_quote {
+                        output.push(b'"');
+                    }
+                    output
+                } else {
+                    Vec::from(string)
                 }
-                string
             }
             KeyInternal::Bug => {
                 vec![b'-']
@@ -342,6 +362,7 @@ pub mod a_b_testing {
     use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
     use super::*;
+    //TODO all of these should be revampted to work on arrays of keys.
     pub fn build(string: CArrayString) {
         let mut keys = super::KeyList::new();
         let result = keys.push(&string);
@@ -399,7 +420,7 @@ pub mod a_b_testing {
             )
         };
 
-        assert_eq!(&output, &output_buffer[..dbg!(len) as usize]);
+        assert_eq!(&output, &output_buffer[..len as usize]);
         Ok(())
     }
 }
@@ -489,10 +510,12 @@ mod tests {
     #[rstest]
     #[case(&["only"])]
     #[case(&[""])]
+    #[case(&["\""])]
     #[case(&["9"])]
     #[case(&["-9"])]
     #[case(&["-9.0"])]
     #[case(&["f","s"])]
+    #[case(&["","s","9","-9"])]
     fn key_extract_string(#[case] raw_keys: &[&str]) {
         //let keys = ["Test".into(), "Keys".into()];
         let keys = raw_keys

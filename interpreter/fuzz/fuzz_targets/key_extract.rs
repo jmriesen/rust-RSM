@@ -1,12 +1,14 @@
 #![no_main]
 
-use interpreter::key::{a_b_testing, key_build, key_extract, CArrayString};
+use interpreter::key::{a_b_testing, CArrayString, KeyList};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|string: CArrayString| {
     let _ = a_b_testing::extract(string.clone());
-    if let Ok(key) = key_build(&string) {
-        let extracted = key_extract(&key, false);
+    let mut keys = KeyList::new();
+
+    if let Ok(()) = keys.push(&string) {
+        let extracted = keys.iter().next().unwrap().to_external(false);
         let contents = string.content();
 
         //NOTE for some reason negative numbers with a trailing decimal point
