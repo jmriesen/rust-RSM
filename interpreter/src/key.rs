@@ -4,9 +4,6 @@ use derive_more::{AsMut, AsRef};
 use ffi::{CSTRING, MAX_SUB_LEN};
 use ref_cast::RefCast;
 
-//TODO I will eventually want to be able to write a string in place.
-type Key = Vec<u8>;
-
 static STRING_FLAG: u8 = 0b1000_0000;
 static NON_NEGATIVE: u8 = 0b100_0000;
 
@@ -63,21 +60,24 @@ impl KeyList {
     }
 
     fn string_key(&self) -> Vec<u8> {
-        let mut output = vec![b'('];
-        let mut keys = self.iter().map(|x| x.to_external(true)).peekable();
+        let mut out_put = vec![b'('];
+        let mut keys = self
+            .iter()
+            .map(|x| KeyInternal::from_internal(x).to_external(true))
+            .peekable();
         let non_empty = keys.peek().is_some();
 
         for key in keys {
-            output.extend(key);
-            output.push(b',');
+            out_put.extend(key);
+            out_put.push(b',');
         }
         if non_empty {
             //change the last ',' to a ')'.
-            *output.last_mut().unwrap() = b')';
+            *out_put.last_mut().unwrap() = b')';
         } else {
-            output.push(b')');
+            out_put.push(b')');
         }
-        output
+        out_put
     }
 
     fn len(&self) -> usize {
@@ -107,7 +107,7 @@ impl KeyList {
                 None
             }
             KeyInternal::Negative { int_part, dec_part } => {
-                self.0.push(63 - int_part.len() as u8);
+                self.0.push(NON_NEGATIVE - 1 - int_part.len() as u8);
                 //TODO figure out how this complement is supposed to work.
                 self.0.extend(int_part);
                 self.0.extend(dec_part);
@@ -128,15 +128,15 @@ impl KeyList {
         };
         //Adding end markers
         //NOTE Negatives use 255 as an end mark for some reason.
-        //at some point when I understand 9's complement better I should se if I can remove this
+        //at some point when I understand 9's complement better I should see if I can remove this
         self.0.push(end_mark.unwrap_or(b'\0'));
         Ok(())
     }
 
+    //Note I should probably remove this at some point.
+    //It currently assumes there is at least one key in storage.
     pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        //Note I should probublby remove this at some point.
-        //It currently assumes there is at least one key in storage.
-        self.iter().next().unwrap().to_external(quote_strings)
+        KeyInternal::from_internal(self.iter().next().unwrap()).to_external(quote_strings)
     }
     pub fn iter(&self) -> KeyIter {
         KeyIter { tail: &self.0[1..] }
@@ -147,20 +147,42 @@ impl KeyList {
     }
 }
 
+pub struct KeyRef<'a>(&'a [u8]);
+
 pub struct KeyIter<'a> {
     tail: &'a [u8],
 }
 
 impl<'a> std::iter::Iterator for KeyIter<'a> {
-    type Item = KeyInternal<'a>;
+    type Item = KeyRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.tail.is_empty() {
-            None
-        } else {
-            let (key, tail) = KeyInternal::from_internal(self.tail);
-            self.tail = tail;
-            Some(key)
+        match self.tail.first() {
+            //special handling for null.
+            //since the flagged value == the end mark value
+            //we need to manually split the string.
+            Some(b'\0') => {
+                // null is formatted as [b'\0',b'\0']
+                let (key, tail) = (&self.tail[..1], &self.tail[2..]);
+                self.tail = tail;
+                Some(KeyRef(key))
+            }
+
+            Some(x) => {
+                let end_mark = match *x {
+                    x if x & STRING_FLAG != 0 => b'\0',
+                    x if x & NON_NEGATIVE != 0 => b'\0',
+                    //negative numbers
+                    _ => 255,
+                };
+                let (key, tail) = self
+                    .tail
+                    .split_once(|x| *x == end_mark)
+                    .expect("all keys must contain an endmark");
+                self.tail = tail;
+                Some(KeyRef(key))
+            }
+            None => None,
         }
     }
 }
@@ -218,21 +240,21 @@ impl<'a> KeyInternal<'a> {
                 .next()
                 .expect("empty string case should have already been handled");
             let dec_part = parts.next();
-            let trailing_dot = dec_part == Some(&[]) && !negative; // the anding with !negative seems like a but, but this matches the C codes behavior
+            let trailing_dot = dec_part == Some(&[]) && !negative; // the ending with !negative seems like a but, but this matches the C codes behavior
             let dec_part = dec_part.unwrap_or_default();
 
-            let leading_traling_zeros =
+            let leading_trailing_zeros =
                 int_part.starts_with(&[b'0']) || dec_part.ends_with(&[b'0']);
 
-            let is_numaric = |x: &[u8]| x.iter().all(|x| (b'0'..=b'9').contains(x));
-            let numaric = is_numaric(int_part) && is_numaric(dec_part);
-            let contains_no_digets = int_part.is_empty() && dec_part.is_empty();
+            let is_numeric = |x: &[u8]| x.iter().all(|x| (b'0'..=b'9').contains(x));
+            let numeric = is_numeric(int_part) && is_numeric(dec_part);
+            let contains_no_digits = int_part.is_empty() && dec_part.is_empty();
 
-            if !numaric
+            if !numeric
                 || trailing_dot
-                || leading_traling_zeros
+                || leading_trailing_zeros
                 || parts.next().is_some()
-                || contains_no_digets
+                || contains_no_digits
                 || int_part.len() > NON_NEGATIVE as usize - 1
             {
                 if contents.contains(&b'\0') {
@@ -251,21 +273,15 @@ impl<'a> KeyInternal<'a> {
         }
     }
 
-    // I don't really like returing the tail as part of the tuple
+    // I don't really like returning the tail as part of the tuple
     // but it will work for now.
-    fn from_internal(slice: &'a [u8]) -> (Self, &'a [u8]) {
-        let flag = slice[0];
-        let data = &slice[1..];
+    fn from_internal(key: KeyRef<'a>) -> Self {
+        let flag = key.0[0];
+        let data = &key.0[1..];
         match flag {
-            0 if data[0] == 0 => (Self::Null, &data[1..]),
-            x if x & STRING_FLAG != 0 => {
-                //TODO check if I should be including the null string.
-                let (string, tail) = data
-                    .split_once(|x| *x == 0)
-                    .expect("There should always be an end marker");
-                (Self::String(string), tail)
-            }
-            63 if data[0] == 255 => (Self::Bug, &data[1..]),
+            0 if data.is_empty() => Self::Null,
+            x if x & STRING_FLAG != 0 => Self::String(&data),
+            63 if data.is_empty() => Self::Bug,
             x => {
                 let non_negative = x & NON_NEGATIVE != 0;
                 let int_len = if non_negative {
@@ -274,14 +290,10 @@ impl<'a> KeyInternal<'a> {
                     NON_NEGATIVE - 1 - x
                 };
 
-                let end_marker = if non_negative { 0 } else { 255 };
-
                 let int_part = &data[0..int_len as usize];
-                let (dec_part, tail) = data[int_len as usize..]
-                    .split_once(|x| *x == end_marker)
-                    .expect("There should always be an end marker");
+                let dec_part = &data[int_len as usize..];
 
-                let val = if int_part.is_empty() && dec_part.is_empty() {
+                if int_part.is_empty() && dec_part.is_empty() {
                     Self::Zero
                 } else if non_negative {
                     Self::Positive { int_part, dec_part }
@@ -290,14 +302,13 @@ impl<'a> KeyInternal<'a> {
                         int_part: Box::new(int_part.iter().map(|x| *x)),
                         dec_part: Box::new(dec_part.iter().map(|x| *x)),
                     }
-                };
-                (val, tail)
+                }
             }
         }
     }
 
-    //TODO consider removing alocation.
-    //There is nothing inharent to this method that requires allocation.
+    //TODO consider removing allocation.
+    //There is nothing inherent to this method that requires allocation.
     pub fn to_external(self, quote_strings: bool) -> Vec<u8> {
         match self {
             KeyInternal::Null => {
@@ -362,7 +373,7 @@ pub mod a_b_testing {
     use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
     use super::*;
-    //TODO all of these should be revampted to work on arrays of keys.
+    //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(string: CArrayString) {
         let mut keys = super::KeyList::new();
         let result = keys.push(&string);
@@ -388,14 +399,14 @@ pub mod a_b_testing {
         let mut key_list = super::KeyList::new();
         key_list.push(&string)?;
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
-        let mut cnt = 0;
+        let mut count = 0;
 
         //less then zero means there was a error building the key.
         let len = unsafe {
             UTIL_Key_Extract(
                 key_list.raw_keys().as_ptr().cast_mut(),
                 output_buffer.as_mut_ptr(),
-                from_mut(&mut cnt),
+                from_mut(&mut count),
             )
         };
 
@@ -436,11 +447,11 @@ mod tests {
 
     impl From<&str> for CArrayString {
         fn from(value: &str) -> Self {
-            let mut buf = [0; MAX_STR_LEN as usize + 1];
-            buf[..value.len()].copy_from_slice(value.as_bytes());
+            let mut buffer = [0; MAX_STR_LEN as usize + 1];
+            buffer[..value.len()].copy_from_slice(value.as_bytes());
             CArrayString(CSTRING {
                 len: value.len().try_into().unwrap(),
-                buf,
+                buf: buffer,
             })
         }
     }
@@ -502,7 +513,7 @@ mod tests {
         let mut keys = KeyList::new();
         keys.push(&src).unwrap();
         assert!(matches!(
-            KeyInternal::from_internal(keys.raw_keys()).0,
+            KeyInternal::from_internal(KeyRef(keys.raw_keys())),
             KeyInternal::String(_)
         ));
     }
