@@ -8,7 +8,7 @@ fuzz_target!(|string: CArrayString| {
     let mut keys = KeyList::new();
 
     if let Ok(()) = keys.push(&string) {
-        let extracted = keys.iter().next().unwrap().to_external(false);
+        let extracted = keys.key_extract(false);
         let contents = string.content();
 
         //NOTE for some reason negative numbers with a trailing decimal point
