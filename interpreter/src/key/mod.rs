@@ -99,6 +99,7 @@ impl KeyList {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub struct KeyRef<'a>(&'a [u8]);
 pub struct KeyIter<'a> {
     tail: &'a [u8],
@@ -273,11 +274,28 @@ mod tests {
     #[case(&["f","s"])]
     #[case(&["","s","9","-9"])]
     fn key_extract_string(#[case] raw_keys: &[&str]) {
-        //let keys = ["Test".into(), "Keys".into()];
         let keys = raw_keys
             .into_iter()
             .map(|x| (*x).into())
             .collect::<Vec<_>>();
         matches!(string_key(&keys), Ok(_));
+    }
+
+    #[test]
+    fn key_cmp() -> Result<(), KeyError> {
+        //NOTE CStrings are really large so putting 4 in a array will over flow the unit tests
+        //stack
+        let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];
+        //let keys = ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.into());
+        for [a, b] in keys.array_windows() {
+            let mut list = KeyList::new();
+            list.push(&dbg!((*a).into()))?;
+            list.push(&dbg!((*b).into()))?;
+            let mut iter = list.iter();
+            let a = iter.next().unwrap();
+            let b = iter.next().unwrap();
+            assert!(a < b);
+        }
+        Ok(())
     }
 }

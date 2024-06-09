@@ -54,7 +54,7 @@ impl<'a> ParsedKey<'a> {
             Ok(Self::Zero)
         } else if contents == &[b'-', b'.'] {
             Ok(Self::Bug)
-        } else if contents.contains(b'\0') {
+        } else if contents.contains(&b'\0') {
             Err(KeyError::ContainsNull)
         } else {
             //attempt to parse as a number
@@ -274,5 +274,22 @@ impl<'a> std::iter::Iterator for KeyIter<'a> {
             }
             None => None,
         }
+    }
+}
+
+impl<'a> Ord for KeyRef<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let len = self.0.len().min(other.0.len());
+
+        match self.0[..len].cmp(&other.0[..len]) {
+            //NOTE If the prefixes are the same the longer one comes first.
+            std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()).reverse(),
+            x => x,
+        }
+    }
+}
+impl<'a> PartialOrd for KeyRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
