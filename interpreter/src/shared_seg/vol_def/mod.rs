@@ -106,7 +106,7 @@ fn map_as_slice(val: &VOL_DEF) -> &[u8] {
 /// If to long grab the last `VOL_FILENAME_MAX` chars.
 /// If to short otherwise pad with trailing 0s.
 #[must_use]
-pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
+pub fn format_name(path: &Path) -> [libc::c_char; VOL_FILENAME_MAX as usize + 1] {
     //test canonicalize depends on the actual file system and is therefore hard to mock.
     //for right now I have decided to not worry about getting canonicalize into a test harness, mostly for simplicities sake.
     //testing this will become much easier if I decide to containorize the unit tests.
@@ -118,14 +118,14 @@ pub mod global_buf;
 /// This should only be used by `format_name`, but was pulled out so it was easier to test.
 pub mod label;
 /// (canonicalized file names are absolute/have to actually exist witch makes it a pain to construct test file names of the correct length)
-fn format_file_name_helper(file_name: &str) -> [libc::c_char; VOL_FILENAME_MAX as usize] {
+fn format_file_name_helper(file_name: &str) -> [libc::c_char; VOL_FILENAME_MAX as usize + 1] {
     file_name
         .bytes()
         .rev()
-        .take(VOL_FILENAME_MAX as usize)
+        .take(VOL_FILENAME_MAX as usize + 1)
         .rev()
         .chain(std::iter::repeat(0))
-        .take(VOL_FILENAME_MAX as usize)
+        .take(VOL_FILENAME_MAX as usize + 1)
         .map(|x| TryInto::<c_char>::try_into(x).unwrap())
         .collect::<Vec<_>>()
         .try_into()
@@ -180,7 +180,7 @@ pub unsafe fn new<'a>(
             pid: 0,
             doing: 0,
             currmsg: DATA_UNION { intdata: 0 },
-        }; 20],
+        }; 16],
         dismount_flag: 0,
         writelock: 0,
         upto: 0,

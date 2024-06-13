@@ -7,6 +7,9 @@ use std::{ffi::CString, path::Path};
 impl Default for crate::bindings::PARTAB {
     fn default() -> Self {
         Self {
+            job_table: todo!(),
+            src_ln: todo!(),
+            vol: todo!(),
             jobtab: null_mut(),
             vol_fds: [0; 1],
             jnl_fds: [0; 1],
@@ -18,7 +21,7 @@ impl Default for crate::bindings::PARTAB {
             errors: 0,
             sp: null_mut(),
             lp: null_mut(),
-            ln: null_mut(),
+            ln: 0,
             src_var: MVAR {
                 name: "TTTTT".try_into().unwrap(), // { var_q: 0 },
                 volset: 0,
@@ -47,7 +50,7 @@ impl Default for crate::bindings::SYSTAB {
                 to_global: VAR_U { var_cu: [0; 32] },
                 to_vol: 0,
                 to_uci: 0,
-            }; 8],
+            }; 64],
             start_user: 0,
             lockstart: null_mut(),
             locksize: 0,

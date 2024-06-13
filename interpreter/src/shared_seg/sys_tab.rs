@@ -259,7 +259,7 @@ pub unsafe fn init<'a>(
             to_global: VAR_U { var_cu: [0; 32] },
             to_vol: 0,
             to_uci: 0,
-        }; 8],
+        }; 64],
         start_user: unsafe { libc::getuid().try_into().unwrap() },
         lockstart: from_mut(lock_tab).cast::<c_void>(),
         locksize: lock_tab.size,

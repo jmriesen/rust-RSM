@@ -20,7 +20,7 @@ pub fn info(file: &str) {
         Err(error) => println!("{error}"),
     }
 }
-//TODO for testability it would probably be best to take in a reference.
+//TODO for test-ability it would probably be best to take in a reference.
 //but currently there is no synchronization.
 fn systab_info(file: &str) -> Result<String, String> {
     let cfile = CString::new(file.to_string()).unwrap();
@@ -62,20 +62,3 @@ fn rsm_version() -> String {
     output.push_str(&format!("Built {} at {}", "---", "----"));
     output
 }
-/*
-use for shutdown command.
-use std::os::fd::AsRawFd;
-let (journal_file,err) =
-match OpenOptions::new()
-.read(true)
-.write(true)
-.open(file.clone()){
-Ok(fd) => (fd.as_raw_fd(),Ok(())),
-//c uses -1 as sentinel value for error.
-Err(err) => (-1,Err(err)),
-};
-    unsafe{partab.jnl_fds[0] = journal_file;}
-    err.map_err(|err| format!("Failed to open journal file {} error{}",file,err))?;
-
-    let user = unsafe{libc::getuid()};
-     */
