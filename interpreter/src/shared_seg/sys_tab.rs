@@ -18,14 +18,14 @@ use crate::units::{Bytes, Pages};
 #[repr(C, packed(1))]
 pub struct SYSTAB {
     /// memory address of *this* system tab
-    /// used to verfity that the memeofy segment has been mounted properly.
+    /// used to verify that the memory segment has been mounted properly.
     pub address: *mut c_void,
     pub jobtab: *mut jobtab,
     /// maximum jobs permitted
     pub maxjob: u_int,
     /// GBD semaphore id
     pub sem_id: c_int,
-    /// bitfield stroing config options
+    /// bit field storing config options
     pub historic: c_int,
     /// decimal precision
     pub precision: c_int,
@@ -47,22 +47,22 @@ pub struct SYSTAB {
     /// add buffer size
     pub addsize: u_long,
     vol: [*mut vol_def; MAX_VOL as usize],
-    //This field was being used for alignment shananigans in the old c code.
-    //Removing it since I don't want to rely on shananigans.
+    //This field was being used for alignment shenanigans in the old c code.
+    //Removing it since I don't want to rely on shenanigans.
     //pub last_blk_used: [u_int; 1],
 }
 
 impl SYSTAB {
-    //Typed wrapper around the field
     fn lock_size(&self) -> Bytes {
         Bytes(self.locksize as usize)
     }
+
     pub fn vols(&self) -> impl Iterator<Item = Option<&Volume>> {
         //NOTE into iter copies the array in order to make this iterator.
         //I initially had reservations about copying the data since
         //since I did not want self.vols and the copy to get out of sync
         //However that should not be an issue.
-        //Since we are taking and and returning a reference with the same life time
+        //Since we are taking a &self returning a reference with the same life time
         //The barrow checker will prevent any unexpected mutations
         use ref_cast::RefCast;
         self.vol
@@ -96,7 +96,8 @@ impl SYSTAB {
             .find(|(_, x)| x.file_name() == name)
             .map(|(i, _)| i)
     }
-    //Currently uese C code so only works for systab.
+
+    //Currently use C code so only works for systab.
     unsafe fn clean_jobs(&mut self, exclude_pid: i32) {
         let jobs = unsafe { from_raw_parts_mut(self.jobtab, self.maxjob as usize) };
 
@@ -241,8 +242,7 @@ pub unsafe fn init<'a>(
     let (sys_tab, _, job_tab, lock_tab, _, _, _) = unsafe { layout.calculate_offsets(ptr) };
     let lock_tab = lock_tab::init(lock_tab);
     let sys_tab_description = SYSTAB {
-        //This is used to verify the shared memory segment
-        //is mapped to the same address space in each process.
+        //address of self used to verify that the shared segment has been mounted correctly.
         address: ptr,
         jobtab: job_tab.ptr.cast::<JOBTAB>(),
         maxjob: jobs as u32,
@@ -272,12 +272,7 @@ pub unsafe fn init<'a>(
         addsize: 0,
         vol: [from_mut(volume.as_mut())],
     };
-    unsafe {
-        dbg!(sys_tab.ptr)
-            .as_mut()
-            .unwrap()
-            .write(sys_tab_description)
-    };
+    unsafe { sys_tab.ptr.as_mut().unwrap().write(sys_tab_description) };
     sys_tab.ptr.cast::<SYSTAB>().as_mut().unwrap()
 }
 
