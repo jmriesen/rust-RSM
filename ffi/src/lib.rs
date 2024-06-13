@@ -88,6 +88,8 @@ pub fn shared_memory_id(file_path: &Path, system: i32) -> Result<i32, ()> {
 }
 pub struct SharedSegmentGuard(pub i32, pub *mut libc::c_void);
 
+//TODO error handling
+//Convert underlying logic to rust
 pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
     unsafe {
         UTIL_Share(
@@ -99,10 +101,13 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
                 .cast(),
         );
     }
-    SharedSegmentGuard(shared_memory_id(file_path, RSM_SYSTEM as i32).unwrap(),unsafe { systab.cast() })
+    SharedSegmentGuard(
+        shared_memory_id(file_path, RSM_SYSTEM as i32).unwrap(),
+        unsafe { systab.cast() },
+    )
 }
 
-impl Drop for SharedSegmentGuard{
+impl Drop for SharedSegmentGuard {
     fn drop(&mut self) {
         let mut sbuf = libc::shmid_ds {
             shm_atime: 0,
@@ -130,4 +135,4 @@ impl Drop for SharedSegmentGuard{
             libc::shmdt(self.1);
         }
     }
-    }
+}
