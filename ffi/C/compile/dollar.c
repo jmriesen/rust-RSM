@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/compile/dollar.c
- * Summary:  module compile - evaluate functions, vars etc.
+ * Package: Reference Standard M
+ * File:    rsm/compile/dollar.c
+ * Summary: module compile - evaluate functions, vars etc.
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -62,23 +65,23 @@ void dodollar(void)                                                             
     if (c == '$') {                                                             // extrinsic
         ptr = comp_ptr;                                                         // save compile pointer
         *comp_ptr++ = CMDOTAG;                                                  // assume a do tag
-        i = routine(-1);                                                        // parse the rouref
+        s = routine(-1);                                                        // parse the rouref
 
-        if ((i > -1) || (i == -4)) {                                            // indirect etc. not on here
+        if ((s > -1) || (s == -4)) {                                            // indirect etc. not on here
             comp_ptr = ptr;                                                     // back where we started for error
             SYNTX;
         }
 
-        if (i < -4) {                                                           // check for error
-            comperror(i);                                                       // complain
+        if (s < -4) {                                                           // check for error
+            comperror(s);                                                       // complain
             return;                                                             // and exit
         }
 
         args = 129;                                                             // number of args (128=$$)
 
-        if (i == -2) {
+        if (s == -2) {
             *ptr = CMDORT;                                                      // routine and tag
-        } else if (i == -3) {
+        } else if (s == -3) {
             *ptr = CMDOROU;                                                     // just a routine
         }
 
@@ -100,7 +103,7 @@ void dodollar(void)                                                             
 
                 if ((*source_ptr == ',') || (*source_ptr == ')')) {             // if empty argument
                     *comp_ptr++ = VARUNDF;                                      // flag it
-                } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by reference and not .numeric?
+                } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by-reference and not .numeric?
                     source_ptr++;                                               // skip the dot
 
                     if (*source_ptr == '@') {                                   // if indirection
@@ -116,11 +119,11 @@ void dodollar(void)                                                             
                             return;                                             // and exit
                         }
 
-                        p = p + s;                                              // point here
+                        p += s;                                                 // point here
                         *p = OPMVAR;                                            // get the mvar onto stack
                     }
 
-                    *comp_ptr++ = NEWBREF;                                      // flag 'by reference'
+                    *comp_ptr++ = NEWBREF;                                      // flag 'by-reference'
                 } else {                                                        // by value
                     eval();                                                     // leave the value on the stack
                 }
@@ -242,7 +245,10 @@ void dodollar(void)                                                             
     source_ptr += len;                                                          // move source along
     len++;                                                                      // add in first character
     name[len] = '\0';                                                           // null terminate name
-    if (*source_ptr == '(') goto function;                                      // check for a function
+
+    if ((*source_ptr == '(') && (strncmp(name, "ZBP\0", 4) != 0)) {             // check for a function
+        goto function;                                                          // $ZBP is an M array, not a function
+    }
 
     switch (name[0]) {                                                          // dispatch on initial
     case 'D':                                                                   // $D[EVICE]
@@ -386,6 +392,17 @@ void dodollar(void)                                                             
         *comp_ptr++ = VARY;                                                     // add the opcode
         return;                                                                 // and exit
 
+    case 'Z':                                                                   // $ZBP (M array, not a function)
+        if (strncmp(name, "ZBP\0", 4) != 0) UNVAR;
+        source_ptr -= len + 1;                                                  // backup to first character
+        s = localvar();                                                         // parse the variable
+
+        if (s < 0) {                                                            // if we got an error
+            comperror(s);                                                       // compile it
+        }
+
+        return;                                                                 // and exit
+
     default:                                                                    // an error
         UNVAR;
     }                                                                           // end of vars switch
@@ -437,10 +454,10 @@ function:                                                                       
             }
         }
     } else if ((name[0] == 'T') && (toupper((int) name[1]) != 'R')) {           // $TEXT
-        i = routine(-2);                                                        // parse to strstk
+        s = routine(-2);                                                        // parse to strstk
 
-        if (i < -4) {                                                           // check for error
-            comperror(i);                                                       // complain
+        if (s < -4) {                                                           // check for error
+            comperror(s);                                                       // complain
             return;                                                             // and exit
         }
     } else {
@@ -449,7 +466,7 @@ function:                                                                       
 
     while (TRUE) {
         args++;                                                                 // count an argument
-        if (args > 255) EXPRE;                                                  // too many args
+        if (args > 255) EXPRE;                                                  // too many args (255 for intrinsics)
         c = *source_ptr++;                                                      // get term char
         if (c == ')') break;                                                    // all done if closing )
 
@@ -483,7 +500,7 @@ function:                                                                       
 
         EXPRE;
 
-    case 'C':                                                                   // $C[HARACTER]
+    case 'C':                                                                   // $C[HAR]
         if (len > 1) {                                                          // check for extended name
             if (strncasecmp(name, "char\0", 5) != 0) EXPRE;
         }

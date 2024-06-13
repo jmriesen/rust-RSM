@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/seqio/pipe.c
- * Summary:  module IO - sequential named pipe IO
+ * Package: Reference Standard M
+ * File:    rsm/seqio/pipe.c
+ * Summary: module IO - sequential named pipe IO
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,8 +22,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
  *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/*
  * Extended Summary:
  *
  * This module implements the following sequential input/output (i.e., IO)
@@ -46,7 +51,25 @@
 #include "error.h"
 #include "seqio.h"
 
-int createPipe(char *pipe);
+// Local functions
+
+/*
+ * This function creates a FIFO special file with the name "pipe". Upon
+ * successful completion, a value of 0 is returned. Otherwise, a negative
+ * integer value is returned to indicate the error that has occurred.
+ */
+int createPipe(char *pipe)
+{
+    int ret;
+
+    ret = mkfifo(pipe, MODE);
+
+    if (ret == -1) {
+        return getError(SYS, errno);
+    } else {
+        return ret;
+    }
+}
 
 // Pipe functions
 
@@ -62,7 +85,7 @@ int createPipe(char *pipe);
  * descriptor. Otherwise, a negative integer value is returned to indicate the
  * error that has occurred.
  */
-int SQ_Pipe_Open (char *pipe, int op)
+int SQ_Pipe_Open(char *pipe, int op)
 {
     int ret;
     int flag;
@@ -97,7 +120,7 @@ int SQ_Pipe_Open (char *pipe, int op)
  * Upon successful completion, a value of 0 is returned. Otherwise, a negative
  * integer value is returned to indicate the error that has occurred.
  */
-int SQ_Pipe_Close (int pid, char *pipe)
+int SQ_Pipe_Close(int pid, char *pipe)
 {
     int ret;
     int oid;
@@ -130,11 +153,11 @@ int SQ_Pipe_Close (int pid, char *pipe)
  * of bytes actually written is returned. Otherwise, a negative integer value
  * is returned to indicate the error that has occurred.
  *
- * Note, if one tries to write to a pipe with no reader, a SIGPIPE signal is
- * generated. This signal is caught, where write will return -1 with errno set
- * to EPIPE (i.e., broken pipe).
+ * NOTE: If one tries to write to a pipe with no reader, a SIGPIPE signal is
+ *       generated. This signal is caught, where write will return -1 with errno
+ *       set to EPIPE (i.e., broken pipe)
  */
-int SQ_Pipe_Write (int pid, u_char *writebuf, int nbytes)
+int SQ_Pipe_Write(int pid, u_char *writebuf, int nbytes)
 {
     int ret;
 
@@ -157,7 +180,7 @@ int SQ_Pipe_Write (int pid, u_char *writebuf, int nbytes)
  * of bytes actually read is returned. Otherwise, a negative integer value is
  * returned to indicate the error that has occurred.
  */
-int SQ_Pipe_Read (int pid, u_char *readbuf, int tout)
+int SQ_Pipe_Read(int pid, u_char *readbuf, int tout)
 {
     int ret;
     int bytesread;
@@ -183,11 +206,14 @@ start:
             goto start;                                                         // and try again
         }
 
-        return getError(SYS, errno);                                            // EOF received
-    } else if (bytesread == 0) {                                                // Force read to time out
-        if (tout == 0) {
+        return getError(SYS, errno);
+    } else if (bytesread == 0) {                                                // EOF received
+        if (tout == 0) {                                                        // Force read to time out
             if (raise(SIGALRM)) return getError(SYS, errno);
             return -1;
+        } else if (strcmp((char *) partab.jobtab->seqio[pid].name, "Not a tty") == 0) { // stdin was probably a heredoc
+            partab.jobtab->trap |= SIG_QUIT;                                    // don't set partab.jobtab->attention
+            return 0;
         }
 
         // Wait, then check for any data on the pipe
@@ -195,25 +221,5 @@ start:
         return 0;
     } else {                                                                    // Return bytes read (i.e., 1)
         return 1;
-    }
-}
-
-// Local functions
-
-/*
- * This function creates a FIFO special file with the name "pipe". Upon
- * successful completion, a value of 0 is returned. Otherwise, a negative
- * integer value is returned to indicate the error that has occurred.
- */
-int createPipe (char *pipe)
-{
-    int ret;
-
-    ret = mkfifo(pipe, MODE);
-
-    if (ret == -1) {
-        return getError(SYS, errno);
-    } else {
-        return ret;
     }
 }

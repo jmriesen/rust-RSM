@@ -1,11 +1,15 @@
+# SPDX-FileCopyrightText:  © 2022 David Wicksell <dlw@linux.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 .git
 .gitignore
+.gitattributes
 .gitlab-ci.yml
 .dockerignore
 Dockerfile
+rsm
 **/*.o
-./rsm
-**/daemon*.log
+log/rsm-*.log
 RSM_CRASH
 *core
 *.dat
@@ -13,4 +17,5 @@ RSM_CRASH
 tags
 TODO
 .cppcheckrc
+.shellcheckrc
 **/.*.sw[ponx]

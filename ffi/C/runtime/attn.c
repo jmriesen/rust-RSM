@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/runtime/attn.c
- * Summary:  module runtime - look after attention conditions
+ * Package: Reference Standard M
+ * File:    rsm/runtime/attn.c
+ * Summary: module runtime - look after attention conditions
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -31,6 +34,7 @@
 #include <sys/ioctl.h>                                                          // for ioctl
 #include <termios.h>                                                            // for ioctl
 #include <string.h>
+#include <time.h>                                                               // for nanosleep()
 #include <ctype.h>
 #include <signal.h>
 #include <unistd.h>                                                             // for sleep
@@ -50,30 +54,30 @@ short attention(void)                                                           
 {
     short s = 0;                                                                // return value
 
-    if (partab.jobtab->trap & SIG_CC) {                                         // control c
-        partab.jobtab->trap = partab.jobtab->trap & ~SIG_CC;                    // clear it
+    if (partab.jobtab->trap & SIG_CC) {                                         // <Control-C>
+        partab.jobtab->trap &= ~SIG_CC;                                         // clear it
         partab.jobtab->async_error = -(ERRZ51 + ERRMLAST);                      // store the error
     }
 
     /*
     if (partab.jobtab->trap & SIG_WS) {                                         // window size change SIGWINCH
         partab.jobtab->trap = partab.jobtab->trap & ~SIG_WS;                    // clear it
-        // THIS IS IGNORED IN SQ_Signal.c CURRENTLY
+        // THIS IS IGNORED IN signal.c CURRENTLY
     }
     */
 
     if (partab.jobtab->trap & SIG_HUP) {                                        // SIGHUP
-        partab.jobtab->trap = partab.jobtab->trap & ~SIG_HUP;                   // clear it
+        partab.jobtab->trap &= ~SIG_HUP;                                        // clear it
         partab.jobtab->async_error = -(ERRZ66 + ERRMLAST);                      // store the error
     }
 
     if (partab.jobtab->trap & SIG_U1) {                                         // user defined signal 1
-        partab.jobtab->trap = partab.jobtab->trap & ~SIG_U1;                    // clear it
+        partab.jobtab->trap &= ~SIG_U1;                                         // clear it
         partab.jobtab->async_error = -(ERRZ67 + ERRMLAST);                      // store the error
     }
 
     if (partab.jobtab->trap & SIG_U2) {                                         // user defined signal 2
-        partab.jobtab->trap = partab.jobtab->trap & ~SIG_U2;                    // clear it
+        partab.jobtab->trap &= ~SIG_U2;                                         // clear it
         partab.jobtab->async_error = -(ERRZ68 + ERRMLAST);                      // store the error
     }
 
@@ -89,7 +93,7 @@ short attention(void)                                                           
     s = partab.jobtab->async_error;                                             // do we have an error
     partab.jobtab->async_error = 0;                                             // clear it
 
-    if ((s == 0) && (partab.debug > 0)) {                                       // check the debug junk
+    if ((s == 0) && (partab.debug > BREAK_OFF)) {                               // check the debug junk
         if (partab.debug <= (int) partab.jobtab->commands) {                    // there yet?
             s = BREAK_NOW;                                                      // time to break again
         } else {
@@ -100,7 +104,7 @@ short attention(void)                                                           
     return s;                                                                   // return whatever
 }
 
-// DoInfo() - look after a Control-T
+// DoInfo() - look after a <Control-T>
 void DoInfo(void)
 {
     int    i;                                                                   // a handy int
@@ -112,7 +116,7 @@ void DoInfo(void)
 
     memcpy(ct, "\033\067\033[99;1H", 9);                                        // start off
     i = 9;                                                                      // next char
-    i += sprintf(&ct[i],"%d", (int) (partab.jobtab - systab->jobtab) + 1);
+    i += sprintf(&ct[i],"%d", (int) (partab.jobtab - partab.job_table) + 1);
     i += sprintf(&ct[i]," (%d) ", partab.jobtab->pid);
     p = (char *) &partab.jobtab->dostk[partab.jobtab->cur_do].rounam;           // point at routine name
     for (j = 0; (j < VAR_LEN) && p[j]; ct[i++] = p[j++]) continue;              // copy it
@@ -142,8 +146,8 @@ void DoInfo(void)
  *           Failure 0 (zot)
  *
  *     cft = 0 JOB
- *           1 FORK
- *          -1 Just do a fork()/rfork() for the daemons, no file table
+ *           1 FORK ($&%FORK or TCP FORK)
+ *          -1 Daemons (do not copy file table)
  */
 int ForkIt(int cft)                                                             // Copy File Table True/False
 {
@@ -153,10 +157,10 @@ int ForkIt(int cft)                                                             
     void *j;                                                                    // a handy pointer
 
     for (u_int k = 0; k < systab->maxjob; k++) {                                // scan the slots
-        ret = systab->jobtab[k].pid;                                            // get pid
+        ret = partab.job_table[k].pid;                                          // get pid
 
         if (ret) {                                                              // if one there
-            if (kill(ret, 0)) {                                                 // check the job
+            if (kill(ret, 0) == -1) {                                           // check the job
                 if (errno == ESRCH) {                                           // doesn't exist
                     CleanJob(k + 1);                                            // zot if not there
                     break;                                                      // have at least one
@@ -176,33 +180,32 @@ int ForkIt(int cft)                                                             
 #endif
 
     if (cft > -1) {                                                             // not a daemon
-        i = SemOp(SEM_SYS, -systab->maxjob);                                    // lock systab
+        i = SemOp(SEM_SYS, SEM_WRITE);                                          // lock systab
         if (i < 0) return 0;                                                    // quit on error
 
-
         for (u_int k = 0; k < systab->maxjob; k++) {                            // look for a free slot
-            if (systab->jobtab[k].pid == 0) {                                   // this one ?
+            if (partab.job_table[k].pid == 0) {                                 // this one ?
                 mid = k;                                                        // yes - save int job num
                 break;                                                          // and exit
             }
         }
 
         if (mid == -1) {                                                        // if no slots
-            SemOp(SEM_SYS, systab->maxjob);                                     // unlock
+            SemOp(SEM_SYS, -SEM_WRITE);                                         // unlock
             return 0;                                                           // return fail
         }
     }
 
 #ifdef __FreeBSD__                                                              // for FreeBSD
     i = rfork(ret);                                                             // create new process
-#else                                                                           // Linux, MacOS X et al
+#else                                                                           // Linux, macOS, et al.
     signal(SIGCHLD, SIG_IGN);                                                   // try this
     i = fork();
 #endif
 
     if (!i) {                                                                   // child
         failed_tty = -1;                                                        // don't restore term settings on exit
-        setSignal(SIGINT, IGNORE);                                              // disable Control-C
+        setSignal(SIGINT, IGNORE);                                              // disable <Control-C>
     }
 
     if (cft == -1) {                                                            // daemons
@@ -220,25 +223,26 @@ int ForkIt(int cft)                                                             
 
     if (i == -1) {                                                              // fail ?
         fprintf(stderr, "fork() errno = %d - %s\n", errno, strerror(errno));
-        SemOp(SEM_SYS, systab->maxjob);                                         // unlock
+        SemOp(SEM_SYS, -SEM_WRITE);                                             // unlock
         return 0;                                                               // return fail
     } else if (i > 0) {                                                         // the parent ?
-        memcpy(&systab->jobtab[mid], partab.jobtab, sizeof(jobtab));            // copy job info
-        systab->jobtab[mid].pid = i;                                            // save the pid
-        SemOp(SEM_SYS, systab->maxjob);                                         // unlock
-        return (mid + 1);                                                       // return child job number
+        memcpy(&partab.job_table[mid], partab.jobtab, sizeof(jobtab));          // copy job info
+        partab.job_table[mid].pid = i;                                          // save the pid
+        SemOp(SEM_SYS, -SEM_WRITE);                                             // unlock
+        return mid + 1;                                                         // return child job number
     }
 
-    ret = -(partab.jobtab - systab->jobtab + 1);                                // save minus parent job#
-    partab.jobtab = &systab->jobtab[mid];                                       // and save our jobtab address
+    ret = -(partab.jobtab - partab.job_table + 1);                              // save minus parent job#
+    partab.jobtab = &partab.job_table[mid];                                     // and save our jobtab address
 
-    for (i = 0; i < 10000; i++) {                                               // wait for the above to happen
+    for (i = 0; i < 1000; i++) {                                                // wait for the above to happen
         if (getpid() == partab.jobtab->pid) break;                              // done yet? if yes - exit
-        SchedYield();                                                           // give up slice
+        SchedYield(TRUE);                                                       // give up slice
     }
 
-    if (i > 9999) {                                                             // if that didn't work
+    if (i > 999) {                                                              // if that didn't work
         for (i = 0; ; i++) {                                                    // try the long way
+            if (systab->start_user == -1) return ret;                           // if parent gone and shutting down (JIC)
             if (getpid() == partab.jobtab->pid) break;                          // done yet? if yes - exit
             if (i > 120) panic("ForkIt: Child job never got setup");            // two minutes is enough
             sleep(1);                                                           // wait for a second
@@ -246,16 +250,16 @@ int ForkIt(int cft)                                                             
     }
 
     if (cft) {                                                                  // fork type?
-        i = SemOp(SEM_ROU, -systab->maxjob);                                    // grab the routine semaphore
+        i = SemOp(SEM_ROU, SEM_WRITE);                                          // grab the routine semaphore
         if (i < 0) panic("Can't get SEM_ROU in ForkIt()");                      // die on fail
 
         for (i = partab.jobtab->cur_do; i > 0; i--) {                           // scan all do frames
             if (partab.jobtab->dostk[i].flags & DO_FLAG_ATT) {
-                ((rbd *) partab.jobtab->dostk[i].routine)->attached++;          // count attached
+                ((rbd *) SOA(partab.jobtab->dostk[i].routine))->attached++;     // count attached
             }
         }
 
-        SemOp(SEM_ROU, systab->maxjob);                                         // release the routine buffers
+        SemOp(SEM_ROU, -SEM_WRITE);                                             // release the routine buffers
         return ret;                                                             // return -parent job#
     }
 
@@ -270,8 +274,24 @@ int ForkIt(int cft)                                                             
 }
 
 // SchedYield()
-void SchedYield(void)                                                           // do a sched_yield()
+void SchedYield(u_char sleep)                                                   // do a sched_yield() or a nanosleep() or nothing
 {
-    sched_yield();                                                              // do it
-    return;                                                                     // and exit
+    struct timespec time = {                                                    // 10ms sleep
+        .tv_sec = 0,
+        .tv_nsec = 10000000
+    };
+
+#if !defined(__APPLE__) && !defined(__OpenBSD__)                                // macOS/OpenBSD doesn't support the scheduler API
+    int policy;
+
+    policy = sched_getscheduler(0);                                             // get current scheduler policy
+
+    if ((policy == SCHED_FIFO) || (policy == SCHED_RR)) {                       // real-time schedules
+        sched_yield();                                                          // do it
+        return;                                                                 // and exit
+    }
+#endif
+
+    if (sleep) nanosleep(&time, NULL);                                          // sleep
+    return;                                                                     // and exit if not a real-time policy
 }

@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/runtime/var.c
- * Summary:  module runtime - runtime variables
+ * Package: Reference Standard M
+ * File:    rsm/runtime/var.c
+ * Summary: module runtime - runtime variables
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -34,6 +37,7 @@
 #include "rsm.h"                                                                // standard includes
 #include "proto.h"                                                              // standard prototypes
 #include "error.h"                                                              // standard errors
+#include "opcode.h"                                                             // for OPNOP
 
 /*
  * All variables use the following structure
@@ -53,7 +57,7 @@
 int Vecode(u_char *ret_buffer)
 {
     mvar *var;                                                                  // for ST_Get
-    int  s;
+    int  t;
 
     var = (mvar *) ret_buffer;                                                  // use here for the mvar
     VAR_CLEAR(var->name);
@@ -61,21 +65,21 @@ int Vecode(u_char *ret_buffer)
     var->volset = 0;                                                            // clear volset
     var->uci = UCI_IS_LOCALVAR;                                                 // local var
     var->slen = 0;                                                              // no subscripts
-    s = ST_Get(var, ret_buffer);                                                // get it
+    t = ST_Get(var, ret_buffer);                                                // get it
 
-    if (s == -ERRM6) {
-        s = 0;                                                                  // ignore undef
+    if (t == -ERRM6) {
+        t = 0;                                                                  // ignore undef
         ret_buffer[0] = '\0';                                                   // null terminate
     }
 
-    return s;
+    return t;
 }
 
 // $ETRAP
 int Vetrap(u_char *ret_buffer)
 {
     mvar *var;                                                                  // for ST_Get
-    int  s;
+    int  t;
 
     var = (mvar *) ret_buffer;                                                  // use here for the mvar
     VAR_CLEAR(var->name);
@@ -83,9 +87,9 @@ int Vetrap(u_char *ret_buffer)
     var->volset = 0;                                                            // clear volset
     var->uci = UCI_IS_LOCALVAR;                                                 // local var
     var->slen = 0;                                                              // no subscripts
-    s = ST_Get(var, ret_buffer);                                                // exit with result
-    if (s == -ERRM6) s = 0;                                                     // ignore undef
-    return s;
+    t = ST_Get(var, ret_buffer);                                                // exit with result
+    if (t == -ERRM6) t = 0;                                                     // ignore undef
+    return t;
 }
 
 // $HOROLOG
@@ -95,7 +99,7 @@ short Vhorolog(u_char *ret_buffer)
     int    day = sec / SECDAY + YRADJ;                                          // get number of days
 
     sec %= SECDAY;                                                              // and number of seconds
-    return (short) sprintf((char *) ret_buffer, "%d,%d", day, (int) sec);       // return count and $H
+    return (short) sprintf((char *) ret_buffer, "%d,%d", day, (int) sec);       // return count and $HOROLOG
 }
 
 // $KEY
@@ -121,10 +125,10 @@ short Vreference(u_char *ret_buffer)
 // $SYSTEM
 short Vsystem(u_char *ret_buffer)
 {
-    int i = uitocstring(ret_buffer, RSM_SYSTEM);                                // copy assigned #
+    int i = ultocstring(ret_buffer, RSM_SYSTEM);                                // copy assigned #
 
     ret_buffer[i++] = ',';                                                      // and a comma
-    i = i + rsm_version(&ret_buffer[i]);                                        // do it elsewhere
+    i += rsm_version(&ret_buffer[i]);                                           // do it elsewhere
     return (short) i;                                                           // return the count
 }
 
@@ -133,7 +137,7 @@ short Vx(u_char *ret_buffer)
 {
     SQ_Chan *ioptr = &partab.jobtab->seqio[(int) partab.jobtab->io];            // ptr to current $IO
 
-    return (short) uitocstring(ret_buffer, ioptr->dx);                                  // return len with data in buf
+    return (short) ultocstring(ret_buffer, ioptr->dx);                          // return len with data in buf
 }
 
 // $Y
@@ -141,7 +145,7 @@ short Vy(u_char *ret_buffer)
 {
     SQ_Chan *ioptr = &partab.jobtab->seqio[(int) partab.jobtab->io];            // ptr to current $IO
 
-    return (short) uitocstring(ret_buffer, ioptr->dy);                                  // return len with data in buf
+    return (short) ultocstring(ret_buffer, ioptr->dy);                          // return len with data in buf
 }
 
 /*
@@ -158,19 +162,29 @@ int Vset(mvar *var, cstring *cptr)                                              
 
     if (var->slen != 0) return -ERRM8;                                          // no subscripts permitted
 
-    if ((strncasecmp((char *) &var->name.var_cu[1], "ec", 2) == 0) ||
-      (strncasecmp((char *) &var->name.var_cu[1], "ecode", 5) == 0)) {          // $EC[ODE]
-        if ((cptr->len > 1) && (cptr->buf[0] == ',') &&                         // if it starts with a comma
-          (cptr->buf[cptr->len - 1] == ',')) {                                  // and ends with a comma
+    if ((strncasecmp((char *) &var->name.var_cu[1], "ec\0", 3) == 0) ||
+      (strncasecmp((char *) &var->name.var_cu[1], "ecode\0", 6) == 0)) {        // $EC[ODE]
+        for (i = 0; i < cptr->len; i++) {                                       // if it isn't a graphic character
+            if (iscntrl(cptr->buf[i])) return -ERRM101;
+        }
+
+        if ((cptr->len > 1) && (cptr->buf[0] == ',') && (cptr->buf[cptr->len - 1] == ',')) { // if it starts and ends with a comma
             cptr->len--;
             memmove(&cptr->buf[0], &cptr->buf[1], cptr->len--);                 // ignore the commas
             cptr->buf[cptr->len] = '\0';                                        // and nul terminate
+            cptr->buf[cptr->len + 1] = OPNOP;                                   // don't confuse the interpreter
         }
 
-        if (((cptr->len == 0) || (cptr->buf[0] == 'M') ||                       // set to null ok or Manything,Manything,Manything
+        if ((cptr->len == 0) || (((cptr->buf[0] == 'M') ||                      // set to null ok or Manything,Manything,Manything
           (cptr->buf[0] == 'Z') || (cptr->buf[0] == 'U')) &&                    // set to Zanything,Zanything,Uanything,Uanything
-          (cptr->buf[cptr->len - 1] != ',')) {                                  // and does not end with a comma
-            char *code = strtok((char *) cptr->buf, ",");                       // check for error code format
+          (cptr->buf[cptr->len - 1] != ','))) {                                 // and does not end with a comma
+            char *code;
+
+            code = strtok((char *) cptr->buf, ",");                             // check for error code format
+
+            if ((code != NULL) && (code[0] != 'M') && (code[0] != 'Z') && (code[0] != 'U')) { // check for proper format
+                return -ERRM101;
+            }
 
             while ((code = strtok(NULL, ",")) != NULL) {                        // loop through each argument
                 if ((code[0] != 'M') && (code[0] != 'Z') && (code[0] != 'U')) { // check for proper format
@@ -191,34 +205,32 @@ int Vset(mvar *var, cstring *cptr)                                              
         return -ERRM101;                                                        // can't do that
     }
 
-    if ((strncasecmp((char *) &var->name.var_cu[1], "et", 2) == 0) ||
-      (strncasecmp((char *) &var->name.var_cu[1], "etrap", 5) == 0)) {          // $ET[RAP]
+    if ((strncasecmp((char *) &var->name.var_cu[1], "et\0", 3) == 0) ||
+      (strncasecmp((char *) &var->name.var_cu[1], "etrap\0", 6) == 0)) {        // $ET[RAP]
         VAR_CLEAR(var->name);
         memcpy(&var->name.var_cu[0], "$ETRAP", 6);                              // ensure name correct
         if (cptr->len == 0) return ST_Kill(var);                                // kill it
         return ST_Set(var, cptr);                                               // do it in symbol
     }
 
-    if ((strncasecmp((char *) &var->name.var_cu[1], "k", 1) == 0) ||
-      (strncasecmp((char *) &var->name.var_cu[1], "key", 3) == 0)) {            // $K[EY]
+    if ((strncasecmp((char *) &var->name.var_cu[1], "k\0", 2) == 0) ||
+      (strncasecmp((char *) &var->name.var_cu[1], "key\0", 4) == 0)) {          // $K[EY]
         if (cptr->len > MAX_DKEY_LEN) return -ERRM75;                           // too big
         memcpy(partab.jobtab->seqio[partab.jobtab->io].dkey, cptr->buf, cptr->len + 1); // copy this many (incl null)
         partab.jobtab->seqio[partab.jobtab->io].dkey_len = cptr->len;
         return 0;
     }
 
-    if (strncasecmp((char *) &var->name.var_cu[1], "x", 1) == 0) {              // $X
+    if (strncasecmp((char *) &var->name.var_cu[1], "x\0", 2) == 0) {            // $X
         i = cstringtoi(cptr);                                                   // get val
-        if (i < 0) i = 0;
-        //if (i < 0) return -ERRM43                                             // DLW - The Standard requires this - need to test
+        if ((i < 0) || (i > (MAX_STR_LEN + 1))) return -ERRM43;                 // return range error
         partab.jobtab->seqio[partab.jobtab->io].dx = (u_short) i;
         return 0;                                                               // and return
     }
 
-    if (strncasecmp((char *) &var->name.var_cu[1], "y", 1) == 0) {              // $Y
+    if (strncasecmp((char *) &var->name.var_cu[1], "y\0", 2) == 0) {            // $Y
         i = cstringtoi(cptr);                                                   // get val
-        if (i < 0) i = 0;
-        //if (i < 0) return -ERRM43                                             // DLW - The Standard requires this - need to test
+        if ((i < 0) || (i > (MAX_STR_LEN + 1))) return -ERRM43;                 // return range error
         partab.jobtab->seqio[partab.jobtab->io].dy = (u_short) i;
         return 0;                                                               // and return
     }

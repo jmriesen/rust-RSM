@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/compile/parse.c
- * Summary:  module compile - parse a line
+ * Package: Reference Standard M
+ * File:    rsm/compile/parse.c
+ * Summary: module compile - parse a line
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -40,16 +43,39 @@
 #include "opcode.h"                                                             // and the opcodes
 #include "compile.h"                                                            // compile stuff
 
+u_char *jmp_eoc = NULL;                                                         // jump to end of cmd required
+
 int parse2eq(const u_char *ptr)                                                 // scan to = or EOS
 {
-    int    i = 0;                                                               // a handy int
-    int    b = 0;                                                               // in brackets
-    int    q = 0;                                                               // in quotes
+    int i = 0;                                                                  // a handy int
+    int b = 0;                                                                  // in brackets
+    int q = 0;                                                                  // in quotes
+    int v = 0;                                                                  // in vertical brackets
+    int s = 0;                                                                  // in square brackets
 
     while (TRUE) {                                                              // keep looping
         u_char c = ptr[i++];                                                    // get the current character
 
         if (c == '\0') break;                                                   // ran out of string
+
+        if (!b && (c == '|')) {                                                 // new style extended reference?
+            v = !v;
+            continue;                                                           // and go for more
+        }
+
+        if (v) continue;                                                        // ignore in vertical brackets
+
+        if (!b && (c == '[')) {                                                 // square bracket extended reference?
+            s++;
+            continue;                                                           // and go for more
+        }
+
+        if (!b && (c == ']')) {                                                 // end square brackets
+            s--;
+            continue;                                                           // and go for more
+        }
+
+        if (s) continue;                                                        // ignore in square brackets
 
         if (c == '"') {                                                         // a quote?
             q = !q;                                                             // reverse quote switch
@@ -73,7 +99,7 @@ int parse2eq(const u_char *ptr)                                                 
         if ((c == '=') || (c == ' ') || (c == ',')) break;
     }
 
-    return (i - 1);                                                             // return offset to term
+    return i - 1;                                                               // return offset to term
 }
 
 void parse_close(void)                                                          // CLOSE
@@ -147,7 +173,7 @@ void parse_do(int runtime)                                                      
 
                     if ((*source_ptr == ',') || (*source_ptr == ')')) {         // if empty argument
                         *comp_ptr++ = VARUNDF;                                  // flag it
-                    } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by reference? and not .numeric
+                    } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by-reference? and not .numeric
                         source_ptr++;                                           // skip the dot
 
                         if (*source_ptr == '@') {                               // if indirection
@@ -167,7 +193,7 @@ void parse_do(int runtime)                                                      
                             *p = OPMVAR;                                        // get the mvar onto stack
                         }
 
-                        *comp_ptr++ = NEWBREF;                                  // flag 'by reference'
+                        *comp_ptr++ = NEWBREF;                                  // flag 'by-reference'
                     } else {                                                    // by value
                         eval();                                                 // leave the value on the stack
                     }
@@ -363,7 +389,7 @@ void parse_job(int runtime)                                                     
                         break;                                                  // and exit
                     }
 
-                    if (*source_ptr == '.') {                                   // by reference?
+                    if (*source_ptr == '.') {                                   // by-reference?
                         comperror(-ERRM40);                                     // complain
                         return;                                                 // not permitted
                     }
@@ -404,7 +430,6 @@ void parse_job(int runtime)                                                     
         }
 
         *comp_ptr++ = (u_char) args;                                            // store number of args
-
         if (*source_ptr != ',') break;                                          // done
         source_ptr++;                                                           // point at next
     }                                                                           // end job argument loop
@@ -490,13 +515,17 @@ void parse_lock(void)                                                           
     u_char  *ptr;                                                               // a handy pointer
 
     while (TRUE) {
-        char c = *source_ptr++;                                                 // get first char
+        char c = *source_ptr++;                                                 // get next char
         int  type = 0;                                                          // assume 'normal' lock
         int  args = 0;                                                          // init arg count
         int  i = 0;                                                             // flag no bracket
 
-        if (c == '+') type = 1;                                                 // a LOCK +
-        if (c == '-') type = -1;                                                // a LOCK -
+        if (c == '+') {
+            type = 1;                                                           // a LOCK +
+        } else if (c == '-') {
+            type = -1;                                                          // a LOCK -
+        }
+
         if (type) c = *source_ptr++;                                            // skip the + or -
 
         if (c == '(') {                                                         // a bracket?
@@ -512,9 +541,9 @@ void parse_lock(void)                                                           
                 atom();                                                         // eval the string
 
                 if (*(comp_ptr - 1) == INDEVAL) {                               // if it was indirect
-                    if (!type) {                                                // entire arg?
+                    if (!type && !i && (*source_ptr != ':')) {                  // normal lock not in a lock list, with no timeout
                         *(comp_ptr - 1) = INDLOCK;                              // say lock indirect
-                        return;                                                 // and quit
+                        return;                                                 // and return
                     }
 
                     *(comp_ptr - 1) = INDMVAR;                                  // make an mvar of it
@@ -529,11 +558,15 @@ void parse_lock(void)                                                           
                     return;                                                     // and exit
                 }
 
+                if (*(comp_ptr - 2) == TYPVARNAKED) {                           // naked is not allowed in an nref
+                    comp_ptr = ptr;                                             // reset location for error
+                    EXPRE;
+                }
+
                 ptr[s] = OPMVAR;                                                // build an mvar
             }
 
             args++;                                                             // count the arg
-
             if (!i) break;                                                      // not expecting more
 
             if (*source_ptr == ')') {                                           // closing bracket?
@@ -559,9 +592,14 @@ void parse_lock(void)                                                           
             *comp_ptr++ = '\0';                                                 // null terminate
         }
 
-        if (type == -1) *comp_ptr++ = CMLCKM;                                   // LOCK -
-        if (type == 0) *comp_ptr++ = CMLCK;                                     // LOCK
-        if (type == +1) *comp_ptr++ = CMLCKP;                                   // LOCK +
+        if (type == -1) {
+            *comp_ptr++ = CMLCKM;                                               // LOCK -
+        } else if (type == 0) {
+            *comp_ptr++ = CMLCK;                                                // LOCK
+        } else if (type == 1) {
+            *comp_ptr++ = CMLCKP;                                               // LOCK +
+        }
+
         *comp_ptr++ = args;                                                     // and the number of them
         if (*source_ptr != ',') break;                                          // all done if not comma
         source_ptr++;                                                           // skip the comma
@@ -578,7 +616,9 @@ void parse_merge(void)                                                          
         u_char *ptr1 = NULL;                                                    // a handy pointer
         u_char *ptr2 = NULL;                                                    // and another
         u_char *ptr3 = NULL;                                                    // and another
-        int    i = parse2eq(source_ptr);                                        // look for an equals
+        int    i;
+
+        i = parse2eq(source_ptr);                                               // look for an equals
 
         if (source_ptr[i] == '=') {                                             // did we find one?
             ptr1 = source_ptr;                                                  // save for ron
@@ -649,6 +689,7 @@ void parse_merge(void)                                                          
             *ptr1 = OPMVARF;                                                    // change to a OPMVARF
         }
 
+        *comp_ptr++ = OPNAKED;                                                  // reset naked indicator
         if (source_ptr != ptr2) SYNTX;                                          // junk characters
         source_ptr = ptr3;                                                      // restore source pointer
         *comp_ptr++ = CMMERGE;                                                  // do that
@@ -713,7 +754,7 @@ void parse_new(void)                                                            
         *comp_ptr++ = CMNEWB;                                                   // opcode
         *comp_ptr++ = args;                                                     // number of args
     } else {
-        --source_ptr;                                                           // backup the source
+        source_ptr--;                                                           // backup the source
 
         while (TRUE) {                                                          // loop thru normal NEW
             ptr = comp_ptr;                                                     // save for ron
@@ -771,7 +812,7 @@ void parse_open(void)                                                           
 
     while (TRUE) {                                                              // loop
         // Indirect Open code
-        int iflag = (*source_ptr == '@');                                           // check for indirection
+        int iflag = (*source_ptr == '@');                                       // check for indirection
 
         eval();                                                                 // get the channel
 
@@ -779,21 +820,24 @@ void parse_open(void)                                                           
             *(comp_ptr - 1) = INDOPEN;                                          // say open indirect
         } else {
             // Regular Open code
-            if (*source_ptr++ != ':') SYNTX;                                    // must be a colon
-
-            if (*source_ptr == '(') {                                           // possibly followed by (
-                source_ptr++;                                                   // move to next for eval
+            if ((*source_ptr == ':') && (*(source_ptr + 1) == '(')) {           // colon followed by (
+                source_ptr += 2;                                                // move past both for eval
                 eval();                                                         // param 1
                 if (*source_ptr++ != ':') SYNTX;                                // must be a colon
                 eval();                                                         // param 2
                 if (*source_ptr++ != ')') SYNTX;                                // must be a )
             } else {
-                // Otherwise, we have no parens. Valid only for opening $PRINCIPAL - populate the device and mode with empty strings
-                *comp_ptr++ = OPSTR;                                            // Empty String
+                // We have no parens, valid only for opening $PRINCIPAL - populate the device and mode with empty strings
+                if (*source_ptr == ':') {
+                    source_ptr++;                                               // move past colon
+                    if (*source_ptr != ':') SYNTX;                              // must have another for new syntax
+                }
+
+                *comp_ptr++ = OPSTR;                                            // empty string
                 *comp_ptr++ = 0;                                                // cstring u_short length
                 *comp_ptr++ = 0;                                                // ditto - endian doesn't matter here
                 *comp_ptr++ = '\0';                                             // null terminatred cstring text
-                *comp_ptr++ = OPSTR;                                            // Empty String
+                *comp_ptr++ = OPSTR;                                            // empty string
                 *comp_ptr++ = 0;                                                // cstring u_short length
                 *comp_ptr++ = 0;                                                // ditto - endian doesn't matter here
                 *comp_ptr++ = '\0';                                             // null terminated cstring text
@@ -888,7 +932,7 @@ void write_fmt(void)                                                            
 
             if ((*source_ptr == ',') || (*source_ptr == ')')) {                 // if empty argument
                 *comp_ptr++ = VARUNDF;                                          // flag it
-            } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by reference? and not .numeric
+            } else if ((*source_ptr == '.') && (isdigit(source_ptr[1]) == 0)) { // by-reference? and not .numeric
                 SYNTX;                                                          // that's not allowed
             } else {                                                            // by value
                 eval();                                                         // leave the value on the stack
@@ -919,7 +963,7 @@ short parse_read_var(int star)                                                  
     int    type;                                                                // a handy flag
     u_char *ptr;                                                                // a handy pointer
 
-    c = *source_ptr;                                                            // get char
+    c = *source_ptr;                                                            // get first char
 
     if (c == '@') {                                                             // indirection ?
         source_ptr++;                                                           // skip the @
@@ -1000,10 +1044,10 @@ short parse_read_var(int star)                                                  
 
 void parse_read(void)                                                           // READ
 {
-    int  args = 0;                                                              // number of args
+    int args = 0;                                                               // number of args
 
     while (TRUE) {                                                              // loop
-        char c = *source_ptr;                                                   // get the first character
+        char c = *source_ptr;                                                   // get next character
 
         if (c == '!') {                                                         // check for a new line
             *comp_ptr++ = CMWRTNL;                                              // do a new line
@@ -1013,18 +1057,27 @@ void parse_read(void)                                                           
             *comp_ptr++ = CMWRTFF;                                              // do a ff
             source_ptr++;                                                       // increment source ptr
             args++;                                                             // count literal
+        } else if (c == '/') {                                                  // silly device control stuff
+            write_fmt();                                                        // do it elsewhere
+
+            if ((*source_ptr != ' ') && (*source_ptr != ',') && (*source_ptr != '\0')) { // a space, comma, or EOL is required
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
         } else if (c == '?') {                                                  // check for a tab
             source_ptr++;                                                       // increment source
             eval();                                                             // eval the expression
             *comp_ptr++ = CMWRTAB;                                              // do a tab expr
             args++;                                                             // count literal
-        } else if (c == '/') {                                                  // silly device control stuff
-            write_fmt();                                                        // do it elsewhere
-        } else if (c == '"') {                                                  // a literal ?
-            atom();                                                             // get it
-            *comp_ptr++ = CMWRTEX;                                              // write it
-            args++;                                                             // count it
         } else if (c == '*') {                                                  // check for read*
+            // a space, comma, or EOL is required
+            if ((*(source_ptr - 1) != ' ') && (*(source_ptr - 1) != ',') && (*(source_ptr - 1) != '\0')) {
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
             source_ptr++;                                                       // skip the *
 
             if (args) {
@@ -1033,7 +1086,32 @@ void parse_read(void)                                                           
             }
 
             if (parse_read_var(1)) return;                                      // get a variable and quit on error
+        } else if (c == '"') {                                                  // a literal ?
+            // a space, comma, or EOL is required
+            if ((*(source_ptr - 1) != ' ') && (*(source_ptr - 1) != ',') && (*(source_ptr - 1) != '\0')) {
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
+            atom();                                                             // get it
+
+            if ((*source_ptr != ' ') && (*source_ptr != ',') && (*source_ptr != '\0')) { // a space, comma, or EOL is required
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
+            *comp_ptr++ = CMWRTEX;                                              // write it
+            args++;                                                             // count it
         } else {
+            // a space, comma, or EOL is required
+            if ((*(source_ptr - 1) != ' ') && (*(source_ptr - 1) != ',') && (*(source_ptr - 1) != '\0')) {
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
             if (args) {
                 *comp_ptr++ = CMFLUSH;                                          // flush input
                 args = 0;                                                       // clear the count
@@ -1061,7 +1139,9 @@ void parse_set(void)                                                            
         u_char *ptr1 = NULL;                                                    // a handy pointer
         u_char *ptr2 = NULL;                                                    // and another
         u_char *ptr3 = NULL;                                                    // and another
-        int    i = parse2eq(source_ptr);                                        // look for an equals
+        int    i;
+
+        i = parse2eq(source_ptr);                                               // look for an equals
 
         if (source_ptr[i] == '=') {                                             // did we find one?
             ptr1 = source_ptr;                                                  // save for ron
@@ -1104,7 +1184,7 @@ void parse_set(void)                                                            
                     atom();                                                     // eval the string
 
                     if (*(comp_ptr - 1) == INDEVAL) {                           // if it was indirect
-                        *(comp_ptr - 1) = INDMVAR;                              // say mvar reqd
+                        *(comp_ptr - 1) = INDMVAR;                              // say mvar required
                     } else {                                                    // for $ORDER(@.@())
                         if (*(comp_ptr - 3) == OPVAR) *(comp_ptr - 3) = OPMVAR; // change to OPMVAR
                     }
@@ -1265,10 +1345,10 @@ void parse_use(void)                                                            
 
 void parse_write(void)                                                          // WRITE
 {
-    int  iflag;
+    int iflag;
 
     while (TRUE) {                                                              // scan the line
-        char c = *source_ptr;                                                   // get the first character
+        char c = *source_ptr;                                                   // get next character
 
         if (c == '!') {                                                         // check for a new line
             *comp_ptr++ = CMWRTNL;                                              // do a new line
@@ -1276,17 +1356,37 @@ void parse_write(void)                                                          
         } else if (c == '#') {                                                  // check for form feed
             *comp_ptr++ = CMWRTFF;                                              // do a ff
             source_ptr++;                                                       // increment source ptr
+        } else if (c == '/') {                                                  // silly device control stuff
+            write_fmt();                                                        // do it elsewhere
+
+            if ((*source_ptr != ' ') && (*source_ptr != ',') && (*source_ptr != '\0')) { // a space, comma, or EOL is required
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
         } else if (c == '?') {                                                  // check for a tab
             source_ptr++;                                                       // increment source
             eval();                                                             // eval the expression
             *comp_ptr++ = CMWRTAB;                                              // do a tab expr
         } else if (c == '*') {                                                  // check for a write star
+            // a space, comma, or EOL is required
+            if ((*(source_ptr - 1) != ' ') && (*(source_ptr - 1) != ',') && (*(source_ptr - 1) != '\0')) {
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
             source_ptr++;                                                       // increment source
             eval();                                                             // eval the expression
             *comp_ptr++ = CMWRTST;                                              // do a write star
-        } else if (c == '/') {                                                  // silly device control stuff
-            write_fmt();                                                        // do it elsewhere
         } else {                                                                // must be an expression
+            // a space, comma, or EOL is required
+            if ((*(source_ptr - 1) != ' ') && (*(source_ptr - 1) != ',') && (*(source_ptr - 1) != '\0')) {
+                source_ptr++;                                                   // mark right spot
+                comperror(-(ERRZ12 + ERRMLAST));                                // compile the error
+                return;                                                         // and exit
+            }
+
             iflag = (*source_ptr == '@');                                       // check for indirection
             eval();                                                             // eval it
 
@@ -1297,9 +1397,8 @@ void parse_write(void)                                                          
             }
         }
 
-        c = *source_ptr;                                                        // get next char
-        if ((c == ' ') || (c == '\0')) break;                                   // a space or end of line and all done
-        if (c == ',') source_ptr++;                                             // increment past a comma
+        if ((*source_ptr == ' ') || (*source_ptr == '\0')) break;               // a space or end of line and all done
+        if (*source_ptr == ',') source_ptr++;                                   // increment past a comma
     }                                                                           // end of while (TRUE) write
 
     return;
@@ -1350,15 +1449,15 @@ void parse_xecute(void)                                                         
  */
 void parse(void)                                                                // MAIN PARSE LOOP
 {
-    short   s;                                                                  // for functions
-    int     i;                                                                  // a handy int
-    int     args = 0;                                                           // number of args
-    u_char  *ptr;                                                               // a handy pointer
-    u_char  *jmp_eoc = NULL;                                                    // jump to end of cmd reqd
+    short  s;                                                                   // for functions
+    int    i;                                                                   // a handy int
+    int    args = 0;                                                            // number of args
+    u_char *ptr;                                                                // a handy pointer
 
     while (TRUE) {                                                              // loop
-        char c = toupper(*source_ptr++);                                             // get next char in upper case
+        char c;
 
+        c = toupper(*source_ptr++);                                             // get next char in upper case
         jmp_eoc = NULL;                                                         // clear post conditional
 
         switch (c) {
@@ -1441,7 +1540,7 @@ void parse(void)                                                                
                 c = *source_ptr++;                                              // get next char
             }
 
-            if ((c != ' ') && (c != '\0')) SYNTX;                               // space or eol reqd
+            if ((c != ' ') && (c != '\0')) SYNTX;                               // space or eol required
             if (c == '\0') source_ptr--;                                        // point back at eol
 
             if ((*source_ptr == ' ') || (*source_ptr == '\0')) {                // argumentless form?
@@ -1479,8 +1578,8 @@ void parse(void)                                                                
                 ptr = comp_ptr;                                                 // remember where we are
                 comp_ptr += sizeof(short);                                      // space for the QUIT offset
                 parse();                                                        // parse the code
-                --comp_ptr;                                                     // backup over ENDLIN
-                --source_ptr;                                                   // backup to null (I hope)
+                source_ptr--;                                                   // backup to null (I hope)
+                comp_ptr--;                                                     // backup over ENDLIN
                 *comp_ptr++ = OPENDC;                                           // say end cmd (restore asp)
                 *comp_ptr++ = JMP;                                              // add a jump
                 s = ptr - comp_ptr;
@@ -1530,14 +1629,14 @@ void parse(void)                                                                
                 }
             }
 
-            --source_ptr;                                                       // backup the source ptr
+            source_ptr--;                                                       // backup the source ptr
             s = comp_ptr - ptr - sizeof(short);                                 // offset to code
             assert(sizeof(s) == sizeof(short));
             memcpy(ptr, &s, sizeof(short));
             ptr += sizeof(short);
             parse();                                                            // parse the code
-            --comp_ptr;                                                         // backup over ENDLIN
-            --source_ptr;                                                       // backup to null (I hope)
+            source_ptr--;                                                       // backup to null (I hope)
+            comp_ptr--;                                                         // backup over ENDLIN
             *comp_ptr++ = CMFOREND;                                             // do end of for processing
             *comp_ptr++ = OPNOP;                                                // add the NOP
             *((short *) ptr) = (short) (comp_ptr - ptr - sizeof(short) - 1);
@@ -1668,7 +1767,7 @@ void parse(void)                                                                
                 *comp_ptr++ = CMKILLB;                                          // opcode
                 *comp_ptr++ = 0;                                                // number of args
             } else {
-                --source_ptr;                                                   // backup pointer
+                source_ptr--;                                                   // backup pointer
                 parse_kill();
             }
 
@@ -1690,7 +1789,7 @@ void parse(void)                                                                
                 c = *source_ptr++;                                              // get next char
             }
 
-            if ((c != ' ') && (c != '\0')) SYNTX;                               // space or eol reqd
+            if ((c != ' ') && (c != '\0')) SYNTX;                               // space or eol required
 
             if (c == '\0') {                                                    // if at eol
                 source_ptr--;                                                   // point back at eol
@@ -1702,7 +1801,7 @@ void parse(void)                                                                
             if (c == ' ') {                                                     // argless form
                 *comp_ptr++ = CMLCKU;                                           // save op code
             } else {
-                --source_ptr;                                                   // backup ptr
+                source_ptr--;                                                   // backup pointer
                 parse_lock();
             }
 
@@ -1754,7 +1853,7 @@ void parse(void)                                                                
                 *comp_ptr++ = CMNEWB;                                           // opcode
                 *comp_ptr++ = 0;                                                // number of args
             } else {
-                --source_ptr;                                                   // backup ptr
+                source_ptr--;                                                   // backup pointer
                 parse_new();
             }
 

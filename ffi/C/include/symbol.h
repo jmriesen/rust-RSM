@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/include/symbol.h
- * Summary:  module RSM header file - includes for symbol module
+ * Package: Reference Standard M
+ * File:    rsm/include/symbol.h
+ * Summary: module RSM header file - includes for symbol module
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,15 +22,20 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#ifndef _RSM_SYMBOL_H_                                                          // only do this once
-#define _RSM_SYMBOL_H_
+#ifndef RSM_SYMBOL_H
+#define RSM_SYMBOL_H
 
-#define DTBLKSIZE (sizeof(short) + sizeof(u_short) + sizeof(u_char) + sizeof(ST_depend *)) // ST_data - empty data
-#define DTMINSIZE (sizeof(short) + sizeof(u_short) + (sizeof(u_char) * 20) + sizeof(ST_depend *)) // ST_data - 20 for data
+#define DTBLKSIZE (sizeof(short) + sizeof(u_short) + sizeof(u_char) + (sizeof(ST_depend *) * 2)) // ST_data - empty data
+#define DTMINSIZE (sizeof(short) + sizeof(u_short) + (sizeof(u_char) * 20) + (sizeof(ST_depend *) * 2)) // ST_data - 20 for data
 #define DPBLKSIZE ((sizeof(u_char) * 2) + sizeof(u_short) + sizeof(ST_depend *)) // ST_depend - empty bytes
+
+/*
 #define NTBLKSIZE ((sizeof(short) * 2) + sizeof(short *) + sizeof(ST_newtab *) + sizeof(ST_locdata *)) // not currently used
 
 struct ST_DATA;                                                                 // defined below
@@ -40,12 +45,13 @@ typedef struct __attribute__ ((__packed__)) NEW_STACK {                         
     short  ptr;                                                                 // ptr to variable
     struct ST_DATA *data;                                                       // data address
 } new_stack;                                                                    // end of struct new_stack
+*/
 
 // SYMTAB definitions
-#define ST_HASH     1023                                                        // hash size of symtab
-#define ST_FREE     ST_HASH                                                     // head of free list
-#define ST_MAX      ((ST_HASH + 1) * 3)                                         // max number of ST entries
-#define STORAGE     ST_MAX                                                      // $STORAGE uses this to calculate free slots
+#define ST_HASH 1023                                                            // hash size of symtab
+#define ST_FREE ST_HASH                                                         // head of free list
+#define ST_MAX  ((ST_HASH + 1) * 3)                                             // max number of ST entries
+#define STORAGE ST_MAX                                                          // $STORAGE uses this to calculate free slots
 
 // Structures for symbol table data
 #define SIZE_KEY_DATA (MAX_KEY_SIZE + MAX_STR_LEN + 5)                          // for the following
@@ -58,6 +64,7 @@ typedef struct __attribute__ ((__packed__)) ST_DEPEND {                         
 
 typedef struct __attribute__ ((__packed__)) ST_DATA {                           // symbol data block
     ST_depend *deplnk;                                                          // dependents link
+    ST_depend *last_key;                                                        // last key used
     short     attach;                                                           // variable attach count
     u_short   dbc;                                                              // data byte count
     u_char    data[MAX_STR_LEN + 1];                                            // data bytes
@@ -97,8 +104,7 @@ typedef struct __attribute__ ((__packed__)) KEY_STRUCT {                        
 short ST_Locate(var_u var);                                                     // locate a var name
 short ST_LocateIdx(int idx);                                                    // locate in symtab by index
 short ST_Create(var_u var);                                                     // create and/or locate a var
+void  ST_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr);
+void  ST_Restore(ST_newtab *newtab);
 
-void ST_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr);
-void ST_Restore(ST_newtab *newtab);
-
-#endif                                                                          // !_RSM_SYMBOL_H_
+#endif

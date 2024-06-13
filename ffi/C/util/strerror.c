@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/util/strerror.c
- * Summary:  module RSM strerror - return full name of error
+ * Package: Reference Standard M
+ * File:    rsm/util/strerror.c
+ * Summary: module RSM strerror - return full name of error
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2016
+ * Copyright © 1999-2016
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,17 +22,22 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
  *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/*
  * Extended Summary:
  *
  * Errors returned by functions internally are minus one of the following
  * Specifically -1 = ERRM1
- * Functions return  -ERRMn
+ * Functions return: -ERRMn
  *                   -(ERRZn + ERRMLAST)
  *                   -(ERRMLAST + ERRZLAST + errno)
  *
- * Use: short UTIL_strerror(int error, u_char *buff) to return the error string
+ * Use:  u_short UTIL_strerror(int err, u_char *buf)  to return the error string
  */
 
 #include <stdio.h>                                                              // always include
@@ -50,7 +55,8 @@ static struct {
     int                   err;
     char                  *msg;
 } merrtab[] = {
-    {0,                   "No error"},                                          // standard errors
+    // MDC standard errors
+    {0,                   "No error"},
     {ERRM1,               "Naked indicator undefined"},
     {ERRM2,               "Invalid $FNUMBER P code string combination"},
     {ERRM3,               "$RANDOM argument less than 1"},
@@ -88,7 +94,7 @@ static struct {
     {ERRM43,              "Invalid range ($X, $Y)"},
     {ERRM45,              "Invalid GOTO reference"},
     {ERRM46,              "Invalid attribute name"},
-    {ERRM47,              "Invalid attribute name"},
+    {ERRM47,              "Invalid attribute value"},
     {ERRM56,              "Name length exceeds implementation's limit"},
     {ERRM57,              "More than one defining occurrence of label in routine"},
     {ERRM58,              "Too few formal parameters"},
@@ -148,6 +154,7 @@ static struct {
     {(ERRZ46 + ERRMLAST), "IO: Peer has disconnected"},
     {(ERRZ47 + ERRMLAST), "IO: No peer connected"},
     {(ERRZ48 + ERRMLAST), "IO: Invalid internet address"},
+    // The following are more implementation specific errors
     {(ERRZ49 + ERRMLAST), "Job table is full"},
     {(ERRZ50 + ERRMLAST), "Invalid argument to $STACK()"},
     {(ERRZ51 + ERRMLAST), "Interrupt - Control-C Received"},
@@ -175,6 +182,8 @@ static struct {
     {(ERRZ73 + ERRMLAST), "Invalid database file specified"},
     {(ERRZ74 + ERRMLAST), "Too many variables (max " RSM_STRING(MAX_NUM_VARS) ")"},
     {(ERRZ75 + ERRMLAST), "Too many arguments (max " RSM_STRING(MAX_NUM_ARGS) ")"},
+    {(ERRZ77 + ERRMLAST), "RSM is in restricted mode"},
+    {(ERRZ78 + ERRMLAST), "Lock count exceeds implementation's limit"},
     {0,                   NULL}
 };                                                                              // merrtab[]
 
@@ -203,11 +212,11 @@ u_short UTIL_strerror(int err, u_char *buf)                                     
 void panic(char *msg)                                                           // print msg and exit
 {
     FILE   *a;                                                                  // for freopen
-    char   tmp[1024];                                                           // some string space
+    char   tmp[512];                                                            // some string space
     time_t t;                                                                   // for time
 
     fprintf(stderr, "\r\nFATAL RSM ERROR occurred!!\r\n%s\r\n", msg);           // print
-    if (errno) fprintf(stderr, "errno = %d - %s\n\r", errno, strerror(errno));
+    if (errno) fprintf(stderr, "errno = %d - %s\r\n", errno, strerror(errno));
     fflush(stderr);
     a = freopen("RSM_CRASH", "a", stderr);                                      // redirect stderr
 
@@ -216,13 +225,13 @@ void panic(char *msg)                                                           
         fprintf(stderr, "RSM CRASH OCCURRED on %s", ctime(&t));                 // output the time
         rsm_version((u_char *) tmp);
         fprintf(stderr, "%s", tmp);
-        fprintf(stderr, "\nFATAL RSM ERROR occurred - pid %d!!\n%s\n", getpid(), msg); // print
+        fprintf(stderr, "\nFATAL RSM ERROR occurred - PID %ld!!\n%s\n", (long) getpid(), msg); // print
         if (errno) fprintf(stderr, "errno = %d - %s\n", errno, strerror(errno));
 
         if (partab.jobtab != NULL) {                                            // if not a daemon
             int j = partab.jobtab->cur_do;                                      // get current do
 
-            fprintf(stderr, "Job Number: %d\n", ((int) (partab.jobtab - systab->jobtab) + 1));
+            fprintf(stderr, "Job Number: %d\n", ((int) (partab.jobtab - partab.job_table) + 1));
 
             for (int i = 0; i < VAR_LEN; i++) {
                 tmp[i] = partab.jobtab->dostk[j].rounam.var_cu[i];              // copy it

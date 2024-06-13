@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/seqio/device.c
- * Summary:  module IO - sequential device IO
+ * Package: Reference Standard M
+ * File:    rsm/seqio/device.c
+ * Summary: module IO - sequential device IO
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,8 +22,13 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
  *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/*
  * Extended Summary:
  *
  * This module implements the following sequential input/output (i.e., IO)
@@ -44,7 +49,56 @@
 #include "error.h"
 #include "seqio.h"
 
-int SQ_Device_Read_TTY(int fid, u_char *buf, int tout);
+#define SIG_ALRM (1U << 14)                                                     // SIGALRM (timeout)
+
+// Local functions
+
+/*
+ * This function reads at most one character from the device associated with
+ * the descriptor "did" into the buffer "readbuf". A pending read is not
+ * satisfied until one byte or a signal has been received. Upon successful
+ * completion, the number of bytes actually read is returned. Otherwise, a
+ * negative integer is returned to indicate the error that has occurred.
+ */
+int SQ_Device_Read_TTY(int did, u_char *readbuf, int tout)
+{
+    struct termios settings;
+    int            ret;
+    int            rret;
+
+    if (tout == 0) {
+        ret = tcgetattr(did, &settings);
+        if (ret == -1) return getError(SYS, errno);
+        settings.c_cc[VMIN] = 0;
+        ret = tcsetattr(did, TCSANOW, &settings);
+        if (ret == -1) return getError(SYS, errno);
+    }
+
+    rret = read(did, readbuf, 1);
+
+    if (tout == 0) {
+        ret = tcgetattr(did, &settings);
+        if (ret == -1) return getError(SYS, errno);
+        settings.c_cc[VMIN] = 1;
+        ret = tcsetattr(did, TCSANOW, &settings);
+        if (ret == -1) return getError(SYS, errno);
+
+        if (rret == 0) {                                                        // zero timeout and no chars
+            partab.jobtab->trap |= SIG_ALRM;                                    // MASK[SIGALRM] in seqio/seqio.c
+            return -1;
+        }
+    }
+
+    if (rret == -1) {
+        if (errno == EAGAIN) {
+            if (raise(SIGALRM)) return getError(SYS, errno);
+        }
+
+        return getError(SYS, errno);
+    } else {
+        return rret;
+    }
+}
 
 // Device functions
 
@@ -82,7 +136,7 @@ int SQ_Device_Open(char *device, int op)
         if (did == -1) {
             if (errno != EBUSY) {
                 return getError(SYS, errno);
-            } else if (partab.jobtab->trap & 16384) {                           // MASK[SIGALRM]
+            } else if (partab.jobtab->trap & SIG_ALRM) {                        // MASK[SIGALRM] in seqio/seqio.c
                 return -1;
             }
         } else {
@@ -113,7 +167,7 @@ int SQ_Device_Write(int did, u_char *writebuf, int nbytes)
  * determine the type of device, a negative integer value is returned to
  * indicate the error that has occurred.
  *
- * Note, support is only implemented for terminal type devices.
+ * NOTE: Support is only implemented for terminal type devices
  */
 int SQ_Device_Read(int did, u_char *readbuf, int tout)
 {
@@ -125,54 +179,5 @@ int SQ_Device_Read(int did, u_char *readbuf, int tout)
         return SQ_Device_Read_TTY(did, readbuf, tout);
     } else {
         return getError(INT, ERRZ24);
-    }
-}
-
-// Local functions
-
-/*
- * This function reads at most one character from the device associated with
- * the descriptor "did" into the buffer "readbuf". A pending read is not
- * satisfied until one byte or a signal has been received. Upon successful
- * completion, the number of bytes actually read is returned. Otherwise, a
- * negative integer is returned to indicate the error that has occurred.
- */
-int SQ_Device_Read_TTY(int did, u_char *readbuf, int tout)
-{
-    struct termios settings;
-    int            ret;
-    int            rret;
-
-    if (tout == 0) {
-        ret = tcgetattr(did, &settings);
-        if (ret == -1) return getError(SYS, errno);
-        settings.c_cc[VMIN] = 0;
-        ret = tcsetattr(did, TCSANOW, &settings);
-        if (ret == -1) return getError(SYS, errno);
-    }
-
-    rret = read(did, readbuf, 1);
-
-    if (tout == 0) {
-        ret = tcgetattr(did, &settings);
-        if (ret == -1) return getError(SYS, errno);
-        settings.c_cc[VMIN] = 1;
-        ret = tcsetattr(did, TCSANOW, &settings);
-        if (ret == -1) return getError(SYS, errno);
-
-        if (rret == 0) {                                                        // zero timeout and no chars
-            partab.jobtab->trap |= 16384;                                       // MASK[SIGALRM]
-            return -1;
-        }
-    }
-
-    if (rret == -1) {
-        if (errno == EAGAIN) {
-            if (raise(SIGALRM)) return getError(SYS, errno);
-        }
-
-        return getError(SYS, errno);
-    } else {
-        return rret;
     }
 }

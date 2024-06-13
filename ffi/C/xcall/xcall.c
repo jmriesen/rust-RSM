@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/xcall/xcall.c
- * Summary:  module xcall - supplied external calls
+ * Package: Reference Standard M
+ * File:    rsm/xcall/xcall.c
+ * Summary: module xcall - supplied external calls
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 // SYSTEM INCLUDE FILES
@@ -79,7 +82,7 @@
 #define DISCARD_TRAILING 0x80                                                   // 'T'
 #define PRESERVE_QUOTED  0x100                                                  // 'Q'
 
-static u_long crcTable[256];                                                    // used by Buffcrc
+static u_long crcTable[256];                                                    // used by CRC functions
 
 void crcgen(void)                                                               // build the crcTable
 {
@@ -120,61 +123,70 @@ void crcgen(void)                                                               
  *     or a negative error number.
  *  5. The function name is Xcall_name where the call is $&name().
  *
- *  E.g. short Xcall_name(char *ret_buffer, cstring *arg1, cstring *arg2)
+ *  E.g., short Xcall_name(char *ret_buffer, cstring *arg1, cstring *arg2)
  *    or   int Xcall_name(char *ret_buffer, cstring *arg1, cstring *arg2)
  */
 
 // FUNCTION DEFINITIONS
 
-// DEBUG() - Dump info on console
-short Xcall_debug(char *ret_buffer, cstring *arg1, __attribute__((unused)) cstring *dummy)
+// $&DEBUG() - Dump info on console
+short Xcall_debug(char *ret_buffer, cstring *arg, __attribute__((unused)) cstring *dummy)
 {
-    if (strcasecmp((char *) arg1->buf, "rbd") == 0) {                           // Routine Buffer Descriptors
-        Dump_rbd();                                                             // do it
-    } else if (strcasecmp((char *) arg1->buf, "ltd") == 0) {                    // Lock Table Descriptors
-        Dump_lt();
-    } else if (strcasecmp((char *) arg1->buf, "sems") == 0) {                   // Semaphores
+    if (strcasecmp((char *) arg->buf, "gbd") == 0) {                            // Global Buffer Descriptors
+        Dump_gbd();
+    } else if (strcasecmp((char *) arg->buf, "rbd") == 0) {                     // Routine Buffer Descriptors
+        Dump_rbd();
+    } else if (strcasecmp((char *) arg->buf, "ltd") == 0) {                     // Lock Table Descriptors
+        Dump_ltd();
+    } else if (strcasecmp((char *) arg->buf, "sems") == 0) {                    // Semaphores
         for (int i = 0; i < SEM_MAX; i++) {
-            int val = semctl(systab->sem_id, i, GETVAL, 0);
-            int sempid = semctl(systab->sem_id, i, GETPID, 0);
+            int val, sempid;
 
-            fprintf(stderr, "%d) %s", i, ((i == SEM_SYS) ? "SEM_SYS" : ((i == SEM_ROU) ? "SEM_ROU" : ((i == SEM_LOCK) ?
-                    "SEM_LOCK" : ((i == SEM_GLOBAL) ? "SEM_GLOBAL" : ((i == SEM_WD) ? "SEM_WD" : "?"))))));
+            val = semctl(systab->sem_id, i, GETVAL, 0);
+            sempid = semctl(systab->sem_id, i, GETPID, 0);
 
-            fprintf(stderr, "\t= %d \t(last pid %d)\r\n", val, sempid);
+            printf("%d) %s", i,
+                   ((i == SEM_SYS) ? "SEM_SYS" :
+                   ((i == SEM_ROU) ? "SEM_ROU" :
+                   ((i == SEM_LOCK) ?  "SEM_LOCK" :
+                   ((i == SEM_GLOBAL) ? "SEM_GLOBAL" :
+                   ((i == SEM_WD) ? "SEM_WD" :
+                   ((i == SEM_ATOMIC) ? "SEM_ATOMIC" : "?")))))));
+
+            printf("\t= %d \t(last PID %d)\r\n", val, sempid);
         }
 
-        fprintf(stderr, "(maxjobs = %u)\r\n", systab->maxjob);
-    } else if (strcasecmp((char *) arg1->buf, "struct") == 0) {                 // sanity check structs
-        fprintf(stderr, "FOR_STACK size %zu\r\n", sizeof(struct FOR_STACK));
-        fprintf(stderr, "TAGS size %zu\r\n", sizeof(struct TAGS));
-        fprintf(stderr, "RBD size %zu\r\n", sizeof(struct RBD));
-        fprintf(stderr, "DB_BLOCK size %zu\r\n", sizeof(struct DB_BLOCK));
-        fprintf(stderr, "GBD size %zu\r\n", sizeof(struct GBD));
-        fprintf(stderr, "JRNREC size %zu\r\n", sizeof(struct JRNREC));
-        fprintf(stderr, "CSTRING size %zu\r\n", sizeof(struct CSTRING));
-        fprintf(stderr, "MVAR size %zu\r\n", sizeof(struct MVAR));
-        fprintf(stderr, "UCI_TAB size %zu\r\n", sizeof(struct UCI_TAB));
-        fprintf(stderr, "WD_TAB size %zu\r\n", sizeof(struct WD_TAB));
-        fprintf(stderr, "LABEL_BLOCK size %zu\r\n", sizeof(struct LABEL_BLOCK));
-        fprintf(stderr, "DB_STAT size %zu\r\n", sizeof(struct DB_STAT));
-        fprintf(stderr, "VOL_DEF size %zu\r\n", sizeof(struct VOL_DEF));
-        fprintf(stderr, "DO_FRAME size %zu\r\n", sizeof(struct DO_FRAME));
-        fprintf(stderr, "FORKTAB size %zu\r\n", sizeof(struct FORKTAB));
-        fprintf(stderr, "SERVERTAB size %zu\r\n", sizeof(struct SERVERTAB));
-        fprintf(stderr, "SQ_CHAN size %zu\r\n", sizeof(struct SQ_CHAN));
-        fprintf(stderr, "JOBTAB size %zu\r\n", sizeof(struct JOBTAB));
-        fprintf(stderr, "LOCKTAB size %zu\r\n", sizeof(struct LOCKTAB));
-        fprintf(stderr, "TRANTAB size %zu\r\n", sizeof(struct TRANTAB));
-        fprintf(stderr, "SYSTAB size %zu\r\n", sizeof(struct SYSTAB));
-        fprintf(stderr, "PARTAB size %zu\r\n", sizeof(struct PARTAB));
-        fprintf(stderr, "NEW_STACK size %zu\r\n", sizeof(struct NEW_STACK));
-        fprintf(stderr, "ST_DEPEND size %zu\r\n", sizeof(struct ST_DEPEND));
-        fprintf(stderr, "ST_DATA size %zu\r\n", sizeof(struct ST_DATA));
-        fprintf(stderr, "SYMTAB size %zu\r\n", sizeof(struct SYMTAB));
-        fprintf(stderr, "ST_LOCDATA size %zu\r\n", sizeof(struct ST_LOCDATA));
-        fprintf(stderr, "ST_NEWTAB size %zu\r\n", sizeof(struct ST_NEWTAB));
-        fprintf(stderr, "KEY_STRUCT size %zu\r\n", sizeof(struct KEY_STRUCT));
+        printf("(maxjobs = %u)\r\n", systab->maxjob);
+    } else if (strcasecmp((char *) arg->buf, "struct") == 0) {                  // sanity check structs
+        printf("FOR_STACK size %zu\r\n", sizeof(struct FOR_STACK));
+        printf("TAGS size %zu\r\n", sizeof(struct TAGS));
+        printf("RBD size %zu\r\n", sizeof(struct RBD));
+        printf("DB_BLOCK size %zu\r\n", sizeof(struct DB_BLOCK));
+        printf("GBD size %zu\r\n", sizeof(struct GBD));
+        printf("JRNREC size %zu\r\n", sizeof(struct JRNREC));
+        printf("CSTRING size %zu\r\n", sizeof(struct CSTRING));
+        printf("MVAR size %zu\r\n", sizeof(struct MVAR));
+        printf("UCI_TAB size %zu\r\n", sizeof(struct UCI_TAB));
+        printf("WD_TAB size %zu\r\n", sizeof(struct WD_TAB));
+        printf("LABEL_BLOCK size %zu\r\n", sizeof(struct LABEL_BLOCK));
+        printf("DB_STAT size %zu\r\n", sizeof(struct DB_STAT));
+        printf("VOL_DEF size %zu\r\n", sizeof(struct VOL_DEF));
+        printf("DO_FRAME size %zu\r\n", sizeof(struct DO_FRAME));
+        printf("FORKTAB size %zu\r\n", sizeof(struct FORKTAB));
+        printf("SERVERTAB size %zu\r\n", sizeof(struct SERVERTAB));
+        printf("SQ_CHAN size %zu\r\n", sizeof(struct SQ_CHAN));
+        printf("JOBTAB size %zu\r\n", sizeof(struct JOBTAB));
+        printf("LOCKTAB size %zu\r\n", sizeof(struct LOCKTAB));
+        printf("TRANTAB size %zu\r\n", sizeof(struct TRANTAB));
+        printf("SYSTAB size %zu\r\n", sizeof(struct SYSTAB));
+        printf("PARTAB size %zu\r\n", sizeof(struct PARTAB));
+        //printf("NEW_STACK size %zu\r\n", sizeof(struct NEW_STACK));
+        printf("ST_DEPEND size %zu\r\n", sizeof(struct ST_DEPEND));
+        printf("ST_DATA size %zu\r\n", sizeof(struct ST_DATA));
+        printf("SYMTAB size %zu\r\n", sizeof(struct SYMTAB));
+        printf("ST_LOCDATA size %zu\r\n", sizeof(struct ST_LOCDATA));
+        printf("ST_NEWTAB size %zu\r\n", sizeof(struct ST_NEWTAB));
+        printf("KEY_STRUCT size %zu\r\n", sizeof(struct KEY_STRUCT));
     } else {
         return -(ERRZ18 + ERRMLAST);                                            // no such
     }
@@ -236,7 +248,7 @@ int isPatternMatch(char *pattern, char *filename)
                 pattern += 1;
             }
         } else if (flag == 1) {                                                 // Find first occurrence
-            filename = findNextChar (*pattern, filename);
+            filename = findNextChar(*pattern, filename);
 
             if (*filename == '\0') {
                 return 0;
@@ -260,6 +272,7 @@ int isPatternMatch(char *pattern, char *filename)
     return 1;                                                                   // Pattern match
 }
 
+// $&%DIRECTORY - Directory lookup
 short Xcall_directory(char *ret_buffer, cstring *file, __attribute__((unused)) cstring *dummy)
 {
     struct dirent *dent;                                                        // Directory entry
@@ -274,7 +287,7 @@ short Xcall_directory(char *ret_buffer, cstring *file, __attribute__((unused)) c
 
     if (file->buf[0] == '\0') {
         while (TRUE) {
-            dent = readdir (dirp);
+            dent = readdir(dirp);
 
             if (dent == NULL) {                                                 // No more matching directory entries
                 ret_buffer = NULL;
@@ -357,7 +370,7 @@ short Xcall_directory(char *ret_buffer, cstring *file, __attribute__((unused)) c
     }
 }
 
-// %ERRMSG - Return error text
+// $&%ERRMSG - Return error text
 short Xcall_errmsg(char *ret_buffer, cstring *err, __attribute__((unused)) cstring *dummy)
 {
     int errnum = 0;                                                             // init error number
@@ -367,23 +380,23 @@ short Xcall_errmsg(char *ret_buffer, cstring *err, __attribute__((unused)) cstri
     if (err->buf[0] == 'U') {                                                   // user error ?
         memcpy(ret_buffer, "User error: ", 12);
         memmove(&ret_buffer[12], err->buf, err->len);
-        return (err->len + 12);
+        return err->len + 12;
     }
 
     if (err->len < 2) return -ERRM11;                                           // they gotta pass something
 
     if (err->buf[0] == 'Z') {
-        errnum = errnum + ERRMLAST;                                             // point at Z errors
+        errnum += ERRMLAST;                                                     // point at Z errors
     } else if (err->buf[0] != 'M') {
         return -ERRM99;                                                         // that's junk
     }
 
-    errnum = errnum + atoi((char *) &err->buf[1]);                              // add the number to it
+    errnum += atoi((char *) &err->buf[1]);                                      // add the number to it
     return UTIL_strerror(errnum, (u_char *) ret_buffer);                        // do it
 }
 
-// %OPCOM - Message control
-short Xcall_opcom(char *ret_buffer, cstring *msg, cstring *device)
+// $&%OPCOM - Message control
+short Xcall_opcom(char *ret_buffer, cstring *msg, const cstring *device)
 {
     ret_buffer[0] = '\0';                                                       // null terminate nothing
 
@@ -395,7 +408,7 @@ short Xcall_opcom(char *ret_buffer, cstring *msg, cstring *device)
     return SQ_Force(device, msg);                                               // do it in seqio
 }
 
-// %SIGNAL - Send signal to PID
+// $&%SIGNAL - Send signal to PID
 short Xcall_signal(char *ret_buffer, cstring *pid, cstring *sig)
 {
     int i;                                                                      // PID
@@ -417,32 +430,16 @@ short Xcall_signal(char *ret_buffer, cstring *pid, cstring *sig)
     return 1;                                                                   // and return
 }
 
-// %SPAWN - Create subprocess
-short Xcall_spawn(char *ret_buffer, cstring *cmd, cstring *type)
+// $&%SPAWN - Create subprocess
+short Xcall_spawn(char *ret_buffer, cstring *cmd, const cstring *type)
 {
-    int    ret;
-    int    tmp;
-    FILE   *fp = NULL;
-    struct termios save;
-    struct termios term;
+    int ret;
 
-    if (restricted) {                                                   // -R was passed when job started
-        tmp = sprintf(ret_buffer, "RSM is in restricted mode\r\n");
-        if (tmp < 0) return -(ERRMLAST + ERRZLAST + errno);
-        return tmp;
-    }
+    if (restricted) return -(ERRZ77 + ERRMLAST);                                // -R was passed when job started
 
-    tmp = tcgetattr(STDIN_FILENO, &term);
-    if (tmp == -1) return -(ERRMLAST + ERRZLAST + errno);
-
-    if ((type->len == 1) && (type->buf[0] == '1')) {
-        int echk;
-        int err;
-
-        // Change to sane settings for pipe read mode
-        term.c_oflag |= ONLCR;
-        tmp = tcsetattr(STDIN_FILENO, TCSANOW, &term);
-        if (tmp == -1) return -(ERRMLAST + ERRZLAST + errno);
+    if (type->len) {
+        FILE *fp = NULL;
+        int  echk, err;
 
         // Do command
         fp = popen((char *) cmd->buf, "r");
@@ -467,15 +464,16 @@ short Xcall_spawn(char *ret_buffer, cstring *cmd, cstring *type)
             return (short) ret;
         }
     } else {
-        // Store current settings
-        int tchk = tcgetattr(STDIN_FILENO, &save);
+        struct termios term, save;
+
+        if (tcgetattr(STDIN_FILENO, &term) == -1) return -(ERRMLAST + ERRZLAST + errno);
+        if (tcgetattr(STDIN_FILENO, &save) == -1) return -(ERRMLAST + ERRZLAST + errno); // Store current settings
 
         // Change to sane settings for shell out
         term.c_iflag |= ICRNL;
         term.c_oflag |= ONLCR;
         term.c_lflag |= (ICANON | ECHO);
-        tmp = tcsetattr(STDIN_FILENO, TCSANOW, &term);
-        if (tmp == -1) return -(ERRMLAST + ERRZLAST + errno);
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &term)  == -1) return -(ERRMLAST + ERRZLAST + errno);
 
         // ret_buffer unused
         ret_buffer[0] = '\0';
@@ -486,11 +484,8 @@ short Xcall_spawn(char *ret_buffer, cstring *cmd, cstring *type)
         // allow ECHILD
         if ((ret == -1) && (errno == ECHILD)) ret = 0;
 
-        if (tchk != -1) {
-            // Restore original settings
-            tmp = tcsetattr(STDIN_FILENO, TCSANOW, &save);
-            if (tmp == -1) return -(ERRMLAST + ERRZLAST + errno);
-        }
+        // Restore original settings
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &save) == -1) return -(ERRMLAST + ERRZLAST + errno);
 
         // Return 0 or error
         if (ret == -1) {
@@ -502,7 +497,7 @@ short Xcall_spawn(char *ret_buffer, cstring *cmd, cstring *type)
 }
 
 /*
- * %VERSION - Supply version information - arg1 must be "NAME"
+ * $&%VERSION - Supply version information - arg1 must be "NAME"
  * returns "Reference Standard M V<major.minor.patch[-pre]> [T<test>] for <platform> <datetime> ..."
  */
 short Xcall_version(char *ret_buffer, __attribute__((unused)) cstring *dummy1, __attribute__((unused)) cstring *dummy2)
@@ -511,7 +506,7 @@ short Xcall_version(char *ret_buffer, __attribute__((unused)) cstring *dummy1, _
 }
 
 /*
- * %ZWRITE - Dump local symbol table (arg1/tmp can be a global reference)
+ * $&%ZWRITE - Dump local symbol table (arg1/tmp can be a global reference)
  * returns 0 on success, or negative for errors - sets variables to empty string
  */
 short Xcall_zwrite(char *ret_buffer, cstring *tmp, __attribute__((unused)) cstring *dummy)
@@ -531,7 +526,7 @@ short Xcall_zwrite(char *ret_buffer, cstring *tmp, __attribute__((unused)) cstri
     return ST_DumpV(&var);                                                      // do it
 }
 
-// Edit - Perform string editing functions (two arguments)
+// $&E - Perform string editing functions (two arguments)
 short Xcall_e(char *ret_buffer, cstring *istr, cstring *STR_mask)
 {
     int  i;
@@ -651,6 +646,7 @@ enum {
     kDefaultDSBufferSize = 1024
 };
 
+#if defined(__clang__) && !defined(NDEBUG)
 /*
  * Open Directory Utility Routines
  * Appends a value to a data buffer. dataPtr and dataLen describe
@@ -692,6 +688,7 @@ static tDirStatus dsDataListAndHeaderDeallocate(tDirReference inDirReference, tD
     if (err == eDSNoErr) free(inDataList);
     return err;
 }
+#endif
 
 /*
  * This routine is designed to handle the case where a
@@ -711,7 +708,6 @@ static tDirStatus dsDataListAndHeaderDeallocate(tDirReference inDirReference, tD
 static void DoubleTheBufferSizeIfItsTooSmall(tDirStatus *errPtr, tDirNodeReference dirRef, tDataBufferPtr *bufPtrPtr)
 {
     tDirStatus     err;
-    tDirStatus     junk;
     tDataBufferPtr tmpBuf;
 
     assert(errPtr != NULL);
@@ -722,8 +718,10 @@ static void DoubleTheBufferSizeIfItsTooSmall(tDirStatus *errPtr, tDirNodeReferen
     if (*errPtr == eDSBufferTooSmall) {
         err = eDSNoErr;
 
-        // If the buffer size is already bigger than 16 MiB, don't try to
-        // double it again; something has gone horribly wrong.
+        /*
+         * If the buffer size is already bigger than 16 MiB, don't try to
+         * double it again; something has gone horribly wrong.
+         */
         if ((*bufPtrPtr)->fBufferSize >= (16 * 1024 * 1024)) {
             err = eDSAllocationFailed;
         }
@@ -737,8 +735,7 @@ static void DoubleTheBufferSizeIfItsTooSmall(tDirStatus *errPtr, tDirNodeReferen
 #if TEST_BUFFER_DOUBLING
                 fprintf(stderr, "Doubled buffer size to %lu.\r\n", tmpBuf->fBufferSize);
 #endif
-                junk = dsDataBufferDeAllocate(dirRef, *bufPtrPtr);
-                assert(junk == eDSNoErr);
+                assert(dsDataBufferDeAllocate(dirRef, *bufPtrPtr) == eDSNoErr);
                 *bufPtrPtr = tmpBuf;
             }
         }
@@ -888,10 +885,9 @@ static tDirStatus dsDoDirNodeAuthQ(tDirNodeReference inDirReference, tDirNodeRef
 static tDirStatus GetSearchNodePathList(tDirReference dirRef, tDataListPtr * searchNodePathListPtr)
 {
     tDirStatus       err;
-    tDirStatus       junk;
     tDataBufferPtr   buf;
     tDirPatternMatch patternToFind;
-    UInt32           nodeCount;
+    UInt32           nodeCount = 0;
     tContextData     context;
 
     assert(dirRef != 0);
@@ -929,7 +925,7 @@ static tDirStatus GetSearchNodePathList(tDirReference dirRef, tDataListPtr * sea
      */
     if (err == eDSNoErr) {
         if (nodeCount > 1) {
-            fprintf(stderr, "GetSearchNodePathList: nodeCount = %u, weird.\r\n", nodeCount);
+            fprintf(stderr, "GetSearchNodePathList: nodeCount = %u, weird.\r\n", (u_int) nodeCount);
         }
 
         err = dsGetDirNodeName(dirRef, buf, 1, searchNodePathListPtr);
@@ -937,13 +933,11 @@ static tDirStatus GetSearchNodePathList(tDirReference dirRef, tDataListPtr * sea
 
     // Clean up.
     if (context != 0) {
-        junk = dsReleaseContinueData(dirRef, context);
-        assert(junk == eDSNoErr);
+        assert(dsReleaseContinueData(dirRef, context) == eDSNoErr);
     }
 
     if (buf != NULL) {
-        junk = dsDataBufferDeAllocate(dirRef, buf);
-        assert(junk == eDSNoErr);
+        assert(dsDataBufferDeAllocate(dirRef, buf) == eDSNoErr);
     }
 
     assert((err == eDSNoErr) == (*searchNodePathListPtr != NULL));
@@ -973,12 +967,11 @@ static tDirStatus FindUsersAuthInfo(tDirReference dirRef, tDirNodeReference node
                                     tDataListPtr *pathListToAuthNodePtr, char **userNameForAuthPtr)
 {
     tDirStatus        err;
-    tDirStatus        junk;
     tDataBufferPtr    buf;
     tDataListPtr      recordType;
     tDataListPtr      recordName;
     tDataListPtr      requestedAttributes;
-    UInt32            recordCount;
+    UInt32            recordCount = 0;
     tAttributeListRef foundRecAttrList;
     tContextData      context;
     tRecordEntryPtr   foundRecEntry;
@@ -1115,18 +1108,15 @@ static tDirStatus FindUsersAuthInfo(tDirReference dirRef, tDirNodeReference node
 
             // Clean up.
             if (thisValueEntry != NULL) {
-                junk = dsDeallocAttributeValueEntry(dirRef, thisValueEntry);
-                assert(junk == eDSNoErr);
+                assert(dsDeallocAttributeValueEntry(dirRef, thisValueEntry) == eDSNoErr);
             }
 
             if (thisValue != 0) {
-                junk = dsCloseAttributeValueList(thisValue);
-                assert(junk == eDSNoErr);
+                assert(dsCloseAttributeValueList(thisValue) == eDSNoErr);
             }
 
             if (thisAttrEntry != NULL) {
-                junk = dsDeallocAttributeEntry(dirRef, thisAttrEntry);
-                assert(junk == eDSNoErr);
+                assert(dsDeallocAttributeEntry(dirRef, thisAttrEntry) == eDSNoErr);
             }
 
             if (err != eDSNoErr) break;
@@ -1150,45 +1140,37 @@ static tDirStatus FindUsersAuthInfo(tDirReference dirRef, tDirNodeReference node
 
     // Clean up.
     if (pathListToAuthNode != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, pathListToAuthNode);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, pathListToAuthNode) == eDSNoErr);
     }
 
     if (userNameForAuth != NULL) free(userNameForAuth);
 
     if (foundRecAttrList != 0) {
-        junk = dsCloseAttributeList(foundRecAttrList);
-        assert(junk == eDSNoErr);
+        assert(dsCloseAttributeList(foundRecAttrList) == eDSNoErr);
     }
 
     if (context != 0) {
-        junk = dsReleaseContinueData(dirRef, context);
-        assert(junk == eDSNoErr);
+        assert(dsReleaseContinueData(dirRef, context) == eDSNoErr);
     }
 
     if (foundRecAttrList != 0) {
-        junk = dsDeallocRecordEntry(dirRef, foundRecEntry);
-        assert(junk == eDSNoErr);
+        assert(dsDeallocRecordEntry(dirRef, foundRecEntry) == eDSNoErr);
     }
 
     if (requestedAttributes != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, requestedAttributes);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, requestedAttributes) == eDSNoErr);
     }
 
     if (recordName != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, recordName);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, recordName) == eDSNoErr);
     }
 
     if (recordType != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, recordType);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, recordType) == eDSNoErr);
     }
 
     if (buf != NULL) {
-        junk = dsDataBufferDeAllocate(dirRef, buf);
-        assert(junk == eDSNoErr);
+        assert(dsDataBufferDeAllocate(dirRef, buf) == eDSNoErr);
     }
 
     assert((err == eDSNoErr) == ((*pathListToAuthNodePtr != NULL) && (*userNameForAuthPtr != NULL)));
@@ -1207,7 +1189,6 @@ static tDirStatus AuthenticateWithNode(tDirReference dirRef, tDataListPtr pathLi
                                        const char *userNameForAuth, const char *password)
 {
     tDirStatus        err;
-    tDirStatus        junk;
     size_t            userNameLen;
     size_t            passwordLen;
     tDirNodeReference authNodeRef;
@@ -1265,22 +1246,14 @@ static tDirStatus AuthenticateWithNode(tDirReference dirRef, tDataListPtr pathLi
 
     if (err == eDSNoErr) {
         length = userNameLen + 1;                                               // + 1 to include trailing null
-        junk = dsDataBufferAppendData(authInBuf, &length, sizeof(length));
 #ifdef __clang__
-        assert(junk == noErr);
-#endif
-        junk = dsDataBufferAppendData(authInBuf, userNameForAuth, userNameLen + 1);
-#ifdef __clang__
-        assert(junk == noErr);
+        assert(dsDataBufferAppendData(authInBuf, &length, sizeof(length)) == noErr);
+        assert(dsDataBufferAppendData(authInBuf, userNameForAuth, userNameLen + 1) == noErr);
 #endif
         length = passwordLen + 1;                                               // + 1 to include trailing null
-        junk = dsDataBufferAppendData(authInBuf, &length, sizeof(length));
 #ifdef __clang__
-        assert(junk == noErr);
-#endif
-        junk = dsDataBufferAppendData(authInBuf, password, passwordLen + 1);
-#ifdef __clang__
-        assert(junk == noErr);
+        assert(dsDataBufferAppendData(authInBuf, &length, sizeof(length)) == noErr);
+        assert(dsDataBufferAppendData(authInBuf, password, passwordLen + 1) == noErr);
 #endif
 
         // Call dsDoDirNodeAuth to do the authentication.
@@ -1289,23 +1262,19 @@ static tDirStatus AuthenticateWithNode(tDirReference dirRef, tDataListPtr pathLi
 
     // Clean up.
     if (authInBuf != NULL) {
-        junk = dsDataBufferDeAllocate(dirRef, authInBuf);
-        assert(junk == eDSNoErr);
+        assert(dsDataBufferDeAllocate(dirRef, authInBuf) == eDSNoErr);
     }
 
     if (authOutBuf != NULL) {
-        junk = dsDataBufferDeAllocate(dirRef, authOutBuf);
-        assert(junk == eDSNoErr);
+        assert(dsDataBufferDeAllocate(dirRef, authOutBuf) == eDSNoErr);
     }
 
     if (authMethod != NULL) {
-        junk = dsDataNodeDeAllocate(dirRef, authMethod);
-        assert(junk == eDSNoErr);
+        assert(dsDataNodeDeAllocate(dirRef, authMethod) == eDSNoErr);
     }
 
     if (authNodeRef != 0) {
-        junk = dsCloseDirNode(authNodeRef);
-        assert(junk == eDSNoErr);
+        assert(dsCloseDirNode(authNodeRef) == eDSNoErr);
     }
 
     return err;
@@ -1315,7 +1284,6 @@ static tDirStatus AuthenticateWithNode(tDirReference dirRef, tDataListPtr pathLi
 static tDirStatus CheckPasswordUsingOpenDirectory(const char *username, const char *password)
 {
     tDirStatus        err;
-    tDirStatus        junk;
     tDirReference     dirRef;
     tDataListPtr      pathListToSearchNode;
     tDirNodeReference searchNodeRef;
@@ -1337,8 +1305,7 @@ static tDirStatus CheckPasswordUsingOpenDirectory(const char *username, const ch
     if (err == eDSNoErr) err = GetSearchNodePathList(dirRef, &pathListToSearchNode);
     if (err == eDSNoErr) err = dsOpenDirNode(dirRef, pathListToSearchNode, &searchNodeRef);
 
-    // Search for the user's record and extract the user's authentication
-    // node and authentication user name..
+    // Search for the user's record and extract the user's authentication node and authentication user name..
     if (err == eDSNoErr) {
         err = FindUsersAuthInfo(dirRef, searchNodeRef, username, &pathListToAuthNode, &userNameForAuth);
     }
@@ -1350,29 +1317,26 @@ static tDirStatus CheckPasswordUsingOpenDirectory(const char *username, const ch
     if (userNameForAuth != NULL) free(userNameForAuth);
 
     if (pathListToAuthNode != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, pathListToAuthNode);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, pathListToAuthNode) == eDSNoErr);
     }
 
     if (searchNodeRef != 0) {
-        junk = dsCloseDirNode(searchNodeRef);
-        assert(junk == eDSNoErr);
+        assert(dsCloseDirNode(searchNodeRef) == eDSNoErr);
     }
 
     if (pathListToSearchNode != NULL) {
-        junk = dsDataListAndHeaderDeallocate(dirRef, pathListToSearchNode);
-        assert(junk == eDSNoErr);
+        assert(dsDataListAndHeaderDeallocate(dirRef, pathListToSearchNode) == eDSNoErr);
     }
 
     if (dirRef != 0) {
-        junk = dsCloseDirService(dirRef);
-        assert(junk == eDSNoErr);
+        assert(dsCloseDirService(dirRef) == eDSNoErr);
     }
 
     return err;
 }
 
-short Xcall_paschk(char *ret_buffer, cstring *user, cstring *pwd)
+// $&PASCHK - Check user/password
+short Xcall_paschk(char *ret_buffer, const cstring *user, cstring *pwd)
 {
     char       *username;
     char       *password;
@@ -1408,10 +1372,11 @@ short Xcall_paschk(char *ret_buffer, cstring *user, cstring *pwd)
 }
 #else
 
+// $&PASCHK - Check user/password
 #ifndef __CYGWIN__
-short Xcall_paschk(char *ret_buffer, cstring *user, cstring *pwd)
+short Xcall_paschk(char *ret_buffer, const cstring *user, cstring *pwd)
 #else
-short Xcall_paschk(char *ret_buffer, cstring *user, __attribute__((unused)) cstring *pwd)
+short Xcall_paschk(char *ret_buffer, const cstring *user, __attribute__((unused)) cstring *pwd)
 #endif
 {
     FILE *fd;                                                                   // secure user database
@@ -1481,24 +1446,24 @@ short Xcall_paschk(char *ret_buffer, cstring *user, __attribute__((unused)) cstr
 }
 #endif
 
-// Video - Generate an Escape sequence for (Y,X) positioning
+// $&V - Generate an absolute Escape sequence for (Y,X) positioning
 int Xcall_v(char *ret_buffer, cstring *lin, cstring *col)
 {
     int i;
     int len = 0;                                                                // length of it
 
     ret_buffer[len++] = 27;                                                     // Store the ESC
-    ret_buffer[len++] = 91;                                                     // Store the '['
+    ret_buffer[len++] = '[';                                                    // Store the '['
     for (i = 0; i != (int) lin->len; i++) ret_buffer[len++] = lin->buf[i];      // for all char in lin, copy one char
-    ret_buffer[len++] = 59;                                                     // Then the ';'
+    ret_buffer[len++] = ';';                                                    // Then the ';'
     for (i = 0; i != (int) col->len; i++) ret_buffer[len++] = col->buf[i];      // for all char in col, copy one char
-    ret_buffer[len++] = 72;                                                     // Finally the 'H'
+    ret_buffer[len++] = 'H';                                                    // Finally the 'H'
     ret_buffer[len] = '\0';                                                     // NUL terminate
     return len;                                                                 // and return the length
 }
 
-// Xsum - Checksum a string of characters (normal)
-int Xcall_x(char *ret_buffer, cstring *str, cstring *flag)
+// $&X - Checksum a string of characters (normal)
+int Xcall_x(char *ret_buffer, cstring *str, const cstring *flag)
 {
     u_long crc;
     u_long ulldx;
@@ -1527,7 +1492,7 @@ int Xcall_x(char *ret_buffer, cstring *str, cstring *flag)
 }
 
 /*
- * XRSM - Checksum a string of characters (RSM type)
+ * $&XRSM - Checksum a string of characters (RSM type)
  *        Three-byte checksum. chk(3).
  *        This code uses the global variable "crc" to accumulate a 16 bit
  *        CCITT Cyclic Redundancy Check on the string pointed to by "str"
@@ -1556,8 +1521,8 @@ short Xcall_xrsm(char *ret_buffer, cstring *str, __attribute__((unused)) cstring
     return 3;                                                                   // return length (always 3)
 }
 
-// %GETENV - Returns the value of an environment variable
-int Xcall_getenv(char *ret_buffer, cstring *env, __attribute__((unused)) cstring *dummy)
+// $&%GETENV - Returns the value of an environment variable
+int Xcall_getenv(char *ret_buffer, const cstring *env, __attribute__((unused)) cstring *dummy)
 {
     char *p;                                                                    // ptr for getenv
 
@@ -1568,55 +1533,63 @@ int Xcall_getenv(char *ret_buffer, cstring *env, __attribute__((unused)) cstring
 }
 
 /*
- * %SETENV - Sets an environment variable (where it overwrites an
+ * $&%SETENV - Sets an environment variable (where it overwrites an
  *           existing environment variable), or unsets an existing
  *           environment variable if "value" == NULL
  */
-short Xcall_setenv(char *ret_buffer, cstring *env, cstring *value)
+short Xcall_setenv(char *ret_buffer, cstring *env, const cstring *value)
 {
-    int ret;                                                                    // Return value
+    int ret = 0;                                                                // Return value
 
     ret_buffer[0] = '\0';                                                       // Always return NULL
 
     if (value == NULL) {                                                        // Unset environment variable
-#ifndef _AIX
-        unsetenv ((char *) env->buf);                                           // DLW: AIX doesn't have this, use a different API
+#if (!defined(_HPUX_SOURCE) && !defined(_AIX)) || defined(_AIX52)
+        ret = unsetenv((char *) env->buf);                                      // TODO: AIX older than 5.2 doesn't have this
+#else
+        return ret;
 #endif
-        return 0;
     } else {                                                                    // Set environment variable
+#ifndef _HPUX_SOURCE
         ret = setenv((char *) env->buf, (char *) value->buf, 1);
-
-        if (ret == -1) {                                                        // Error has occurred
-            return -(ERRMLAST + ERRZLAST + errno);
-        } else {
-            return 0;
-        }
+#else
+        return ret;
+#endif
     }
+
+    if (ret == -1) return -(ERRMLAST + ERRZLAST + errno);                       // Error has occurred
+    return ret;
 }
 
 /*
- * FORK - Create a copy of this process
+ * $&%FORK - Create a copy of this process
  * Returns: Fail: 0
  *          Parent: Child M job number
  *          Child:  Minus Parent M job number
  */
 short Xcall_fork(char *ret_buffer, __attribute__((unused)) cstring *dummy1, __attribute__((unused)) cstring *dummy2)
 {
-    int s = ForkIt(1);                                                          // do it, copy file table
+    int t;
 
-    return itocstring((u_char *) ret_buffer, s);                                // return result
+    t = ForkIt(1);                                                              // fork it, copy file table
+    return ltocstring((u_char *) ret_buffer, t);                                // return result
 }
 
 /*
- * FILE - Obtains information about a file.
+ * $&%FILE - Obtains information about a file.
  *
  * Arguments:
  *     Filename  - File to obtain information about
  *     Attribute - File attribute. The following information can
  *                 be obtained for a file:
  *
- *                 SIZE   - File size, in bytes
  *                 EXISTS - 1:true ; 0:false
+ *                 SIZE   - File size, in bytes
+ *                 ATIME  - Last access time
+ *                 CTIME  - Last status change time
+ *                 MTIME  - Last modification time
+ *                 UID    - User ID
+ *                 GID    - Group ID
  *
  * Returns:
  *     Fail    -  < 0
@@ -1650,12 +1623,27 @@ short Xcall_file(char *ret_buffer, cstring *file, cstring *attr)
     }
 
     // Get desired attribute
-    if (strcasecmp("size", (char *) attr->buf) == 0) {
-        ret = sprintf(ret_buffer, "%lld", (long long) sb.st_size);
-        return (short) ret;                                                     // Size of ret_buffer (SIZE)
-    } else if (strcasecmp("exists", (char *) attr->buf) == 0) {                 // File exists
+    if (strcasecmp("exists", (char *) attr->buf) == 0) {                        // File exists
         ret = sprintf(ret_buffer, "%d", exists);
         return (short) ret;                                                     // Size of ret_buffer (EXISTS)
+    } else if (strcasecmp("size", (char *) attr->buf) == 0) {
+        ret = sprintf(ret_buffer, "%lld", (long long) sb.st_size);
+        return (short) ret;                                                     // Size of ret_buffer (SIZE)
+    } else if (strcasecmp("atime", (char *) attr->buf) == 0) {                  // Last access time
+        ret = sprintf(ret_buffer, "%lld", (long long) sb.st_atime);
+        return (short) ret;                                                     // Size of ret_buffer (ATIME)
+    } else if (strcasecmp("ctime", (char *) attr->buf) == 0) {                  // Last status change (inode)
+        ret = sprintf(ret_buffer, "%lld", (long long) sb.st_ctime);
+        return (short) ret;                                                     // Size of ret_buffer (CTIME)
+    } else if (strcasecmp("mtime", (char *) attr->buf) == 0) {                  // Last modification time
+        ret = sprintf(ret_buffer, "%lld", (long long) sb.st_mtime);
+        return (short) ret;                                                     // Size of ret_buffer (MTIME)
+    } else if (strcasecmp("uid", (char *) attr->buf) == 0) {                    // UID of file
+        ret = sprintf(ret_buffer, "%u", sb.st_uid);
+        return (short) ret;                                                     // Size of ret_buffer (UID)
+    } else if (strcasecmp("gid", (char *) attr->buf) == 0) {                    // GID of file
+        ret = sprintf(ret_buffer, "%u", sb.st_gid);
+        return (short) ret;                                                     // Size of ret_buffer (GID)
     } else {                                                                    // Invalid attribute name
         ret_buffer[0] = '\0';
         return -ERRM46;
@@ -1665,99 +1653,111 @@ short Xcall_file(char *ret_buffer, cstring *file, cstring *attr)
 }
 
 /*
-* HOST - Resolves a host's IP address
+* $&%HOST - Resolves a host's IP address
 *
 * Arguments:
 *     Name  - Name of host to resolve.
-*             "IP" return IP
-*         or  "NAME" return name of current host
+*             "IP" or "IP6" return TCP/IP in IPv4 or IPv6 format
+*         or  "UIP" or "UIP6" return UDP/IP in IPv4 or IPv6 format
+*         or  "NAME" or "NAME6" return name of host in IPv4 or IPv6 format
 *
 * Returns:
 *     Fail    -  < 0
 *     Success - Number of bytes in ret_buffer (which contains
 *               the resolved host's IP address)
 */
-short Xcall_host(char *ret_buffer, cstring *name, cstring *arg2)
+short Xcall_host(char *ret_buffer, cstring *name, cstring *arg)
 {
-    struct hostent *h;                                                          // Host's attributes
-    int            i;
-    short          s;
-    u_char         a[8];
+    int  i;
+    char host[1024];
+    char service[20];
 
-    if (strcasecmp((char *) arg2->buf, "ip") == 0) {
-        /* Acquire host's attributes
-        struct hostent {
-            char *h_name;                                                       // official name of host
-            char **h_aliases;                                                   // alias list
-            int  h_addrtype;                                                    // host address type
-            int  h_length;                                                      // length of address
-            char **h_addr_list;                                                 // list of addr from name server
-        };
+    if ((strcasecmp((char *) arg->buf, "ip") == 0) || (strcasecmp((char *) arg->buf, "ip6") == 0) ||
+     (strcasecmp((char *) arg->buf, "uip") == 0) || (strcasecmp((char *) arg->buf, "uip6") == 0)) {
+        struct addrinfo info;                                                   // info for address match
+        struct addrinfo *addr;                                                  // list of addresses returned
 
-#define h_addr h_addr_list[0]                                                   // address, for backward compatibility
-        */
+        if (name->len == 0) return 0;                                           // have to have a hostname
+        memset(&info, 0, sizeof(info));                                         // zero out structure
 
-        h = gethostbyname((char *) name->buf);
+        if ((strcasecmp((char *) arg->buf, "ip6") == 0) || (strcasecmp((char *) arg->buf, "uip6") == 0)) {
+            info.ai_family = AF_INET6;                                          // IPv6
+        } else {
+            info.ai_family = AF_INET;                                           // IPv4
+        }
 
-        if (h == NULL) {                                                        // gethostname() failed
-            ret_buffer[0] = '\0';
+        if ((strcasecmp((char *) arg->buf, "uip") == 0) || (strcasecmp((char *) arg->buf, "uip6") == 0)) {
+            info.ai_socktype = SOCK_DGRAM;                                      // only datagram sockets
+            info.ai_protocol = IPPROTO_UDP;                                     // only UDP protocol
+        } else {
+            info.ai_socktype = SOCK_STREAM;                                     // only stream sockets
+            info.ai_protocol = IPPROTO_TCP;                                     // only TCP protocol
+        }
 
-            if (h_errno == HOST_NOT_FOUND) {
-                return -(ERRZ71 + ERRMLAST);
+        i = getaddrinfo((char *) name->buf, NULL, &info, &addr);
+
+        if (i == 0) {
+            if ((strcasecmp((char *) arg->buf, "ip6") == 0) || (strcasecmp((char *) arg->buf, "uip6") == 0)) {
+                char ipstr6[INET6_ADDRSTRLEN];
+
+                snprintf((char *) ret_buffer, MAX_SEQ_NAME, "%s", inet_ntop(addr->ai_addr->sa_family,
+                         &((struct sockaddr_in6 *) addr->ai_addr)->sin6_addr, ipstr6, INET6_ADDRSTRLEN));
             } else {
-                return -(ERRZ72 + ERRMLAST);
+                char ipstr[INET_ADDRSTRLEN];
+
+                snprintf((char *) ret_buffer, MAX_SEQ_NAME, "%s", inet_ntop(addr->ai_addr->sa_family,
+                         &((struct sockaddr_in *) addr->ai_addr)->sin_addr, ipstr, INET_ADDRSTRLEN));
             }
+
+            freeaddrinfo(addr);                                                 // free addrinfo allocated in getaddrinfo()
+        } else {
+            strcpy(ret_buffer, gai_strerror(i));
         }
 
-        s = 0;                                                                  // clear char count
+        return (short) strlen(ret_buffer);
+    } else if (strcasecmp((char *) arg->buf, "name") == 0) {
+        struct sockaddr_in sin;
 
-        for (i = 0; i < 4; i++) {                                               // for each byte
-            s += uitocstring((u_char *) &ret_buffer[s], (u_char) h->h_addr_list[0][i]);
-            ret_buffer[s++] = '.';                                              // and a dot
-        }
-
-        s--;                                                                    // ignore last dot
-        ret_buffer[s] = '\0';                                                   // null terminate
-        return s;
-    }                                                                           // end of "IP"
-
-    if (strcasecmp((char *) arg2->buf, "name") == 0) {
         if (name->len == 0) {
             i = gethostname(ret_buffer, 1023);                                  // get it
-            if (i < 0) return -(ERRMLAST + ERRZLAST + errno);                   // die on error
+            if (i == -1) return -(ERRMLAST + ERRZLAST + errno);                 // die on error
             ret_buffer[1023] = '\0';                                            // JIC
             return (short) strlen(ret_buffer);
         }
 
-        s = 0;
-        i = 0;
-        a[0] = 0;
+        sin.sin_family = AF_INET;
+        i = inet_pton(AF_INET, (char *) name->buf, &sin.sin_addr);
+        if (i == 0) return -(ERRZ48 + ERRMLAST);                                // die on error
+        i = getnameinfo((struct sockaddr *) &sin, sizeof(sin), host, sizeof(host), service, sizeof(service), 0);
 
-        while (TRUE) {
-            if (i >= name->len) break;
-
-            if (name->buf[i] == '.') {
-                s++;
-                a[s] = 0;
-                i++;
-            } else {
-                a[s] = a[s] * 10 + name->buf[i++] - '0';
-            }
+        if (i == 0) {
+            strcpy(ret_buffer, host);
+        } else {
+            strcpy(ret_buffer, gai_strerror(i));
         }
 
-        h = gethostbyaddr((const char *) a, 4, AF_INET);
+        return (short) strlen(ret_buffer);
+    } else if (strcasecmp((char *) arg->buf, "name6") == 0) {
+        struct sockaddr_in6 sin6;
 
-        if (h == NULL) {                                                        // gethostname() failed
-            ret_buffer[0] = '\0';
-
-            if (h_errno == HOST_NOT_FOUND) {
-                return -(ERRZ71 + ERRMLAST);
-            } else {
-                return -(ERRZ72 + ERRMLAST);
-            }
+        if (name->len == 0) {
+            i = gethostname(ret_buffer, 1023);                                  // get it
+            if (i == -1) return -(ERRMLAST + ERRZLAST + errno);                 // die on error
+            ret_buffer[1023] = '\0';                                            // JIC
+            return (short) strlen(ret_buffer);
         }
 
-        strcpy(ret_buffer, h->h_name);
+        sin6.sin6_family = AF_INET6;
+        i = inet_pton(AF_INET6, (char *) name->buf, &sin6.sin6_addr);
+        if (i == 0) return -(ERRZ48 + ERRMLAST);                                // die on error
+        i = getnameinfo((struct sockaddr *) &sin6, sizeof(sin6), host, sizeof(host), service, sizeof(service), 0);
+
+        if (i == 0) {
+            strcpy(ret_buffer, host);
+        } else {
+            strcpy(ret_buffer, gai_strerror(i));
+        }
+
         return (short) strlen(ret_buffer);
     }
 
@@ -1766,7 +1766,7 @@ short Xcall_host(char *ret_buffer, cstring *name, cstring *arg2)
 }
 
 /*
- * WAIT() - Wait on a child
+ * $&%WAIT() - Wait on a child
  *
  * Original author: Martin Kula <mkula@users.sourceforge.net>
  *
@@ -1784,7 +1784,7 @@ short Xcall_host(char *ret_buffer, cstring *name, cstring *arg2)
  *
  * num_bytes in ret_buffer which contains "pid number#error_code#terminate signal number"
  */
-short Xcall_wait(char *ret_buffer, cstring *arg1, cstring *arg2)
+short Xcall_wait(char *ret_buffer, cstring *arg1, const cstring *arg2)
 {
     int   pid;                                                                  // PID number
     int   status;                                                               // Exit status
@@ -1804,20 +1804,20 @@ short Xcall_wait(char *ret_buffer, cstring *arg1, cstring *arg2)
     if (arg1->len) {                                                            // call with an arguments (PID)
         pid = cstringtoi(arg1);                                                 // get pid number
         if (pid < 1) return -ERRM99;
-        pid = wait4(pid, &status, blocked, NULL);
+        pid = waitpid(pid, &status, blocked);
     } else {                                                                    // call without an arguments
-        pid = wait3(&status, blocked, NULL);
+        pid = waitpid(-1, &status, blocked);
         if ((pid < 0) && blocked && (errno == ECHILD)) pid = 0;                 // no error if non blocked
     }
 
     if (pid < 0) return -(ERRMLAST + ERRZLAST + errno);
     if (!pid) return 0;                                                         // none pid exit
-    s = itocstring((u_char *) ret_buffer, pid);
+    s = ltocstring((u_char *) ret_buffer, pid);
     ret_buffer[s++] = '#';
     ret_buffer[s++] = '\0';
-    if (WIFEXITED(status)) s += itocstring((u_char *) &ret_buffer[s], WEXITSTATUS(status));
+    if (WIFEXITED(status)) s += ltocstring((u_char *) &ret_buffer[s], WEXITSTATUS(status));
     ret_buffer[s++] = '#';
     ret_buffer[s++] = '\0';
-    if (WIFSIGNALED(status)) s += itocstring((u_char *) &ret_buffer[s], WTERMSIG(status));
+    if (WIFSIGNALED(status)) s += ltocstring((u_char *) &ret_buffer[s], WTERMSIG(status));
     return s;
 }

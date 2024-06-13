@@ -1,26 +1,52 @@
-:source-highlighter: pygments
+////
+Package: Reference Standard M
+File:    README.adoc
+Summary: Basic getting started documentation
 
-image:https://www.fourthwatchsoftware.com/images/fws-logo-horizontal.png[caption
-="Fourth Watch Software Logo", width="480", height="80"]
+David Wicksell <dlw@linux.com>
+Copyright © 2020-2024 Fourth Watch Software LC
+https://gitlab.com/Reference-Standard-M/rsm
+
+Based on MUMPS V1 by Raymond Douglas Newman
+Copyright © 1999-2003
+https://gitlab.com/Reference-Standard-M/mumpsv1
+
+Permission is granted to copy, distribute and/or modify this document under
+the terms of the GNU Free Documentation License, Version 1.3 or any later
+version published by the Free Software Foundation; with no Invariant
+Sections, with no Front-Cover texts, and with no Back-Cover Texts.
+
+You should have received a copy of the GNU Free Documentation License along
+with this program. If not, see https://www.gnu.org/licenses/.
+
+SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+SPDX-License-Identifier: GFDL-1.3-no-invariants-or-later
+////
+
+:source-highlighter: highlight.js
+:highlightjs-languages: bash, cos
+:logo: image:https://www.fourthwatchsoftware.com/images/fws-logo-horizontal.png
+:documentation: https://reference-standard-m.gitlab.io/rsm[documentation]
+
+= Reference Standard M
+
+{logo}[caption="Fourth Watch Software Logo", width="480", height="80"]
 
 '''
 
-== Reference Standard M
+== ANSI/MDC Standard M X11.1-1995 (ISO/IEC 11756:1999)
 
-*Version 1.77.0 - 2023 Jan 5*
-
-=== Implementation of ANSI/MDC Standard M X11.1-1995 (ISO/IEC 11756:1999)
-
-'''
+[.lead]
+*Version 1.81.0 - 2024 Jun 10*
 
 === Copyright and License
 
-Developed and maintained by David Wicksell dlw@linux.com +
-Copyright © 2020-2023 Fourth Watch Software LC +
+Developed and maintained by David Wicksell <dlw@linux.com> +
+Copyright © 2020-2024 Fourth Watch Software LC +
 https://gitlab.com/Reference-Standard-M/rsm
 
 Originally based on MUMPS V1 by Raymond Douglas Newman +
-Copyright (c) 1999-2018 +
+Copyright © 1999-2018 +
 https://gitlab.com/Reference-Standard-M/mumpsv1
 
 This program is free software: you can redistribute it and/or modify it under
@@ -35,7 +61,7 @@ PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License along
 with this program. If not, see https://www.gnu.org/licenses/.
 
-Full license text: link:COPYING[AGPL-3.0]
+Full license text: link:COPYING[AGPL-3.0-or-later]
 
 === Summary and Information
 
@@ -48,35 +74,39 @@ RSM was originally named MUMPS V1 (MV1), and was created by Raymond Douglas
 Newman. When I took over maintenance and development of MV1, I changed its name
 to better reflect its use as a reference implementation for the MDC.
 
-See the link:CHANGELOG.adoc[CHANGELOG] for more information on the development
-of Reference Standard M. This software uses link:https://semver.org/[semantic
-versioning].
+See the link:CHANGELOG.adoc[Changelog] for more information on the development
+of Reference Standard M. The RSM {documentation} is a work-in-progress.
+This software uses https://semver.org/[semantic versioning].
 
 _This is the post-relational database._
 
-The RSM link:doc/index.adoc[documentation] is a work-in-progress.
-
 === Installation
 
-RSM builds and runs on most Unix, and Unix-derived platforms, running 32-bit and
+RSM builds and runs on most UNIX, and UNIX-derived platforms, running 32-bit and
 64-bit processors, in little-endian and big-endian mode. The platforms that have
-been tested, or known to build and run RSM, are:
+been tested, and/or known (or suspected) to build and run RSM, are:
 
 * Linux (Ubuntu, Debian, Red Hat, OpenSUSE, and Slackware) on i386 and x86_64
-* AIX on ppc32be
+* Debian Linux on ppc64le
+* Gentoo Linux on IA-64
 * FreeBSD on amd64
 * NetBSD on amd64
 * OpenBSD on amd64
-* MacOS X 10.4 through 11.6 in 32 and 64-bit mode, and M1 ARMv8 (Clang or GCC)
+* macOS 10.4 and newer on ILP32 and LP64 Intel (Clang or GCC)
+* macOS 11.0 and newer on 64-bit M1 ARMv8 (Clang or GCC)
 * Solaris on i86pc
+* AIX on ppc32be and ppc64be
+* HP-UX on IA-64
+* Windows XP, 7, and 10, under Cygwin and/or Windows Subsystem for Linux 1 and 2
 * Raspberry Pi on armv6l and armv7l running Raspbian
-* Windows XP, 7, and 10, under Cygwin and Windows Subsystem for Linux 1 and 2
 * Mobian (Mobile Debian Linux) on aarch64
 
-WARNING: RSM will not run on SPARC hardware, due to memory alignment
-requirements
+WARNING: RSM will not run on SPARC, and may not run on PA-RISC, due to memory
+alignment requirements
 
-Thanks to John Willis for providing access to his build farm for testing.
+Thanks to https://gitlab.com/jpwillis[John Willis] for providing access to the
+build farm, and to https://github.com/racingmars[Matthew Wilson], Terry
+Wiechmann, and Flavio Fornazier for helping me with testing.
 
 To build RSM, clone the RSM git repository:
 
@@ -111,16 +141,18 @@ $ gmake -j
 
 The resulting `rsm` executable will be optimized for your system.
 
-Install the `rsm` executable in a system location [/usr/local/bin]:
+Install the `rsm` executable in the default bin directory [/usr/local/bin]:
 
 [source,bash]
 ----
 $ sudo make install
 ----
-or
+
+Install the `rsm` executable in a different bin directory [/usr/bin]:
+
 [source,bash]
 ----
-$ sudo make install path=<path-to-system-location>
+$ sudo make install PREFIX=/usr
 ----
 
 Clean up the build environment after installation:
@@ -130,16 +162,82 @@ Clean up the build environment after installation:
 $ make clean
 ----
 
-Uninstall the `rsm` executable from a system location [/usr/local/bin]:
+Uninstall the `rsm` executable from the default bin directory [/usr/local/bin]:
 
 [source,bash]
 ----
 $ sudo make uninstall
 ----
-or
+
+Uninstall the `rsm` executable from a different bin directory [/usr/bin]:
+
 [source,bash]
 ----
-$ sudo make uninstall path=<path-to-system-location>
+$ sudo make uninstall PREFIX=/usr
+----
+
+Install the `utils.rsm` utilities to the default directory
+[/usr/local/share/rsm]:
+
+[source,bash]
+----
+$ sudo make install-utils
+----
+
+Install the `utils.rsm` utilities to a different directory
+[/usr/share/rsm]:
+
+[source,bash]
+----
+$ sudo make install-utils PREFIX=/usr
+----
+
+Uninstall the `utils.rsm` utilities from the default directory
+[/usr/local/share/rsm]:
+
+[source,bash]
+----
+$ sudo make uninstall-utils
+----
+
+Uninstall the `utils.rsm` utilities from a different directory
+[/usr/share/rsm]:
+
+[source,bash]
+----
+$ sudo make uninstall-utils PREFIX=/usr
+----
+
+Install the documentation (asciidoc/man page) to the default directories
+[/usr/local/share/doc/rsm, /usr/local/share/man/man1]:
+
+[source,bash]
+----
+$ sudo make install-docs
+----
+
+Install the documentation (asciidoc/man page) to different directories
+[/usr/share/doc/rsm, /usr/share/man/man1]:
+
+[source,bash]
+----
+$ sudo make install-docs PREFIX=/usr
+----
+
+Uninstall the documentation (asciidoc/man page) from the default directories
+[/usr/local/share/doc/rsm, /usr/local/share/man/man1]:
+
+[source,bash]
+----
+$ sudo make uninstall-docs
+----
+
+Uninstall the documentation (asciidoc/man page) from different directories
+[/usr/share/doc/rsm, /usr/share/man/man1]:
+
+[source,bash]
+----
+$ sudo make uninstall-docs PREFIX=/usr
 ----
 
 === Usage
@@ -190,9 +288,9 @@ Initialize and start the environment:
 [source,bash]
 ----
 # Optional arguments in square brackets
-#  -j <max-jobs>          Maximum attached jobs      (1-512 jobs)
-# [-g <global-buffers>]   Size of global buffers     (1-131072 MiB)
-# [-r <routine-buffers>]  Size of routine buffers    (1-4095 MiB)
+#  -j <max-jobs>          Size of job table in environment  (1-1024 jobs)
+# [-g <global-buffers>]   Size of global buffers            (1-131072 MiB)
+# [-r <routine-buffers>]  Size of routine buffers           (1-4095 MiB)
 # [<database-file>]       Name of the database file
 
 $ rsm -j 12 tst.dat
@@ -204,15 +302,37 @@ $ export RSM_DBFILE="/home/user/rsm/tst.dat"
 $ rsm -j 12
 ----
 
-On MacOS X, you might need to increase the accessible shared memory before
+On macOS, you might need to increase the accessible shared memory before
 starting the environment, if the previous command failed. If so, as root or
 using `sudo`, run the following commands, adjusted based on your system
 resources:
 
 [source,bash]
 ----
-$ sudo sysctl -w kern.sysv.shmmax=536870912
-$ sudo sysctl -w kern.sysv.shmall=131072
+# 2 GiB shared segment max:
+$ sudo sysctl -w kern.sysv.shmmax=2147483648
+
+# 8 GiB of system shared memory (in number of pages at 4096 bytes per page):
+$ sudo sysctl -w kern.sysv.shmall=2097152
+----
+
+To persist the above configuration changes on macOS, you'll need to create a
+property list configuration and load it so the daemon picks it up at boot time.
+There is a sample plist XML file at `rsm/etc/sysctl.plist`. Run these commands,
+after adjusting the `kern.sysv.shmmax` and `kern.sysv.shmall` settings based on
+your system resources, and ensuring you aren't overwriting an existing file with
+that name:
+
+[source,bash]
+----
+# Copy plist configuration to the correct system location
+$ sudo cp /Users/user/rsm/etc/sysctl.plist /Library/LaunchDaemons/sysctl.plist
+
+# Change its ownership
+$ sudo chown root:wheel /Library/LaunchDaemons/sysctl.plist
+
+# Load it for the launch daemon to run at boot
+$ sudo launchctl load /Library/LaunchDaemons/sysctl.plist
 ----
 
 On Cygwin, you need to configure and start `cygserver` (as administrator) before
@@ -237,12 +357,12 @@ $ export RSM_DBFILE="/home/user/rsm/tst.dat"
 $ rsm -i
 ----
 
-Load the M utilities:
+Load the M utilities (using the bootstrap method):
 
 [source,bash]
 ----
 # Optional arguments in square brackets
-# -x <M-command(s)>        String of M commands
+# -x <M-command(s)>        String of M commands to execute
 # [-e <environment-name>]  Name of initial UCI environment
 # [<database-file>]        Name of the database file
 
@@ -279,7 +399,7 @@ Run an M routine in indirect mode:
 ----
 # Start the M Command Language shell
 # Optional arguments in square brackets
-# -x <M-command(s)>        String of M commands
+# -x <M-command(s)>        String of M commands to execute
 # [-e <environment-name>]  Name of initial UCI environment
 # [-R]                     Starts in restricted mode
 # [<database-file>]        Name of the database file
@@ -297,10 +417,10 @@ When upgrading to a new version of RSM, you might occasionally run in to an
 issue executing a routine. Normally this will not be an issue, but if it is, you
 can fix it by recompiling the routines:
 
-[source,m]
+[source,cos]
 ----
-RSM [MGR]> merge ^$routine("%RECOMP")=^$routine("%RECOMP")
-RSM [MGR]> do ^%RECOMP
+RSM [MGR,TST]> merge ^$routine("%RECOMP")=^$routine("%RECOMP")
+RSM [MGR,TST]> do ^%RECOMP
 ----
 
 Stop and shut down environment:
@@ -318,21 +438,21 @@ $ rsm -k
 
 From within an RSM job:
 
-[source,m]
+[source,cos]
 ----
-RSM [MGR]> kill ^$job
+RSM [MGR,TST]> kill ^$job
 ----
 
 If `utils.rsm` has been loaded:
 
-[source,m]
+[source,cos]
 ----
-RSM [MGR]> do ^SSD
+RSM [MGR,TST]> do ^SSD
 ----
 
 From within the MCL shell:
 
-[source,m]
+[source,cos]
 ----
 MCL [MGR,TST]> shutdown
 ----
@@ -352,6 +472,11 @@ To build the RSM Docker image from source, while in the `rsm` directory:
 ----
 $ docker build -t rsm .
 ----
+or
+[source,bash]
+----
+$ docker buildx build -t rsm .
+----
 
 You can change a few build parameters, by passing them as follows:
 
@@ -362,7 +487,16 @@ You can change a few build parameters, by passing them as follows:
 # bsize=<bsize>    The size of a database block in KiB  - defaults to 16
 # blocks=<blocks>  The number of blocks in the database - defaults to 16384
 
-$ docker build -t rsm --build-arg journal=on \
+$ docker build -t rsm \
+      --build-arg journal=on \
+      --build-arg bsize=32 \
+      --build-arg blocks=32768 .
+----
+or
+[source,bash]
+----
+$ docker buildx build -t rsm \
+      --build-arg journal=on \
       --build-arg bsize=32 \
       --build-arg blocks=32768 .
 ----
@@ -446,12 +580,12 @@ To stop the container while in detached mode:
 $ docker stop rsm
 ----
 
-Consult the Docker link:https://docs.docker.com/[documentation] to learn about
-other ways you can run and manage the RSM Docker image and container.
+Consult the Docker https://docs.docker.com/[documentation] to learn about other
+ways you can run and manage the RSM Docker image and container.
 
 === Database Upgrade
 
-A previous version of RSM introduced a change from 8 character identifiers to 32
+Version 1.73.0 of RSM introduced a change from 8 character identifiers to 32
 character identifiers. This necessitated a change to the database format, the
 routine bytecode format, and the journal format, which required bumping the
 database version from 1 to 2, the compiler version from 7 to 8, and the journal
@@ -461,7 +595,7 @@ The RSM runtime image will detect a database in the older format, as well as
 compiled bytecode in the older format, and return an appropriate error. If you
 would like to move your globals and routines from an old database to a new one,
 which works with this version of RSM, please follow these database
-link:doc/upgrade.adoc[upgrade] instructions, or run the
+link:doc/adoc/upgrade.adoc[upgrade] instructions, or run the
 link:bin/upgrade[upgrade] script.
 
 Enjoy!

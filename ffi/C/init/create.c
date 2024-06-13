@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/init/create.c
- * Summary:  module init - create a database file
+ * Package: Reference Standard M
+ * File:    rsm/init/create.c
+ * Summary: module init - create a database file
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -40,47 +43,48 @@
 #include "proto.h"                                                              // standard prototypes
 #include "database.h"                                                           // for init manager block
 
+#define BLKLEN (512 * 1024)                                                     // 512 KiB buffer length
+
 /*******************************************************************\
 * Create a database - switches are:                                 *
 *   -s database size in blocks    (100 to MAX_DATABASE_BLKS)    Req *
-*   -b block size in KiB          (1 to 256)                    Req *
+*   -b block size in KiB          (1 to MAX_BLOCK_SIZE)         Req *
 *   -m map block size in KiB      (0 to MAX_MAP_SIZE)           Opt *
 *   -v volume set name            (1 to VAR_LEN)                Req *
 *   -e manager UCI name           (1 to VAR_LEN)                Opt *
 *      database file name         (1 to VAR_LEN)                Req *
 \*******************************************************************/
-int INIT_Create_File(u_int blocks,                                              // number of blocks
-                     u_int bsize,                                               // block size in bytes
-                     u_int map,                                                 // map size in bytes, may be 0
-                     char  *volnam,                                             // volume name
-                     char  *env,                                                // UCI name
-                     char  *file)                                               // file name
+
+// number of blocks, block size in bytes, map size in bytes (may be 0), volume name, UCI name, file name
+int INIT_Create_File(u_int blocks, u_int bsize, u_int map, char  *volnam, char  *env, char  *file)
 {
     int         namlen;                                                         // length of volume name
     int         envlen;                                                         // length of UCI name
     u_short     us;                                                             // for mgrblk index entry
     int         ret;                                                            // for return values
     int         fid;                                                            // file handle
-    DB_Block    *mgrblk;                                                        // manager block ptr
+    DB_Block    *mgrblk;                                                        // manager block pointer
     label_block *labelblock;                                                    // database label block header
     cstring     *hunk;
-    const int   blklen = 512 * 1024;                                            // 512 KiB buffer length
+    char        version[120];                                                   // a string
 
-    union temp_tag {
-        int  buff[blklen / 4];                                                  // 512 KiB buffer
+    union {
+        int  buff[BLKLEN / 4];                                                  // 512 KiB buffer
         char cuff[sizeof(label_block) + 1];                                     // remap for label block + 1 for 1st map block byte
-    } x;                                                                        // end of union stuff
+    } label;                                                                    // end of union stuff
 
+    rsm_version((u_char *) version);                                            // get version into version[]
+    printf("%s\n", version);                                                    // print version string
     namlen = strlen(volnam);                                                    // get the name length
 
     if ((namlen < 1) || (namlen > VAR_LEN)) {                                   // check name length
-        fprintf(stderr, "Volume set name must be from 1 to %d alpha characters\n", VAR_LEN);
+        fprintf(stderr, "Volume name must be from 1 to %d alpha characters\n", VAR_LEN);
         return -1;                                                              // return an error
     }                                                                           // end name length check
 
     for (int i = 0; i < namlen; i++) {                                          // check all chars in name
         if (!isalpha((int) volnam[i])) {                                        // must be alpha
-            fprintf(stderr, "Volume set name must be from 1 to %d alpha characters\n", VAR_LEN);
+            fprintf(stderr, "Volume name must be from 1 to %d alpha characters\n", VAR_LEN);
             return -1;                                                          // return an error
         }                                                                       // end fail code
     }                                                                           // end alpha check
@@ -101,8 +105,8 @@ int INIT_Create_File(u_int blocks,                                              
         }                                                                       // end alpha check
     }
 
-    if (((bsize / 1024) < 1) || ((bsize / 1024) > 256)) {                       // check block size
-        fprintf(stderr, "Block size must be from 1 to 256 KiB\n");              // complain
+    if (((bsize / 1024) < 1) || ((bsize / 1024) > MAX_BLOCK_SIZE)) {            // check block size
+        fprintf(stderr, "Block size must be from 1 to %u KiB\n", MAX_BLOCK_SIZE); // complain
         return -1;                                                              // return an error
     }                                                                           // end block size check
 
@@ -116,7 +120,7 @@ int INIT_Create_File(u_int blocks,                                              
     if (map & 1023) map = (map / 1024 + 1) * 1024;                              // if not even KiB round up
     if (map < bsize) map = bsize;                                               // at least bsize
 
-    if (map < (blocks + 7) / 8 + 1 + sizeof(label_block)) {                     // if less than req
+    if (map < (blocks + 7) / 8 + 1 + sizeof(label_block)) {                     // if less than required
         fprintf(stderr, "Map block size of %u KiB smaller than required by database size\n", map / 1024); // complain
         return -1;                                                              // return an error
     }                                                                           // end map size check
@@ -126,14 +130,20 @@ int INIT_Create_File(u_int blocks,                                              
         return -1;                                                              // return an error
     }                                                                           // end map size check
 
-    printf("Creating volume set %s in file %s\n", volnam, file);
-    if (env != NULL) printf("using %s as the name of the manager environment (UCI)\n", env);
-    printf("with %u x %u KiB blocks ", blocks, bsize / 1024);
-    printf("and a %u KiB label/map block.\n", map / 1024);                      // say what we are doing
+    printf("Creating volume %s in file %s,\n", volnam, file);
+
+    if (env != NULL) {
+        printf("using %s as the name of the manager environment (UCI),\n", env);
+    } else {
+        printf("using MGR as the name of the manager environment (UCI),\n");
+    }
+
+    printf("with %u [%u KiB] blocks, and a %u KiB label/map block.\n" , blocks, bsize / 1024, map / 1024); // say what we are doing
     ret = 0;
     errno = 0;                                                                  // clear error flag
+    umask(0);                                                                   // set umask to 0000
 
-    // Create database file - 0640 permissions
+    // Create database file - with 0640 permissions
     fid = open(file, O_CREAT | O_TRUNC | O_WRONLY | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP);
 
     if (fid < 1) {                                                              // if that failed
@@ -141,8 +151,8 @@ int INIT_Create_File(u_int blocks,                                              
         return errno;                                                           // exit with error
     }                                                                           // end file create test
 
-    labelblock = (label_block *) x.buff;                                        // point structure at it
-    memset(x.buff, 0, (map > (u_int) blklen) ? (u_int) blklen : map);           // clear it
+    labelblock = (label_block *) label.buff;                                    // point structure at it
+    memset(label.buff, 0, (map > (u_int) BLKLEN) ? (u_int) BLKLEN : map);       // clear it
     labelblock->magic = RSM_MAGIC;                                              // RSM magic number
     labelblock->max_block = blocks;                                             // maximum block number
     labelblock->header_bytes = map;                                             // bytes in label/map
@@ -161,40 +171,40 @@ int INIT_Create_File(u_int blocks,                                              
     }
 
     labelblock->uci[0].global = 1;                                              // setup manager UCI
-    x.cuff[sizeof(label_block)] = 3;                                            // mark blocks 0 & 1 as used
+    label.cuff[sizeof(label_block)] = 3;                                        // mark blocks 0 & 1 as used
 
-    if (map > (u_int) blklen) {
-        ret = write(fid, x.buff, blklen);                                       // write out the first 512 KiB incl. header
+    if (map > (u_int) BLKLEN) {
+        ret = write(fid, label.buff, BLKLEN);                                   // write out the first 512 KiB incl. header
                                                                                 //   + first map block byte
-        if (ret < blklen) {                                                     // if that failed
+        if (ret < BLKLEN) {                                                     // if that failed
             close(fid);                                                         // close the file
             fprintf(stderr, "Database file write failed - %s\n", strerror(errno)); // what was returned
             return errno;                                                       // and return
         }                                                                       // probably should delete it
 
-        memset(x.buff, 0, blklen);                                              // clear it
+        memset(label.buff, 0, BLKLEN);                                          // clear it
 
-        for (u_int i = 0; i < (map / blklen - 1); i++) {                        // write out large map block
-            ret = write(fid, x.buff, blklen);                                   // write out the header
+        for (u_int i = 0; i < (map / BLKLEN - 1); i++) {                        // write out large map block
+            ret = write(fid, label.buff, BLKLEN);                               // write out the header
 
-            if (ret < blklen) {                                                 // if that failed
+            if (ret < BLKLEN) {                                                 // if that failed
                 close(fid);                                                     // close the file
                 fprintf(stderr, "Database file write failed - %s\n", strerror(errno)); // what was returned
                 return errno;                                                   // and return
             }                                                                   // probably should delete it
         }
 
-        if (map % blklen) {
-            ret = write(fid, x.buff, map % blklen);                             // write out the remainder of the large map block
+        if (map % BLKLEN) {
+            ret = write(fid, label.buff, map % BLKLEN);                         // write out the remainder of the large map block
 
-            if (ret < (int) (map % blklen)) {                                   // if that failed
+            if (ret < (int) (map % BLKLEN)) {                                   // if that failed
                 close(fid);                                                     // close the file
                 fprintf(stderr, "Database file write failed - %s\n", strerror(errno)); // what was returned
                 return errno;                                                   // and return
             }                                                                   // probably should delete it
         }
     } else {
-        ret = write(fid, x.buff, map);                                          // write out the header
+        ret = write(fid, label.buff, map);                                      // write out the header
 
         if (ret < (int) map) {                                                  // if that failed
             close(fid);                                                         // close the file
@@ -204,21 +214,21 @@ int INIT_Create_File(u_int blocks,                                              
     }
 
     // Make manager block and $GLOBAL record
-    mgrblk = (DB_Block *) x.buff;                                               // find block 1 (manager)
-    memset(x.buff, 0, bsize);                                                   // clear it
+    mgrblk = (DB_Block *) label.buff;                                           // find block 1 (manager)
+    memset(label.buff, 0, bsize);                                               // clear it
     mgrblk->type = 65;                                                          // type is data blk + UCI
     mgrblk->last_idx = IDX_START;                                               // have one rec
-    mgrblk->last_free = (u_short) (bsize / 4 - 7);                              // minus extra for rec length
+    mgrblk->last_free = (u_short) ((bsize >> 2) - 7);                           // minus extra for rec length
     memcpy(&mgrblk->global, "$GLOBAL", 7);                                      // init the name
-    us = (bsize / 4) - 6;                                                       // point at the record
-    memcpy(&x.cuff[sizeof(DB_Block)], &us, sizeof(u_short));                    // save in index
-    hunk = (cstring *) &x.buff[us];                                             // point at the hunk
+    us = (bsize >> 2) - 6;                                                      // point at the record
+    memcpy(&label.cuff[sizeof(DB_Block)], &us, sizeof(u_short));                // save in index
+    hunk = (cstring *) &label.buff[us];                                         // point at the hunk
     hunk->len = 24;                                                             // size of this (incl self)
     hunk->buf[1] = 9;                                                           // key length
     memcpy(&hunk->buf[2], "\200$GLOBAL\0", 9);                                  // the key
     us += 4;                                                                    // point at block#
-    x.buff[us] = 1;                                                             // block 1
-    ret = write(fid, x.buff, bsize);                                            // write manager block
+    label.buff[us] = 1;                                                         // block 1
+    ret = write(fid, label.buff, bsize);                                        // write manager block
 
     if (ret < (int) bsize) {                                                    // if that failed
         close(fid);                                                             // close the file
@@ -227,10 +237,10 @@ int INIT_Create_File(u_int blocks,                                              
     }                                                                           // probably should delete it
 
     // Now do the rest as zeroed blocks
-    memset(x.buff, 0, bsize);                                                   // clear it
+    memset(label.buff, 0, bsize);                                               // clear it
 
     for (u_int i = 0; i < (blocks - 1); i++) {                                  // for each data block
-        ret = write(fid, x.buff, bsize);                                        // write a block
+        ret = write(fid, label.buff, bsize);                                    // write a block
 
         if (ret < 1) {                                                          // if that failed
             close(fid);                                                         // close the file
@@ -240,6 +250,6 @@ int INIT_Create_File(u_int blocks,                                              
     }                                                                           // end of write code
 
     close(fid);                                                                 // close file
-    printf("Database file created.\n");                                         // say we've done that
+    printf("Database file %s created.\n", file);                                // say we've done that
     return 0;                                                                   // indicate success
 }

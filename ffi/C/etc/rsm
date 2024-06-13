@@ -1,10 +1,10 @@
 #
-# Package:  Reference Standard M
-# File:     rsm/etc/rsm
-# Summary:  Bash completion script for rsm executable
+# Package: Reference Standard M
+# File:    rsm/etc/rsm
+# Summary: Bash completion script for rsm executable
 #
 # David Wicksell <dlw@linux.com>
-# Copyright © 2023 Fourth Watch Software LC
+# Copyright © 2023-2024 Fourth Watch Software LC
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU Affero General Public License (AGPL) as
@@ -17,87 +17,84 @@
 # License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program. If not, see http://www.gnu.org/licenses/.
+# along with this program. If not, see https://www.gnu.org/licenses/.
+#
+# SPDX-FileCopyrightText:  © 2023 David Wicksell <dlw@linux.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# If you want to install this for a single user, copy this file to
+# $HOME/.local/share/bash-completion/completions/.
+#
+# If you want to install this for every user, copy this file to
+# /usr/local/share/bash-completion/completions/.
 
 __rsm_option()
 {
+    local IFS=$'\n'
     local rsm_args=(-V -h -i -k -v -b -s -m -e -j -g -r -x -R)
     local rsm_words=(${COMP_WORDS[@]}) rsm_cword="${COMP_CWORD}"
     local rsm_current="${rsm_words[${rsm_cword}]}" rsm_word=""
     local rsm_cflag="" rsm_mflag="" rsm_bflag="" rsm_jflag=""
-    local rsm_ifs="${IFS}" IFS=$'\n'
 
     case ${rsm_words[${rsm_cword}-1]} in
     *rsm)
         COMPREPLY=($(compgen -W "${rsm_args[*]}" -- "${rsm_current}"))
         COMPREPLY+=($(compgen -f -- "${rsm_current}" | sort))
-        IFS="${rsm_ifs}"
         return
         ;;
 
     -V|-h)
         COMPREPLY=()
-        IFS="${rsm_ifs}"
         return
         ;;
 
     -i|-k)
         COMPREPLY+=($(compgen -f -- "${rsm_current}" | sort))
-        IFS="${rsm_ifs}"
         return
         ;;
 
     -v)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "volume-name(1-32_alpha)"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W 'volume-name(1-32_alpha)')")
         return
         ;;
 
     -b)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "block-size(1-256_KiB)"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W 'block-size(1-256_KiB)')")
         return
         ;;
 
     -s)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "database-size(100-2147483647_blocks)"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W 'database-size(100-2147483647_blocks)')")
         return
         ;;
 
     -m)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "[map-size(0-262147_KiB)]"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W '[map-size(0-262147_KiB)]')")
         return
         ;;
 
     -e)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "[environment-name(1-32_alpha)]"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W '[environment-name(1-32_alpha)]')")
         return
         ;;
 
     -j)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "max-jobs(1-512_jobs)"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W 'max-jobs(1-1024_jobs)')")
         return
         ;;
 
     -g)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "[global-buffers(1-131072_MiB)]"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W '[global-buffers(1-131072_MiB)]')")
         return
         ;;
 
     -r)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "[routine-buffers(1-4095_MiB)]"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W '[routine-buffers(1-4095_MiB)]')")
         return
         ;;
 
     -x)
-        [[ -z ${rsm_current} ]] && COMPREPLY=($(compgen -W "[M-commands]"))
-        IFS="${rsm_ifs}"
+        [[ -z ${rsm_current} ]] && COMPREPLY=("$(compgen -W '[M-commands]')")
         return
         ;;
 
@@ -181,7 +178,6 @@ __rsm_option()
 
         *)
             COMPREPLY=()
-            IFS="${rsm_ifs}"
             return
             ;;
 
@@ -237,8 +233,6 @@ __rsm_option()
     else
         COMPREPLY+=($(compgen -f -- "${rsm_current}" | sort))
     fi
-
-    IFS="${rsm_ifs}"
 }
 
 complete -o filenames -o nosort -F __rsm_option rsm

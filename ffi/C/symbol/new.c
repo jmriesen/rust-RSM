@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/symbol/new.c
- * Summary:  module symbol - symbol table new'ing and un-new'ing utilities
+ * Package: Reference Standard M
+ * File:    rsm/symbol/new.c
+ * Summary: module symbol - symbol table new'ing and un-new'ing utilities
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2016
+ * Copyright © 1999-2016
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -43,7 +46,6 @@
 short ST_New(int count, var_u *list)
 {
     ST_newtab *newtab;                                                          // our new table
-    int       i;                                                                // generic counter
 
     newtab = malloc(sizeof(ST_newtab) + (count * sizeof(ST_locdata)));          // try to get enough memory
     if (newtab == NULL) return -(ERRZ56 + ERRMLAST);                            // no memory available
@@ -53,8 +55,10 @@ short ST_New(int count, var_u *list)
     newtab->count_new = count;                                                  // how many we are to new
     newtab->locdata = (ST_locdata *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *)); // point at next free address
 
-    for (i = (count - 1); i >= 0; i--) {                                        // for all vars in list
-        short s = ST_SymAtt(list[i]);                                           // attach to variable
+    for (int i = (count - 1); i >= 0; i--) {                                    // for all vars in list
+        short s;
+
+        s = ST_SymAtt(list[i]);                                                 // attach to variable
 
         if (s < 0) {                                                            // check for error
             free(newtab);                                                       // free memory
@@ -76,17 +80,15 @@ short ST_New(int count, var_u *list)
  */
 short ST_NewAll(int count, var_u *list)
 {
-    int       i;                                                                // generic counter
     int       j;                                                                // generic counter
-    int       k;                                                                // generic counter
     int       new = 0;                                                          // to be new'd flag
     int       cntnew = 0;                                                       // new count
     int       cntnon = 0;                                                       // non new count
     ST_newtab *newtab;                                                          // pointer to the new table
 
-    for (k = 0; k < count; k++) ST_Create(list[k]);                             // for all supplied vars, create if not existent
+    for (int k = 0; k < count; k++) ST_Create(list[k]);                         // for all supplied vars, create if not existent
 
-    for (i = 0; i < ST_MAX; i++) {                                              // for each entry in ST
+    for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
         if (symtab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars
         if (symtab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
@@ -95,7 +97,7 @@ short ST_NewAll(int count, var_u *list)
                 new = 1;                                                        // init delete flag
 
                 if (var_equal(symtab[i].varnam, list[j])) {
-                    new = 0;                                                    // dont new it
+                    new = 0;                                                    // don't new it
                     break;
                 }
             }                                                                   // if var is another non new
@@ -111,14 +113,14 @@ short ST_NewAll(int count, var_u *list)
     }                                                                           // end for all in symtab
 
     newtab = malloc(sizeof(ST_newtab) + (cntnew * sizeof(ST_locdata)) + (cntnon * sizeof(short))); // try allocate some memory
-    if (newtab == NULL) return -(ERRZ56 + ERRMLAST);                            // no memory avlb
+    if (newtab == NULL) return -(ERRZ56 + ERRMLAST);                            // no memory available
     newtab->fwd_link = (ST_newtab *) partab.jobtab->dostk[partab.jobtab->cur_do].newtab; // setup for link in
-    newtab->count_enn = count;                                                  // existing non new count
+    newtab->count_enn = cntnon;                                                 // existing non new count
     newtab->count_new = 0;                                                      // num vars new'd
     newtab->stindex = (short *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *));
     newtab->locdata = (ST_locdata *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *) + (cntnon * sizeof(short)));
 
-    for (i = 0; i < ST_MAX; i++) {                                              // for each entry in ST
+    for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
         if (symtab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars, so go to next one
         if (symtab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
@@ -127,7 +129,7 @@ short ST_NewAll(int count, var_u *list)
                 new = 1;                                                        // init delete flag
 
                 if (var_equal(symtab[i].varnam, list[j])) {
-                    new = 0;                                                    // dont new it
+                    new = 0;                                                    // don't new it
                     break;
                 }
             }                                                                   // if var is another non new
@@ -138,7 +140,7 @@ short ST_NewAll(int count, var_u *list)
                 //point at current data
                 newtab->locdata[newtab->count_new].data = symtab[newtab->locdata[newtab->count_new].stindex].data;
                 symtab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
-                ++symtab[newtab->locdata[newtab->count_new].stindex].usage;
+                symtab[newtab->locdata[newtab->count_new].stindex].usage++;
                 newtab->count_new++;                                            // incr num new'd vars & usage
             } else {                                                            // setup done for var, don't new, add to enn
                 newtab->stindex[j] = i;                                         // set pos to symtab index
@@ -149,7 +151,7 @@ short ST_NewAll(int count, var_u *list)
             // point at current data
             newtab->locdata[newtab->count_new].data = symtab[newtab->locdata[newtab->count_new].stindex].data;
             symtab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
-            ++symtab[newtab->locdata[newtab->count_new].stindex].usage;
+            symtab[newtab->locdata[newtab->count_new].stindex].usage++;
             newtab->count_new++;                                                // incr count of new'd vars
         }                                                                       // end else new everything
     }                                                                           // end for all in symtab
@@ -167,7 +169,6 @@ void ST_Restore(ST_newtab *newtab)
     ST_newtab *ptr;                                                             // ptr-> current newtab
     ST_depend *dd;                                                              // depend data ptr
     ST_depend *ddf;                                                             // depend data ptr
-    int       i;                                                                // generic counter
 
     ptr = newtab;                                                               // go to first newtab
     if (ptr == NULL) return;                                                    // nothing to do
@@ -183,7 +184,7 @@ void ST_Restore(ST_newtab *newtab)
                     if (symtab[chk].varnam.var_cu[0] == '$') {
                         kill = -1;                                              // leave $...
                     } else {
-                        for (i = 0; i < ptr->count_enn; i++) {                  // for all enn vars
+                        for (int i = 0; i < ptr->count_enn; i++) {              // for all enn vars
                             if (var_equal(symtab[chk].varnam, symtab[ptr->stindex[i]].varnam)) { // if an ENN var
                                 kill = -1;                                      // DONT KILL
                                 break;                                          // and exit for
@@ -198,7 +199,7 @@ void ST_Restore(ST_newtab *newtab)
         }                                                                       // end for all hash lnk
     }                                                                           // all enn vars done
 
-    for (i = 0; i < ptr->count_new; i++) {                                      // for all new'd vars
+    for (int i = 0; i < ptr->count_new; i++) {                                  // for all new'd vars
         if (symtab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // if we have data blk
             symtab[ptr->locdata[i].stindex].data->attach--;                     // decrement attach
 
@@ -221,7 +222,7 @@ void ST_Restore(ST_newtab *newtab)
 
         if (symtab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // any data?
             if ((symtab[ptr->locdata[i].stindex].data->deplnk == ST_DEPEND_NULL) &&
-              (symtab[ptr->locdata[i].stindex].data->attach < 2) &&
+              (symtab[ptr->locdata[i].stindex].data->attach <= 1) &&
               (symtab[ptr->locdata[i].stindex].data->dbc == VAR_UNDEFINED)) {
                 free(symtab[ptr->locdata[i].stindex].data);                     // free data memory
                 symtab[ptr->locdata[i].stindex].data = ST_DATA_NULL;            // clear ptr
@@ -246,13 +247,13 @@ void ST_Restore(ST_newtab *newtab)
  * Function: ST_ConData(mvar *, ST_data *) - connect reference to data ptr
  * Returns : 0 on success, or -'ve error
  */
-short ST_ConData(mvar *var, u_char *data)
+short ST_ConData(const mvar *var, u_char *data)
 {
     short cnct;                                                                 // connector var loc
 
     cnct = ST_LocateIdx(var->volset - 1);                                       // find connecting var
     if (cnct < 0) return -ERRM6;                                                // if no exist, quit
     symtab[cnct].data = (ST_data *) data;                                       // lnk cnct var to src
-    ++symtab[cnct].data->attach;                                                // incr src attach cnt
+    symtab[cnct].data->attach++;                                                // incr src attach cnt
     return 0;                                                                   // finished OK
 }                                                                               // end ST_ConRef

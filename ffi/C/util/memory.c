@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/util/memory.c
- * Summary:  module util - memory subroutines
+ * Package: Reference Standard M
+ * File:    rsm/util/memory.c
+ * Summary: module util - memory subroutines
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2016
+ * Copyright © 1999-2016
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,18 +22,22 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
 #include <stdlib.h>                                                             // these two
 #include <string.h>                                                             // for memmove
+#include <limits.h>                                                             // for INT_MAX
 #include <sys/types.h>                                                          // for u_char def
 #include <ctype.h>                                                              // for isdigit
 #include "rsm.h"                                                                // standard includes
 #include "proto.h"                                                              // standard prototypes
 #include "error.h"                                                              // standard errors
-#include "compile.h"                                                            // for rdb def
+#include "compile.h"                                                            // for rbd def
 #include "symbol.h"                                                             // for NEW stuff
 
 // This function is used in place of memmove() to trap strstk overflows
@@ -61,8 +65,8 @@ short ncopy(u_char **src, u_char *dst)                                          
     int    i = 0;                                                               // a useful int
     int    k = 0;                                                               // and another
     int    dp = 0;                                                              // decimal place flag
-    int    minus = 0;                                                           // minus flag
-    int    exp = 0;                                                             // exponent
+    int    minus = FALSE;                                                       // minus flag
+    long   exp = 0;                                                             // exponent
     int    expsgn = 1;                                                          // exponent sign
 
     // if dst is at or after strstk and before the end of strstk and this will overflow strstk
@@ -84,7 +88,7 @@ short ncopy(u_char **src, u_char *dst)                                          
                 continue;                                                       // go for more
             }
 
-            if (minus) dst[i++] = '-';                                          // store minus if reqd
+            if (minus) dst[i++] = '-';                                          // store minus if required
         }
 
         if ((i == minus) && (c == '0')) {                                       // if '0' and nothing saved
@@ -114,6 +118,7 @@ short ncopy(u_char **src, u_char *dst)                                          
                 c = *p++;                                                       // get next
                 if (isdigit(c) == 0) break;                                     // if not a digit break
                 exp = (exp * 10) + (c - '0');                                   // add to exponent
+                if (exp > INT_MAX) return -ERRM92;                              // if too big then error
             }
 
             break;                                                              // done
@@ -124,6 +129,7 @@ short ncopy(u_char **src, u_char *dst)                                          
     }                                                                           // string now copied
 
     if (dp) {                                                                   // if there was a dot
+        if ((i == 1) && !k) return -(ERRZ12 + ERRMLAST);                        // if just a dp, complain
         for (k = 0; dst[i - k - 1] == '0'; k++) continue;                       // check for trailing zeroes
         i -= k;                                                                 // remove them (if any)
         if (dst[i - 1] == '.') i--;                                             // ensure last is not dot
@@ -132,8 +138,7 @@ short ncopy(u_char **src, u_char *dst)                                          
     if (i && (dst[i - 1] == '-')) i--;                                          // ensure last is not minus
     if (i == 0) dst[i++] = '0';                                                 // make sure we have something
     dst[i] = '\0';                                                              // null terminate it
-    --p;                                                                        // back up the source pointer
-    *src = p;                                                                   // and store it
+    *src = --p;                                                                 // back up the source pointer and store it
     if (!exp) return (short) i;                                                 // if no exponent then return the count
     dst[i] = '0';                                                               // jic
     dp = 0;                                                                     // clear DP flag
@@ -157,7 +162,7 @@ short ncopy(u_char **src, u_char *dst)                                          
 
         if ((exp + i) > MAX_NUM_BYTES) return -ERRM92;                          // if too big then error
 
-        while (exp) {                                                           // while still need zeroes
+        while (exp > 0) {                                                       // while still need zeroes
             dst[i++] = '0';                                                     // copy a zero
             exp--;                                                              // count it
         }
@@ -182,7 +187,7 @@ short ncopy(u_char **src, u_char *dst)                                          
 
     if ((exp + i) > MAX_NUM_BYTES) return -ERRM92;                              // if too big error
     memmove(&dst[minus + exp + 1], &dst[minus + 1], i);                         // move right exp places
-    for (k = minus + 1; k <= (minus + exp); dst[k++] = '0');                    // zero fill
+    for (k = minus + 1; k <= (minus + exp); dst[k++] = '0') continue;           // zero fill
     i += exp;                                                                   // add to the length
 
 exit:
@@ -231,24 +236,24 @@ void CleanJob(int job)                                                          
     int i;                                                                      // a handy int
 
     j = job - 1;                                                                // copy argument to int job form
-    if (!job) j = partab.jobtab - systab->jobtab;                               // or get current int job#
+    if (!job) j = partab.jobtab - partab.job_table;                             // or get current int job#
     LCK_Remove(j + 1);                                                          // remove locks
-    i = systab->jobtab[j].cur_do;                                               // get current do
+    i = partab.job_table[j].cur_do;                                             // get current do
 
     while (i) {                                                                 // for each i
         if (!job) {                                                             // called by ourselves ?
-            if (systab->jobtab[j].dostk[i].newtab != NULL) {
-                ST_Restore((ST_newtab *) systab->jobtab[j].dostk[i].newtab);
+            if (partab.job_table[j].dostk[i].newtab != NULL) {
+                ST_Restore((ST_newtab *) partab.job_table[j].dostk[i].newtab);
             }
 
-            if ((systab->jobtab[j].dostk[i].flags & DO_FLAG_ATT) && (systab->jobtab[j].dostk[i].symbol != NULL)) {
-                // detach symbols
-                ST_SymDet(((rbd *) systab->jobtab[j].dostk[i].routine)->num_vars, systab->jobtab[j].dostk[i].symbol);
+            // detach symbols
+            if ((partab.job_table[j].dostk[i].flags & DO_FLAG_ATT) && (partab.job_table[j].dostk[i].symbol != NULL)) {
+                ST_SymDet(((rbd *) SOA(partab.job_table[j].dostk[i].routine))->num_vars, partab.job_table[j].dostk[i].symbol);
             }
         }
 
-        if (systab->jobtab[j].dostk[i].flags & DO_FLAG_ATT) {                   // if we attached
-            Routine_Detach((rbd *) systab->jobtab[j].dostk[i].routine);         // detach routine
+        if (partab.job_table[j].dostk[i].flags & DO_FLAG_ATT) {                 // if we attached
+            Routine_Detach((rbd *) SOA(partab.job_table[j].dostk[i].routine));  // detach routine
         }
 
         i--;                                                                    // decrement do ptr
@@ -268,19 +273,19 @@ void CleanJob(int job)                                                          
     }
 
     for (i = 0; i < MAX_VOL; i++) {                                             // scan view table
-        if (systab->jobtab[j].view[i] != NULL) {                                // if buffer locked
-            DB_ViewRel(i + 1, systab->jobtab[j].view[i]);                       // release it
-            systab->jobtab[j].view[i] = NULL;                                   // clear entry
+        if (partab.job_table[j].view[i] != NULL) {                              // if buffer locked
+            DB_ViewRel(i + 1, SOA(partab.job_table[j].view[i]));                // release it
+            partab.job_table[j].view[i] = NULL;                                 // clear entry
         }
     }
 
-    systab->jobtab[j].cur_do = 0;                                               // in case we get back here
+    partab.job_table[j].cur_do = 0;                                             // in case we get back here
 
     if (!job) {                                                                 // if current job
         for (i = 1; i < MAX_SEQ_IO; SQ_Close(i++)) continue;                    // close all io
         partab.jobtab = NULL;                                                   // clear jobtab
     }
 
-    memset(&systab->jobtab[j], 0, sizeof(jobtab));                              // zot all
+    memset(&partab.job_table[j], 0, sizeof(jobtab));                            // zot all
     return;                                                                     // and exit
 }

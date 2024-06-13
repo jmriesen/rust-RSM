@@ -1,5 +1,9 @@
+# SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+rsm
 **/*.o
-**/daemon*.log
+log/rsm-*.log
 RSM_CRASH
 *core
 *.dat
@@ -7,6 +11,7 @@ RSM_CRASH
 tags
 TODO
 .cppcheckrc
+.shellcheckrc
 **/.*.sw[ponx]
 /target/
 /middle/C/rsm

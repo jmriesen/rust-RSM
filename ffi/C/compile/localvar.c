@@ -1,14 +1,14 @@
 /*
- * Package:  Reference Standard M
- * File:     rsm/compile/localvar.c
- * Summary:  module compile - parse a local variable
+ * Package: Reference Standard M
+ * File:    rsm/compile/localvar.c
+ * Summary: module compile - parse a local variable
  *
  * David Wicksell <dlw@linux.com>
- * Copyright © 2020-2023 Fourth Watch Software LC
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
  *
  * Based on MUMPS V1 by Raymond Douglas Newman
- * Copyright (c) 1999-2018
+ * Copyright © 1999-2018
  * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -22,7 +22,10 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see http://www.gnu.org/licenses/.
+ * along with this program. If not, see https://www.gnu.org/licenses/.
+ *
+ * SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #include <stdio.h>                                                              // always include
@@ -31,7 +34,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>                                                              // error stuff
-#include <limits.h>                                                             // for LONG_MAX etc.
+#include <limits.h>
 #include <math.h>
 #include "rsm.h"                                                                // standard includes
 #include "proto.h"                                                              // standard prototypes
@@ -66,8 +69,8 @@
  *     TYPVARGBL:          subscripts OPVAR TYPVARGBL+#subs (var_u) name
  *     TYPVARNAKED:        subscripts OPVAR TYPVARNAKED #subs
  *     TYPVARGBLUCI:       subscripts UCI OPVAR TYPVARGBLUCI #subs (var_u) name
- *     TYPVARGBLUCIENV:    subs UCI env OPVAR TYPVARGBLUCIENV #subs (var_u) name
- *     TYPVARIND:          (str on addstk[]) [subs] OPVAR TYPEVARIND #subs
+ *     TYPVARGBLUCIENV:    subscripts UCI env OPVAR TYPVARGBLUCIENV #subs (var_u) name
+ *     TYPVARIND:          (str on addstk[]) subscripts OPVAR TYPEVARIND #subs
 */
 short localvar(void)                                                            // evaluate local variable
 {
@@ -94,12 +97,12 @@ short localvar(void)                                                            
         sptr = source_ptr;                                                      // save source_ptr
         atom();
 
-        if (*source_ptr == '@' && *(source_ptr + 1) == '(') {
+        if ((*source_ptr == '@') && (*(source_ptr + 1) == '(')) {
             *comp_ptr++ = INDMVAR;                                              // make an mvar out of it
             type = TYPVARIND;                                                   // yes @...@ ... on addstk[]
             source_ptr++;
             goto subs;                                                          // go do subscripts
-        } else if (*source_ptr == '(' || *source_ptr == '\0') {
+        } else if ((*source_ptr == '(') || (*source_ptr == '\0')) {
             source_ptr = sptr;                                                  // reset source_ptr
             comp_ptr = ptr;                                                     // reset comp_ptr
             c = *source_ptr++;                                                  // get a character
@@ -142,8 +145,8 @@ short localvar(void)                                                            
 
         /*
          * TODO: Add check for real intrinsic variables, not just their first letter
-         *       $device, $ecode, $estack, $etrap, $horolog, $io, $job, $key, $principal,
-         *       $quit, $reference, $storage, $stack, $system, $test, $x, $y, $zbp
+         *       $DEVICE, $ECODE, $ESTACK, $ETRAP, $HOROLOG, $IO, $JOB, $KEY, $PRINCIPAL,
+         *       $QUIT, $REFERENCE, $STORAGE, $STACK, $SYSTEM, $TEST, $X, $Y, $ZBP (an array, not a function)
          *       cf. dodollar() in rsm/compile/dollar.c
         */
         if (strchr("DEHIJKPQRSTXYZ", i) == NULL) return -ERRM8;                 // if letter is invalid complain
@@ -156,7 +159,7 @@ short localvar(void)                                                            
         c = *source_ptr++;                                                      // get next char
 
         if (isalnum((int) c) == 0) {                                            // if not alpha numeric
-            --source_ptr;                                                       // point back at it
+            source_ptr--;                                                       // point back at it
             break;                                                              // and exit
         }
 
