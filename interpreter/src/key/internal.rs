@@ -35,9 +35,6 @@ pub enum ParsedKey<'a> {
     },
     ///NOTE if a number is to large it is encoded as a string
     String(&'a [u8]),
-    //TODO file issue request upstream
-    // it looks like the key "-." is not parsed properly
-    Bug,
 }
 
 impl<'a> ParsedKey<'a> {
@@ -52,8 +49,6 @@ impl<'a> ParsedKey<'a> {
             Ok(Self::Null)
         } else if contents == &[b'0'] {
             Ok(Self::Zero)
-        } else if contents == &[b'-', b'.'] {
-            Ok(Self::Bug)
         } else if contents.contains(&b'\0') {
             Err(KeyError::ContainsNull)
         } else {
@@ -72,9 +67,7 @@ impl<'a> ParsedKey<'a> {
             let dec_part = parts.next();
 
             let multiple_decimal_points = parts.next().is_some();
-            //TODO remove the !negative, this was caused by a bug in the C code.
-            //The issue has been reported upstream.
-            let trailing_dot = dec_part == Some(&[]) && !negative;
+            let trailing_dot = dec_part == Some(&[]);
             let dec_part = dec_part.unwrap_or_default();
 
             let leading_trailing_zeros =
@@ -111,7 +104,6 @@ impl<'a> ParsedKey<'a> {
         match flag {
             0 if data.is_empty() => Self::Null,
             x if x & STRING_FLAG != 0 => Self::String(&data),
-            63 if data.is_empty() => Self::Bug,
             x => {
                 let non_negative = x & INT_ZERO_POINT != 0;
                 let int_len = if non_negative {
@@ -189,9 +181,6 @@ impl<'a> ParsedKey<'a> {
                     Vec::from(string)
                 }
             }
-            ParsedKey::Bug => {
-                vec![b'-']
-            }
         }
     }
 }
@@ -225,13 +214,6 @@ impl KeyList {
                 self.0.push(STRING_FLAG);
                 self.0.extend(contents);
                 None
-            }
-            ParsedKey::Bug => {
-                //I think this case is a bug in the C code
-                //For now I am replicating the behavior
-                //Encoding as -0
-                self.0.extend([63, 255]);
-                return Ok(());
             }
         };
         //Adding end markers
