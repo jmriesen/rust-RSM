@@ -13,6 +13,13 @@ pub struct Table {
     tabs: [Tab; TAB_RAW_SIZE],
 }
 
+//It looks like 3.c files touch symtab.
+//So until all three of therm are converted I will need to match the C structure.
+//But that still leaves the question do I match my internals, or just map the structures.
+//This is not in the shared memory segment so I am inclined to do my own data structure using rust std
+//I also think it might be a bit more true to normal development since rarely do you want to rewrite
+//your entire code base.
+
 impl Table {
     pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
@@ -31,6 +38,7 @@ impl Table {
         Self { hash, tabs }
     }
 
+    //Question how isolated are these from the rest of C code
     fn from_c() -> Self {
         let mut hash = [0; HASH_RAW_SIZE];
         hash.copy_from_slice(unsafe {
