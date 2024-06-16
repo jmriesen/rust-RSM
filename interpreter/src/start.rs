@@ -125,14 +125,14 @@ impl Config {
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SYSTAB, Error> {
         //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = unsafe {
-            TabLayout::<SYSTAB, u_int, jobtab, LOCKTAB, (), ()>::new(
+            TabLayout::<SYSTAB, u_int, jobtab, (), (), LOCKTAB>::new(
                 Layout::new::<SYSTAB>(),
                 //I am not sure what this u_int section is for.
                 Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
                 Layout::array::<jobtab>(self.jobs as usize).unwrap(),
+                Layout::new::<()>(),
+                Layout::new::<()>(),
                 Layout::array::<u8>(Bytes::from(self.lock_size).0).unwrap(),
-                Layout::new::<()>(),
-                Layout::new::<()>(),
             )
         };
 
@@ -235,8 +235,7 @@ mod tests {
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         let _mem_guard = util_share(&file_path);
 
-        println!("code: {code:?}");
-        assert!(code == 0);
+        assert!(dbg!(code) == 0);
         unsafe {
             dbg!(from_ref(sys_tab));
             let c_ver = systab.cast::<SYSTAB>().as_ref().unwrap();

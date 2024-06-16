@@ -237,9 +237,9 @@ pub unsafe fn init<'a>(
     volume: &mut Volume,
     addoff: Pages,
     ptr: *mut c_void,
-    layout: &TabLayout<SYSTAB, u_int, JOBTAB, LOCKTAB, (), ()>,
+    layout: &TabLayout<SYSTAB, u_int, JOBTAB, (), (), LOCKTAB>,
 ) -> &'a mut SYSTAB {
-    let (sys_tab, _, job_tab, lock_tab, _, _, _) = unsafe { layout.calculate_offsets(ptr) };
+    let (sys_tab, _, job_tab, _, _, lock_tab, _) = unsafe { layout.calculate_offsets(ptr) };
     let lock_tab = lock_tab::init(lock_tab);
     let sys_tab_description = SYSTAB {
         //address of self used to verify that the shared segment has been mounted correctly.
