@@ -7,9 +7,9 @@ use std::{ffi::CString, path::Path};
 impl Default for crate::bindings::PARTAB {
     fn default() -> Self {
         Self {
-            job_table: todo!(),
-            src_ln: todo!(),
-            vol: todo!(),
+            job_table: null_mut(),
+            src_ln: [0; 65535],
+            vol: [null_mut()],
             jobtab: null_mut(),
             vol_fds: [0; 1],
             jnl_fds: [0; 1],
@@ -102,8 +102,8 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
                 .as_ptr()
                 .cast_mut()
                 .cast(),
-        );
-    }
+        )
+    };
     SharedSegmentGuard(
         shared_memory_id(file_path, RSM_SYSTEM as i32).unwrap(),
         unsafe { systab.cast() },
