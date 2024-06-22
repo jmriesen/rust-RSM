@@ -1,8 +1,11 @@
 mod bindings;
+pub mod interface;
 pub use bindings::*;
 use core::ptr::null_mut;
-use std::{ffi::CString, path::Path};
-//mod glue_code;
+use std::{ffi::CString, path::Path, sync::Mutex};
+
+//You need to grab this mutex before calling any function that affects
+//C globals (almost all of the C functions)
 
 impl Default for crate::bindings::PARTAB {
     fn default() -> Self {
@@ -81,10 +84,10 @@ pub fn shared_memory_key(file_path: &Path, system: i32) -> i32 {
     }
 }
 
-pub fn shared_memory_id(file_path: &Path, system: i32) -> Result<i32, ()> {
+pub fn shared_memory_id(file_path: &Path, system: i32) -> Result<i32, i32> {
     let temp = unsafe { libc::shmget(shared_memory_key(file_path, system), 0, 0) };
     if temp == -1 {
-        Err(())
+        Err(unsafe { *libc::__error() })
     } else {
         Ok(temp)
     }

@@ -208,19 +208,15 @@ pub fn start(
 #[cfg(test)]
 mod tests {
     use ffi::util_share;
-    use libc::c_void;
 
     use crate::shared_seg::sys_tab::assert_sys_tab_eq;
 
     use super::*;
-    use std::{ffi::CString, mem::size_of, str::FromStr};
+    use std::str::FromStr;
 
     #[test]
     fn validate_mem_seg_layout() {
         let file_path = "test_artifacts/temp";
-
-        let code =
-            unsafe { ffi::INIT_Start(CString::new(file_path).unwrap().into_raw(), 1, 1, 1, 0) };
 
         let file_path = PathBuf::from_str(file_path).unwrap();
         let sys_tab = Config::new(
@@ -232,70 +228,15 @@ mod tests {
         .unwrap()
         .setup_shared_mem_segemnt()
         .unwrap();
+
+        let global_guard = ffi::interface::GlobalGuard::new();
+        ffi::interface::init::start(file_path.to_str().unwrap(), 1, 1, 1, 0, &global_guard)
+            .unwrap();
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         let _mem_guard = util_share(&file_path);
+        let c_sys_tab = SYSTAB::from_raw(global_guard.systab().unwrap());
 
-        assert!(dbg!(code) == 0);
-        unsafe {
-            dbg!(from_ref(sys_tab));
-            let c_ver = systab.cast::<SYSTAB>().as_ref().unwrap();
-            assert_sys_tab_eq(sys_tab, c_ver);
-            test_memory_segment_equality(sys_tab.to_slice(), c_ver.to_slice());
-        }
-
-        /*
-            if code == 0 {
-            unsafe {
-            rsm::bindings::shutdown(CString::new("temp").unwrap().into_raw());
-        }
-        }
-             */
-    }
-
-    fn test_memory_segment_equality(left: &[u8], right: &[u8]) {
-        const SIZE: usize = size_of::<*mut c_void>();
-        let left_base = std::ptr::from_ref(left).cast::<c_void>() as isize;
-        let right_base = std::ptr::from_ref(right).cast::<c_void>() as isize;
-        assert_eq!(left.len(), right.len());
-        let mut iter = left
-            .array_windows::<SIZE>()
-            .zip(right.array_windows::<SIZE>())
-            .enumerate();
-        let mut errors = vec![];
-        while let Some((index, (left, right))) = iter.next() {
-            let left_ptr = isize::from_le_bytes(*left).checked_sub(left_base);
-            let right_ptr = isize::from_le_bytes(*right).checked_sub(right_base);
-            if index == 20 {
-                //TODO set sem_id properly
-                // continue
-            } else if index == 22 {
-                //TODO set max_tt properly
-                // continue
-            } else if left_ptr == right_ptr && left_ptr.is_some() {
-                //continue
-                //advance the iterator and continue.
-                for _ in 1..SIZE {
-                    iter.next();
-                }
-            } else if left[0] == right[0] {
-                // continue
-            } else {
-                errors.push((index, left, right, left_ptr, right_ptr));
-            }
-        }
-        for (index, left, right, left_ptr, right_ptr) in &errors {
-            println!("{index}");
-            println!("left ptr :{left_ptr:?}");
-            println!("right ptr:{right_ptr:?}");
-            println!();
-
-            println!("left :{left:?}");
-            println!("right:{right:?}");
-
-            println!();
-            println!("left[0] :{}", left[0]);
-            println!("right[0]:{}", right[0]);
-        }
-        assert!(errors.is_empty());
+        assert_sys_tab_eq(&sys_tab, c_sys_tab);
+        sys_tab.assert_eq(c_sys_tab);
     }
 }

@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ptr::{from_mut, null_mut},
+    ptr::{from_mut, from_ref, null_mut},
     slice::from_raw_parts_mut,
 };
 
@@ -116,39 +116,71 @@ impl SYSTAB {
 
     #[cfg(test)]
     #[must_use]
-    pub fn to_slice(&self) -> &[u8] {
-        use std::ptr::addr_of;
-
-        let diagnostic = |pointer: *mut c_void| {
-            format!("{:?}/t:{}", pointer, unsafe {
-                pointer.byte_offset_from(self.address)
-            })
-        };
-        dbg!(diagnostic(self.address.cast()));
-        dbg!(diagnostic(self.jobtab.cast()));
-        dbg!(diagnostic(self.lockfree.cast()));
-        for volume in self.vols() {
-            let volume = volume.unwrap().as_ref();
-            dbg!(diagnostic(volume.vollab.cast()));
-            dbg!(diagnostic(volume.map.cast()));
-            dbg!(diagnostic(volume.first_free.cast()));
-            dbg!(diagnostic(volume.global_buf.cast()));
-            dbg!(diagnostic(volume.rbd_head.cast()));
-            dbg!(diagnostic(addr_of!(volume.shm_id).cast_mut().cast()));
-        }
-        dbg!(diagnostic(self.vol[0].cast()));
-        dbg!(diagnostic(unsafe { *self.vol[0] }.vollab.cast()));
-        dbg!((
-            unsafe { self.address.byte_add(self.addoff as usize) },
-            self.addoff
-        ));
-
+    fn to_slice(&self) -> &[u8] {
+        println!("{}", self.debug_layout());
+        println!();
         unsafe {
             ::std::slice::from_raw_parts(
                 std::ptr::from_ref(self).cast(),
                 self.addoff.try_into().unwrap(),
             )
         }
+    }
+    #[cfg(test)]
+    fn debug_layout(&self) -> String {
+        let mut layout = format!("label     \tpointer\t\toffset");
+        let mut diagnostic = |label: &str, pointer: *mut c_void| {
+            layout.push_str(&format!("\n{label:10}\t{:?}\t:{:>7}", pointer, unsafe {
+                pointer.byte_offset_from(self.address)
+            }))
+        };
+        diagnostic("address", self.address.cast());
+        diagnostic("job tab", self.jobtab.cast());
+        diagnostic("lockfree", self.lockfree.cast());
+        for (i, volume) in self.vols().enumerate() {
+            use std::ptr::addr_of;
+            let volume = volume.unwrap().as_ref();
+            diagnostic(&format!("Volume {i}"), from_ref(volume).cast_mut().cast());
+            diagnostic("label", volume.vollab.cast());
+            diagnostic("map", volume.map.cast());
+            diagnostic("first free", volume.first_free.cast());
+            diagnostic("global buf", volume.global_buf.cast());
+            diagnostic("rbd head", volume.rbd_head.cast());
+            diagnostic("memory id", addr_of!(volume.shm_id).cast_mut().cast());
+        }
+        layout
+    }
+    pub fn from_raw(raw: &ffi::SYSTAB) -> &Self {
+        unsafe { from_ref(raw).cast::<Self>().as_ref().unwrap() }
+    }
+
+    #[cfg(test)]
+    pub fn assert_eq(&self, other: &Self) {
+        use super::test_utils::{test_memory_segment_equality, DifferencesList};
+        use ffi::VOL_DEF;
+        use pretty_assertions::{assert_eq, assert_ne};
+        let discrepancies = test_memory_segment_equality(self.to_slice(), other.to_slice());
+
+        let mut expected_discrepancies = DifferencesList::new();
+        expected_discrepancies.insert_int(
+            self.sem_id,
+            other.sem_id,
+            std::mem::offset_of!(SYSTAB, sem_id),
+        );
+        for (left, right) in self
+            .vols()
+            .zip(other.vols())
+            .filter(|(x, y)| x.is_some() || y.is_some())
+            .map(|(x, y)| (x.unwrap(), y.unwrap()))
+        {
+            expected_discrepancies.insert_int(
+                left.shm_id(),
+                right.shm_id(),
+                unsafe { from_ref(left).byte_offset_from(from_ref(self)) } as usize
+                    + std::mem::offset_of!(VOL_DEF, shm_id),
+            );
+        }
+        assert_eq!(discrepancies, expected_discrepancies)
     }
 }
 
@@ -274,6 +306,13 @@ pub unsafe fn init<'a>(
     };
     unsafe { sys_tab.ptr.as_mut().unwrap().write(sys_tab_description) };
     sys_tab.ptr.cast::<SYSTAB>().as_mut().unwrap()
+}
+
+impl Eq for SYSTAB {}
+impl PartialEq for SYSTAB {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
 }
 
 #[cfg(test)]

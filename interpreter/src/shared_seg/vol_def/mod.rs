@@ -38,6 +38,9 @@ impl Volume {
             .unwrap()
             .to_string()
     }
+    pub fn shm_id(&self) -> i32 {
+        self.0.shm_id
+    }
 
     #[must_use]
     pub fn label(&self) -> &Label {
@@ -172,6 +175,10 @@ pub unsafe fn new<'a>(
             temp
         },
 
+        //TODO remove the unwrap or default.
+        //This function currently depends on if the mem segement has been set up
+        //this also means we "have to use a real mem segment"
+        //I don't like that.
         shm_id: shared_memory_id(name, RSM_SYSTEM as i32).unwrap_or_default(),
         //TODO add test that cover these bounds.
         num_of_daemons: (jobs as u32 / DAEMONS)
