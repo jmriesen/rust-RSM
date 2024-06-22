@@ -16,11 +16,11 @@ use super::{alloc::TabLayout, lock_tab, vol_def::Volume};
 use crate::units::{Bytes, Pages};
 
 #[repr(C, packed(1))]
-pub struct SYSTAB {
+pub struct SystemTab {
     /// memory address of *this* system tab
     /// used to verify that the memory segment has been mounted properly.
     pub address: *mut c_void,
-    pub jobtab: *mut jobtab,
+    pub job_tab: *mut jobtab,
     /// maximum jobs permitted
     pub maxjob: u_int,
     /// GBD semaphore id
@@ -35,24 +35,24 @@ pub struct SYSTAB {
     pub tt: [trantab; MAX_TRANTAB as usize],
     pub start_user: c_int,
     /// head of lock table
-    pub lockstart: *mut c_void,
-    /// size of locktab in bytes
+    pub lock_start: *mut c_void,
+    /// size of lock_tab in bytes
     pub locksize: c_int,
     /// head of used locks
-    pub lockhead: *mut locktab,
+    pub lock_head: *mut locktab,
     /// head of lock free space
-    pub lockfree: *mut locktab,
-    /// offset from systab to add buff (bytes)
-    pub addoff: u_long,
+    pub lock_free: *mut locktab,
+    /// offset from system tab to add buff (bytes)
+    pub add_off: u_long,
     /// add buffer size
-    pub addsize: u_long,
+    pub add_size: u_long,
     vol: [*mut vol_def; MAX_VOL as usize],
     //This field was being used for alignment shenanigans in the old c code.
     //Removing it since I don't want to rely on shenanigans.
     //pub last_blk_used: [u_int; 1],
 }
 
-impl SYSTAB {
+impl SystemTab {
     fn lock_size(&self) -> Bytes {
         Bytes(self.locksize as usize)
     }
@@ -71,7 +71,7 @@ impl SYSTAB {
     }
 
     pub fn jobs(&mut self) -> &mut [JOBTAB] {
-        unsafe { from_raw_parts_mut(self.jobtab, self.maxjob as usize) }
+        unsafe { from_raw_parts_mut(self.job_tab, self.maxjob as usize) }
     }
 
     #[must_use]
@@ -99,7 +99,7 @@ impl SYSTAB {
 
     //Currently use C code so only works for systab.
     unsafe fn clean_jobs(&mut self, exclude_pid: i32) {
-        let jobs = unsafe { from_raw_parts_mut(self.jobtab, self.maxjob as usize) };
+        let jobs = unsafe { from_raw_parts_mut(self.job_tab, self.maxjob as usize) };
 
         let out_dated_indexs = jobs
             .iter()
@@ -122,7 +122,7 @@ impl SYSTAB {
         unsafe {
             ::std::slice::from_raw_parts(
                 std::ptr::from_ref(self).cast(),
-                self.addoff.try_into().unwrap(),
+                self.add_off.try_into().unwrap(),
             )
         }
     }
@@ -135,8 +135,8 @@ impl SYSTAB {
             }))
         };
         diagnostic("address", self.address.cast());
-        diagnostic("job tab", self.jobtab.cast());
-        diagnostic("lockfree", self.lockfree.cast());
+        diagnostic("job tab", self.job_tab.cast());
+        diagnostic("lockfree", self.lock_free.cast());
         for (i, volume) in self.vols().enumerate() {
             use std::ptr::addr_of;
             let volume = volume.unwrap().as_ref();
@@ -165,7 +165,7 @@ impl SYSTAB {
         expected_discrepancies.insert_int(
             self.sem_id,
             other.sem_id,
-            std::mem::offset_of!(SYSTAB, sem_id),
+            std::mem::offset_of!(SystemTab, sem_id),
         );
         for (left, right) in self
             .vols()
@@ -188,7 +188,7 @@ fn is_alive(pid: i32) -> bool {
     !(unsafe { libc::kill(pid, 0) } != 0 && unsafe { *libc::__error() } == libc::ESRCH)
 }
 
-impl Display for SYSTAB {
+impl Display for SystemTab {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Job Table Slots:\t{}\tJobs", { self.maxjob })?;
         writeln!(
@@ -204,10 +204,10 @@ impl Display for SYSTAB {
     }
 }
 
-fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SYSTAB) {
+fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SystemTab) {
     //I don't like this calculation.
     let job_index =
-        job.unwrap_or(unsafe { par_tab.jobtab.offset_from(sys_tab.jobtab) } as usize + 1);
+        job.unwrap_or(unsafe { par_tab.jobtab.offset_from(sys_tab.job_tab) } as usize + 1);
     unsafe { LCK_Remove(job_index as i32) }
     let mut job_tab = sys_tab.jobs()[job_index];
     for stack_layer in (1..job_tab.cur_do as usize).rev() {
@@ -269,14 +269,14 @@ pub unsafe fn init<'a>(
     volume: &mut Volume,
     addoff: Pages,
     ptr: *mut c_void,
-    layout: &TabLayout<SYSTAB, u_int, JOBTAB, (), (), LOCKTAB>,
-) -> &'a mut SYSTAB {
+    layout: &TabLayout<SystemTab, u_int, JOBTAB, (), (), LOCKTAB>,
+) -> &'a mut SystemTab {
     let (sys_tab, _, job_tab, _, _, lock_tab, _) = unsafe { layout.calculate_offsets(ptr) };
     let lock_tab = lock_tab::init(lock_tab);
-    let sys_tab_description = SYSTAB {
+    let sys_tab_description = SystemTab {
         //address of self used to verify that the shared segment has been mounted correctly.
         address: ptr,
-        jobtab: job_tab.ptr.cast::<JOBTAB>(),
+        job_tab: job_tab.ptr.cast::<JOBTAB>(),
         maxjob: jobs as u32,
         sem_id: 0, //TODO
         #[allow(clippy::cast_possible_wrap)]
@@ -293,30 +293,30 @@ pub unsafe fn init<'a>(
             to_uci: 0,
         }; 64],
         start_user: unsafe { libc::getuid().try_into().unwrap() },
-        lockstart: from_mut(lock_tab).cast::<c_void>(),
+        lock_start: from_mut(lock_tab).cast::<c_void>(),
         locksize: lock_tab.size,
-        lockhead: std::ptr::null_mut(),
-        lockfree: lock_tab,
+        lock_head: std::ptr::null_mut(),
+        lock_free: lock_tab,
         //TODO look into how this value is used.
         //I feel like passing it in is the wrong call and that I should be able to calculate it.
         //But until I understand more how it is I am going to stick to more or less what the C code does.
-        addoff: Bytes::from(addoff).0 as u64,
-        addsize: 0,
+        add_off: Bytes::from(addoff).0 as u64,
+        add_size: 0,
         vol: [from_mut(volume.as_mut())],
     };
     unsafe { sys_tab.ptr.as_mut().unwrap().write(sys_tab_description) };
-    sys_tab.ptr.cast::<SYSTAB>().as_mut().unwrap()
+    sys_tab.ptr.cast::<SystemTab>().as_mut().unwrap()
 }
 
-impl Eq for SYSTAB {}
-impl PartialEq for SYSTAB {
+impl Eq for SystemTab {}
+impl PartialEq for SystemTab {
     fn eq(&self, other: &Self) -> bool {
         todo!()
     }
 }
 
 #[cfg(test)]
-pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
+pub fn assert_sys_tab_eq(left: &SystemTab, right: &SystemTab) {
     assert_eq!({ left.maxjob }, { right.maxjob });
     //assert_eq!({left.sem_id}, {right.sem_id});
     assert_eq!({ left.historic }, { right.historic });
@@ -324,15 +324,15 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
     assert_eq!({ left.max_tt }, { right.max_tt });
     assert_eq!({ left.start_user }, { right.start_user });
     assert_eq!({ left.locksize }, { right.locksize });
-    assert_eq!({ left.addoff }, { right.addoff });
-    assert_eq!({ left.addsize }, { right.addsize });
+    assert_eq!({ left.add_off }, { right.add_off });
+    assert_eq!({ left.add_size }, { right.add_size });
     //tt
-    lock_tab::tests::assert_eq(unsafe { left.lockfree.as_ref().unwrap() }, unsafe {
-        right.lockfree.as_ref().unwrap()
+    lock_tab::tests::assert_eq(unsafe { left.lock_free.as_ref().unwrap() }, unsafe {
+        right.lock_free.as_ref().unwrap()
     });
 
     //comparing offsets
-    assert_eq!(SYSTAB::offsets(left), SYSTAB::offsets(right));
+    assert_eq!(SystemTab::offsets(left), SystemTab::offsets(right));
 
     for (left, right) in left.vols().zip(right.vols()) {
         use super::vol_def::tests::assert_vol_def_eq;
@@ -345,7 +345,7 @@ pub fn assert_sys_tab_eq(left: &SYSTAB, right: &SYSTAB) {
 }
 
 #[cfg(test)]
-impl SYSTAB {
+impl SystemTab {
     fn offsets(
         sys_tab: &Self,
     ) -> (
@@ -358,10 +358,10 @@ impl SYSTAB {
         use crate::test_helper::relitive_ptr;
         let base = sys_tab.address;
         (
-            relitive_ptr(sys_tab.jobtab, base),
-            relitive_ptr(sys_tab.lockstart, base),
-            relitive_ptr(sys_tab.lockhead, base),
-            relitive_ptr(sys_tab.lockfree, base),
+            relitive_ptr(sys_tab.job_tab, base),
+            relitive_ptr(sys_tab.lock_start, base),
+            relitive_ptr(sys_tab.lock_head, base),
+            relitive_ptr(sys_tab.lock_free, base),
             sys_tab.vol.map(|x| relitive_ptr(x, base)),
         )
     }

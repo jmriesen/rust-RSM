@@ -1,7 +1,7 @@
 use crate::{
     shared_seg::{
         alloc::{create_shared_mem, TabLayout},
-        sys_tab::SYSTAB,
+        sys_tab::SystemTab,
         vol_def::label::Label,
     },
     units::{Bytes, Megbibytes, Pages},
@@ -122,11 +122,11 @@ impl Config {
     /// # Errors
     ///
     /// Shared memory initialization error issues will be propagated up to the caller
-    pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SYSTAB, Error> {
+    pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SystemTab, Error> {
         //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = unsafe {
-            TabLayout::<SYSTAB, u_int, jobtab, (), (), LOCKTAB>::new(
-                Layout::new::<SYSTAB>(),
+            TabLayout::<SystemTab, u_int, jobtab, (), (), LOCKTAB>::new(
+                Layout::new::<SystemTab>(),
                 //I am not sure what this u_int section is for.
                 Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
                 Layout::array::<jobtab>(self.jobs as usize).unwrap(),
@@ -234,7 +234,7 @@ mod tests {
             .unwrap();
         //NOTE INIT_start unmounts the shared meme segment after starting demons.
         let _mem_guard = util_share(&file_path);
-        let c_sys_tab = SYSTAB::from_raw(global_guard.systab().unwrap());
+        let c_sys_tab = SystemTab::from_raw(global_guard.systab().unwrap());
 
         assert_sys_tab_eq(&sys_tab, c_sys_tab);
         sys_tab.assert_eq(c_sys_tab);

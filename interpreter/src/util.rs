@@ -5,7 +5,7 @@ use ffi::{
 use std::ffi::CString;
 use std::fs::OpenOptions;
 
-use crate::shared_seg::sys_tab::SYSTAB;
+use crate::shared_seg::sys_tab::SystemTab;
 
 //TODO this is currently only been manually tested.
 pub fn info(file: &str) {
@@ -40,7 +40,7 @@ fn systab_info(file: &str) -> Result<String, String> {
         .then_some(0)
         .ok_or("Cannot connect to environment.".to_string())?;
 
-    let sys_tab = unsafe { systab.cast::<SYSTAB>().as_ref() }.unwrap();
+    let sys_tab = unsafe { systab.cast::<SystemTab>().as_ref() }.unwrap();
     let temp = if sys_tab.vols().next().unwrap().is_none() {
         Err("Cannot connect to environment.".to_string())
     } else {

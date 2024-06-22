@@ -5,7 +5,7 @@ use ffi::{
 use std::ffi::CString;
 use std::fs::OpenOptions;
 
-use crate::shared_seg::sys_tab::SYSTAB;
+use crate::shared_seg::sys_tab::SystemTab;
 
 /*
 static mut strstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];
@@ -47,7 +47,7 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
 
         let env_num = env
             .and_then(|env| {
-                let sys_tab = unsafe { systab.cast::<SYSTAB>().as_ref() }.unwrap();
+                let sys_tab = unsafe { systab.cast::<SystemTab>().as_ref() }.unwrap();
                 sys_tab.get_env_index(env)
             })
             .unwrap_or(1);
