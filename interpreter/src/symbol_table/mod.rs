@@ -93,6 +93,10 @@ impl Debug for Tab {
     }
 }
 
+mod c_code {
+    include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
+}
+
 #[cfg(test)]
 mod tests {
     use ffi::ST_Init;

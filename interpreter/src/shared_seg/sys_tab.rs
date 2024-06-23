@@ -318,6 +318,8 @@ impl PartialEq for SystemTab {
 #[cfg(test)]
 pub fn assert_sys_tab_eq(left: &SystemTab, right: &SystemTab) {
     assert_eq!({ left.maxjob }, { right.maxjob });
+    //NOTE we should not be comparing sem_ids
+    //Each memory segment should have its own id.
     //assert_eq!({left.sem_id}, {right.sem_id});
     assert_eq!({ left.historic }, { right.historic });
     assert_eq!({ left.precision }, { right.precision });

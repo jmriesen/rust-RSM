@@ -572,9 +572,13 @@ name = "interpreter"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "bindgen",
+ "cbindgen",
+ "cc",
  "clap 4.4.18",
  "derive_more",
  "ffi",
+ "glob",
  "libc",
  "pretty_assertions",
  "ref-cast",
