@@ -68,7 +68,6 @@ fn main() {
         .header("sys/types.h")
         .header("src/symbol_table/rsm.h")
         .header("src/symbol_table/compile.h")
-        .header("src/symbol_table/compile_temp.h")
         .header("src/symbol_table/database.h")
         .header("src/symbol_table/error.h")
         .header("src/symbol_table/init.h")
