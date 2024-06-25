@@ -1,7 +1,11 @@
-use std::{array::from_fn, fmt::Debug, ptr::null_mut};
+use std::{array::from_fn, fmt::Debug, mem::transmute, ptr::null_mut};
 
 use derive_more::{AsMut, AsRef};
-use ffi::{st_hash, symtab, symtab_struct, ST_FREE, ST_HASH, ST_MAX};
+
+mod c_code {
+    include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
+}
+use c_code::{st_hash_temp, sym_tab, symtab_struct, ST_FREE, ST_HASH, ST_MAX};
 use ref_cast::RefCast;
 
 const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
@@ -23,13 +27,13 @@ pub struct Table {
 impl Table {
     pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
-        hash[ST_FREE as usize] = 0;
+        *hash.last_mut().unwrap() = 0;
         let mut tabs = from_fn(|i| {
             Tab(symtab_struct {
                 fwd_link: 1 + i as i16,
                 usage: 0,
                 data: null_mut(),
-                varnam: "".try_into().expect("string literals should not fail"),
+                varnam: convert_var_u_back("".try_into().expect("string literals should not fail")),
             })
         });
         // -1 == end of the list;
@@ -42,9 +46,9 @@ impl Table {
     fn from_c() -> Self {
         let mut hash = [0; HASH_RAW_SIZE];
         hash.copy_from_slice(unsafe {
-            std::slice::from_raw_parts(st_hash.as_ptr(), HASH_RAW_SIZE)
+            std::slice::from_raw_parts(st_hash_temp.as_ptr(), HASH_RAW_SIZE)
         });
-        let tabs: Vec<_> = unsafe { std::slice::from_raw_parts(symtab.as_ptr(), TAB_RAW_SIZE) }
+        let tabs: Vec<_> = unsafe { std::slice::from_raw_parts(sym_tab.as_ptr(), TAB_RAW_SIZE) }
             .iter()
             .map(|x| {
                 Tab(symtab_struct {
@@ -71,6 +75,20 @@ pub struct Tab(symtab_struct);
 
 impl Eq for Tab {}
 
+fn convert_var_u(input: c_code::VAR_U) -> ffi::VAR_U {
+    //TODO remove this
+    //This is safe since the header files are 2 copies of the same file.
+    //Once the system table files are fixed this should be removed
+    unsafe { transmute::<_, _>(input) }
+}
+
+fn convert_var_u_back(input: ffi::VAR_U) -> c_code::VAR_U {
+    //TODO remove this
+    //This is safe since the header files are 2 copies of the same file.
+    //Once the system table files are fixed this should be removed
+    unsafe { transmute::<_, _>(input) }
+}
+
 impl PartialEq for Tab {
     fn eq(&self, other: &Self) -> bool {
         self.0.fwd_link == other.0.fwd_link
@@ -78,7 +96,7 @@ impl PartialEq for Tab {
         //Note data is a pointer 
         //We well need to switch to deep copies at some point.
         && self.0.data == other.0.data
-        && self.0.varnam == other.0.varnam
+        && convert_var_u(self.0.varnam) == convert_var_u(other.0.varnam)
     }
 }
 
@@ -88,18 +106,15 @@ impl Debug for Tab {
             .field("forward_link", &{ self.0.fwd_link })
             .field("usage", &{ self.0.usage })
             .field("data", &{ self.0.data })
-            .field("variable name", &{ self.0.varnam })
+            .field("variable name", &convert_var_u(self.0.varnam))
             .finish()
     }
-}
-
-mod c_code {
-    include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
 }
 
 #[cfg(test)]
 mod tests {
     use ffi::ST_Init;
+    use pretty_assertions::assert_eq;
 
     use super::Table;
 

@@ -41,8 +41,8 @@
 #include "compile.h"                                                            // for routine buffer stuff
 
 
-short         st_hash[ST_HASH + 1];                                             // allocate hashing table
-symtab_struct symtab[ST_MAX + 1];                                               // and symbol table
+short         st_hash_temp[ST_HASH + 1];                                             // allocate hashing table
+symtab_struct sym_tab[ST_MAX + 1];                                               // and symbol table
 
 /*
  * Function: ST_Hash - Create a hash from a variable name
@@ -73,17 +73,17 @@ short ST_Hash(var_u var)                                                        
  */
 void ST_Init(void)                                                              // no arguments
 {
-    for (int i = 0; i < ST_HASH; i++) st_hash[i] = -1;                          // clear hash table, -1 means empty
-    st_hash[ST_FREE] = 0;                                                       // head of free list
+    for (int i = 0; i < ST_HASH; i++) st_hash_temp[i] = -1;                          // clear hash table, -1 means empty
+    st_hash_temp[ST_FREE] = 0;                                                       // head of free list
 
     for (int i = 0; i < ST_MAX; i++) {                                          // for each symbol entry
-        symtab[i].fwd_link = i + 1;                                             // point to next entry
-        symtab[i].usage = 0;                                                    // clear usage count
-        symtab[i].data = ST_DATA_NULL;                                          // clear data pointer
-        VAR_CLEAR(symtab[i].varnam);                                            // clear variable name
+        sym_tab[i].fwd_link = i + 1;                                             // point to next entry
+        sym_tab[i].usage = 0;                                                    // clear usage count
+        sym_tab[i].data = ST_DATA_NULL;                                          // clear data pointer
+        VAR_CLEAR(sym_tab[i].varnam);                                            // clear variable name
     }                                                                           // end symtab clear loop
 
-    symtab[ST_MAX].fwd_link = -1;                                               // indicate end of list
+    sym_tab[ST_MAX].fwd_link = -1;                                               // indicate end of list
     return;                                                                     // done
 }                                                                               // end of ST_Init()
 
@@ -97,11 +97,11 @@ short ST_Locate(var_u var)                                                      
     short fwd;                                                                  // fwd link pointer
 
     hash = ST_Hash(var);                                                        // get hash value
-    fwd = st_hash[hash];                                                        // get pointer (if any)
+    fwd = st_hash_temp[hash];                                                        // get pointer (if any)
 
     while (fwd != -1) {                                                         // while there are links
-        if (var_equal(symtab[fwd].varnam, var)) return fwd;                     // if var names match then return if we found it
-        fwd = symtab[fwd].fwd_link;                                             // get next pointer (if any)
+        if (var_equal(sym_tab[fwd].varnam, var)) return fwd;                     // if var names match then return if we found it
+        fwd = sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
     }                                                                           // end search loop
 
     return -1;                                                                  // failed to find it
@@ -141,26 +141,26 @@ void ST_Free(var_u var)                                                         
 
     hash = ST_Hash(var);                                                        // get hash value
     last = -hash;                                                               // save last value
-    fwd = st_hash[hash];                                                        // get pointer (if any)
+    fwd = st_hash_temp[hash];                                                        // get pointer (if any)
 
     while (fwd != -1) {                                                         // while there are links
-        if (var_equal(symtab[fwd].varnam, var)) break;                          // quit if we found it
+        if (var_equal(sym_tab[fwd].varnam, var)) break;                          // quit if we found it
         last = fwd;                                                             // save last address
-        fwd = symtab[fwd].fwd_link;                                             // get next pointer (if any)
+        fwd = sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
     }                                                                           // end search loop
 
     if (fwd == -1) return;                                                      // symbol wasn't there, nothing to free
 
     if (last == -hash) {                                                        // if it was top
-        st_hash[hash] = symtab[fwd].fwd_link;                                   // remove this way
+        st_hash_temp[hash] = sym_tab[fwd].fwd_link;                                   // remove this way
     } else {                                                                    // if it's a symtab entry
-        symtab[last].fwd_link = symtab[fwd].fwd_link;                           // do it this way
+        sym_tab[last].fwd_link = sym_tab[fwd].fwd_link;                           // do it this way
     }
 
-    symtab[fwd].data = ST_DATA_NULL;                                            // in case it hasn't been removed
-    VAR_CLEAR(symtab[fwd].varnam);                                              // clear var name
-    symtab[fwd].fwd_link = st_hash[ST_FREE];                                    // point at next free
-    st_hash[ST_FREE] = fwd;                                                     // point free list at this
+    sym_tab[fwd].data = ST_DATA_NULL;                                            // in case it hasn't been removed
+    VAR_CLEAR(sym_tab[fwd].varnam);                                              // clear var name
+    sym_tab[fwd].fwd_link = st_hash_temp[ST_FREE];                                    // point at next free
+    st_hash_temp[ST_FREE] = fwd;                                                     // point free list at this
     return;                                                                     // all done
 }                                                                               // end of ST_Free()
 
@@ -174,25 +174,25 @@ short ST_Create(var_u var)                                                      
     short fwd;                                                                  // fwd link pointer
 
     hash = ST_Hash(var);                                                        // get hash value
-    fwd = st_hash[hash];                                                        // get pointer (if any)
+    fwd = st_hash_temp[hash];                                                        // get pointer (if any)
 
     while (fwd != -1) {                                                         // while there are links
-        if (var_equal(symtab[fwd].varnam, var)) return fwd;                     // return if we found it
-        fwd = symtab[fwd].fwd_link;                                             // get next pointer (if any)
+        if (var_equal(sym_tab[fwd].varnam, var)) return fwd;                     // return if we found it
+        fwd = sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
     }                                                                           // end search loop
 
-    fwd = st_hash[ST_FREE];                                                     // get next free
+    fwd = st_hash_temp[ST_FREE];                                                     // get next free
 
     if ((fwd == -1) || ((fwd == ST_MAX) && (var.var_q != 76159689901348))) {    // ST_MAX can be used for $ECODE
         return -(ERRZ56 + ERRMLAST);                                            // error if none free
     }
 
-    st_hash[ST_FREE] = symtab[fwd].fwd_link;                                    // unlink from free list
-    symtab[fwd].fwd_link = st_hash[hash];                                       // link previous after this
-    st_hash[hash] = fwd;                                                        // link this first
-    symtab[fwd].usage = 0;                                                      // no NEWs or routine att*
-    VAR_COPY(symtab[fwd].varnam, var);                                          // copy in variable name
-    symtab[fwd].data = ST_DATA_NULL;                                            // no data just yet
+    st_hash_temp[ST_FREE] = sym_tab[fwd].fwd_link;                                    // unlink from free list
+    sym_tab[fwd].fwd_link = st_hash_temp[hash];                                       // link previous after this
+    st_hash_temp[hash] = fwd;                                                        // link this first
+    sym_tab[fwd].usage = 0;                                                      // no NEWs or routine att*
+    VAR_COPY(sym_tab[fwd].varnam, var);                                          // copy in variable name
+    sym_tab[fwd].data = ST_DATA_NULL;                                            // no data just yet
     return fwd;                                                                 // return the pointer
 }                                                                               // end of ST_Create()
 
@@ -214,7 +214,7 @@ short ST_Kill(mvar *var)                                                        
     }
 
     if (ptr < 0) return 0;                                                      // just return if no such
-    data = symtab[ptr].data;                                                    // get pointer to the data
+    data = sym_tab[ptr].data;                                                    // get pointer to the data
 
     if (data != ST_DATA_NULL) {                                                 // data block exists
         if (var->slen == 0) {                                                   // killing a data block
@@ -256,12 +256,12 @@ short ST_Kill(mvar *var)                                                        
 
         if ((data->deplnk == ST_DEPEND_NULL) && (data->attach <= 1) && (data->dbc == VAR_UNDEFINED)) { // none attached
             free(data);                                                         // free data block space
-            symtab[ptr].data = ST_DATA_NULL;                                    // and clear the pointer
+            sym_tab[ptr].data = ST_DATA_NULL;                                    // and clear the pointer
         }                                                                       // end freeing data block
     }                                                                           // end if data block exists
 
-    if ((symtab[ptr].data == ST_DATA_NULL) && (symtab[ptr].usage == 0)) {       // if no data block and no attaches or NEWs
-        ST_Free(symtab[ptr].varnam);                                            // free this entry in symtab
+    if ((sym_tab[ptr].data == ST_DATA_NULL) && (sym_tab[ptr].usage == 0)) {       // if no data block and no attaches or NEWs
+        ST_Free(sym_tab[ptr].varnam);                                            // free this entry in symtab
     }
 
     return 0;                                                                   // all done
@@ -316,8 +316,8 @@ void FixData(const ST_data *old, ST_data *new, int count)
     ST_newtab *newtab;                                                          // for NEW tables
 
     for (i = 0; i < ST_MAX; i++) {                                              // scan symtab[]
-        if (symtab[i].data == old) {                                            // same as our old one
-            symtab[i].data = new;                                               // change to new one
+        if (sym_tab[i].data == old) {                                            // same as our old one
+            sym_tab[i].data = new;                                               // change to new one
             count--;                                                            // decrement the count
             if (count == 0) return;                                             // quit when done
         }
@@ -367,7 +367,7 @@ int ST_Set(mvar *var, cstring *data)                                            
 
     if (fwd < 0) return fwd;                                                    // error if none free
 
-    if (symtab[fwd].data == ST_DATA_NULL) {                                     // if not already exists
+    if (sym_tab[fwd].data == ST_DATA_NULL) {                                     // if not already exists
         u_int i;
 
         i = DTBLKSIZE + data->len;                                              // required memory
@@ -407,7 +407,7 @@ ENABLE_WARN
             memcpy(&newPtrDp->bytes[n], &data->buf[0], data->len + 1);          // data & term 0
         }                                                                       // end else-has subs
 
-        symtab[fwd].data = newPtrDt;                                            // link it in
+        sym_tab[fwd].data = newPtrDt;                                            // link it in
     } else {                                                                    // end if-no data block - data block already exists
         /*
          * This ELSE segment uses the logic that data is unlinked and a new
@@ -417,13 +417,13 @@ ENABLE_WARN
          */
 
         if (var->slen == 0) {                                                   // not dependent setting
-            newPtrDt = realloc(symtab[fwd].data, DTBLKSIZE + data->len);        // allocate data block
+            newPtrDt = realloc(sym_tab[fwd].data, DTBLKSIZE + data->len);        // allocate data block
             if (newPtrDt == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);          // no memory available
 
-            if ((newPtrDt != symtab[fwd].data) && (newPtrDt->attach > 1)) {     // did it move? and has many attached
-                FixData(symtab[fwd].data, newPtrDt, newPtrDt->attach);          // fix it
+            if ((newPtrDt != sym_tab[fwd].data) && (newPtrDt->attach > 1)) {     // did it move? and has many attached
+                FixData(sym_tab[fwd].data, newPtrDt, newPtrDt->attach);          // fix it
             } else {
-                symtab[fwd].data = newPtrDt;                                    // or just do this one
+                sym_tab[fwd].data = newPtrDt;                                    // or just do this one
             }
 
             newPtrDt->dbc = data->len;                                          // set data byte count
@@ -440,10 +440,10 @@ ENABLE_WARN
             *ptr2ushort = data->len;                                            // save the data length
             n += 2;                                                             // point past the DBC
             memcpy(&newPtrDp->bytes[n], &data->buf[0], data->len + 1);          // copy data and trailing 0
-            ptr1 = symtab[fwd].data->deplnk;                                    // go into dependents
+            ptr1 = sym_tab[fwd].data->deplnk;                                    // go into dependents
 
             if (ptr1 != ST_DEPEND_NULL) {                                       // deps currently exist
-                ST_depend *lastkey = symtab[fwd].data->last_key;                // pointer to last used key
+                ST_depend *lastkey = sym_tab[fwd].data->last_key;                // pointer to last used key
 
                 // start search at last used key, rather than at the beginning (var after lastkey)
                 if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
@@ -461,7 +461,7 @@ ENABLE_WARN
                 if ((ptr1 != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, ptr1->bytes, var->slen, ptr1->keylen) == 0)) {
                     if (prevPtr == ST_DEPEND_NULL) {                            // if no prev pointer
                         newPtrDp->deplnk = ptr1->deplnk;                        // link to previous first dep
-                        symtab[fwd].data->deplnk = newPtrDp;                    // link in as first dep
+                        sym_tab[fwd].data->deplnk = newPtrDp;                    // link in as first dep
                     } else {                                                    // end if no prev ptr - if prev pointer is defined
                         newPtrDp->deplnk = ptr1->deplnk;                        // set new dependent link
                         prevPtr->deplnk = newPtrDp;                             // alter previous to link in
@@ -472,7 +472,7 @@ ENABLE_WARN
                 } else if ((ptr1 != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, ptr1->bytes, var->slen, ptr1->keylen) < 0)) {
                     if (prevPtr == ST_DEPEND_NULL) {                            // new first element
                         newPtrDp->deplnk = ptr1;                                // link in
-                        symtab[fwd].data->deplnk = newPtrDp;                    // link in
+                        sym_tab[fwd].data->deplnk = newPtrDp;                    // link in
                     } else {                                                    // insert new element, mid list
                         newPtrDp->deplnk = ptr1;                                // link in
                         prevPtr->deplnk = newPtrDp;                             // link in
@@ -482,9 +482,9 @@ ENABLE_WARN
                     prevPtr->deplnk = newPtrDp;                                 // link in
                 }                                                               // end add to end of list
 
-                symtab[fwd].data->last_key = prevPtr;                           // add last used key
+                sym_tab[fwd].data->last_key = prevPtr;                           // add last used key
             } else {                                                            // end if elements exist - no elements curr exist
-                symtab[fwd].data->deplnk = newPtrDp;                            // add as first element ever
+                sym_tab[fwd].data->deplnk = newPtrDp;                            // add as first element ever
             }                                                                   // end else no elements existed
         }                                                                       // end else-slen not zero
     }                                                                           // end else-data block not null
@@ -520,7 +520,7 @@ short ST_Data(mvar *var, u_char *buf)                                           
         return 1;                                                               // end if-no data&no descendants
     }                                                                           // end if not found
 
-    if (symtab[ptr1].data == ST_DATA_NULL) {                                    // not found
+    if (sym_tab[ptr1].data == ST_DATA_NULL) {                                    // not found
         memcpy(buf, "0\0", 2);
         return 1;                                                               // return length of buf
     }                                                                           // end if not found
@@ -530,8 +530,8 @@ short ST_Data(mvar *var, u_char *buf)                                           
         ST_depend *lastkey;
 
         i = var->slen;                                                          // get the length
-        lastkey = symtab[ptr1].data->last_key;                                  // pointer to last used key
-        depPtr = symtab[ptr1].data->deplnk;                                     // get first dependent
+        lastkey = sym_tab[ptr1].data->last_key;                                  // pointer to last used key
+        depPtr = sym_tab[ptr1].data->deplnk;                                     // get first dependent
 
         if (depPtr != ST_DEPEND_NULL) {                                         // only if we should go on
             if (depPtr->keylen < i) i = depPtr->keylen;                         // adjust length if needed
@@ -550,7 +550,7 @@ short ST_Data(mvar *var, u_char *buf)                                           
             if (depPtr->keylen < i) i = depPtr->keylen;                         // adjust length if needed
         }                                                                       // end while
 
-        symtab[ptr1].data->last_key = prevPtr;                                  // add last used key
+        sym_tab[ptr1].data->last_key = prevPtr;                                  // add last used key
 
         if (depPtr == ST_DEPEND_NULL) {                                         // if we ran out of deps
             memcpy(buf, "0\0", 2);
@@ -570,7 +570,7 @@ short ST_Data(mvar *var, u_char *buf)                                           
             if (depPtr->keylen < i) i = depPtr->keylen;                         // adjust length if needed
         }                                                                       // end while
 
-        symtab[ptr1].data->last_key = prevPtr;                                  // add last used key again
+        sym_tab[ptr1].data->last_key = prevPtr;                                  // add last used key again
 
         if (depPtr == ST_DEPEND_NULL) {                                         // if we ran out
             memcpy(buf, "0\0", 2);
@@ -581,7 +581,7 @@ short ST_Data(mvar *var, u_char *buf)                                           
             if (depPtr->keylen == var->slen) {                                  // exact match
                 prevPtr = depPtr;                                               // save previous
                 depPtr = depPtr->deplnk;                                        // go to next
-                symtab[ptr1].data->last_key = prevPtr;                          // add last used key again
+                sym_tab[ptr1].data->last_key = prevPtr;                          // add last used key again
 
                 if (depPtr == ST_DEPEND_NULL) {                                 // have we run out
                     memcpy(buf, "1\0", 2);
@@ -608,19 +608,19 @@ short ST_Data(mvar *var, u_char *buf)                                           
         }
     } else {                                                                    // end if-going to dependents - work on data block
         // dbc defined with data and no descendants
-        if ((symtab[ptr1].data->dbc != VAR_UNDEFINED) && (symtab[ptr1].data->deplnk == ST_DEPEND_NULL)) {
+        if ((sym_tab[ptr1].data->dbc != VAR_UNDEFINED) && (sym_tab[ptr1].data->deplnk == ST_DEPEND_NULL)) {
             memcpy(buf, "1\0", 2);
             return 1;
         }                                                                       // end if-data&no descendants
 
         // dbc not defined with no data and descendants
-        if ((symtab[ptr1].data->dbc == VAR_UNDEFINED) && (symtab[ptr1].data->deplnk != ST_DEPEND_NULL)) {
+        if ((sym_tab[ptr1].data->dbc == VAR_UNDEFINED) && (sym_tab[ptr1].data->deplnk != ST_DEPEND_NULL)) {
             memcpy(buf, "10\0", 3);
             return 2;
         }                                                                       // end if-no data&descendants
 
         // dbc defined with data and descendants
-        if ((symtab[ptr1].data->dbc != VAR_UNDEFINED) && (symtab[ptr1].data->deplnk != ST_DEPEND_NULL)) {
+        if ((sym_tab[ptr1].data->dbc != VAR_UNDEFINED) && (sym_tab[ptr1].data->deplnk != ST_DEPEND_NULL)) {
             memcpy(buf, "11\0", 3);
             return 2;
         }                                                                       // end if-data&descendants
@@ -665,9 +665,9 @@ short ST_Order(mvar *var, u_char *buf, int dir)
      */
     upOneLev[0] = (u_char) UTIL_Key_Chars_In_Subs((char *) var->key, (int) var->slen, pieces - 1, &subs, (char *) &upOneLev[1]);
 
-    if (symtab[ptr1].data == ST_DATA_NULL) return 0;                            // no data
-    current = symtab[ptr1].data->deplnk;                                        // go to first dependent
-    lastkey = symtab[ptr1].data->last_key;                                      // pointer to last used key
+    if (sym_tab[ptr1].data == ST_DATA_NULL) return 0;                            // no data
+    current = sym_tab[ptr1].data->deplnk;                                        // go to first dependent
+    lastkey = sym_tab[ptr1].data->last_key;                                      // pointer to last used key
 
     // start search at last used key, rather than at the beginning (var after lastkey)
     if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0) && (dir == 1)) {
@@ -680,7 +680,7 @@ short ST_Order(mvar *var, u_char *buf, int dir)
         current = current->deplnk;                                              // go to next dependent pointer
     }                                                                           // end while-compare keys
 
-    symtab[ptr1].data->last_key = prev;                                         // add last used key
+    sym_tab[ptr1].data->last_key = prev;                                         // add last used key
 
     if (current == ST_DEPEND_NULL) {                                            // nothing past our key
         if (dir == 1) return 0;
@@ -748,10 +748,10 @@ short ST_Query(mvar *var, u_char *buf, int dir)
 
     buf[0] = '\0';                                                              // JIC
     if (ptr1 < 0) return 0;
-    if (symtab[ptr1].data == ST_DATA_NULL) return 0;                            // no data block, err
-    current = symtab[ptr1].data->deplnk;                                        // first dependent pointed at
+    if (sym_tab[ptr1].data == ST_DATA_NULL) return 0;                            // no data block, err
+    current = sym_tab[ptr1].data->deplnk;                                        // first dependent pointed at
     if (current == ST_DEPEND_NULL) return 0;                                    // not found
-    lastkey = symtab[ptr1].data->last_key;                                      // pointer to last used key
+    lastkey = sym_tab[ptr1].data->last_key;                                      // pointer to last used key
 
     // start search at last used key, rather than at the beginning (var after lastkey)
     if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0) && (dir == 1)) {
@@ -764,7 +764,7 @@ short ST_Query(mvar *var, u_char *buf, int dir)
         current = current->deplnk;                                              // go to next dependent pointer
     }                                                                           // end while-compare keys
 
-    symtab[ptr1].data->last_key = prev;                                         // add last used key
+    sym_tab[ptr1].data->last_key = prev;                                         // add last used key
 
     if (var->slen > 0) {                                                        // looking in dependents
         if (dir == -1) {                                                        // reverse order
@@ -782,7 +782,7 @@ short ST_Query(mvar *var, u_char *buf, int dir)
     outputVar.slen = current->keylen;                                           // key and length of set
     memcpy(outputVar.key, current->bytes, (int) current->keylen);               // setup mvar
 
-    if ((current == symtab[ptr1].data->deplnk) && (prev != current) && (dir == -1) && (var->slen > 0)) { // previous is a data block
+    if ((current == sym_tab[ptr1].data->deplnk) && (prev != current) && (dir == -1) && (var->slen > 0)) { // previous is a data block
         outputVar.slen = 0;                                                     // flag is as such
     }                                                                           // end if back to a data block
 
@@ -805,12 +805,12 @@ int ST_GetAdd(mvar *var, cstring **add)                                         
     if ((ptr1 > ST_MAX) || (ptr1 < -1)) {
         panic("ST_GetAdd: Junk pointer returned from ST_LocateIdx");
     } else if (ptr1 >= 0) {                                                     // think we found it
-        if (symtab[ptr1].data == ST_DATA_NULL) return -ERRM6;                   // not found
+        if (sym_tab[ptr1].data == ST_DATA_NULL) return -ERRM6;                   // not found
 
         if (var->slen > 0) {                                                    // go to dependents
-            ST_depend *lastkey = symtab[ptr1].data->last_key;                   // pointer to last used key
+            ST_depend *lastkey = sym_tab[ptr1].data->last_key;                   // pointer to last used key
 
-            depPtr = symtab[ptr1].data->deplnk;                                 // get first dependent
+            depPtr = sym_tab[ptr1].data->deplnk;                                 // get first dependent
 
             // start search at last used key, rather than at the beginning (var after lastkey)
             if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
@@ -829,11 +829,11 @@ int ST_GetAdd(mvar *var, cstring **add)                                         
             i = (int) depPtr->keylen;                                           // get key length
             if (i & 1) i++;                                                     // ensure even
             *add = (cstring *) &depPtr->bytes[i];                               // send data addr as cstring
-            symtab[ptr1].data->last_key = prev;                                 // add last used key
+            sym_tab[ptr1].data->last_key = prev;                                 // add last used key
             return (*add)->len;                                                 // and return the length
         } else {                                                                // data block
-            *add = (cstring *) &symtab[ptr1].data->dbc;                         // setup the address
-            i = symtab[ptr1].data->dbc;                                         // get dbc
+            *add = (cstring *) &sym_tab[ptr1].data->dbc;                         // setup the address
+            i = sym_tab[ptr1].data->dbc;                                         // get dbc
             if (i == VAR_UNDEFINED) return -ERRM6;                              // dbc not defined and no int so return same
             return i;                                                           // and return the count
         }                                                                       // finished with data block
@@ -860,10 +860,10 @@ int ST_QueryD(mvar *var, u_char *buf)                                           
 
     buf[0] = '\0';                                                              // JIC
     if (ptr1 < 0) return -ERRM6;                                                // not found
-    if (symtab[ptr1].data == ST_DATA_NULL) return -ERRM6;                       // no data, err
-    current = symtab[ptr1].data->deplnk;                                        // first dependent pointed at
+    if (sym_tab[ptr1].data == ST_DATA_NULL) return -ERRM6;                       // no data, err
+    current = sym_tab[ptr1].data->deplnk;                                        // first dependent pointed at
     if (current == ST_DEPEND_NULL) return -(ERRZ55 + ERRMLAST);                 // not found so no data below
-    lastkey = symtab[ptr1].data->last_key;
+    lastkey = sym_tab[ptr1].data->last_key;
 
     // start search at last used key, rather than at the beginning (var after lastkey)
     if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
@@ -888,7 +888,7 @@ int ST_QueryD(mvar *var, u_char *buf)                                           
     i = (int) current->keylen;                                                  // get key length
     if ((i & 1) != 0) i++;                                                      // up it to next even boundary
     cdata = (cstring *) &current->bytes[i];                                     // convert to cstring
-    symtab[ptr1].data->last_key = prev;                                         // add last used key
+    sym_tab[ptr1].data->last_key = prev;                                         // add last used key
     return mcopy(cdata->buf, buf, cdata->len);                                  // get data into buf
 }                                                                               // end ST_QueryD
 
@@ -902,15 +902,15 @@ short ST_KillAll(int count, var_u *keep)
     for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in symbol table
         int j;                                                                  // generic counter
 
-        if ((symtab[i].varnam.var_cu[0] == '$') || (symtab[i].varnam.var_cu[0] == '\0')) continue; // dont touch $ vars
-        if (symtab[i].data == ST_DATA_NULL) continue;                           // ditto if it's undefined
+        if ((sym_tab[i].varnam.var_cu[0] == '$') || (sym_tab[i].varnam.var_cu[0] == '\0')) continue; // dont touch $ vars
+        if (sym_tab[i].data == ST_DATA_NULL) continue;                           // ditto if it's undefined
 
         for (j = 0; j < count; j++) {                                           // scan the keep list
-            if (var_equal(symtab[i].varnam, keep[j])) break;                    // if we want it then quit the loop
+            if (var_equal(sym_tab[i].varnam, keep[j])) break;                    // if we want it then quit the loop
         }
 
         if (j < count) continue;                                                // continue if we want it
-        VAR_COPY(partab.src_var.name, symtab[i].varnam);                        // init varnam
+        VAR_COPY(partab.src_var.name, sym_tab[i].varnam);                        // init varnam
         ST_Kill(&partab.src_var);                                               // kill it and all under
     }                                                                           // end for all in symtab
 
@@ -928,7 +928,7 @@ short ST_SymAtt(var_u var)
     short pos;
 
     pos = ST_Create(var);                                                       // position in symtab - locate/create variable
-    if (pos >= 0) symtab[pos].usage++;                                          // if ok, increment usage
+    if (pos >= 0) sym_tab[pos].usage++;                                          // if ok, increment usage
     return pos;                                                                 // return whatever we found
 }
 
@@ -940,18 +940,18 @@ void ST_SymDet(int count, short *list)
 {
     for (int i = 0; i < count; i++) {                                           // for all supplied vars
         if (list[i] >= 0) {                                                     // if this got attached
-            symtab[list[i]].usage--;                                            // decrement usage
-            if (symtab[list[i]].usage > 0) continue;                            // still NEWed or whatever
+            sym_tab[list[i]].usage--;                                            // decrement usage
+            if (sym_tab[list[i]].usage > 0) continue;                            // still NEWed or whatever
 
-            if (symtab[list[i]].data != ST_DATA_NULL) {                         // data?
-                if (symtab[list[i]].data->dbc != VAR_UNDEFINED) continue;
-                if (symtab[list[i]].data->deplnk != ST_DEPEND_NULL) continue;
-                free(symtab[list[i]].data);                                     // free the data block
-                symtab[list[i]].data = ST_DATA_NULL;                            // and remember this
+            if (sym_tab[list[i]].data != ST_DATA_NULL) {                         // data?
+                if (sym_tab[list[i]].data->dbc != VAR_UNDEFINED) continue;
+                if (sym_tab[list[i]].data->deplnk != ST_DEPEND_NULL) continue;
+                free(sym_tab[list[i]].data);                                     // free the data block
+                sym_tab[list[i]].data = ST_DATA_NULL;                            // and remember this
             }
 
-            if (symtab[list[i]].data == ST_DATA_NULL) {                         // no data?
-                ST_Free(symtab[list[i]].varnam);                                // not in use - free it
+            if (sym_tab[list[i]].data == ST_DATA_NULL) {                         // no data?
+                ST_Free(sym_tab[list[i]].varnam);                                // not in use - free it
             }
         }
     }
@@ -979,25 +979,25 @@ short ST_SymSet(short pos, cstring *data)
     u = DTBLKSIZE + data->len;                                                  // size required
     if (u < DTMINSIZE) u = DTMINSIZE;                                           // check for minimum
 
-    if (symtab[pos].data == ST_DATA_NULL) {                                     // if no data block
-        symtab[pos].data = malloc(u);                                           // get some memory
-        if (symtab[pos].data == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);      // no mem
-        symtab[pos].data->last_key = ST_DEPEND_NULL;                            // init last used key
-        symtab[pos].data->deplnk = ST_DEPEND_NULL;                              // init dep link
-        symtab[pos].data->attach = 1;                                           // init attach count
-    } else if (symtab[pos].data->dbc < data->len) {                             // enough space?
-        ptr = realloc(symtab[pos].data, u);                                     // attempt to increase it
+    if (sym_tab[pos].data == ST_DATA_NULL) {                                     // if no data block
+        sym_tab[pos].data = malloc(u);                                           // get some memory
+        if (sym_tab[pos].data == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);      // no mem
+        sym_tab[pos].data->last_key = ST_DEPEND_NULL;                            // init last used key
+        sym_tab[pos].data->deplnk = ST_DEPEND_NULL;                              // init dep link
+        sym_tab[pos].data->attach = 1;                                           // init attach count
+    } else if (sym_tab[pos].data->dbc < data->len) {                             // enough space?
+        ptr = realloc(sym_tab[pos].data, u);                                     // attempt to increase it
         if (ptr == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);                   // no memory available
 
-        if ((ptr != symtab[pos].data) && (ptr->attach > 1)) {                   // did it move and many attached?
-            FixData(symtab[pos].data, ptr, ptr->attach);                        // fix it
+        if ((ptr != sym_tab[pos].data) && (ptr->attach > 1)) {                   // did it move and many attached?
+            FixData(sym_tab[pos].data, ptr, ptr->attach);                        // fix it
         } else {
-            symtab[pos].data = ptr;                                             // or just do this one
+            sym_tab[pos].data = ptr;                                             // or just do this one
         }
     }
 
-    symtab[pos].data->dbc = data->len;                                          // set the dbc
-    memcpy(&symtab[pos].data->data, &data->buf[0], data->len + 1);              // set it
+    sym_tab[pos].data->dbc = data->len;                                          // set the dbc
+    memcpy(&sym_tab[pos].data->data, &data->buf[0], data->len + 1);              // set it
     return 0;                                                                   // and exit
 }                                                                               // end function ST_SymSet
 
@@ -1007,10 +1007,10 @@ short ST_SymKill(short pos)
     ST_depend *dptr;                                                            // dependent ptr
     ST_depend *fptr;                                                            // dependent ptr
 
-    if (symtab[pos].data != ST_DATA_NULL) {                                     // there is data
-        dptr = symtab[pos].data->deplnk;                                        // get dependent ptr
-        symtab[pos].data->last_key = ST_DEPEND_NULL;                            // clear it
-        symtab[pos].data->deplnk = ST_DEPEND_NULL;                              // clear it
+    if (sym_tab[pos].data != ST_DATA_NULL) {                                     // there is data
+        dptr = sym_tab[pos].data->deplnk;                                        // get dependent ptr
+        sym_tab[pos].data->last_key = ST_DEPEND_NULL;                            // clear it
+        sym_tab[pos].data->deplnk = ST_DEPEND_NULL;                              // clear it
 
         while (dptr != ST_DEPEND_NULL) {                                        // for each dependent
             fptr = dptr;                                                        // save this one
@@ -1018,13 +1018,13 @@ short ST_SymKill(short pos)
             free(fptr);                                                         // free this
         }
 
-        if (symtab[pos].data->attach <= 1) {                                    // if no more attached
-            free(symtab[pos].data);                                             // free data block
-            symtab[pos].data = ST_DATA_NULL;                                    // clear the pointer
+        if (sym_tab[pos].data->attach <= 1) {                                    // if no more attached
+            free(sym_tab[pos].data);                                             // free data block
+            sym_tab[pos].data = ST_DATA_NULL;                                    // clear the pointer
         }
     }
 
-    if (symtab[pos].usage < 1) ST_Free(symtab[pos].varnam);                     // any NEWs etc.? if no - dong it
+    if (sym_tab[pos].usage < 1) ST_Free(sym_tab[pos].varnam);                     // any NEWs etc.? if no - dong it
     return 0;                                                                   // and exit
 }
 
@@ -1043,9 +1043,9 @@ short ST_Dump(void)                                                             
     ST_depend *depPtr = ST_DEPEND_NULL;                                         // active dependent ptr
 
     for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in symbol table
-        if (symtab[i].data == ST_DATA_NULL) continue;                           // get out if nothing to dump
-        if (symtab[i].varnam.var_cu[0] == '$') continue;                        // dont spit out $ vars
-        VAR_COPY(partab.src_var.name, symtab[i].varnam);                        // init var name
+        if (sym_tab[i].data == ST_DATA_NULL) continue;                           // get out if nothing to dump
+        if (sym_tab[i].varnam.var_cu[0] == '$') continue;                        // dont spit out $ vars
+        VAR_COPY(partab.src_var.name, sym_tab[i].varnam);                        // init var name
         partab.src_var.uci = UCI_IS_LOCALVAR;                                   // init UCI as LOCAL
         partab.src_var.slen = 0;                                                // init subscript length
         partab.src_var.volset = 0;                                              // init volume set
@@ -1054,7 +1054,7 @@ short ST_Dump(void)                                                             
         string = FALSE;
         dot = 0;
 
-        if (symtab[i].data->dbc != VAR_UNDEFINED) {                             // valid dbc
+        if (sym_tab[i].data->dbc != VAR_UNDEFINED) {                             // valid dbc
             t = UTIL_String_Mvar(&partab.src_var, cdata->buf, MAX_NUM_SUBS);    // get var name and dump data block
             if (t < 0) return (short) t;                                        // die on error
             cdata->len = t;
@@ -1064,33 +1064,33 @@ ENABLE_WARN
             t = SQ_Write(cdata);                                                // dump var name =
             if (t < 0) return (short) t;                                        // die on error
 
-            for (int k = 0; k < symtab[i].data->dbc; k++) {
-                if (symtab[i].data->data[k] == '.') {
+            for (int k = 0; k < sym_tab[i].data->dbc; k++) {
+                if (sym_tab[i].data->data[k] == '.') {
                     dot++;
 
-                    if ((dot > 1) || (k == (symtab[i].data->dbc - 1))) {
+                    if ((dot > 1) || (k == (sym_tab[i].data->dbc - 1))) {
                         string = TRUE;
                         break;
                     }
-                } else if ((symtab[i].data->dbc > 1) && (k == 0) && (symtab[i].data->data[k] == '0')) {
+                } else if ((sym_tab[i].data->dbc > 1) && (k == 0) && (sym_tab[i].data->data[k] == '0')) {
                     string = TRUE;
                     break;
-                } else if ((symtab[i].data->dbc > 1) && dot &&
-                  (k == (symtab[i].data->dbc - 1)) && (symtab[i].data->data[k] == '0')) {
+                } else if ((sym_tab[i].data->dbc > 1) && dot &&
+                  (k == (sym_tab[i].data->dbc - 1)) && (sym_tab[i].data->data[k] == '0')) {
                     string = TRUE;
                     break;
-                } else if ((k == 0) && (symtab[i].data->data[k] == '-')) {
-                    if (symtab[i].data->data[k + 1] != '0') continue;
+                } else if ((k == 0) && (sym_tab[i].data->data[k] == '-')) {
+                    if (sym_tab[i].data->data[k + 1] != '0') continue;
                     string = TRUE;
                     break;
-                } else if (!isdigit(symtab[i].data->data[k])) {
+                } else if (!isdigit(sym_tab[i].data->data[k])) {
                     string = TRUE;
                     break;
                 }
             }
 
-            for (int k = 0; k < symtab[i].data->dbc; k++) {
-                if (!isprint(symtab[i].data->data[k])) {
+            for (int k = 0; k < sym_tab[i].data->dbc; k++) {
+                if (!isprint(sym_tab[i].data->data[k])) {
                     if (escape) {
 DISABLE_WARN(-Warray-bounds)
                         cdata->len = 1;
@@ -1111,12 +1111,12 @@ ENABLE_WARN
                     t = SQ_Write(cdata);                                        // dump data character
                     if (t < 0) return (short) t;                                // die on error
 DISABLE_WARN(-Warray-bounds)
-                    cdata->len = ltocstring(cdata->buf, symtab[i].data->data[k]);
+                    cdata->len = ltocstring(cdata->buf, sym_tab[i].data->data[k]);
 ENABLE_WARN
                     t = SQ_Write(cdata);                                        // dump data character
                     if (t < 0) return (short) t;                                // die on error
 
-                    if (k == (symtab[i].data->dbc - 1)) {
+                    if (k == (sym_tab[i].data->dbc - 1)) {
 DISABLE_WARN(-Warray-bounds)
                         cdata->len = 1;
 ENABLE_WARN
@@ -1134,7 +1134,7 @@ ENABLE_WARN
                         strcpy((char *) cdata->buf, ")_\"");
                         t = SQ_Write(cdata);                                    // dump data character
                         if (t < 0) return (short) t;                            // die on error
-                    } else if ((string && (k == 0)) || (symtab[i].data->data[k] == '"')) {
+                    } else if ((string && (k == 0)) || (sym_tab[i].data->data[k] == '"')) {
 DISABLE_WARN(-Warray-bounds)
                         cdata->len = 1;
 ENABLE_WARN
@@ -1143,11 +1143,11 @@ ENABLE_WARN
                         if (t < 0) return (short) t;                            // die on error
                     }
 
-                    t = SQ_WriteStar(symtab[i].data->data[k]);                  // dump data character
+                    t = SQ_WriteStar(sym_tab[i].data->data[k]);                  // dump data character
                     if (t < 0) return (short) t;                                // die on error
                     escape = FALSE;
 
-                    if (string && (k == (symtab[i].data->dbc - 1))) {
+                    if (string && (k == (sym_tab[i].data->dbc - 1))) {
 DISABLE_WARN(-Warray-bounds)
                         cdata->len = 1;
 ENABLE_WARN
@@ -1158,7 +1158,7 @@ ENABLE_WARN
                 }
             }
 
-            if (!symtab[i].data->dbc) {
+            if (!sym_tab[i].data->dbc) {
 DISABLE_WARN(-Warray-bounds)
                 cdata->len = 2;
 ENABLE_WARN
@@ -1173,7 +1173,7 @@ ENABLE_WARN
 
         cdata = NULL;                                                           // nullify the cstring
         ckey = NULL;                                                            // nullify the cstring
-        depPtr = symtab[i].data->deplnk;                                        // get first dependent
+        depPtr = sym_tab[i].data->deplnk;                                        // get first dependent
 
         while (depPtr != ST_DEPEND_NULL) {                                      // while dependents exist
             int     paren = 0;
@@ -1182,7 +1182,7 @@ ENABLE_WARN
             escape = FALSE;
             string = FALSE;
             dot = 0;
-            VAR_COPY(partab.src_var.name, symtab[i].varnam);                    // init var name
+            VAR_COPY(partab.src_var.name, sym_tab[i].varnam);                    // init var name
             partab.src_var.uci = UCI_IS_LOCALVAR;                               // init UCI as LOCAL
             partab.src_var.slen = depPtr->keylen;                               // init subscript length
             partab.src_var.volset = 0;                                          // init volume set
@@ -1394,13 +1394,13 @@ short ST_DumpV(mvar *global)
     memcpy(gks, global->key, global->slen);                                     // save original key
 
     for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in symbol table
-        if (symtab[i].data == ST_DATA_NULL) continue;                           // get out if nothing to dump
-        if (symtab[i].varnam.var_cu[0] == '$') continue;                        // no $ vars
-        if (var_empty(symtab[i].varnam)) continue;                              // ensure something there
-        VAR_COPY(partab.src_var.name, symtab[i].varnam);                        // init var name
+        if (sym_tab[i].data == ST_DATA_NULL) continue;                           // get out if nothing to dump
+        if (sym_tab[i].varnam.var_cu[0] == '$') continue;                        // no $ vars
+        if (var_empty(sym_tab[i].varnam)) continue;                              // ensure something there
+        VAR_COPY(partab.src_var.name, sym_tab[i].varnam);                        // init var name
         partab.src_var.slen = 0;                                                // init subscript length
 
-        if (symtab[i].data->dbc != VAR_UNDEFINED) {                             // if data exists
+        if (sym_tab[i].data->dbc != VAR_UNDEFINED) {                             // if data exists
             t = UTIL_String_Mvar(&partab.src_var, cdata->buf, MAX_NUM_SUBS);
             if (t < 0) return (short) t;                                        // if error, quit
 DISABLE_WARN(-Warray-bounds)
@@ -1411,19 +1411,19 @@ ENABLE_WARN
             global->slen = global->slen + UTIL_Key_Build(cdata, &global->key[gs]);
 
             // set rest of global key and len
-            t = DB_Set(global, (cstring *) &symtab[i].data->dbc);               // try to set it
+            t = DB_Set(global, (cstring *) &sym_tab[i].data->dbc);               // try to set it
 
             // block overhead - header (20 or 44) + index (2) + chunk (2) + CCC (1) + UCC (1) + key (~34) + DBC (2) + alignment (~4)
             if (t == -ERRM75) {                                                 // if string too long
-                j = symtab[i].data->dbc;                                        // save this
-                symtab[i].data->dbc = 934;                                      // that should work (1024 - 90 overhead)
+                j = sym_tab[i].data->dbc;                                        // save this
+                sym_tab[i].data->dbc = 934;                                      // that should work (1024 - 90 overhead)
                 //symtab[i].data->dbc = SOA(partab.vol[global->volset - 1]->vollab)->block_size - 90; // that should work
-                t = DB_Set(global, (cstring *) &symtab[i].data->dbc);           // try again
-                symtab[i].data->dbc = j;                                        // restore this
+                t = DB_Set(global, (cstring *) &sym_tab[i].data->dbc);           // try again
+                sym_tab[i].data->dbc = j;                                        // restore this
             }
         }                                                                       // end if data exists
 
-        depPtr = symtab[i].data->deplnk;                                        // get first dependent
+        depPtr = sym_tab[i].data->deplnk;                                        // get first dependent
 
         while (depPtr != ST_DEPEND_NULL) {                                      // while dependents exist
             partab.src_var.slen = depPtr->keylen;                               // init subscript length

@@ -80,8 +80,8 @@ typedef struct __attribute__ ((__packed__)) SYMTAB {                            
     var_u          varnam;                                                      // variable name union
 } symtab_struct;                                                                // end symtab structure
 
-extern short         st_hash[];                                                 // allocate hashing table
-extern symtab_struct symtab[];                                                  // and symbol table
+extern short         st_hash_temp[];                                                 // allocate hashing table
+extern symtab_struct sym_tab[];                                                  // and symbol table
 
 typedef struct __attribute__ ((__packed__)) ST_LOCDATA {
     short   stindex;                                                            // location in symtab
