@@ -22,12 +22,11 @@ fn main() {
     // 4) generate rust code from C headers.
     // 4) build rust code.
     // 5) link (cc handles telling cargo that it needs to link the c files.)
-    let rust_header = Path::new("../target");
+    let rust_header = Path::new("src/symbol_table");
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     cbindgen::Builder::new()
         .with_crate(crate_dir)
-        .with_no_includes()
         .with_language(cbindgen::Language::C)
         .generate()
         .expect("Unable to generate bindings")
@@ -83,6 +82,8 @@ fn main() {
         //for portability sake we might want to take another look at this but I am not going to worry about it right now.
         //.clang_arg("-fsigned-char")
         // Finish the builder and generate the bindings.
+        .blocklist_type("VAR_U")
+        .blocklist_type("CSTRING")
         .generate()
         .expect("Unable to generate bindings");
 
