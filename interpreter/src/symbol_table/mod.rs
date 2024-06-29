@@ -78,14 +78,14 @@ impl Table {
 #[cfg(test)]
 mod tests {
 
-    use pretty_assertions::assert_eq;
-
     use crate::symbol_table::c_code::lock;
 
     use super::Table;
+    use rstest::*;
 
     #[test]
     fn init() {
+        use pretty_assertions::assert_eq;
         let _guard = lock.lock().unwrap();
         //This may not be referring to the right table
         unsafe { ffi::ST_Init() }
@@ -93,6 +93,16 @@ mod tests {
         assert_eq!(c, Table::new());
     }
 
+    #[rstest]
+    #[case("", 0)]
+    #[case("Some string", 704)]
+    #[case("Another string", 35)]
+    #[case("      ", 769)]
+    #[case("aaaa", 476)]
+    fn hash(#[case] input: &str, #[case] expected: i16) {
+        let var = dbg!(input).try_into().unwrap();
+        assert_eq!(unsafe { super::c_code::TMP_Hash(var) }, expected)
+    }
     /*
     * set and get actually involve a lot so I am not going to mess with them right away.
     #[test]
