@@ -31,9 +31,10 @@
 #ifndef RSM_INIT_H
 #define RSM_INIT_H
 
+#include "symbol.h"
 #define MAX_GROUPS 32                                                           // max number of UNIX groups
 
 // Initialize the symbol table
-void ST_Init(void);                                                             // empty symbol table
+void ST_Init(table_struct* table);                                                             // empty symbol table
 
 #endif

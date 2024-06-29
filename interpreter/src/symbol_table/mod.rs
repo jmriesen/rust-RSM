@@ -9,14 +9,13 @@ use derive_more::{AsMut, AsRef};
     non_camel_case_types
 )]
 mod c_code {
-    use std::sync::Mutex;
-
     use ffi::CSTRING;
     use ffi::VAR_U;
+    use std::sync::Mutex;
     pub static lock: Mutex<()> = Mutex::new(());
     include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
 }
-use c_code::{st_hash_temp, sym_tab, symtab_struct, ST_FREE, ST_HASH, ST_MAX};
+use c_code::{symtab_struct, ST_HASH, ST_MAX};
 use ffi::VAR_U;
 use ref_cast::RefCast;
 
@@ -58,11 +57,12 @@ impl Table {
 
     //Question how isolated are these from the rest of C code
     fn from_c() -> Self {
+        use ffi::{st_hash, symtab};
         let mut hash = [0; HASH_RAW_SIZE];
         hash.copy_from_slice(unsafe {
-            std::slice::from_raw_parts(st_hash_temp.as_ptr(), HASH_RAW_SIZE)
+            std::slice::from_raw_parts(st_hash.as_ptr(), HASH_RAW_SIZE)
         });
-        let tabs: Vec<_> = unsafe { std::slice::from_raw_parts(sym_tab.as_ptr(), TAB_RAW_SIZE) }
+        let tabs: Vec<_> = unsafe { std::slice::from_raw_parts(symtab.as_ptr(), TAB_RAW_SIZE) }
             .iter()
             .map(|x| {
                 Tab(symtab_struct {
@@ -70,7 +70,7 @@ impl Table {
                     usage: x.usage,
                     //TODO Yes this is pointer copying.
                     //Fix this at some point
-                    data: x.data,
+                    data: unsafe { transmute(x.data) },
                     varnam: x.varnam,
                 })
             })
@@ -113,13 +113,16 @@ impl Debug for Tab {
 
 #[cfg(test)]
 mod tests {
-    use std::ptr::from_mut;
+    use std::{
+        array::from_fn,
+        ptr::{from_mut, null_mut},
+    };
 
     use pretty_assertions::assert_eq;
 
     use crate::{
         key::CArrayString,
-        symbol_table::c_code::{lock, ST_Init},
+        symbol_table::c_code::{lock, ST_Init, SYMTAB},
     };
 
     use super::{
@@ -130,7 +133,18 @@ mod tests {
     #[test]
     fn init() {
         let _guard = lock.lock().unwrap();
-        unsafe { ST_Init() }
+        /*
+                let mut table = super::c_code::Table {
+                    st_hash_temp: [0; 1024],
+                    sym_tab: from_fn(|_| SYMTAB {
+                        fwd_link: 0,
+                        usage: 0,
+                        data: null_mut(),
+                        varnam: "".try_into().unwrap(),
+                    }),
+                };
+        */
+        unsafe { ffi::ST_Init() }
         let c = Table::from_c();
         assert_eq!(c, Table::new());
     }

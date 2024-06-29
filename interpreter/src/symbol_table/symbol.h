@@ -83,8 +83,17 @@ typedef struct __attribute__ ((__packed__)) SYMTAB {                            
     var_u          varnam;                                                      // variable name union
 } symtab_struct;                                                                // end symtab structure
 
-extern short         st_hash_temp[ST_HASH + 1];                                                 // allocate hashing table
-extern symtab_struct sym_tab[ST_MAX + 1];                                                  // and symbol table
+//This is the symbol table 
+//internally it uses a hash map
+typedef struct Table {
+    //Maps hash value -> index in the sym_tab array.
+    short st_hash_temp[ST_HASH + 1];  
+    // the actual symbol data + fwd-links if needed.
+    symtab_struct sym_tab[ST_MAX + 1];
+} table_struct;
+
+//extern short         st_hash_temp[ST_HASH + 1];                                                 // allocate hashing table
+//extern symtab_struct sym_tab[ST_MAX + 1];                                                  // and symbol table
 
 typedef struct __attribute__ ((__packed__)) ST_LOCDATA {
     short   stindex;                                                            // location in symtab
@@ -104,10 +113,10 @@ typedef struct __attribute__ ((__packed__)) KEY_STRUCT {                        
     u_char key[MAX_KEY_SIZE + 1];                                               // the actual key
 } key_s;                                                                        // have MAX_KEY_SIZE + 1 chars
 
-short ST_Locate(var_u var);                                                     // locate a var name
-short ST_LocateIdx(int idx);                                                    // locate in symtab by index
-short ST_Create(var_u var);                                                     // create and/or locate a var
+short ST_Locate(var_u var,table_struct * table);                                                     // locate a var name
+short ST_LocateIdx(int idx, table_struct * table);                                                    // locate in symtab by index
+short ST_Create(var_u var, table_struct * table);                                                     // create and/or locate a var
 void  ST_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr);
-void  ST_Restore(ST_newtab *newtab);
+void  ST_Restore(ST_newtab *newtab, table_struct * table);
 
 #endif

@@ -43,7 +43,7 @@
  * Function: ST_New(int count, var_u *list) - new one or more vars
  * Returns : 0 on success or -'ve error
  */
-short ST_New(int count, var_u *list)
+short ST_New(int count, var_u *list,table_struct*table)
 {
     ST_newtab *newtab;                                                          // our new table
 
@@ -58,7 +58,7 @@ short ST_New(int count, var_u *list)
     for (int i = (count - 1); i >= 0; i--) {                                    // for all vars in list
         short s;
 
-        s = ST_SymAtt(list[i]);                                                 // attach to variable
+        s = ST_SymAtt(list[i],table);                                                 // attach to variable
 
         if (s < 0) {                                                            // check for error
             free(newtab);                                                       // free memory
@@ -66,8 +66,8 @@ short ST_New(int count, var_u *list)
         }
 
         newtab->locdata[i].stindex = s;                                         // save the index
-        newtab->locdata[i].data = sym_tab[s].data;                               // and the data address
-        sym_tab[s].data = ST_DATA_NULL;                                          // remove data link
+        newtab->locdata[i].data = table->sym_tab[s].data;                               // and the data address
+        table->sym_tab[s].data = ST_DATA_NULL;                                          // remove data link
     }
 
     partab.jobtab->dostk[partab.jobtab->cur_do].newtab = (u_char *) newtab;     // link it to the do stack
@@ -78,7 +78,7 @@ short ST_New(int count, var_u *list)
  * Function: ST_NewAll(int count, var_u *list) - new all vars except listed
  * Returns : 0 on success, or -'ve error
  */
-short ST_NewAll(int count, var_u *list)
+short ST_NewAll(int count, var_u *list,table_struct * table)
 {
     int       j;                                                                // generic counter
     int       new = 0;                                                          // to be new'd flag
@@ -86,17 +86,17 @@ short ST_NewAll(int count, var_u *list)
     int       cntnon = 0;                                                       // non new count
     ST_newtab *newtab;                                                          // pointer to the new table
 
-    for (int k = 0; k < count; k++) ST_Create(list[k]);                         // for all supplied vars, create if not existent
+    for (int k = 0; k < count; k++) ST_Create(list[k],table);                         // for all supplied vars, create if not existent
 
     for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
-        if (sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars
-        if (sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
+        if (table->sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars
+        if (table->sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
         if (count > 0) {                                                        // if there are vars to keep
             for (j = 0; j < count; j++) {                                       // for all keep vars
                 new = 1;                                                        // init delete flag
 
-                if (var_equal(sym_tab[i].varnam, list[j])) {
+                if (var_equal(table->sym_tab[i].varnam, list[j])) {
                     new = 0;                                                    // don't new it
                     break;
                 }
@@ -121,14 +121,14 @@ short ST_NewAll(int count, var_u *list)
     newtab->locdata = (ST_locdata *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *) + (cntnon * sizeof(short)));
 
     for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
-        if (sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars, so go to next one
-        if (sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
+        if (table->sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars, so go to next one
+        if (table->sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
         if (count > 0) {                                                        // if there are vars to keep
             for (j = 0; j < count; j++) {                                       // for all keep vars
                 new = 1;                                                        // init delete flag
 
-                if (var_equal(sym_tab[i].varnam, list[j])) {
+                if (var_equal(table->sym_tab[i].varnam, list[j])) {
                     new = 0;                                                    // don't new it
                     break;
                 }
@@ -138,9 +138,9 @@ short ST_NewAll(int count, var_u *list)
                 newtab->locdata[newtab->count_new].stindex = i;                 // create index entry
 
                 //point at current data
-                newtab->locdata[newtab->count_new].data = sym_tab[newtab->locdata[newtab->count_new].stindex].data;
-                sym_tab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
-                sym_tab[newtab->locdata[newtab->count_new].stindex].usage++;
+                newtab->locdata[newtab->count_new].data = table->sym_tab[newtab->locdata[newtab->count_new].stindex].data;
+                table->sym_tab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
+                table->sym_tab[newtab->locdata[newtab->count_new].stindex].usage++;
                 newtab->count_new++;                                            // incr num new'd vars & usage
             } else {                                                            // setup done for var, don't new, add to enn
                 newtab->stindex[j] = i;                                         // set pos to symtab index
@@ -149,9 +149,9 @@ short ST_NewAll(int count, var_u *list)
             newtab->locdata[newtab->count_new].stindex = i;                     // create index entry
 
             // point at current data
-            newtab->locdata[newtab->count_new].data = sym_tab[newtab->locdata[newtab->count_new].stindex].data;
-            sym_tab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
-            sym_tab[newtab->locdata[newtab->count_new].stindex].usage++;
+            newtab->locdata[newtab->count_new].data = table->sym_tab[newtab->locdata[newtab->count_new].stindex].data;
+            table->sym_tab[newtab->locdata[newtab->count_new].stindex].data = ST_DATA_NULL; // wipe out current data link
+            table->sym_tab[newtab->locdata[newtab->count_new].stindex].usage++;
             newtab->count_new++;                                                // incr count of new'd vars
         }                                                                       // end else new everything
     }                                                                           // end for all in symtab
@@ -164,7 +164,7 @@ short ST_NewAll(int count, var_u *list)
  * Function: ST_Restore(ST_newtab *) - restore vars in newtab and its links
  * Returns : nothing
  */
-void ST_Restore(ST_newtab *newtab)
+void ST_Restore(ST_newtab *newtab,table_struct * table)
 {
     ST_newtab *ptr;                                                             // ptr-> current newtab
     ST_depend *dd;                                                              // depend data ptr
@@ -175,36 +175,36 @@ void ST_Restore(ST_newtab *newtab)
 
     if (ptr->stindex != NULL) {                                                 // check for newall
         for (int t = 0; t < ST_HASH; t++) {                                     // for all hash entries
-            if (st_hash_temp[t] != -1) {                                             // only those defined
-                int chk = st_hash_temp[t];                                           // get symtab link
+            if (table->st_hash_temp[t] != -1) {                                             // only those defined
+                int chk = table->st_hash_temp[t];                                           // get symtab link
 
                 while (chk != -1) {                                             // while fwdlinks exist
                     int kill = chk;                                             // init kill flag
 
-                    if (sym_tab[chk].varnam.var_cu[0] == '$') {
+                    if (table->sym_tab[chk].varnam.var_cu[0] == '$') {
                         kill = -1;                                              // leave $...
                     } else {
                         for (int i = 0; i < ptr->count_enn; i++) {              // for all enn vars
-                            if (var_equal(sym_tab[chk].varnam, sym_tab[ptr->stindex[i]].varnam)) { // if an ENN var
+                            if (var_equal(table->sym_tab[chk].varnam, table->sym_tab[ptr->stindex[i]].varnam)) { // if an ENN var
                                 kill = -1;                                      // DONT KILL
                                 break;                                          // and exit for
                             }
                         }                                                       // all enn vars checked
                     }
 
-                    chk = sym_tab[chk].fwd_link;                                 // get next fwd link
-                    if (kill > -1) ST_SymKill(kill);                            // if ok to kill then kill by index
+                    chk = table->sym_tab[chk].fwd_link;                                 // get next fwd link
+                    if (kill > -1) ST_SymKill(kill,table);                            // if ok to kill then kill by index
                 }                                                               // end if end of fwd's
             }                                                                   // end if no hash link
         }                                                                       // end for all hash lnk
     }                                                                           // all enn vars done
 
     for (int i = 0; i < ptr->count_new; i++) {                                  // for all new'd vars
-        if (sym_tab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // if we have data blk
-            sym_tab[ptr->locdata[i].stindex].data->attach--;                     // decrement attach
+        if (table->sym_tab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // if we have data blk
+            table->sym_tab[ptr->locdata[i].stindex].data->attach--;                     // decrement attach
 
-            if (sym_tab[ptr->locdata[i].stindex].data->attach < 1) {             // all gone?
-                dd = sym_tab[ptr->locdata[i].stindex].data->deplnk;              // get dependents
+            if (table->sym_tab[ptr->locdata[i].stindex].data->attach < 1) {             // all gone?
+                dd = table->sym_tab[ptr->locdata[i].stindex].data->deplnk;              // get dependents
 
                 while (dd != ST_DEPEND_NULL) {
                     ddf = dd;                                                   // save a copy
@@ -212,30 +212,30 @@ void ST_Restore(ST_newtab *newtab)
                     free(ddf);                                                  // free this one
                 }
 
-                free(sym_tab[ptr->locdata[i].stindex].data);                     // free data
-                sym_tab[ptr->locdata[i].stindex].data = ST_DATA_NULL;            // and remember
+                free(table->sym_tab[ptr->locdata[i].stindex].data);                     // free data
+                table->sym_tab[ptr->locdata[i].stindex].data = ST_DATA_NULL;            // and remember
             }
         }
 
-        sym_tab[ptr->locdata[i].stindex].data = ptr->locdata[i].data;            // old data
-        sym_tab[ptr->locdata[i].stindex].usage--;                                // decrement usage
+        table->sym_tab[ptr->locdata[i].stindex].data = ptr->locdata[i].data;            // old data
+        table->sym_tab[ptr->locdata[i].stindex].usage--;                                // decrement usage
 
-        if (sym_tab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // any data?
-            if ((sym_tab[ptr->locdata[i].stindex].data->deplnk == ST_DEPEND_NULL) &&
-              (sym_tab[ptr->locdata[i].stindex].data->attach <= 1) &&
-              (sym_tab[ptr->locdata[i].stindex].data->dbc == VAR_UNDEFINED)) {
-                free(sym_tab[ptr->locdata[i].stindex].data);                     // free data memory
-                sym_tab[ptr->locdata[i].stindex].data = ST_DATA_NULL;            // clear ptr
+        if (table->sym_tab[ptr->locdata[i].stindex].data != ST_DATA_NULL) {             // any data?
+            if ((table->sym_tab[ptr->locdata[i].stindex].data->deplnk == ST_DEPEND_NULL) &&
+              (table->sym_tab[ptr->locdata[i].stindex].data->attach <= 1) &&
+              (table->sym_tab[ptr->locdata[i].stindex].data->dbc == VAR_UNDEFINED)) {
+                free(table->sym_tab[ptr->locdata[i].stindex].data);                     // free data memory
+                table->sym_tab[ptr->locdata[i].stindex].data = ST_DATA_NULL;            // clear ptr
             }
         }
 
-        if ((sym_tab[ptr->locdata[i].stindex].usage < 1) &&                      // can we dong it?
-          (sym_tab[ptr->locdata[i].stindex].data == ST_DATA_NULL)) {             // any data?
-            ST_SymKill(ptr->locdata[i].stindex);                                // dong it
+        if ((table->sym_tab[ptr->locdata[i].stindex].usage < 1) &&                      // can we dong it?
+          (table->sym_tab[ptr->locdata[i].stindex].data == ST_DATA_NULL)) {             // any data?
+            ST_SymKill(ptr->locdata[i].stindex,table);                                // dong it
         }
     }                                                                           // all new'd vars done
 
-    if (ptr->fwd_link != NULL) ST_Restore(ptr->fwd_link);                       // if there are more then restore next newtab
+    if (ptr->fwd_link != NULL) ST_Restore(ptr->fwd_link, table);                       // if there are more then restore next newtab
     free(ptr);                                                                  // free the space
 
     if (ptr == (ST_newtab *) partab.jobtab->dostk[partab.jobtab->cur_do].newtab) {
@@ -247,13 +247,13 @@ void ST_Restore(ST_newtab *newtab)
  * Function: ST_ConData(mvar *, ST_data *) - connect reference to data ptr
  * Returns : 0 on success, or -'ve error
  */
-short ST_ConData(const mvar *var, u_char *data)
+short ST_ConData(const mvar *var, u_char *data,table_struct * table)
 {
     short cnct;                                                                 // connector var loc
 
-    cnct = ST_LocateIdx(var->volset - 1);                                       // find connecting var
+    cnct = ST_LocateIdx(var->volset - 1,table);                                       // find connecting var
     if (cnct < 0) return -ERRM6;                                                // if no exist, quit
-    sym_tab[cnct].data = (ST_data *) data;                                       // lnk cnct var to src
-    sym_tab[cnct].data->attach++;                                                // incr src attach cnt
+    table->sym_tab[cnct].data = (ST_data *) data;                                       // lnk cnct var to src
+    table->sym_tab[cnct].data->attach++;                                                // incr src attach cnt
     return 0;                                                                   // finished OK
 }                                                                               // end ST_ConRef
