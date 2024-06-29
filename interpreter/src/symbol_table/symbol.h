@@ -118,6 +118,7 @@ short TMP_Hash(var_u var);
 short TMP_Locate(var_u var,table_struct * table);                                                     // locate a var name
 short TMP_LocateIdx(int idx,table_struct * table );                                                    // locate in symtab by index
 short TMP_Create(var_u var, table_struct * table);                                                     // create and/or locate a var
+void  TMP_Free(var_u var, table_struct * table);
 void  TMP_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr);
 void  TMP_Restore(ST_newtab *newtab, table_struct * table);
 

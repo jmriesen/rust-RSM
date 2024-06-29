@@ -38,6 +38,7 @@
 #include "error.h"                                                              // errors
 #include "proto.h"                                                              // standard prototypes
 #include "compile.h"                                                            // for routine buffer stuff
+#include "rust.h"
 
 
 //short         st_hash_temp[ST_HASH + 1];                                             // allocate hashing table
@@ -49,22 +50,8 @@
  */
 short TMP_Hash(var_u var)                                                        // var name in a quad
 {
-    int ret = 0;                                                                // return value
-
-    const int p[32] = {
-        3, 5, 7, 11, 13, 17, 19, 23,
-        29, 31, 37, 41, 43, 47, 53, 59,
-        61, 67, 71, 73, 79, 83, 89, 97,
-        101, 103, 107, 109, 113, 127, 131, 137
-    };                                                                          // odd primes
-
-    for (int i = 0; i < VAR_LEN; i++) {                                         // for each character
-        if (var.var_cu[i] == 0) break;
-        ret = ((var.var_cu[i] * p[i]) + ret);
-    }
-
-    return (short) (ret % ST_HASH);                                             // return mod hash value
-}                                                                               // end of ST_Hash
+    return rust_hash(var);
+    }                                                                               // end of ST_Hash
 /*
  * Function: ST_Locate - locate varname in symbol table
  * returns short pointer or -1 on fail

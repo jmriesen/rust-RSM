@@ -75,6 +75,11 @@ impl Table {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn rust_hash(var: c_code::var_u) -> i16 {
+    hash(var)
+}
+
 fn hash(var: VAR_U) -> i16 {
     let primes = [
         3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
@@ -95,14 +100,25 @@ fn hash(var: VAR_U) -> i16 {
 #[cfg(test)]
 mod tests {
 
-    use crate::symbol_table::c_code::lock;
+    use std::ptr::from_mut;
 
-    use super::Table;
+    use crate::{
+        shared_seg::lock_tab::tests::assert_eq,
+        symbol_table::c_code::{lock, TMP_Locate, MVAR},
+    };
+    use arbitrary::Arbitrary;
+    use ffi::ST_MAX;
+    use pretty_assertions::assert_eq;
+    use rand::{distributions::Alphanumeric, Rng};
+
+    use super::{
+        c_code::{TMP_Create, TMP_Free},
+        Table,
+    };
     use rstest::*;
 
     #[test]
     fn init() {
-        use pretty_assertions::assert_eq;
         let _guard = lock.lock().unwrap();
         //This may not be referring to the right table
         unsafe { ffi::ST_Init() }
@@ -120,23 +136,122 @@ mod tests {
         let var = dbg!(input).try_into().unwrap();
         assert_eq!(super::hash(var), expected)
     }
+
+    #[test]
+    fn create() {
+        let mut table = Table::new();
+        let table = from_mut(&mut table);
+        for i in 0..ST_MAX as i16 {
+            let var = format!("var{i}").try_into().unwrap();
+            let index = unsafe { TMP_Create(var, table) };
+            //NOTE having sequential indexes probably improves cash locality
+            assert_eq!(index, i);
+            assert_eq!(unsafe { TMP_Locate(var, table) }, i);
+        }
+
+        let last_straw = format!("lastStraw").try_into().unwrap();
+        let index = unsafe { TMP_Create(last_straw, table) };
+        assert_eq!(index, -256);
+    }
+    #[test]
+    fn create_duplicate_hash() {
+        use ffi::VAR_U;
+        let mut table = Table::new();
+        let table = from_mut(&mut table);
+        let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
+        let vars: [VAR_U; 3] = vars.map(|x| x.try_into().unwrap());
+        for var in vars {
+            //These should all hash to the same value
+            assert_eq!(super::hash(var), 10);
+            unsafe { TMP_Create(var, table) };
+        }
+        //Verify that links still work properly after deletion
+        unsafe { TMP_Free(vars[1], table) };
+        assert!(unsafe { TMP_Locate(vars[2], table) } >= 0);
+
+        /*
+                let mut count = 0;
+                loop {
+                    let var_str: String = rand::thread_rng()
+                        .sample_iter(Alphanumeric)
+                        .take(10)
+                        .map(char::from)
+                        .collect();
+                    let var = var_str.as_str().try_into().unwrap();
+                    if super::hash(var) == 10 {
+                        dbg!(var_str);
+                        count += 1;
+                        if count == 3 {
+                            break;
+                        }
+                    }
+                }
+                panic!();
+        */
+    }
+
+    #[test]
+    fn create_kill_create() {
+        let mut table = Table::new();
+        let table = from_mut(&mut table);
+        let var0 = format!("var0").try_into().unwrap();
+        let var1 = format!("var1").try_into().unwrap();
+        let var2 = format!("var2").try_into().unwrap();
+        let var3 = format!("var3").try_into().unwrap();
+
+        let index0 = unsafe { TMP_Create(var0, table) };
+        let index1 = unsafe { TMP_Create(var1, table) };
+        let index2 = unsafe { TMP_Create(var2, table) };
+        let index3 = unsafe { TMP_Create(var3, table) };
+
+        let var1_1 = format!("var1.1").try_into().unwrap();
+        let var2_1 = format!("var2.1").try_into().unwrap();
+
+        //killing a var opens up its slot again.
+        //It looks like the kill/create operate like the pop/push of a stack.
+        //FILO
+        unsafe { TMP_Free(var1, table) };
+        unsafe { TMP_Free(var2, table) };
+
+        assert_eq!(unsafe { TMP_Create(var2_1, table) }, index2);
+        assert_eq!(unsafe { TMP_Create(var1_1, table) }, index1);
+    }
+
+    #[test]
+    fn create_duplicates() {
+        let mut table = Table::new();
+        let var = "varname".try_into().unwrap();
+
+        let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
+        let index_2 = unsafe { TMP_Create(var, from_mut(&mut table)) };
+        assert_eq!(index, index_2);
+    }
+    #[test]
+    fn locate_nonexistent_var() {
+        let mut table = Table::new();
+        assert_eq!(
+            unsafe { TMP_Locate("foo".try_into().unwrap(), from_mut(&mut table)) },
+            -1
+        )
+    }
+
     /*
     * set and get actually involve a lot so I am not going to mess with them right away.
     #[test]
     fn set_get() {
-        let _guard = lock.lock().unwrap();
-        let data = CArrayString::from("Data");
-        let mut var = MVAR {
-            name: "varname".try_into().unwrap(),
-            volset: 0,
-            uci: 0,
-            slen: 0,
-            key: [0; 256],
-        };
-        unsafe { ST_Init() };
-        unsafe { ST_Set(from_mut(&mut var), from_mut((&mut data.clone()).as_mut())) };
-        let c = Table::from_c();
-        assert_eq!(c, Table::new());
+    let _guard = lock.lock().unwrap();
+    let data = CArrayString::from("Data");
+    let mut var = MVAR {
+    name: "varname".try_into().unwrap(),
+    volset: 0,
+    uci: 0,
+    slen: 0,
+    key: [0; 256],
+    };
+    unsafe { ST_Init() };
+    unsafe { ST_Set(from_mut(&mut var), from_mut((&mut data.clone()).as_mut())) };
+    let c = Table::from_c();
+    assert_eq!(c, Table::new());
     }
     */
 }
