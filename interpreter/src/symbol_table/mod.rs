@@ -75,6 +75,23 @@ impl Table {
     }
 }
 
+fn hash(var: VAR_U) -> i16 {
+    let primes = [
+        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
+        97, 101, 103, 107, 109, 113, 127, 131, 137,
+    ];
+    (var.as_array()
+        .into_iter()
+        .cloned()
+        .take_while(|x| *x != 0)
+        .enumerate()
+        //Note using i32 to mimic C's int
+        .map(|(i, x)| x as i32 * primes[i])
+        .sum::<i32>()
+        //matching casting behavior of C
+        % ST_HASH as i32) as i16
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -101,7 +118,7 @@ mod tests {
     #[case("aaaa", 476)]
     fn hash(#[case] input: &str, #[case] expected: i16) {
         let var = dbg!(input).try_into().unwrap();
-        assert_eq!(unsafe { super::c_code::TMP_Hash(var) }, expected)
+        assert_eq!(super::hash(var), expected)
     }
     /*
     * set and get actually involve a lot so I am not going to mess with them right away.
