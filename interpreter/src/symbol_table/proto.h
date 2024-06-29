@@ -45,25 +45,25 @@ int   SQ_WriteFormat(int count);                                                
 u_short ltocstring(u_char *buf, long n);                                        // convert long to string
 
 // Symbol table
-int   ST_Get(mvar *var, u_char *buf,table_struct * table);                                           // get local data
-int   ST_GetAdd(mvar *var, cstring **add,table_struct * table);                                      // get local data address
-int   ST_Set(mvar *var, cstring *data,table_struct * table);                                         // set local data
-short ST_Data(mvar *var, u_char *buf,table_struct * table);                                          // get $DATA()
-short ST_Kill(mvar *var,table_struct * table);                                                       // remove sub-tree
-short ST_KillAll(int count, var_u *keep,table_struct * table);                                       // kill all except spec in keep
-short ST_Order(mvar *var, u_char *buf, int dir,table_struct * table);                                // get next subscript
-short ST_Query(mvar *var, u_char *buf, int dir,table_struct * table);                                // get next key
-int   ST_QueryD(mvar *var, u_char *buf, table_struct * table);                                        // get next key and data
-short ST_Dump(table_struct * table);                                                            // dump the symbol table
-short ST_DumpV(mvar *global,table_struct * table);                                                   // dump symtab vars as subs
-short ST_SymAtt(var_u var,table_struct * table);                                                     // attach to variable
-void  ST_SymDet(int count, short *list,table_struct * table);                                        // detach from variables
-//int   ST_SymGet(short syment, u_char *buf);                                     // get using syment
-short ST_SymSet(short syment, cstring *data,table_struct * table);                                   // set using syment
-short ST_SymKill(short syment,table_struct * table);                                                 // kill var using syment
-short ST_New(int count, var_u *list,table_struct* table);                                           // new a list of vars
-short ST_NewAll(int count, var_u *list,table_struct* table);                                        // new all other than listed
-short ST_ConData(const mvar *var, u_char *data,table_struct * table);                                // connect reference to data
+int   TMP_Get(mvar *var, u_char *buf,table_struct * table);                                           // get local data
+int   TMP_GetAdd(mvar *var, cstring **add,table_struct * table);                                      // get local data address
+int   TMP_Set(mvar *var, cstring *data,table_struct * table);                                         // set local data
+short TMP_Data(mvar *var, u_char *buf,table_struct * table);                                          // get $DATA()
+short TMP_Kill(mvar *var,table_struct * table);                                                       // remove sub-tree
+short TMP_KillAll(int count, var_u *keep,table_struct * table);                                       // kill all except spec in keep
+short TMP_Order(mvar *var, u_char *buf, int dir,table_struct * table);                                // get next subscript
+short TMP_Query(mvar *var, u_char *buf, int dir,table_struct * table);                                // get next key
+int   TMP_QueryD(mvar *var, u_char *buf, table_struct * table);                                        // get next key and data
+short TMP_Dump(table_struct * table);                                                            // dump the symbol table
+short TMP_DumpV(mvar *global,table_struct * table);                                                   // dump symtab vars as subs
+short TMP_SymAtt(var_u var,table_struct * table);                                                     // attach to variable
+void  TMP_SymDet(int count, short *list,table_struct * table);                                        // detach from variables
+//int TMPST_SymGet(short syment, u_char *buf);                                     // get using syment
+short TMP_SymSet(short syment, cstring *data,table_struct * table);                                   // set using syment
+short TMP_SymKill(short syment,table_struct * table);                                                 // kill var using syment
+short TMP_New(int count, var_u *list,table_struct* table);                                           // new a list of vars
+short TMP_NewAll(int count, var_u *list,table_struct* table);                                        // new all other than listed
+short TMP_ConData(const mvar *var, u_char *data,table_struct * table);                                // connect reference to data
 
 // Key utility
 short UTIL_Key_Build(cstring *src, u_char *dest);                               // locn of source string

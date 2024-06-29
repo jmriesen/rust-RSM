@@ -35,6 +35,6 @@
 #define MAX_GROUPS 32                                                           // max number of UNIX groups
 
 // Initialize the symbol table
-void ST_Init(table_struct* table);                                                             // empty symbol table
+void TMP_Init(table_struct* table);                                                             // empty symbol table
 
 #endif

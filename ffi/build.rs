@@ -47,7 +47,7 @@ fn main() {
         .warnings(true)
         .std("gnu99")
         .compiler("/usr/bin/gcc")
-        .compile("myLog");
+        .compile("cCode");
 
     for file in c_src {
         println!(
@@ -75,10 +75,10 @@ fn main() {
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         //NOTE the -fsigned-char flag does not seem working.
-        //However after digging into they typedefs my char are signed. 
+        //However after digging into they typedefs my char are signed.
         //for portability sake we might want to take another look at this but I am not going to worry about it right now.
         //.clang_arg("-fsigned-char")
-    // Finish the builder and generate the bindings.
+        // Finish the builder and generate the bindings.
         .generate()
         .expect("Unable to generate bindings");
 
@@ -89,8 +89,8 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     let opcodes = bindgen::Builder::default()
-    // The input header we would like to generate bindings for.
-    // note order matters so I cant just pull all .h files from that folder.
+        // The input header we would like to generate bindings for.
+        // note order matters so I cant just pull all .h files from that folder.
         .header("C/include/opcode.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .parse_callbacks(Box::new(OpCodeParser))

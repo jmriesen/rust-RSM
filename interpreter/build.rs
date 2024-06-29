@@ -51,7 +51,7 @@ fn main() {
         .warnings(true)
         .std("gnu99")
         .compiler("/usr/bin/gcc")
-        .compile("interpreterClib");
+        .compile("symbol_table");
 
     for file in c_src {
         println!(

@@ -40,10 +40,10 @@
 #include "proto.h"                                                              // standard prototypes
 
 /*
- * Function: ST_New(int count, var_u *list) - new one or more vars
+ * Function: TMP_New(int count, var_u *list) - new one or more vars
  * Returns : 0 on success or -'ve error
  */
-short ST_New(int count, var_u *list,table_struct*table)
+short TMP_New(int count, var_u *list,table_struct*table)
 {
     ST_newtab *newtab;                                                          // our new table
 
@@ -58,7 +58,7 @@ short ST_New(int count, var_u *list,table_struct*table)
     for (int i = (count - 1); i >= 0; i--) {                                    // for all vars in list
         short s;
 
-        s = ST_SymAtt(list[i],table);                                                 // attach to variable
+        s = TMP_SymAtt(list[i],table);                                                 // attach to variable
 
         if (s < 0) {                                                            // check for error
             free(newtab);                                                       // free memory
@@ -72,13 +72,13 @@ short ST_New(int count, var_u *list,table_struct*table)
 
     partab.jobtab->dostk[partab.jobtab->cur_do].newtab = (u_char *) newtab;     // link it to the do stack
     return 0;                                                                   // finished OK
-}                                                                               // end function ST_New
+}                                                                               // end function TMP_New
 
 /*
- * Function: ST_NewAll(int count, var_u *list) - new all vars except listed
+ * Function: TMP_NewAll(int count, var_u *list) - new all vars except listed
  * Returns : 0 on success, or -'ve error
  */
-short ST_NewAll(int count, var_u *list,table_struct * table)
+short TMP_NewAll(int count, var_u *list,table_struct * table)
 {
     int       j;                                                                // generic counter
     int       new = 0;                                                          // to be new'd flag
@@ -86,9 +86,9 @@ short ST_NewAll(int count, var_u *list,table_struct * table)
     int       cntnon = 0;                                                       // non new count
     ST_newtab *newtab;                                                          // pointer to the new table
 
-    for (int k = 0; k < count; k++) ST_Create(list[k],table);                         // for all supplied vars, create if not existent
+    for (int k = 0; k < count; k++) TMP_Create(list[k],table);                         // for all supplied vars, create if not existent
 
-    for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
+    for (int i = 0; i < TMP_MAX; i++) {                                          // for each entry in ST
         if (table->sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars
         if (table->sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
@@ -120,7 +120,7 @@ short ST_NewAll(int count, var_u *list,table_struct * table)
     newtab->stindex = (short *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *));
     newtab->locdata = (ST_locdata *) (((u_char *) &newtab->locdata) + sizeof(ST_locdata *) + (cntnon * sizeof(short)));
 
-    for (int i = 0; i < ST_MAX; i++) {                                          // for each entry in ST
+    for (int i = 0; i < TMP_MAX; i++) {                                          // for each entry in ST
         if (table->sym_tab[i].varnam.var_cu[0] == '$') continue;                        // ignore $ vars, so go to next one
         if (table->sym_tab[i].varnam.var_cu[0] == '\0') continue;                       // ignore unused
 
@@ -158,13 +158,13 @@ short ST_NewAll(int count, var_u *list,table_struct * table)
 
     partab.jobtab->dostk[partab.jobtab->cur_do].newtab = (u_char *) newtab;     // link it off partab
     return 0;                                                                   // finished OK
-}                                                                               // end ST_NewAll
+}                                                                               // end TMP_NewAll
 
 /*
- * Function: ST_Restore(ST_newtab *) - restore vars in newtab and its links
+ * Function: TMP_Restore(ST_newtab *) - restore vars in newtab and its links
  * Returns : nothing
  */
-void ST_Restore(ST_newtab *newtab,table_struct * table)
+void TMP_Restore(ST_newtab *newtab,table_struct * table)
 {
     ST_newtab *ptr;                                                             // ptr-> current newtab
     ST_depend *dd;                                                              // depend data ptr
@@ -193,7 +193,7 @@ void ST_Restore(ST_newtab *newtab,table_struct * table)
                     }
 
                     chk = table->sym_tab[chk].fwd_link;                                 // get next fwd link
-                    if (kill > -1) ST_SymKill(kill,table);                            // if ok to kill then kill by index
+                    if (kill > -1) TMP_SymKill(kill,table);                            // if ok to kill then kill by index
                 }                                                               // end if end of fwd's
             }                                                                   // end if no hash link
         }                                                                       // end for all hash lnk
@@ -231,11 +231,11 @@ void ST_Restore(ST_newtab *newtab,table_struct * table)
 
         if ((table->sym_tab[ptr->locdata[i].stindex].usage < 1) &&                      // can we dong it?
           (table->sym_tab[ptr->locdata[i].stindex].data == ST_DATA_NULL)) {             // any data?
-            ST_SymKill(ptr->locdata[i].stindex,table);                                // dong it
+            TMP_SymKill(ptr->locdata[i].stindex,table);                                // dong it
         }
     }                                                                           // all new'd vars done
 
-    if (ptr->fwd_link != NULL) ST_Restore(ptr->fwd_link, table);                       // if there are more then restore next newtab
+    if (ptr->fwd_link != NULL) TMP_Restore(ptr->fwd_link, table);                       // if there are more then restore next newtab
     free(ptr);                                                                  // free the space
 
     if (ptr == (ST_newtab *) partab.jobtab->dostk[partab.jobtab->cur_do].newtab) {
@@ -244,16 +244,16 @@ void ST_Restore(ST_newtab *newtab,table_struct * table)
 }                                                                               // end function Restore
 
 /*
- * Function: ST_ConData(mvar *, ST_data *) - connect reference to data ptr
+ * Function: TMP_ConData(mvar *, ST_data *) - connect reference to data ptr
  * Returns : 0 on success, or -'ve error
  */
-short ST_ConData(const mvar *var, u_char *data,table_struct * table)
+short TMP_ConData(const mvar *var, u_char *data,table_struct * table)
 {
     short cnct;                                                                 // connector var loc
 
-    cnct = ST_LocateIdx(var->volset - 1,table);                                       // find connecting var
+    cnct = TMP_LocateIdx(var->volset - 1,table);                                       // find connecting var
     if (cnct < 0) return -ERRM6;                                                // if no exist, quit
     table->sym_tab[cnct].data = (ST_data *) data;                                       // lnk cnct var to src
     table->sym_tab[cnct].data->attach++;                                                // incr src attach cnt
     return 0;                                                                   // finished OK
-}                                                                               // end ST_ConRef
+}                                                                               // end TMP_ConRef
