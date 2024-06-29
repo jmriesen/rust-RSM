@@ -36,7 +36,6 @@
 #include "rsm.h"                                                                // standard includes
 #include "symbol.h"                                                             // our definitions
 #include "error.h"                                                              // errors
-#include "init.h"                                                               // init prototypes
 #include "proto.h"                                                              // standard prototypes
 #include "compile.h"                                                            // for routine buffer stuff
 
@@ -66,27 +65,6 @@ short TMP_Hash(var_u var)                                                       
 
     return (short) (ret % ST_HASH);                                             // return mod hash value
 }                                                                               // end of ST_Hash
-
-/*
- * Function: ST_Init - initialize an empty symbol table
- * returns nothing
- */
-void TMP_Init(table_struct *table)                                                              // no arguments
-{
-    for (int i = 0; i < ST_HASH; i++) table->st_hash_temp[i] = -1;                          // clear hash table, -1 means empty
-    table->st_hash_temp[ST_FREE] = 0;                                                       // head of free list
-
-    for (int i = 0; i < ST_MAX; i++) {                                          // for each symbol entry
-        table->sym_tab[i].fwd_link = i + 1;                                             // point to next entry
-        table->sym_tab[i].usage = 0;                                                    // clear usage count
-        table->sym_tab[i].data = ST_DATA_NULL;                                          // clear data pointer
-        VAR_CLEAR(table->sym_tab[i].varnam);                                            // clear variable name
-    }                                                                           // end symtab clear loop
-
-    table->sym_tab[ST_MAX].fwd_link = -1;                                               // indicate end of list
-    return;                                                                     // done
-}                                                                               // end of ST_Init()
-
 /*
  * Function: ST_Locate - locate varname in symbol table
  * returns short pointer or -1 on fail

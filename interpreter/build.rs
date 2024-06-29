@@ -69,7 +69,6 @@ fn main() {
         .header("src/symbol_table/compile.h")
         .header("src/symbol_table/database.h")
         .header("src/symbol_table/error.h")
-        .header("src/symbol_table/init.h")
         //.header("C/include/opcode.h")
         .header("src/symbol_table/proto.h")
         .header("src/symbol_table/seqio.h")

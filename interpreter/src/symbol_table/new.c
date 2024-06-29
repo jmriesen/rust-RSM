@@ -36,7 +36,6 @@
 #include "rsm.h"                                                                // standard includes
 #include "symbol.h"                                                             // our definitions
 #include "error.h"                                                              // errors
-#include "init.h"                                                               // init prototypes
 #include "proto.h"                                                              // standard prototypes
 
 /*
