@@ -230,10 +230,15 @@ mod tests {
         .unwrap();
 
         let global_guard = ffi::interface::GlobalGuard::new();
-        ffi::interface::init::start(file_path.to_str().unwrap(), 1, 1, 1, 0, &global_guard)
-            .unwrap();
-        //NOTE INIT_start unmounts the shared meme segment after starting demons.
+        let result =
+            ffi::interface::init::start(file_path.to_str().unwrap(), 1, 1, 1, 0, &global_guard);
+        //NOTE the order is important
+        //Start UnMounts the shared meme segment and but does not delete it.
+        //So we need to need to initialize the _mem_grard before panicking, that way the mem_guards
+        //detractor is guarantied to run regardless of if start failed.
+        //There has got to be a better way of dealing with this, but this is my current quick fix.
         let _mem_guard = util_share(&file_path);
+        result.unwrap();
         let c_sys_tab = SystemTab::from_raw(global_guard.systab().unwrap());
 
         assert_sys_tab_eq(&sys_tab, c_sys_tab);
