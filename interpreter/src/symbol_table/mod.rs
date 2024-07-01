@@ -25,6 +25,32 @@ const HASH_RAW_SIZE: usize = ST_HASH as usize + 1;
 use c_code::Table;
 type Tab = c_code::symtab_struct;
 
+///Some API calls give out the internal index where data has been stored
+///This type represents a index that has come from a table and is therefore valid.
+///I would rather just return references to the data, but that
+///is not how the c code is structured so this will likely remain until
+///everything is in rust.
+///TODO remove type and just return references to the data.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+struct Index(i16);
+
+impl Index {
+    fn raw(raw: i16) -> Option<Self> {
+        if raw == -1 {
+            None
+        } else {
+            Some(Index(raw))
+        }
+    }
+    fn to_raw(internal: Option<Self>) -> i16 {
+        if let Some(val) = internal {
+            val.0
+        } else {
+            -1
+        }
+    }
+}
+
 impl Table {
     pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
@@ -73,6 +99,35 @@ impl Table {
             sym_tab: tabs.try_into().unwrap(),
         }
     }
+
+    //The tables have a max capacity and will fail if to many variables are added.
+    fn create(&mut self) -> Result<Index, ()> {
+        todo!()
+    }
+    fn locate(&self, var: VAR_U) -> Option<Index> {
+        LineIterator {
+            table: self,
+            current: Index::raw(self.st_hash_temp[hash(var) as usize]),
+        }
+        .find(|i| self.sym_tab[i.0 as usize].varnam == var)
+    }
+}
+
+struct LineIterator<'a> {
+    table: &'a Table,
+    current: Option<Index>,
+}
+
+impl Iterator for LineIterator<'_> {
+    type Item = Index;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let val = self.current;
+        if let Some(index) = self.current {
+            self.current = Index::raw(self.table.sym_tab[index.0 as usize].fwd_link);
+        }
+        val
+    }
 }
 
 #[no_mangle]
@@ -102,18 +157,13 @@ mod tests {
 
     use std::ptr::from_mut;
 
-    use crate::{
-        shared_seg::lock_tab::tests::assert_eq,
-        symbol_table::c_code::{lock, TMP_Locate, MVAR},
-    };
-    use arbitrary::Arbitrary;
     use ffi::ST_MAX;
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
     use super::{
-        c_code::{TMP_Create, TMP_Free},
-        Table,
+        c_code::{lock, TMP_Create, TMP_Free},
+        Index, Table,
     };
     use rstest::*;
 
@@ -140,54 +190,54 @@ mod tests {
     #[test]
     fn create() {
         let mut table = Table::new();
-        let table = from_mut(&mut table);
         for i in 0..ST_MAX as i16 {
             let var = format!("var{i}").try_into().unwrap();
-            let index = unsafe { TMP_Create(var, table) };
+            let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
             //NOTE having sequential indexes probably improves cash locality
             assert_eq!(index, i);
-            assert_eq!(unsafe { TMP_Locate(var, table) }, i);
+            assert_eq!(table.locate(var), Some(Index(i)));
         }
 
         let last_straw = format!("lastStraw").try_into().unwrap();
-        let index = unsafe { TMP_Create(last_straw, table) };
+        let index = unsafe { TMP_Create(last_straw, from_mut(&mut table)) };
         assert_eq!(index, -256);
     }
+
     #[test]
     fn create_duplicate_hash() {
         use ffi::VAR_U;
         let mut table = Table::new();
-        let table = from_mut(&mut table);
+        let table_ptr = from_mut(&mut table);
         let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
         let vars: [VAR_U; 3] = vars.map(|x| x.try_into().unwrap());
         for var in vars {
             //These should all hash to the same value
             assert_eq!(super::hash(var), 10);
-            unsafe { TMP_Create(var, table) };
+            unsafe { TMP_Create(var, table_ptr) };
         }
-        //Verify that links still work properly after deletion
-        unsafe { TMP_Free(vars[1], table) };
-        assert!(unsafe { TMP_Locate(vars[2], table) } >= 0);
+        //Verify we can still access the remaining values
+        unsafe { TMP_Free(vars[1], table_ptr) };
+        assert_ne!(table.locate(vars[0]), None);
+        assert_ne!(table.locate(vars[2]), None);
+    }
 
-        /*
-                let mut count = 0;
-                loop {
-                    let var_str: String = rand::thread_rng()
-                        .sample_iter(Alphanumeric)
-                        .take(10)
-                        .map(char::from)
-                        .collect();
-                    let var = var_str.as_str().try_into().unwrap();
-                    if super::hash(var) == 10 {
-                        dbg!(var_str);
-                        count += 1;
-                        if count == 3 {
-                            break;
-                        }
-                    }
-                }
-                panic!();
-        */
+    //helper function used to find the hash conflicts that are used in the tests
+    //
+    //This tries a bunch of random strings and checks if they hash to the provided value.
+    #[allow(dead_code)]
+    #[cfg(test)]
+    fn find_hash_coalitions(hash: i16) -> impl std::iter::Iterator<Item = String> {
+        std::iter::repeat_with(|| {
+            rand::thread_rng()
+                .sample_iter(Alphanumeric)
+                .take(10)
+                .map(char::from)
+                .collect::<String>()
+        })
+        .filter(move |var| {
+            let var = var.as_str().try_into().unwrap();
+            super::hash(var) == hash
+        })
     }
 
     #[test]
@@ -199,10 +249,10 @@ mod tests {
         let var2 = format!("var2").try_into().unwrap();
         let var3 = format!("var3").try_into().unwrap();
 
-        let index0 = unsafe { TMP_Create(var0, table) };
+        let _index0 = unsafe { TMP_Create(var0, table) };
         let index1 = unsafe { TMP_Create(var1, table) };
         let index2 = unsafe { TMP_Create(var2, table) };
-        let index3 = unsafe { TMP_Create(var3, table) };
+        let _index3 = unsafe { TMP_Create(var3, table) };
 
         let var1_1 = format!("var1.1").try_into().unwrap();
         let var2_1 = format!("var2.1").try_into().unwrap();
@@ -228,11 +278,8 @@ mod tests {
     }
     #[test]
     fn locate_nonexistent_var() {
-        let mut table = Table::new();
-        assert_eq!(
-            unsafe { TMP_Locate("foo".try_into().unwrap(), from_mut(&mut table)) },
-            -1
-        )
+        let table = Table::new();
+        assert_eq!(table.locate("foo".try_into().unwrap()), None);
     }
 
     /*
