@@ -1,4 +1,4 @@
-use std::{array::from_fn, fmt::Debug, mem::transmute, ptr::null_mut};
+use std::{array::from_fn, mem::transmute, ptr::null_mut};
 
 #[allow(
     dead_code,
@@ -16,7 +16,7 @@ mod c_code {
 
 //TODO remove and replace with derive once type move over to Rust
 mod manual;
-use c_code::{ST_HASH, ST_MAX};
+use c_code::{ST_FREE, ST_HASH, ST_MAX, SYMTAB};
 use ffi::VAR_U;
 
 const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
@@ -48,6 +48,20 @@ impl Index {
         } else {
             -1
         }
+    }
+}
+
+impl std::ops::Index<Index> for Table {
+    type Output = SYMTAB;
+
+    fn index(&self, index: Index) -> &Self::Output {
+        &self.sym_tab[index.0 as usize]
+    }
+}
+
+impl std::ops::IndexMut<Index> for Table {
+    fn index_mut(&mut self, index: Index) -> &mut Self::Output {
+        &mut self.sym_tab[index.0 as usize]
     }
 }
 
@@ -104,29 +118,65 @@ impl Table {
     fn create(&mut self) -> Result<Index, ()> {
         todo!()
     }
+
     fn locate(&self, var: VAR_U) -> Option<Index> {
+        self.locate_helper(var).map(|(_, x)| x)
+    }
+
+    fn locate_helper(&self, var: VAR_U) -> Option<(Option<Index>, Index)> {
         LineIterator {
             table: self,
-            current: Index::raw(self.st_hash_temp[hash(var) as usize]),
+            next: Index::raw(self.st_hash_temp[hash(var) as usize]),
+            previous: None,
         }
-        .find(|i| self.sym_tab[i.0 as usize].varnam == var)
+        .find(|(_, i)| self[*i].varnam == var)
+    }
+
+    fn free(&mut self, var: VAR_U) {
+        match self.locate_helper(var) {
+            None => { /*Value never found do nothing */ }
+            Some((previous, current)) => {
+                //Update links
+                if let Some(previous) = previous {
+                    self[previous].fwd_link = self[current].fwd_link;
+                } else {
+                    self.st_hash_temp[hash(var) as usize] = self[current].fwd_link
+                }
+                //I don't know if I like ST_FREE being used as a special index.
+                self[current].fwd_link = self.st_hash_temp[ST_FREE as usize];
+                self.st_hash_temp[ST_FREE as usize] = Index::to_raw(Some(current));
+
+                //Clear old data.
+                self[current] = SYMTAB {
+                    data: null_mut(),
+                    varnam: "".try_into().unwrap(),
+                    ..self[current]
+                };
+            }
+        }
     }
 }
 
+#[derive(Clone, Copy)]
 struct LineIterator<'a> {
     table: &'a Table,
-    current: Option<Index>,
+    next: Option<Index>,
+    previous: Option<Index>,
 }
 
+//Returns prev and next since the linking logic requires I know the last element as well.
 impl Iterator for LineIterator<'_> {
-    type Item = Index;
+    type Item = (Option<Index>, Index);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let val = self.current;
-        if let Some(index) = self.current {
-            self.current = Index::raw(self.table.sym_tab[index.0 as usize].fwd_link);
+        if let Some(cur) = self.next {
+            let val = (self.previous, cur);
+            self.previous = self.next;
+            self.next = Index::raw(self.table[cur].fwd_link);
+            Some(val)
+        } else {
+            None
         }
-        val
     }
 }
 
@@ -155,14 +205,14 @@ fn hash(var: VAR_U) -> i16 {
 #[cfg(test)]
 mod tests {
 
-    use std::ptr::from_mut;
+    use std::ptr::{from_mut, null_mut};
 
     use ffi::ST_MAX;
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
     use super::{
-        c_code::{lock, TMP_Create, TMP_Free},
+        c_code::{lock, TMP_Create},
         Index, Table,
     };
     use rstest::*;
@@ -216,7 +266,7 @@ mod tests {
             unsafe { TMP_Create(var, table_ptr) };
         }
         //Verify we can still access the remaining values
-        unsafe { TMP_Free(vars[1], table_ptr) };
+        table.free(vars[1]);
         assert_ne!(table.locate(vars[0]), None);
         assert_ne!(table.locate(vars[2]), None);
     }
@@ -241,18 +291,18 @@ mod tests {
     }
 
     #[test]
-    fn create_kill_create() {
+    fn create_free_create() {
         let mut table = Table::new();
-        let table = from_mut(&mut table);
+        let table_ptr = from_mut(&mut table);
         let var0 = format!("var0").try_into().unwrap();
         let var1 = format!("var1").try_into().unwrap();
         let var2 = format!("var2").try_into().unwrap();
         let var3 = format!("var3").try_into().unwrap();
 
-        let _index0 = unsafe { TMP_Create(var0, table) };
-        let index1 = unsafe { TMP_Create(var1, table) };
-        let index2 = unsafe { TMP_Create(var2, table) };
-        let _index3 = unsafe { TMP_Create(var3, table) };
+        let _index0 = unsafe { TMP_Create(var0, table_ptr) };
+        let index1 = unsafe { TMP_Create(var1, table_ptr) };
+        let index2 = unsafe { TMP_Create(var2, table_ptr) };
+        let _index3 = unsafe { TMP_Create(var3, table_ptr) };
 
         let var1_1 = format!("var1.1").try_into().unwrap();
         let var2_1 = format!("var2.1").try_into().unwrap();
@@ -260,11 +310,11 @@ mod tests {
         //killing a var opens up its slot again.
         //It looks like the kill/create operate like the pop/push of a stack.
         //FILO
-        unsafe { TMP_Free(var1, table) };
-        unsafe { TMP_Free(var2, table) };
+        table.free(var1);
+        table.free(var2);
 
-        assert_eq!(unsafe { TMP_Create(var2_1, table) }, index2);
-        assert_eq!(unsafe { TMP_Create(var1_1, table) }, index1);
+        assert_eq!(unsafe { TMP_Create(var2_1, table_ptr) }, index2);
+        assert_eq!(unsafe { TMP_Create(var1_1, table_ptr) }, index1);
     }
 
     #[test]
@@ -276,10 +326,23 @@ mod tests {
         let index_2 = unsafe { TMP_Create(var, from_mut(&mut table)) };
         assert_eq!(index, index_2);
     }
+
     #[test]
     fn locate_nonexistent_var() {
         let table = Table::new();
         assert_eq!(table.locate("foo".try_into().unwrap()), None);
+    }
+
+    #[test]
+    fn free_resets_to_default() {
+        let mut table = Table::new();
+        let var = "varname".try_into().unwrap();
+        let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
+
+        table.free(var);
+        let internal = &table.sym_tab[index as usize];
+        assert_eq!(internal.varnam, "".try_into().unwrap());
+        assert_eq!({ internal.data }, null_mut());
     }
 
     /*
