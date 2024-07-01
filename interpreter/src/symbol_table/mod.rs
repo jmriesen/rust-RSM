@@ -1,3 +1,5 @@
+//TODO remove once this module is actually being used.
+#![allow(dead_code)]
 use std::{array::from_fn, mem::transmute, ptr::null_mut};
 
 #[allow(
@@ -16,7 +18,7 @@ mod c_code {
 
 //TODO remove and replace with derive once type move over to Rust
 mod manual;
-use c_code::{ST_FREE, ST_HASH, ST_MAX, SYMTAB};
+use c_code::{ST_HASH, ST_MAX, SYMTAB};
 use ffi::VAR_U;
 
 const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
@@ -124,28 +126,43 @@ impl Table {
         }
     }
 
+    fn next_free(&self) -> Option<Index> {
+        use c_code::ST_FREE;
+        Index::raw(self.st_hash_temp[ST_FREE as usize])
+    }
+
+    fn set_next_free(&mut self, index: Option<Index>) {
+        use c_code::ST_FREE;
+        self.st_hash_temp[ST_FREE as usize] = Index::to_raw(index);
+    }
+
     //The tables have a max capacity and will fail if to many variables are added.
     fn create(&mut self, var: VAR_U) -> Result<Index, CreationError> {
+        const ERR_SLOT: i16 = ST_MAX as i16;
         if let Some(index) = self.locate(var) {
             Ok(index)
         } else {
-            let index = self.st_hash_temp[ST_FREE as usize];
-            if index == -1 || (index == ST_MAX as i16 && unsafe { var.var_q != 76159689901348 }) {
-                return Err(CreationError);
-            } else {
-                let index = Index::raw(index).expect("null check has alrady happend");
-                let hash = hash(var);
-                self.st_hash_temp[ST_FREE as usize] = self[index].fwd_link;
-                self[index].fwd_link = self.st_hash_temp[hash as usize];
-                self.st_hash_temp[hash as usize] = Index::to_raw(Some(index));
+            match self.next_free() {
+                None => Err(CreationError),
+                //This slot is reserved for $ECODE
+                //Note $ECODE does not have to use it, but it should always be available in case we
+                //need to report and error.
+                Some(Index(ERR_SLOT)) if var != "$ECODE".try_into().unwrap() => Err(CreationError),
+                Some(next_free) => {
+                    let hash = hash(var);
+                    self.set_next_free(Index::raw(self[next_free].fwd_link));
+                    //Insert as head
+                    self[next_free].fwd_link = self.st_hash_temp[hash as usize];
+                    self.st_hash_temp[hash as usize] = Index::to_raw(Some(next_free));
 
-                self[index] = SYMTAB {
-                    usage: 0,
-                    varnam: var,
-                    data: null_mut(),
-                    ..self[index]
-                };
-                Ok(index)
+                    self[next_free] = SYMTAB {
+                        usage: 0,
+                        varnam: var,
+                        data: null_mut(),
+                        ..self[next_free]
+                    };
+                    Ok(next_free)
+                }
             }
         }
     }
@@ -174,8 +191,8 @@ impl Table {
                     self.st_hash_temp[hash(var) as usize] = self[current].fwd_link
                 }
                 //I don't know if I like ST_FREE being used as a special index.
-                self[current].fwd_link = self.st_hash_temp[ST_FREE as usize];
-                self.st_hash_temp[ST_FREE as usize] = Index::to_raw(Some(current));
+                self[current].fwd_link = Index::to_raw(self.next_free());
+                self.set_next_free(Some(current));
 
                 //Clear old data.
                 self[current] = SYMTAB {
@@ -237,15 +254,12 @@ fn hash(var: VAR_U) -> i16 {
 #[cfg(test)]
 mod tests {
 
-    use std::ptr::{from_mut, null_mut};
+    use std::ptr::null_mut;
 
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
-    use super::{
-        c_code::{lock, TMP_Create},
-        CreationError, Index, Table, ST_MAX,
-    };
+    use super::{c_code::lock, CreationError, Index, Table, ST_MAX};
     use rstest::*;
 
     #[test]
@@ -307,7 +321,6 @@ mod tests {
     fn create_duplicate_hash() {
         use ffi::VAR_U;
         let mut table = Table::new();
-        let table_ptr = from_mut(&mut table);
         let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
         let vars: [VAR_U; 3] = vars.map(|x| x.try_into().unwrap());
         for var in vars {
