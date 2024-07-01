@@ -65,6 +65,16 @@ impl std::ops::IndexMut<Index> for Table {
     }
 }
 
+/// The only error condition is if we run out of room in the table.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+struct CreationError;
+
+impl CreationError {
+    fn error_code(&self) -> i16 {
+        -256
+    }
+}
+
 impl Table {
     pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
@@ -115,8 +125,29 @@ impl Table {
     }
 
     //The tables have a max capacity and will fail if to many variables are added.
-    fn create(&mut self) -> Result<Index, ()> {
-        todo!()
+    fn create(&mut self, var: VAR_U) -> Result<Index, CreationError> {
+        if let Some(index) = self.locate(var) {
+            Ok(index)
+        } else {
+            let index = self.st_hash_temp[ST_FREE as usize];
+            if index == -1 || (index == ST_MAX as i16 && unsafe { var.var_q != 76159689901348 }) {
+                return Err(CreationError);
+            } else {
+                let index = Index::raw(index).expect("null check has alrady happend");
+                let hash = hash(var);
+                self.st_hash_temp[ST_FREE as usize] = self[index].fwd_link;
+                self[index].fwd_link = self.st_hash_temp[hash as usize];
+                self.st_hash_temp[hash as usize] = Index::to_raw(Some(index));
+
+                self[index] = SYMTAB {
+                    usage: 0,
+                    varnam: var,
+                    data: null_mut(),
+                    ..self[index]
+                };
+                Ok(index)
+            }
+        }
     }
 
     fn locate(&self, var: VAR_U) -> Option<Index> {
@@ -164,7 +195,8 @@ struct LineIterator<'a> {
     previous: Option<Index>,
 }
 
-//Returns prev and next since the linking logic requires I know the last element as well.
+//Iterates over the nodes fwd_links.
+//Returns (next-1,next) since having the next-1 node make un-linking easier.
 impl Iterator for LineIterator<'_> {
     type Item = (Option<Index>, Index);
 
@@ -207,13 +239,12 @@ mod tests {
 
     use std::ptr::{from_mut, null_mut};
 
-    use ffi::ST_MAX;
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
     use super::{
         c_code::{lock, TMP_Create},
-        Index, Table,
+        CreationError, Index, Table, ST_MAX,
     };
     use rstest::*;
 
@@ -242,15 +273,34 @@ mod tests {
         let mut table = Table::new();
         for i in 0..ST_MAX as i16 {
             let var = format!("var{i}").try_into().unwrap();
-            let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
+            let index = table.create(var);
             //NOTE having sequential indexes probably improves cash locality
-            assert_eq!(index, i);
+            assert_eq!(index, Ok(Index(i)));
             assert_eq!(table.locate(var), Some(Index(i)));
+
+            //Verify data has been reset
+            //TODO create a better test for this.
+            //usage and data are both zeroed during initialization.
+            let node = &table[index.expect("Someness allready checked")];
+            assert_eq!(node.varnam, var);
+            assert_eq!({ node.usage }, 0);
+            assert_eq!({ node.data }, null_mut());
         }
 
         let last_straw = format!("lastStraw").try_into().unwrap();
-        let index = unsafe { TMP_Create(last_straw, from_mut(&mut table)) };
-        assert_eq!(index, -256);
+        let index = table.create(last_straw);
+        assert_eq!(index, Err(CreationError));
+
+        //There is a special node reserved for ECODE in the case that everything else has
+        //been filed.
+        let index = table.create("$ECODE".try_into().unwrap());
+        assert_eq!(index, Ok(Index(ST_MAX as i16)));
+    }
+
+    #[test]
+    fn error_code() {
+        let err = CreationError;
+        assert_eq!(err.error_code(), -256);
     }
 
     #[test]
@@ -263,7 +313,7 @@ mod tests {
         for var in vars {
             //These should all hash to the same value
             assert_eq!(super::hash(var), 10);
-            unsafe { TMP_Create(var, table_ptr) };
+            let _ = table.create(var);
         }
         //Verify we can still access the remaining values
         table.free(vars[1]);
@@ -293,28 +343,24 @@ mod tests {
     #[test]
     fn create_free_create() {
         let mut table = Table::new();
-        let table_ptr = from_mut(&mut table);
         let var0 = format!("var0").try_into().unwrap();
         let var1 = format!("var1").try_into().unwrap();
         let var2 = format!("var2").try_into().unwrap();
         let var3 = format!("var3").try_into().unwrap();
 
-        let _index0 = unsafe { TMP_Create(var0, table_ptr) };
-        let index1 = unsafe { TMP_Create(var1, table_ptr) };
-        let index2 = unsafe { TMP_Create(var2, table_ptr) };
-        let _index3 = unsafe { TMP_Create(var3, table_ptr) };
+        let _index0 = table.create(var0).unwrap();
+        let index1 = table.create(var1).unwrap();
+        let index2 = table.create(var2).unwrap();
+        let _index3 = table.create(var3).unwrap();
 
         let var1_1 = format!("var1.1").try_into().unwrap();
         let var2_1 = format!("var2.1").try_into().unwrap();
 
-        //killing a var opens up its slot again.
-        //It looks like the kill/create operate like the pop/push of a stack.
-        //FILO
+        //notes are reused in a FILO manor
         table.free(var1);
         table.free(var2);
-
-        assert_eq!(unsafe { TMP_Create(var2_1, table_ptr) }, index2);
-        assert_eq!(unsafe { TMP_Create(var1_1, table_ptr) }, index1);
+        assert_eq!(table.create(var2_1), Ok(index2));
+        assert_eq!(table.create(var1_1), Ok(index1));
     }
 
     #[test]
@@ -322,9 +368,9 @@ mod tests {
         let mut table = Table::new();
         let var = "varname".try_into().unwrap();
 
-        let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
-        let index_2 = unsafe { TMP_Create(var, from_mut(&mut table)) };
-        assert_eq!(index, index_2);
+        let first = table.create(var);
+        let second = table.create(var);
+        assert_eq!(first, second);
     }
 
     #[test]
@@ -337,12 +383,12 @@ mod tests {
     fn free_resets_to_default() {
         let mut table = Table::new();
         let var = "varname".try_into().unwrap();
-        let index = unsafe { TMP_Create(var, from_mut(&mut table)) };
-
+        let index = table.create(var).unwrap();
         table.free(var);
-        let internal = &table.sym_tab[index as usize];
-        assert_eq!(internal.varnam, "".try_into().unwrap());
-        assert_eq!({ internal.data }, null_mut());
+
+        let node = &table[index];
+        assert_eq!(node.varnam, "".try_into().unwrap());
+        assert_eq!({ node.data }, null_mut());
     }
 
     /*
