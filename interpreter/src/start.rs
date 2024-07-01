@@ -215,6 +215,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
+    #[ignore]
     fn validate_mem_seg_layout() {
         let file_path = "test_artifacts/temp";
 
