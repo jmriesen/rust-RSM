@@ -236,11 +236,18 @@ mod tests {
 
     use std::ptr::null_mut;
 
+    use ffi::VAR_U;
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
     use super::{super::c_code::lock, CreationError, Index, Table, ST_MAX};
     use rstest::*;
+
+    //Some syntactic sugar around try_into/unwrap
+    //to make the tests a bit cleaner.
+    fn var_u(var: &str) -> VAR_U {
+        var.try_into().unwrap()
+    }
 
     #[test]
     fn init() {
@@ -257,15 +264,15 @@ mod tests {
     #[case("      ", 769)]
     #[case("aaaa", 476)]
     fn hash(#[case] input: &str, #[case] expected: i16) {
-        let var = dbg!(input).try_into().unwrap();
-        assert_eq!(super::hash(var), expected)
+        assert_eq!(super::hash(var_u(dbg!(input))), expected);
+        _u
     }
 
     #[test]
     fn create() {
         let mut table = Table::new();
         for i in 0..ST_MAX as i16 {
-            let var = format!("var{i}").try_into().unwrap();
+            let var = var_u(&format!("var{i}"));
             let index = table.create(var);
             //NOTE having sequential indexes probably improves cash locality
             assert_eq!(index, Ok(Index(i)));
@@ -280,13 +287,13 @@ mod tests {
             assert_eq!({ node.data }, null_mut());
         }
 
-        let last_straw = format!("lastStraw").try_into().unwrap();
+        let last_straw = var_u("lastStraw");
         let index = table.create(last_straw);
         assert_eq!(index, Err(CreationError));
 
         //There is a special node reserved for ECODE in the case that everything else has
         //been filed.
-        let index = table.create("$ECODE".try_into().unwrap());
+        let index = table.create(var_u("$ECODE"));
         assert_eq!(index, Ok(Index(ST_MAX as i16)));
     }
 
@@ -301,7 +308,7 @@ mod tests {
         use ffi::VAR_U;
         let mut table = Table::new();
         let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
-        let vars: [VAR_U; 3] = vars.map(|x| x.try_into().unwrap());
+        let vars: [VAR_U; 3] = vars.map(|x| var_u(x));
         for var in vars {
             //These should all hash to the same value
             assert_eq!(super::hash(var), 10);
@@ -326,27 +333,24 @@ mod tests {
                 .map(char::from)
                 .collect::<String>()
         })
-        .filter(move |var| {
-            let var = var.as_str().try_into().unwrap();
-            super::hash(var) == hash
-        })
+        .filter(move |var| super::hash(var_u(&var)) == hash)
     }
 
     #[test]
     fn create_free_create() {
         let mut table = Table::new();
-        let var0 = format!("var0").try_into().unwrap();
-        let var1 = format!("var1").try_into().unwrap();
-        let var2 = format!("var2").try_into().unwrap();
-        let var3 = format!("var3").try_into().unwrap();
+        let var0 = var_u("var0");
+        let var1 = var_u("var1");
+        let var2 = var_u("var2");
+        let var3 = var_u("var3");
 
         let _index0 = table.create(var0).unwrap();
         let index1 = table.create(var1).unwrap();
         let index2 = table.create(var2).unwrap();
         let _index3 = table.create(var3).unwrap();
 
-        let var1_1 = format!("var1.1").try_into().unwrap();
-        let var2_1 = format!("var2.1").try_into().unwrap();
+        let var1_1 = var_u("var1.1");
+        let var2_1 = var_u("var2.1");
 
         //notes are reused in a FILO manor
         table.free(var1);
@@ -358,7 +362,7 @@ mod tests {
     #[test]
     fn create_duplicates() {
         let mut table = Table::new();
-        let var = "varname".try_into().unwrap();
+        let var = var_u("varname");
 
         let first = table.create(var);
         let second = table.create(var);
@@ -368,38 +372,18 @@ mod tests {
     #[test]
     fn locate_nonexistent_var() {
         let table = Table::new();
-        assert_eq!(table.locate("foo".try_into().unwrap()), None);
+        assert_eq!(table.locate(var_u("foo")), None);
     }
 
     #[test]
     fn free_resets_to_default() {
         let mut table = Table::new();
-        let var = "varname".try_into().unwrap();
+        let var = var_u("varname");
         let index = table.create(var).unwrap();
         table.free(var);
 
         let node = &table[index];
-        assert_eq!(node.varnam, "".try_into().unwrap());
+        assert_eq!(node.varnam, var_u(""));
         assert_eq!({ node.data }, null_mut());
     }
-
-    /*
-    * set and get actually involve a lot so I am not going to mess with them right away.
-    #[test]
-    fn set_get() {
-    let _guard = lock.lock().unwrap();
-    let data = CArrayString::from("Data");
-    let mut var = MVAR {
-    name: "varname".try_into().unwrap(),
-    volset: 0,
-    uci: 0,
-    slen: 0,
-    key: [0; 256],
-    };
-    unsafe { ST_Init() };
-    unsafe { ST_Set(from_mut(&mut var), from_mut((&mut data.clone()).as_mut())) };
-    let c = Table::from_c();
-    assert_eq!(c, Table::new());
-    }
-    */
 }
