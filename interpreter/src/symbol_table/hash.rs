@@ -265,7 +265,6 @@ mod tests {
     #[case("aaaa", 476)]
     fn hash(#[case] input: &str, #[case] expected: i16) {
         assert_eq!(super::hash(var_u(dbg!(input))), expected);
-        _u
     }
 
     #[test]
