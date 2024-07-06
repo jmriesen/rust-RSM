@@ -18,6 +18,11 @@ impl CArrayString {
     pub fn content(&self) -> &[u8] {
         &self.0.buf[..self.0.len as usize]
     }
+
+    #[cfg(test)]
+    pub fn new(c_string: CSTRING) -> Self {
+        Self(c_string)
+    }
 }
 
 impl std::fmt::Debug for CArrayString {
@@ -26,6 +31,12 @@ impl std::fmt::Debug for CArrayString {
             .field("content", &self.content())
             .field("content_as_utf8", &std::str::from_utf8(&self.content()))
             .finish()
+    }
+}
+
+impl PartialEq for CArrayString {
+    fn eq(&self, other: &Self) -> bool {
+        self.content() == other.content()
     }
 }
 
