@@ -31,6 +31,7 @@ fn main() {
         .with_include("rsm.h")
         .with_include("symbol.h")
         .exclude_item("VAR_U")
+        .exclude_item("CSTRING")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(rust_header.join("rust.h"));

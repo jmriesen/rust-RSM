@@ -89,6 +89,11 @@ impl KeyList {
         &self.0[1..]
     }
 
+    #[cfg(any(test, feature = "fuzzing"))]
+    pub fn into_raw(self) -> Vec<u8> {
+        self.0
+    }
+
     //Note I should probably remove this at some point.
     //It currently assumes there is at least one key in storage.
     pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {

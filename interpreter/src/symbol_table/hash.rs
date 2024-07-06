@@ -223,7 +223,7 @@ pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) ->
 pub extern "C" fn TMP_Create(var: super::c_code::var_u, table: &mut table_struct) -> i16 {
     match table.create(var) {
         Ok(index) => Index::to_raw(Some(index)),
-        Err(e) => e.error_code(),
+        Err(err) => err.error_code(),
     }
 }
 
@@ -263,9 +263,7 @@ mod tests {
 
     //Some syntactic sugar around try_into/unwrap
     //to make the tests a bit cleaner.
-    fn var_u(var: &str) -> VAR_U {
-        var.try_into().unwrap()
-    }
+    use super::super::tests::var_u;
 
     #[test]
     fn init() {

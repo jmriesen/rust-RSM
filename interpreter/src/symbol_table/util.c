@@ -306,6 +306,8 @@ ENABLE_WARN
             // copying in Key
             memcpy(&newPtrDp->bytes[0], &var->key[0], n);                       // copy the key
             if (n & 1) n++;                                                     // ensure n is even
+            // Saving data length
+            // This should go though a CString API
             ptr2ushort = (u_short *) &newPtrDp->bytes[n];                       // get a (u_short *) to here
             *ptr2ushort = data->len;                                            // save the data length
             n += 2;                                                             // point past the DBC
