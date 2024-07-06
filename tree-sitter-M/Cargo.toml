@@ -2,6 +2,7 @@
 name = "tree-sitter-mumps"
 description = "mumps grammar for the tree-sitter parsing library"
 version = "0.0.1"
+edition = "2021"
 keywords = ["incremental", "parsing", "mumps"]
 categories = ["parsing", "text-editors"]
 

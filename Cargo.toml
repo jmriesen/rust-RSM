@@ -1,7 +1,10 @@
 [workspace]
 resolver = "2"
 members=[
-"compiler",
-"tree-sitter-M",
-"lang-model-macro",
-"lang-server", "lang-model", "interpreter","interpreter/fuzz", "ffi"]
+	"compiler",
+	"tree-sitter-M",
+	"lang-server",
+	"lang-model",
+	"interpreter",
+	"interpreter/fuzz",
+	"ffi"]

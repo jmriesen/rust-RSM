@@ -8,4 +8,3 @@ edition = "2021"
 [dependencies]
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.10"
-lang-model-macro = { path = "../lang-model-macro"}
