@@ -31,7 +31,6 @@
 #ifndef RSM_SYMBOL_H
 #define RSM_SYMBOL_H
 
-#include "rust.h"
 
 
 #define DTBLKSIZE (sizeof(short) + sizeof(u_short) + sizeof(u_char) + (sizeof(ST_depend *) * 2)) // ST_data - empty data
@@ -59,16 +58,27 @@ typedef struct __attribute__ ((__packed__)) NEW_STACK {                         
 // Structures for symbol table data
 #define SIZE_KEY_DATA (MAX_KEY_SIZE + MAX_STR_LEN + 5)                          // for the following
 
+//This seems to just be a linked list node.
 typedef struct __attribute__ ((__packed__)) ST_DEPEND {                         // symbol dependent block
     struct ST_DEPEND *deplnk;                                                   // dependents link
     u_char           keylen;                                                    // length of key (bytes)
+    // It looks like this is literally 
+    // bytes[0..keylen] = key
+    // bytes[keylen...] cstring data
+    // I am not sure why we are using one array to access both data types?
+    // maybe it improves cash locality?
+    // we should have enough size to store Max size string and data.
     u_char           bytes[SIZE_KEY_DATA];                                      // key bytes then data bytes
 } ST_depend;                                                                    // end ST_depend structure
 
+//Var value + index linked list head
 typedef struct __attribute__ ((__packed__)) ST_DATA {                           // symbol data block
+    // Linked list head
     ST_depend *deplnk;                                                          // dependents link
+    // last key assessed used as an optimization so we normally don't have to look though the whole list.
     ST_depend *last_key;                                                        // last key used
     short     attach;                                                           // variable attach count
+    // The rest of this seems to just be a cstring
     u_short   dbc;                                                              // data byte count
     u_char    data[MAX_STR_LEN + 1];                                            // data bytes
 } ST_data;                                                                      // end st_data structure
@@ -114,11 +124,7 @@ typedef struct __attribute__ ((__packed__)) KEY_STRUCT {                        
 } key_s;                                                                        // have MAX_KEY_SIZE + 1 chars
 
 
-short TMP_Hash(var_u var);
-short TMP_Locate(var_u var,table_struct * table);                                                     // locate a var name
 short TMP_LocateIdx(int idx,table_struct * table );                                                    // locate in symtab by index
-short TMP_Create(var_u var, table_struct * table);                                                     // create and/or locate a var
-void  TMP_Free(var_u var, table_struct * table);
 void  TMP_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr);
 void  TMP_Restore(ST_newtab *newtab, table_struct * table);
 

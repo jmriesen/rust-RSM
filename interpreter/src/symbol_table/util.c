@@ -40,38 +40,6 @@
 #include "compile.h"                                                            // for routine buffer stuff
 #include "rust.h"
 
-
-//short         st_hash_temp[ST_HASH + 1];                                             // allocate hashing table
-//symtab_struct sym_tab[ST_MAX + 1];                                               // and symbol table
-
-/*
- * Function: ST_Hash - Create a hash from a variable name
- * returns hash number
- */
-short TMP_Hash(var_u var)                                                        // var name in a quad
-{
-    return rust_hash(var);
-    }                                                                               // end of ST_Hash
-/*
- * Function: ST_Locate - locate varname in symbol table
- * returns short pointer or -1 on fail
- */
-short TMP_Locate(var_u var,table_struct * table)                                                      // var name in a quad
-{
-    int   hash;                                                                 // hash value
-    short fwd;                                                                  // fwd link pointer
-
-    hash = TMP_Hash(var);                                                        // get hash value
-    fwd = table->st_hash_temp[hash];                                                        // get pointer (if any)
-
-    while (fwd != -1) {                                                         // while there are links
-        if (var_equal(table->sym_tab[fwd].varnam, var)) return fwd;                     // if var names match then return if we found it
-        fwd = table->sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
-    }                                                                           // end search loop
-
-    return -1;                                                                  // failed to find it
-}                                                                               // end of TMP_Locate()
-
 /*
  * Function: TMP_LocateIdx - locate in symbol table by index
  * returns short pointer or -1 on fail
@@ -93,73 +61,6 @@ short TMP_LocateIdx(int idx,table_struct * table)                               
     partab.jobtab->dostk[partab.jobtab->cur_do].symbol[idx] = fwd;              // save idx
     return fwd;                                                                 // return index
 }                                                                               // end of TMP_LocateIdx()
-
-/*
- * Function: TMP_Free - free varname entry in symbol table
- * returns nothing - only called when var exists
- */
-void TMP_Free(var_u var, table_struct * table)                                                         // var name in a quad
-{
-    short hash;                                                                 // hash value
-    short fwd;                                                                  // fwd link pointer
-    short last;                                                                 // last entry encountered
-
-    hash = TMP_Hash(var);                                                        // get hash value
-    last = -hash;                                                               // save last value
-    fwd = table->st_hash_temp[hash];                                                        // get pointer (if any)
-
-    while (fwd != -1) {                                                         // while there are links
-        if (var_equal(table->sym_tab[fwd].varnam, var)) break;                          // quit if we found it
-        last = fwd;                                                             // save last address
-        fwd = table->sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
-    }                                                                           // end search loop
-
-    if (fwd == -1) return;                                                      // symbol wasn't there, nothing to free
-
-    if (last == -hash) {                                                        // if it was top
-        table->st_hash_temp[hash] = table->sym_tab[fwd].fwd_link;                                   // remove this way
-    } else {                                                                    // if it's a symtab entry
-        table->sym_tab[last].fwd_link = table->sym_tab[fwd].fwd_link;                           // do it this way
-    }
-
-    table->sym_tab[fwd].data = ST_DATA_NULL;                                            // in case it hasn't been removed
-    VAR_CLEAR(table->sym_tab[fwd].varnam);                                              // clear var name
-    table->sym_tab[fwd].fwd_link = table->st_hash_temp[ST_FREE];                                    // point at next free
-    table->st_hash_temp[ST_FREE] = fwd;                                                     // point free list at this
-    return;                                                                     // all done
-}                                                                               // end of TMP_Free()
-
-/*
- * Function: TMP_Create - create/locate varname in symtab
- * returns short pointer or -1 on error
- */
-short TMP_Create(var_u var, table_struct * table)                                                      // var name in a quad
-{
-    int   hash;                                                                 // hash value
-    short fwd;                                                                  // fwd link pointer
-
-    hash = TMP_Hash(var);                                                        // get hash value
-    fwd = table->st_hash_temp[hash];                                                        // get pointer (if any)
-
-    while (fwd != -1) {                                                         // while there are links
-        if (var_equal(table->sym_tab[fwd].varnam, var)) return fwd;                     // return if we found it
-        fwd = table->sym_tab[fwd].fwd_link;                                             // get next pointer (if any)
-    }                                                                           // end search loop
-
-    fwd = table->st_hash_temp[ST_FREE];                                                     // get next free
-
-    if ((fwd == -1) || ((fwd == ST_MAX) && (var.var_q != 76159689901348))) {    // ST_MAX can be used for $ECODE
-        return -(ERRZ56 + ERRMLAST);                                            // error if none free
-    }
-
-    table->st_hash_temp[ST_FREE] = table->sym_tab[fwd].fwd_link;                                    // unlink from free list
-    table->sym_tab[fwd].fwd_link = table->st_hash_temp[hash];                                       // link previous after this
-    table->st_hash_temp[hash] = fwd;                                                        // link this first
-    table->sym_tab[fwd].usage = 0;                                                      // no NEWs or routine att*
-    VAR_COPY(table->sym_tab[fwd].varnam, var);                                          // copy in variable name
-    table->sym_tab[fwd].data = ST_DATA_NULL;                                            // no data just yet
-    return fwd;                                                                 // return the pointer
-}                                                                               // end of TMP_Create()
 
 /*
  * Function: TMP_Kill - KILL a variable
@@ -382,6 +283,7 @@ ENABLE_WARN
          */
 
         if (var->slen == 0) {                                                   // not dependent setting
+            // Adjust ST_Data's size so it can fit the string value.
             newPtrDt = realloc(table->sym_tab[fwd].data, DTBLKSIZE + data->len);        // allocate data block
             if (newPtrDt == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);          // no memory available
 
@@ -391,19 +293,23 @@ ENABLE_WARN
                 table->sym_tab[fwd].data = newPtrDt;                                    // or just do this one
             }
 
+            //copy in C string
             newPtrDt->dbc = data->len;                                          // set data byte count
             memcpy(&newPtrDt->data, &data->buf[0], data->len + 1);              // copy the data in
         } else {                                                                // end if-not dependent setting - setting dependent
+            // initializing new node
             newPtrDp = malloc(DPBLKSIZE + data->len + var->slen + pad);         // allocate DP blk
             if (newPtrDp == ST_DEPEND_NULL) return -(ERRZ56 + ERRMLAST);        // no memory available
             newPtrDp->deplnk = ST_DEPEND_NULL;                                  // init dependent pointer
             newPtrDp->keylen = var->slen;                                       // copy sub keylength
             n = var->slen;                                                      // get the key size
+            // copying in Key
             memcpy(&newPtrDp->bytes[0], &var->key[0], n);                       // copy the key
             if (n & 1) n++;                                                     // ensure n is even
             ptr2ushort = (u_short *) &newPtrDp->bytes[n];                       // get a (u_short *) to here
             *ptr2ushort = data->len;                                            // save the data length
             n += 2;                                                             // point past the DBC
+            // Copying in value
             memcpy(&newPtrDp->bytes[n], &data->buf[0], data->len + 1);          // copy data and trailing 0
             ptr1 = table->sym_tab[fwd].data->deplnk;                                    // go into dependents
 
@@ -772,6 +678,7 @@ int TMP_GetAdd(mvar *var, cstring **add,table_struct * table)                   
     } else if (ptr1 >= 0) {                                                     // think we found it
         if (table->sym_tab[ptr1].data == ST_DATA_NULL) return -ERRM6;                   // not found
 
+        //If we have a subscript
         if (var->slen > 0) {                                                    // go to dependents
             ST_depend *lastkey = table->sym_tab[ptr1].data->last_key;                   // pointer to last used key
 
@@ -782,21 +689,27 @@ int TMP_GetAdd(mvar *var, cstring **add,table_struct * table)                   
                 depPtr = lastkey;
             }
 
+            //Iterate linked list until w find the write data block
             while (depPtr != ST_DEPEND_NULL) {                                  // while dep ok, compare keys
+                // Impl partialOd on KeyList (just memory)
                 i = UTIL_Key_KeyCmp(var->key, depPtr->bytes, var->slen, depPtr->keylen);
+                //passed key therefor it does not exist.
                 if (i == K2_GREATER) return -ERRM6;                             // error if we passed it (var before depPtr)
                 if (i == KEQUAL) break;                                         // found it (var equal depPtr)
                 prev = depPtr;                                                  // save previous pointer
                 depPtr = depPtr->deplnk;                                        // get next
             }                                                                   // end while - compare keys
 
+            // never found the data
             if (depPtr == ST_DEPEND_NULL) return -ERRM6;                        // if no exist then return same
             i = (int) depPtr->keylen;                                           // get key length
+            // Why must it be even?
+            // This mite be for alignment of the cstring
             if (i & 1) i++;                                                     // ensure even
             *add = (cstring *) &depPtr->bytes[i];                               // send data addr as cstring
             table->sym_tab[ptr1].data->last_key = prev;                                 // add last used key
             return (*add)->len;                                                 // and return the length
-        } else {                                                                // data block
+        } else /* if there is no subscript*/{                                                                // data block
             *add = (cstring *) &table->sym_tab[ptr1].data->dbc;                         // setup the address
             i = table->sym_tab[ptr1].data->dbc;                                         // get dbc
             if (i == VAR_UNDEFINED) return -ERRM6;                              // dbc not defined and no int so return same

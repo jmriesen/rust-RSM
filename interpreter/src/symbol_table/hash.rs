@@ -1,4 +1,4 @@
-use super::{Tab, Table};
+use super::{c_code::table_struct, Tab, Table};
 use ffi::VAR_U;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
@@ -210,8 +210,26 @@ impl Iterator for LineIterator<'_> {
 }
 
 #[no_mangle]
-pub extern "C" fn rust_hash(var: super::c_code::var_u) -> i16 {
+pub extern "C" fn TMP_Hash(var: super::c_code::var_u) -> i16 {
     hash(var)
+}
+
+#[no_mangle]
+pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) -> i16 {
+    Index::to_raw(table.locate(var))
+}
+
+#[no_mangle]
+pub extern "C" fn TMP_Create(var: super::c_code::var_u, table: &mut table_struct) -> i16 {
+    match table.create(var) {
+        Ok(index) => Index::to_raw(Some(index)),
+        Err(e) => e.error_code(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn TMP_Free(var: super::c_code::var_u, table: &mut table_struct) {
+    table.free(var)
 }
 
 fn hash(var: VAR_U) -> i16 {

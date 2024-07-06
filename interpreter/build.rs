@@ -29,6 +29,7 @@ fn main() {
         .with_crate(crate_dir)
         .with_language(cbindgen::Language::C)
         .with_include("rsm.h")
+        .with_include("symbol.h")
         .exclude_item("VAR_U")
         .generate()
         .expect("Unable to generate bindings")

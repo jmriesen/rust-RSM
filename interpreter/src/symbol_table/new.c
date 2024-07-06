@@ -37,7 +37,7 @@
 #include "symbol.h"                                                             // our definitions
 #include "error.h"                                                              // errors
 #include "proto.h"                                                              // standard prototypes
-
+#include "rust.h"
 /*
  * Function: TMP_New(int count, var_u *list) - new one or more vars
  * Returns : 0 on success or -'ve error
