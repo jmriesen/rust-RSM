@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+TODOs.org
+mutants.out*
+/target/
+
 rsm
 **/*.o
 log/rsm-*.log
@@ -9,17 +13,10 @@ RSM_CRASH
 *.dat
 *.jnl
 tags
-TODO
 .cppcheckrc
 .shellcheckrc
 **/.*.sw[ponx]
-/target/
-/middle/C/rsm
-/middle/C/libmylib.a
 *.wasm
 *.m
 *.html
 *.DS_Store
-*.org
-/interpreter/temp
-/interpreter/target/
