@@ -1,6 +1,5 @@
 //TODO remove once this module is actually being used.
 #![allow(dead_code)]
-use std::{array::from_fn, mem::transmute, ptr::null_mut};
 
 #[allow(
     dead_code,
@@ -130,14 +129,14 @@ pub mod tests {
         }
 
         let mut key = [0; 256];
-        let keys = key_buff.into_raw();
-        key[..keys.len()].copy_from_slice(&keys[..]);
+        let len = key_buff.len();
+        key[..key_buff.len()].copy_from_slice(key_buff.raw_keys());
 
         MVAR {
             name: var_u(name),
             volset: Default::default(),
             uci: Default::default(),
-            slen: keys.len() as u8,
+            slen: len as u8,
             key,
         }
     }

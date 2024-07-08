@@ -82,7 +82,6 @@ impl KeyList {
         for key in iter {
             self.push(&key)?;
         }
-        self.0[0] = (self.0.len() + 1) as u8;
         Ok(())
     }
 
@@ -107,18 +106,13 @@ impl KeyList {
         out_put
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.0[0] as usize
     }
 
     #[cfg(any(test, feature = "fuzzing"))]
-    fn raw_keys(&self) -> &[u8] {
+    pub fn raw_keys(&self) -> &[u8] {
         &self.0[1..]
-    }
-
-    #[cfg(any(test, feature = "fuzzing"))]
-    pub fn into_raw(self) -> Vec<u8> {
-        self.0
     }
 
     //Note I should probably remove this at some point.
