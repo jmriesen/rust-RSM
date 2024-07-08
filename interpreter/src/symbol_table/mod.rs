@@ -20,8 +20,76 @@ mod c_code {
 mod hash;
 mod manual;
 
-use c_code::Table;
+use c_code::{Table, MVAR, ST_DATA, ST_DEPEND, VAR_UNDEFINED};
+
+use crate::key::CArrayString;
 type Tab = c_code::symtab_struct;
+
+impl Table {
+    //TODO consider removing allocations.
+    fn get(&mut self, var: &MVAR) -> Result<CArrayString, i32> {
+        if let Some(index) = self.locate(var.name) {
+            let data = unsafe { self[index].data.as_ref() };
+            if let Some(data) = data {
+                if var.slen == 0 {
+                    let data = unsafe { *self[index].data };
+                    if data.dbc == VAR_UNDEFINED as u16 {
+                        Err(-6)
+                    } else {
+                        Ok(CArrayString::new(ffi::CSTRING {
+                            len: data.dbc,
+                            buf: data.data,
+                        }))
+                    }
+                } else {
+                    //TODO This can be optimized using using the last key value
+                    //TODO this can be optomized since we know the keys are in sorted order.
+                    KeyIter::new(data)
+                        .find(|x| var.key[..var.slen as usize] == x.bytes[..x.keylen as usize])
+                        .map(|data| {
+                            let data_len_start = data.keylen.next_multiple_of(2) as usize;
+                            let data_len_end = data_len_start + size_of::<u16>();
+                            let len = u16::from_ne_bytes(
+                                data.bytes[data_len_start..data_len_end].try_into().unwrap(),
+                            );
+                            let mut buf = [0; 65535];
+                            buf[..]
+                                .clone_from_slice(&data.bytes[data_len_end..data_len_end + 65535]);
+                            CArrayString::new(ffi::CSTRING { len, buf })
+                        })
+                        .ok_or_else(|| -6)
+                }
+            } else {
+                Err(-6)
+            }
+        } else {
+            Err(-6)
+        }
+    }
+}
+
+struct KeyIter<'a> {
+    current: Option<&'a ST_DEPEND>,
+}
+
+impl<'a> Iterator for KeyIter<'a> {
+    type Item = &'a ST_DEPEND;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let temp = self.current;
+        if let Some(current) = self.current {
+            self.current = unsafe { current.deplnk.as_ref() };
+        }
+        temp
+    }
+}
+impl<'a> KeyIter<'a> {
+    fn new(data: &'a ST_DATA) -> Self {
+        Self {
+            current: unsafe { data.deplnk.as_ref() },
+        }
+    }
+}
 
 #[cfg(test)]
 pub mod tests {
@@ -67,17 +135,20 @@ pub mod tests {
             unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
         }
         fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
-            let mut c_string = CSTRING {
-                len: 0,
-                buf: [0; 65535],
-            };
-            let len = unsafe { TMP_Get(from_mut(var), c_string.buf.as_mut_ptr(), from_mut(self)) };
-            if len >= 0 {
-                c_string.len = len as u16;
-                Ok(CArrayString::new(c_string))
-            } else {
-                Err(len)
-            }
+            /*
+                        let mut c_string = CSTRING {
+                            len: 0,
+                            buf: [0; 65535],
+                        };
+                        let len = unsafe { TMP_Get(from_mut(var), c_string.buf.as_mut_ptr(), from_mut(self)) };
+                        if len >= 0 {
+                            c_string.len = len as u16;
+                            Ok(CArrayString::new(c_string))
+                        } else {
+                            Err(len)
+                        }
+            */
+            self.get(var)
         }
     }
 
@@ -85,6 +156,16 @@ pub mod tests {
     fn get_unset_variable() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
+        assert_eq!(Err(-6), table.c_get(&mut m_var));
+    }
+    #[test]
+    fn get_unset_key() {
+        let mut table = Table::new();
+        let mut m_var = var_m("foo", &[]);
+        let mut data: CArrayString = "Data".into();
+        table.c_set(&mut m_var, &mut data);
+
+        let mut m_var = var_m("foo", &["bar"]);
         assert_eq!(Err(-6), table.c_get(&mut m_var));
     }
 

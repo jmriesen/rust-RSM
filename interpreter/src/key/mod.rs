@@ -19,7 +19,6 @@ impl CArrayString {
         &self.0.buf[..self.0.len as usize]
     }
 
-    #[cfg(test)]
     pub fn new(c_string: CSTRING) -> Self {
         Self(c_string)
     }

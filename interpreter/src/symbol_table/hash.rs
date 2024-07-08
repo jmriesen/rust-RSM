@@ -14,7 +14,7 @@ const HASH_RAW_SIZE: usize = ST_HASH as usize + 1;
 ///everything is in rust.
 ///TODO remove type and just return references to the data.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct Index(i16);
+pub struct Index(i16);
 
 impl Index {
     fn raw(raw: i16) -> Option<Self> {
@@ -117,7 +117,7 @@ impl Table {
     }
 
     //The tables have a max capacity and will fail if to many variables are added.
-    fn create(&mut self, var: VAR_U) -> Result<Index, CreationError> {
+    pub fn create(&mut self, var: VAR_U) -> Result<Index, CreationError> {
         const ERR_SLOT: i16 = ST_MAX as i16;
         if let Some(index) = self.locate(var) {
             Ok(index)
@@ -147,7 +147,7 @@ impl Table {
         }
     }
 
-    fn locate(&self, var: VAR_U) -> Option<Index> {
+    pub fn locate(&self, var: VAR_U) -> Option<Index> {
         self.locate_helper(var).map(|(_, x)| x)
     }
 
@@ -160,7 +160,7 @@ impl Table {
         .find(|(_, i)| self[*i].varnam == var)
     }
 
-    fn free(&mut self, var: VAR_U) {
+    pub fn free(&mut self, var: VAR_U) {
         match self.locate_helper(var) {
             None => { /*Value never found do nothing */ }
             Some((previous, current)) => {
