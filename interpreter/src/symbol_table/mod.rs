@@ -25,54 +25,32 @@ use c_code::{Table, MVAR, ST_DATA, ST_DEPEND, VAR_UNDEFINED};
 use crate::key::CArrayString;
 type Tab = c_code::symtab_struct;
 
-impl Table {
-    //TODO consider removing allocations.
-    fn get(&mut self, var: &MVAR) -> Result<CArrayString, i32> {
-        if let Some(index) = self.locate(var.name) {
-            let data = unsafe { self[index].data.as_ref() };
-            if let Some(data) = data {
-                if var.slen == 0 {
-                    let data = unsafe { *self[index].data };
-                    if data.dbc == VAR_UNDEFINED as u16 {
-                        Err(-6)
-                    } else {
-                        Ok(CArrayString::new(ffi::CSTRING {
-                            len: data.dbc,
-                            buf: data.data,
-                        }))
-                    }
-                } else {
-                    //TODO This can be optimized using using the last key value
-                    //TODO this can be optomized since we know the keys are in sorted order.
-                    KeyIter::new(data)
-                        .find(|x| var.key[..var.slen as usize] == x.bytes[..x.keylen as usize])
-                        .map(|data| {
-                            let data_len_start = data.keylen.next_multiple_of(2) as usize;
-                            let data_len_end = data_len_start + size_of::<u16>();
-                            let len = u16::from_ne_bytes(
-                                data.bytes[data_len_start..data_len_end].try_into().unwrap(),
-                            );
-                            let mut buf = [0; 65535];
-                            buf[..]
-                                .clone_from_slice(&data.bytes[data_len_end..data_len_end + 65535]);
-                            CArrayString::new(ffi::CSTRING { len, buf })
-                        })
-                        .ok_or_else(|| -6)
-                }
-            } else {
-                Err(-6)
-            }
-        } else {
-            Err(-6)
-        }
+impl MVAR {
+    fn key(&self) -> &[u8] {
+        &self.key[..self.slen as usize]
     }
 }
 
-struct KeyIter<'a> {
+//Both the Key and the value are stored in the bytes array.
+//Also the C code uses this a dynamically sized type (rust thinks this is a sized type).
+impl ST_DEPEND {
+    fn key(&self) -> &[u8] {
+        &self.bytes[..self.keylen as usize]
+    }
+
+    fn value(&self) -> &[u8] {
+        let len_start = self.keylen.next_multiple_of(2) as usize;
+        let len_end = len_start + size_of::<u16>();
+        let len = u16::from_ne_bytes(self.bytes[len_start..len_end].try_into().unwrap());
+        &self.bytes[len_end..len_end + len as usize]
+    }
+}
+
+struct DependIter<'a> {
     current: Option<&'a ST_DEPEND>,
 }
 
-impl<'a> Iterator for KeyIter<'a> {
+impl<'a> Iterator for DependIter<'a> {
     type Item = &'a ST_DEPEND;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -83,27 +61,62 @@ impl<'a> Iterator for KeyIter<'a> {
         temp
     }
 }
-impl<'a> KeyIter<'a> {
+
+impl<'a> DependIter<'a> {
     fn new(data: &'a ST_DATA) -> Self {
         Self {
             current: unsafe { data.deplnk.as_ref() },
         }
+    }
+    //Find the dependent block that contains the key.
+    fn find_key(&mut self, key: &[u8]) -> Option<&'a ST_DEPEND> {
+        //Keys are stored in sorted order so don't need to check all of them
+        self.skip_while(|x| x.key() < key)
+            .next()
+            .filter(|x| x.key() == key)
+    }
+}
+
+impl ST_DATA {
+    fn root_value(&self) -> Option<&[u8]> {
+        if self.dbc == VAR_UNDEFINED as u16 {
+            None
+        } else {
+            Some(&self.data[..self.dbc as usize])
+        }
+    }
+
+    fn value(&self, key: &[u8]) -> Option<CArrayString> {
+        if key == &[] {
+            self.root_value()
+        } else {
+            //TODO This can be optimized using using the last key value
+            //I am not doing that optimization at the moment since I want this to be a &self function
+            //I may try and add it with inner mutability in the future
+            DependIter::new(self).find_key(key).map(|node| node.value())
+        }
+        .map(|x| x.try_into().unwrap())
+    }
+}
+
+impl Table {
+    fn get(&mut self, var: &MVAR) -> Option<CArrayString> {
+        self.locate(var.name)
+            .map(|index| unsafe { self[index].data.as_ref() })
+            .flatten()
+            .map(|data| data.value(var.key()))
+            .flatten()
     }
 }
 
 #[cfg(test)]
 pub mod tests {
 
-    use ffi::CSTRING;
     use pretty_assertions::assert_eq;
 
-    use crate::{
-        key::{CArrayString, KeyList},
-        shared_seg::lock_tab::tests::assert_eq,
-        symbol_table::c_code,
-    };
+    use crate::key::{CArrayString, KeyList};
 
-    use super::c_code::{TMP_Get, TMP_Set, Table, MVAR, VAR_U};
+    use super::c_code::{TMP_Set, Table, MVAR, VAR_U};
     use std::{i32, ptr::from_mut};
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
@@ -121,7 +134,7 @@ pub mod tests {
         key[..keys.len()].copy_from_slice(&keys[..]);
 
         MVAR {
-            name: var_u("foo"),
+            name: var_u(name),
             volset: Default::default(),
             uci: Default::default(),
             slen: keys.len() as u8,
@@ -135,20 +148,7 @@ pub mod tests {
             unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
         }
         fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
-            /*
-                        let mut c_string = CSTRING {
-                            len: 0,
-                            buf: [0; 65535],
-                        };
-                        let len = unsafe { TMP_Get(from_mut(var), c_string.buf.as_mut_ptr(), from_mut(self)) };
-                        if len >= 0 {
-                            c_string.len = len as u16;
-                            Ok(CArrayString::new(c_string))
-                        } else {
-                            Err(len)
-                        }
-            */
-            self.get(var)
+            self.get(var).ok_or_else(|| -6)
         }
     }
 

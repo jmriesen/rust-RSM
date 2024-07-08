@@ -23,6 +23,23 @@ impl CArrayString {
         Self(c_string)
     }
 }
+impl TryFrom<&[u8]> for CArrayString {
+    //Currently will only error when the slice is to large
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() <= 65535 {
+            let mut buf = [0; 65535];
+            buf[..value.len()].clone_from_slice(value);
+            Ok(CArrayString::new(ffi::CSTRING {
+                len: value.len() as u16,
+                buf,
+            }))
+        } else {
+            Err(())
+        }
+    }
+}
 
 impl std::fmt::Debug for CArrayString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
