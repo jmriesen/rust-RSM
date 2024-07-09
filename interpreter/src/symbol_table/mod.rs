@@ -19,6 +19,8 @@ mod c_code {
 mod hash;
 mod manual;
 
+use std::ptr::null_mut;
+
 use c_code::{Table, MVAR, ST_DATA, ST_DEPEND, VAR_UNDEFINED};
 
 use crate::key::CArrayString;
@@ -38,10 +40,30 @@ impl ST_DEPEND {
     }
 
     fn value(&self) -> &[u8] {
+        //data is stored as [(key:array),(possible padding)(value:CSTRING),(extra space)]
+        //TODO move a way from this data layout
+        //I don't like that we are relying on the specific data layout/padding details.
         let len_start = self.keylen.next_multiple_of(2) as usize;
         let len_end = len_start + size_of::<u16>();
         let len = u16::from_ne_bytes(self.bytes[len_start..len_end].try_into().unwrap());
         &self.bytes[len_end..len_end + len as usize]
+    }
+
+    fn set_value(&mut self, value: &[u8]) {
+        let len_start = self.keylen.next_multiple_of(2) as usize;
+        let len_end = len_start + size_of::<u16>();
+        self.bytes[len_start..len_end].copy_from_slice(&(value.len() as u16).to_ne_bytes());
+        self.bytes[len_end..len_end + value.len()].copy_from_slice(value);
+    }
+
+    fn new(key: &[u8]) -> Box<Self> {
+        let mut bytes = [0; 65794];
+        bytes[..key.len()].copy_from_slice(key);
+        Box::new(Self {
+            deplnk: null_mut(),
+            keylen: key.len() as u8,
+            bytes,
+        })
     }
 }
 
@@ -76,6 +98,34 @@ impl<'a> DependIter<'a> {
     }
 }
 
+//Iterator over REVERENCES TO THE NEXT POINTERS (Not an iterator over ST_DEPEND)
+struct DependIterMut<'a> {
+    current: Option<&'a mut *mut ST_DEPEND>,
+}
+
+impl<'a> Iterator for DependIterMut<'a> {
+    type Item = &'a mut *mut ST_DEPEND;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(current) = self.current.take() {
+            let ptr_to_next_node = *current;
+            let next_node = unsafe { ptr_to_next_node.as_mut() };
+            self.current = next_node.map(|x| &mut x.deplnk);
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> DependIterMut<'a> {
+    fn new(data: &'a mut ST_DATA) -> Self {
+        Self {
+            current: Some(&mut data.deplnk),
+        }
+    }
+}
+
 impl ST_DATA {
     fn root_value(&self) -> Option<&[u8]> {
         if self.dbc == VAR_UNDEFINED as u16 {
@@ -83,6 +133,12 @@ impl ST_DATA {
         } else {
             Some(&self.data[..self.dbc as usize])
         }
+    }
+
+    fn set_root(&mut self, data: &CArrayString) {
+        let content = data.content();
+        self.dbc = content.len() as u16;
+        self.data[..content.len()].copy_from_slice(content);
     }
 
     fn value(&self, key: &[u8]) -> Option<CArrayString> {
@@ -96,15 +152,72 @@ impl ST_DATA {
         }
         .map(|x| x.try_into().unwrap())
     }
+
+    fn set_value(&mut self, key: &[u8], data: &CArrayString) -> Result<(), ()> {
+        //Get the key value stored in the pointed to ST_DEPEND
+        let key_value = |x: &*mut ST_DEPEND| -> Option<&[u8]> {
+            let next = *x;
+            unsafe { next.as_ref() }.map(|x| x.key())
+        };
+
+        if key == &[] {
+            self.set_root(data);
+            Ok(())
+        } else {
+            // advance until just before where the key's entire should be.
+            let ref_to_next_ptr = DependIterMut::new(self)
+                .skip_while(|x| {
+                    //if there is is a next key compare.
+                    //Otherwise stop skipping.
+                    if let Some(next) = key_value(*x) {
+                        next < key
+                    } else {
+                        false
+                    }
+                })
+                .next()
+                .expect(
+                    "There will always be a next node since we only skip if the next key exists",
+                );
+            //Add a new node if it is needed
+            if key_value(ref_to_next_ptr) != Some(key) {
+                let mut new_node = ST_DEPEND::new(key);
+                new_node.deplnk = *ref_to_next_ptr;
+                *ref_to_next_ptr = Box::into_raw(new_node);
+            }
+
+            let current = *ref_to_next_ptr;
+            let current =
+                unsafe { current.as_mut() }.expect("A next node exists or we just inserted one");
+            current.set_value(data.content());
+            Ok(())
+        }
+    }
 }
 
 impl Table {
-    fn get(&mut self, var: &MVAR) -> Option<CArrayString> {
+    fn get(&self, var: &MVAR) -> Option<CArrayString> {
         self.locate(var.name)
             .map(|index| unsafe { self[index].data.as_ref() })
             .flatten()
             .map(|data| data.value(var.key()))
             .flatten()
+    }
+    fn set(&mut self, var: &MVAR, value: &CArrayString) -> Result<(), ()> {
+        let index = self.create(var.name).map_err(|_| ())?;
+
+        if unsafe { self[index].data.as_mut() }.is_none() {
+            self[index].data = Box::into_raw(Box::new(ST_DATA {
+                deplnk: null_mut(),
+                last_key: null_mut(),
+                attach: 1,
+                dbc: 0,
+                data: [0; 65535],
+            }));
+        }
+        let data =
+            unsafe { self[index].data.as_mut() }.expect("If it was none we should have created it");
+        data.set_value(var.key(), value)
     }
 }
 
@@ -144,7 +257,8 @@ pub mod tests {
     ///Temporary shim layer for calling the C code.
     impl Table {
         fn c_set(&mut self, var: &mut MVAR, data: &mut CArrayString) {
-            unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
+            self.set(var, data).unwrap()
+            //unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
         }
         fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
             self.get(var).ok_or_else(|| -6)

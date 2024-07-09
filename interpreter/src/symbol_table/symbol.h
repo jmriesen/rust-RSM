@@ -59,7 +59,7 @@ typedef struct __attribute__ ((__packed__)) NEW_STACK {                         
 #define SIZE_KEY_DATA (MAX_KEY_SIZE + MAX_STR_LEN + 5)                          // for the following
 
 //This seems to just be a linked list node.
-typedef struct __attribute__ ((__packed__)) ST_DEPEND {                         // symbol dependent block
+typedef struct ST_DEPEND {                         // symbol dependent block
     struct ST_DEPEND *deplnk;                                                   // dependents link
     u_char           keylen;                                                    // length of key (bytes)
     // It looks like this is literally 
@@ -72,7 +72,7 @@ typedef struct __attribute__ ((__packed__)) ST_DEPEND {                         
 } ST_depend;                                                                    // end ST_depend structure
 
 //Var value + index linked list head
-typedef struct __attribute__ ((__packed__)) ST_DATA {                           // symbol data block
+typedef struct ST_DATA {                           // symbol data block
     // Linked list head
     ST_depend *deplnk;                                                          // dependents link
     // last key assessed used as an optimization so we normally don't have to look though the whole list.

@@ -49,7 +49,7 @@ impl std::ops::IndexMut<Index> for Table {
 
 /// The only error condition is if we run out of room in the table.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct CreationError;
+pub struct CreationError;
 
 impl CreationError {
     fn error_code(&self) -> i16 {
