@@ -15,10 +15,11 @@ use internal::ParsedKey;
 pub struct CArrayString(CSTRING);
 
 impl CArrayString {
+    #[must_use]
     pub fn content(&self) -> &[u8] {
         &self.0.buf[..self.0.len as usize]
     }
-
+    #[must_use]
     pub fn new(c_string: CSTRING) -> Self {
         Self(c_string)
     }
@@ -45,7 +46,7 @@ impl std::fmt::Debug for CArrayString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CArrayString")
             .field("content", &self.content())
-            .field("content_as_utf8", &std::str::from_utf8(&self.content()))
+            .field("content_as_utf8", &std::str::from_utf8(self.content()))
             .finish()
     }
 }
@@ -71,14 +72,12 @@ impl<'a> Arbitrary<'a> for CArrayString {
 /// NOTE this currently only supports one key.
 pub struct KeyList(Vec<u8>);
 impl KeyList {
+    #[must_use]
     pub fn new() -> Self {
         Self(vec![0])
     }
 
-    fn extend(
-        &mut self,
-        iter: impl std::iter::Iterator<Item = CArrayString>,
-    ) -> Result<(), KeyError> {
+    fn extend(&mut self, iter: impl std::iter::Iterator<Item = CArrayString>) -> Result<(), Error> {
         for key in iter {
             self.push(&key)?;
         }
@@ -89,7 +88,7 @@ impl KeyList {
         let mut out_put = vec![b'('];
         let mut keys = self
             .iter()
-            .map(|x| ParsedKey::from_key_ref(x).to_external(true))
+            .map(|x| ParsedKey::from_key_ref(x).external_fmt(true))
             .peekable();
         let non_empty = keys.peek().is_some();
 
@@ -106,10 +105,17 @@ impl KeyList {
         out_put
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0[0] as usize
     }
 
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[must_use]
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn raw_keys(&self) -> &[u8] {
         &self.0[1..]
@@ -117,22 +123,40 @@ impl KeyList {
 
     //Note I should probably remove this at some point.
     //It currently assumes there is at least one key in storage.
+    #[must_use]
     pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        ParsedKey::from_key_ref(self.iter().next().unwrap()).to_external(quote_strings)
+        ParsedKey::from_key_ref(self.iter().next().unwrap()).external_fmt(quote_strings)
     }
-    pub fn iter(&self) -> KeyIter {
-        KeyIter { tail: &self.0[1..] }
+
+    #[must_use]
+    pub fn iter(&self) -> Iter {
+        Iter { tail: &self.0[1..] }
+    }
+}
+
+//This lint seems to be a false positive.
+#[allow(clippy::into_iter_without_iter)]
+impl<'a> IntoIterator for &'a KeyList {
+    type IntoIter = Iter<'a>;
+    type Item = Ref<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+impl Default for KeyList {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[derive(PartialEq, Eq)]
-pub struct KeyRef<'a>(&'a [u8]);
-pub struct KeyIter<'a> {
+pub struct Ref<'a>(&'a [u8]);
+pub struct Iter<'a> {
     tail: &'a [u8],
 }
 
 #[derive(Debug, PartialEq)]
-pub enum KeyError {
+pub enum Error {
     InputToLarge,
     ContainsNull,
 }
@@ -143,11 +167,12 @@ pub mod a_b_testing {
 
     use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
-    use super::*;
+    use super::{CArrayString, Error, KeyList};
+
     //TODO all of these should be revamped to work on arrays of keys.
-    pub fn build(string: CArrayString) {
+    pub fn build(string: &CArrayString) {
         let mut keys = super::KeyList::new();
-        let result = keys.push(&string);
+        let result = keys.push(string);
         let mut buffer = [0; MAX_STR_LEN as usize + 1];
         let len =
             unsafe { UTIL_Key_Build(from_ref(string.as_ref()).cast_mut(), buffer.as_mut_ptr()) };
@@ -157,18 +182,18 @@ pub mod a_b_testing {
                 //The c code should never write past key's len, but this is good to check.
                 assert!(buffer[len as usize..].iter().all(|x| *x == 0));
             }
-            Err(KeyError::InputToLarge) => {
-                assert_eq!(-len, (ERRZ1 + ERRMLAST) as i16)
+            Err(Error::InputToLarge) => {
+                assert_eq!(-len, (ERRZ1 + ERRMLAST) as i16);
             }
-            Err(KeyError::ContainsNull) => {
-                assert_eq!(-len, (ERRZ5 + ERRMLAST) as i16)
+            Err(Error::ContainsNull) => {
+                assert_eq!(-len, (ERRZ5 + ERRMLAST) as i16);
             }
         }
     }
 
-    pub fn extract(string: CArrayString) -> Result<(), KeyError> {
+    pub fn extract(string: &CArrayString) -> Result<(), Error> {
         let mut key_list = super::KeyList::new();
-        key_list.push(&string)?;
+        key_list.push(string)?;
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
         let mut count = 0;
 
@@ -186,9 +211,9 @@ pub mod a_b_testing {
         Ok(())
     }
 
-    pub fn string_key(keys: &[CArrayString]) -> Result<(), KeyError> {
+    pub fn string_key(keys: &[CArrayString]) -> Result<(), Error> {
         let mut key_list = KeyList::new();
-        let _ = key_list.extend(keys.iter().cloned())?;
+        key_list.extend(keys.iter().cloned())?;
         let output = key_list.string_key();
 
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
@@ -254,8 +279,8 @@ mod tests {
     #[case("-010")]
     #[case("-10.5.")]
     fn build_a_b_test_cases(#[case] input: &str) {
-        super::a_b_testing::build(input.into());
-        super::a_b_testing::extract(input.into())
+        super::a_b_testing::build(&input.into());
+        super::a_b_testing::extract(&input.into())
             .expect("all of the test strings should produce valid keys");
     }
 
@@ -269,14 +294,14 @@ mod tests {
     fn key_that_is_to_large() {
         let mut keys = KeyList::new();
         let result = keys.push(&"a".repeat(MAX_SUB_LEN as usize + 1).as_str().into());
-        assert_eq!(result, Err(KeyError::InputToLarge));
+        assert_eq!(result, Err(Error::InputToLarge));
     }
 
     #[test]
     fn error_if_string_contains_null() {
         let mut keys = KeyList::new();
         let result = keys.push(&"a\0b".into());
-        assert_eq!(result, Err(KeyError::ContainsNull));
+        assert_eq!(result, Err(Error::ContainsNull));
     }
 
     #[test]
@@ -285,7 +310,7 @@ mod tests {
         let mut keys = KeyList::new();
         keys.push(&src).unwrap();
         assert!(matches!(
-            ParsedKey::from_key_ref(KeyRef(keys.raw_keys())),
+            ParsedKey::from_key_ref(Ref(keys.raw_keys())),
             ParsedKey::String(_)
         ));
     }
@@ -304,11 +329,11 @@ mod tests {
             .into_iter()
             .map(|x| (*x).into())
             .collect::<Vec<_>>();
-        matches!(string_key(&keys), Ok(_));
+        matches!(string_key(&keys), Ok(()));
     }
 
     #[test]
-    fn key_cmp() -> Result<(), KeyError> {
+    fn key_cmp() -> Result<(), Error> {
         //NOTE CStrings are really large so putting 4 in a array will over flow the unit tests
         //stack
         let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];

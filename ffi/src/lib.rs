@@ -2,7 +2,7 @@ mod bindings;
 pub mod interface;
 pub use bindings::*;
 use core::ptr::null_mut;
-use std::{ffi::CString, path::Path, sync::Mutex};
+use std::{ffi::CString, path::Path};
 
 //You need to grab this mutex before calling any function that affects
 //C globals (almost all of the C functions)

@@ -1,14 +1,14 @@
-use crate::key::KeyRef;
+use crate::key::Ref;
 use ffi::MAX_SUB_LEN;
 
 /// Keys are stored in a special format to facilitate sorting.
 /// They start with a discriminant.
 /// [0,0] -> null
 /// [64,0] -> zero
-/// [INT_ZERO_POINT+x, ..x bytes.., ..., 0] -> positive number; x is # of integer digits (base 10)
+/// [`INT_ZERO_POINT`+x, ..x bytes.., ..., 0] -> positive number; x is # of integer digits (base 10)
 /// the digits of a negative number are stored as nines complement.
-/// [INT_ZERO_POINT-x, ..x bytes.., ..., 0] -> negative number; x is # of integer digits (base 10)
-/// [STRING_FLAG,..., 0] -> string (if numbers are to large they are stored as strings.
+/// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] -> negative number; x is # of integer digits (base 10)
+/// [`STRING_FLAG`,..., 0] -> string (if numbers are to large they are stored as strings.
 
 static STRING_FLAG: u8 = 0b1000_0000;
 static INT_ZERO_POINT: u8 = 0b100_0000;
@@ -17,7 +17,7 @@ static INT_ZERO_POINT: u8 = 0b100_0000;
 /// any number that takes more integer digits will be stored as a string.
 pub static MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
-use super::{CArrayString, KeyError, KeyIter, KeyList};
+use super::{CArrayString, Error, Iter, KeyList};
 
 /// represents a key parsed out into its individual parts.
 pub enum ParsedKey<'a> {
@@ -38,28 +38,23 @@ pub enum ParsedKey<'a> {
 }
 
 impl<'a> ParsedKey<'a> {
-    pub fn new(src: &'a CArrayString) -> Result<Self, KeyError> {
+    pub fn new(src: &'a CArrayString) -> Result<Self, Error> {
         let contents = src.content();
         if contents.len() > MAX_SUB_LEN as usize {
             //TODO consider reevaluating where this should be enforced.
             //If the goal of this is to prevent a buffer overflow then it should really be owned by
             //KeyList
-            Err(KeyError::InputToLarge)
-        } else if contents == &[] {
+            Err(Error::InputToLarge)
+        } else if contents.is_empty() {
             Ok(Self::Null)
-        } else if contents == &[b'0'] {
+        } else if contents == [b'0'] {
             Ok(Self::Zero)
         } else if contents.contains(&b'\0') {
-            Err(KeyError::ContainsNull)
+            Err(Error::ContainsNull)
         } else {
             //attempt to parse as a number
             let negative = contents.starts_with(&[b'-']);
-            let mut parts = if negative {
-                &contents[1..]
-            } else {
-                &contents[..]
-            }
-            .split(|x| *x == b'.');
+            let mut parts = if negative { &contents[1..] } else { contents }.split(|x| *x == b'.');
 
             let int_part = parts
                 .next()
@@ -73,7 +68,7 @@ impl<'a> ParsedKey<'a> {
             let leading_trailing_zeros =
                 int_part.starts_with(&[b'0']) || dec_part.ends_with(&[b'0']);
 
-            let is_numeric = |x: &[u8]| x.iter().all(|x| (b'0'..=b'9').contains(x));
+            let is_numeric = |x: &[u8]| x.iter().all(u8::is_ascii_digit);
             let numeric = is_numeric(int_part) && is_numeric(dec_part);
             let contains_no_digits = int_part.is_empty() && dec_part.is_empty();
 
@@ -98,12 +93,12 @@ impl<'a> ParsedKey<'a> {
 
     // I don't really like returning the tail as part of the tuple
     // but it will work for now.
-    pub fn from_key_ref(key: KeyRef<'a>) -> Self {
+    pub fn from_key_ref(key: Ref<'a>) -> Self {
         let flag = key.0[0];
         let data = &key.0[1..];
         match flag {
             0 if data.is_empty() => Self::Null,
-            x if x & STRING_FLAG != 0 => Self::String(&data),
+            x if x & STRING_FLAG != 0 => Self::String(data),
             x => {
                 let non_negative = x & INT_ZERO_POINT != 0;
                 let int_len = if non_negative {
@@ -121,8 +116,8 @@ impl<'a> ParsedKey<'a> {
                     Self::Positive { int_part, dec_part }
                 } else {
                     Self::Negative {
-                        int_part: Box::new(int_part.iter().map(|x| *x)),
-                        dec_part: Box::new(dec_part.iter().map(|x| *x)),
+                        int_part: Box::new(int_part.iter().copied()),
+                        dec_part: Box::new(dec_part.iter().copied()),
                     }
                 }
             }
@@ -131,7 +126,7 @@ impl<'a> ParsedKey<'a> {
 
     //TODO consider removing allocation.
     //There is nothing inherent to this method that requires allocation.
-    pub fn to_external(self, quote_strings: bool) -> Vec<u8> {
+    pub fn external_fmt(self, quote_strings: bool) -> Vec<u8> {
         match self {
             ParsedKey::Null => {
                 if quote_strings {
@@ -186,8 +181,8 @@ impl<'a> ParsedKey<'a> {
 }
 
 impl KeyList {
-    pub fn push(&mut self, src: &CArrayString) -> Result<(), KeyError> {
-        let internal_key = ParsedKey::new(&src)?;
+    pub fn push(&mut self, src: &CArrayString) -> Result<(), Error> {
+        let internal_key = ParsedKey::new(src)?;
         let end_mark = match internal_key {
             ParsedKey::Null => {
                 self.0.push(b'\0');
@@ -225,8 +220,8 @@ impl KeyList {
     }
 }
 
-impl<'a> std::iter::Iterator for KeyIter<'a> {
-    type Item = KeyRef<'a>;
+impl<'a> std::iter::Iterator for Iter<'a> {
+    type Item = Ref<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.tail.first() {
@@ -237,7 +232,7 @@ impl<'a> std::iter::Iterator for KeyIter<'a> {
                 // null internally stored as [b'\0',b'\0']
                 let (key, tail) = (&self.tail[..1], &self.tail[2..]);
                 self.tail = tail;
-                Some(KeyRef(key))
+                Some(Ref(key))
             }
             Some(x) => {
                 let end_mark = match *x {
@@ -251,14 +246,14 @@ impl<'a> std::iter::Iterator for KeyIter<'a> {
                     .split_once(|x| *x == end_mark)
                     .expect("all keys must contain an endmark");
                 self.tail = tail;
-                Some(KeyRef(key))
+                Some(Ref(key))
             }
             None => None,
         }
     }
 }
 
-impl<'a> Ord for KeyRef<'a> {
+impl<'a> Ord for Ref<'a> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let len = self.0.len().min(other.0.len());
 
@@ -269,7 +264,7 @@ impl<'a> Ord for KeyRef<'a> {
         }
     }
 }
-impl<'a> PartialOrd for KeyRef<'a> {
+impl<'a> PartialOrd for Ref<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

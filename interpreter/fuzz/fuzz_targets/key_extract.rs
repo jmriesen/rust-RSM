@@ -4,7 +4,7 @@ use interpreter::key::{a_b_testing, CArrayString, KeyList};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|string: CArrayString| {
-    let _ = a_b_testing::extract(string.clone());
+    let _ = a_b_testing::extract(&string.clone());
     let mut keys = KeyList::new();
 
     if let Ok(()) = keys.push(&string) {
@@ -23,7 +23,7 @@ fuzz_target!(|string: CArrayString| {
         {
             assert_eq!(&contents[..contents.len() - 1], &extracted[..])
         } else {
-            assert_eq!(&contents[..], &extracted[..])
+            assert_eq!(contents, &extracted[..])
         }
     }
 });

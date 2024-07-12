@@ -8,6 +8,12 @@ pub struct GlobalGuard {
     guard: MutexGuard<'static, ()>,
 }
 
+impl Default for GlobalGuard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalGuard {
     pub fn new() -> Self {
         //The mutex becomes poisoned if the thread holding it panics
