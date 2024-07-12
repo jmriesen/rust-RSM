@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    mem::size_of,
-};
+use std::{collections::BTreeMap, mem::size_of};
 const SIZE_OF_PTR: usize = size_of::<*mut c_void>();
 
 use libc::c_void;

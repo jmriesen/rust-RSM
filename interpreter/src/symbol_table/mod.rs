@@ -8,6 +8,9 @@
     non_camel_case_types
 )]
 mod c_code {
+    //Generated code violates a lot of formatting stuff conventions.
+    //Pointless to warn about all of them
+    #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
     pub use ffi::CSTRING;
     pub use ffi::VAR_U;
     use std::sync::Mutex;
@@ -92,9 +95,7 @@ impl<'a> DependIter<'a> {
     //Find the dependent block that contains the key.
     fn find_key(&mut self, key: &[u8]) -> Option<&'a ST_DEPEND> {
         //Keys are stored in sorted order so don't need to check all of them
-        self.skip_while(|x| x.key() < key)
-            .next()
-            .filter(|x| x.key() == key)
+        self.find(|x| x.key() >= key).filter(|x| x.key() == key)
     }
 }
 
@@ -142,40 +143,38 @@ impl ST_DATA {
     }
 
     fn value(&self, key: &[u8]) -> Option<CArrayString> {
-        if key == &[] {
+        if key.is_empty() {
             self.root_value()
         } else {
             //TODO This can be optimized using using the last key value
             //I am not doing that optimization at the moment since I want this to be a &self function
             //I may try and add it with inner mutability in the future
-            DependIter::new(self).find_key(key).map(|node| node.value())
+            DependIter::new(self).find_key(key).map(ST_DEPEND::value)
         }
         .map(|x| x.try_into().unwrap())
     }
 
-    fn set_value(&mut self, key: &[u8], data: &CArrayString) -> Result<(), ()> {
+    fn set_value(&mut self, key: &[u8], data: &CArrayString) {
         //Get the key value stored in the pointed to ST_DEPEND
         let key_value = |x: &*mut ST_DEPEND| -> Option<&[u8]> {
             let next = *x;
-            unsafe { next.as_ref() }.map(|x| x.key())
+            unsafe { next.as_ref() }.map(ST_DEPEND::key)
         };
 
-        if key == &[] {
+        if key.is_empty() {
             self.set_root(data);
-            Ok(())
         } else {
             // advance until just before where the key's entire should be.
             let ref_to_next_ptr = DependIterMut::new(self)
-                .skip_while(|x| {
+                .find(|x| {
                     //if there is is a next key compare.
-                    //Otherwise stop skipping.
-                    if let Some(next) = key_value(*x) {
-                        next < key
+                    if let Some(next) = key_value(x) {
+                        next >= key
                     } else {
-                        false
+                        //don't go past the end of the list
+                        true
                     }
                 })
-                .next()
                 .expect(
                     "There will always be a next node since we only skip if the next key exists",
                 );
@@ -190,7 +189,6 @@ impl ST_DATA {
             let current =
                 unsafe { current.as_mut() }.expect("A next node exists or we just inserted one");
             current.set_value(data.content());
-            Ok(())
         }
     }
 }
@@ -198,11 +196,10 @@ impl ST_DATA {
 impl Table {
     fn get(&self, var: &MVAR) -> Option<CArrayString> {
         self.locate(var.name)
-            .map(|index| unsafe { self[index].data.as_ref() })
-            .flatten()
-            .map(|data| data.value(var.key()))
-            .flatten()
+            .and_then(|index| unsafe { self[index].data.as_ref() })
+            .and_then(|data| data.value(var.key()))
     }
+
     fn set(&mut self, var: &MVAR, value: &CArrayString) -> Result<(), ()> {
         let index = self.create(var.name).map_err(|_| ())?;
 
@@ -217,7 +214,8 @@ impl Table {
         }
         let data =
             unsafe { self[index].data.as_mut() }.expect("If it was none we should have created it");
-        data.set_value(var.key(), value)
+        data.set_value(var.key(), value);
+        Ok(())
     }
 }
 
@@ -228,8 +226,7 @@ pub mod tests {
 
     use crate::key::{CArrayString, KeyList};
 
-    use super::c_code::{TMP_Set, Table, MVAR, VAR_U};
-    use std::{i32, ptr::from_mut};
+    use super::c_code::{Table, MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
     }

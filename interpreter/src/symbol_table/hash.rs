@@ -2,7 +2,7 @@ use super::{c_code::table_struct, Tab, Table};
 use ffi::VAR_U;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
-use std::{array::from_fn, mem::transmute, ptr::null_mut};
+use std::{array::from_fn, ptr::null_mut};
 
 use super::c_code::{ST_HASH, ST_MAX, SYMTAB};
 const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
@@ -67,7 +67,7 @@ impl Table {
             fwd_link: 1 + i as i16,
             usage: 0,
             data: null_mut(),
-            varnam: var_name.clone(),
+            varnam: var_name,
         });
         // -1 == end of the list;
         tabs.last_mut().unwrap().fwd_link = -1;
@@ -82,6 +82,7 @@ impl Table {
     #[cfg(test)]
     fn clone_c_table() -> Self {
         use ffi::{st_hash, symtab};
+        use std::mem::transmute;
         let mut hash = [0; HASH_RAW_SIZE];
         hash.copy_from_slice(unsafe {
             std::slice::from_raw_parts(st_hash.as_ptr(), HASH_RAW_SIZE)
@@ -168,7 +169,7 @@ impl Table {
                 if let Some(previous) = previous {
                     self[previous].fwd_link = self[current].fwd_link;
                 } else {
-                    self.st_hash_temp[hash(var) as usize] = self[current].fwd_link
+                    self.st_hash_temp[hash(var) as usize] = self[current].fwd_link;
                 }
                 //I don't know if I like ST_FREE being used as a special index.
                 self[current].fwd_link = Index::to_raw(self.next_free());
@@ -185,7 +186,7 @@ impl Table {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct LineIterator<'a> {
     table: &'a Table,
     next: Option<Index>,
@@ -229,7 +230,7 @@ pub extern "C" fn TMP_Create(var: super::c_code::var_u, table: &mut table_struct
 
 #[no_mangle]
 pub extern "C" fn TMP_Free(var: super::c_code::var_u, table: &mut table_struct) {
-    table.free(var)
+    table.free(var);
 }
 
 fn hash(var: VAR_U) -> i16 {
@@ -238,12 +239,12 @@ fn hash(var: VAR_U) -> i16 {
         97, 101, 103, 107, 109, 113, 127, 131, 137,
     ];
     (var.as_array()
-        .into_iter()
-        .cloned()
+        .iter()
+        .copied()
         .take_while(|x| *x != 0)
         .enumerate()
         //Note using i32 to mimic C's int
-        .map(|(i, x)| x as i32 * primes[i])
+        .map(|(i, x)| i32::from(x) * primes[i])
         .sum::<i32>()
         //matching casting behavior of C
         % ST_HASH as i32) as i16
@@ -254,11 +255,10 @@ mod tests {
 
     use std::ptr::null_mut;
 
-    use ffi::VAR_U;
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
-    use super::{super::c_code::lock, CreationError, Index, Table, ST_MAX};
+    use super::{CreationError, Index, Table, ST_MAX};
     use rstest::*;
 
     //Some syntactic sugar around try_into/unwrap

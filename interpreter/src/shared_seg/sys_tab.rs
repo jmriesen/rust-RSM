@@ -98,6 +98,7 @@ impl SystemTab {
     }
 
     //Currently use C code so only works for systab.
+    #[allow(dead_code)]
     unsafe fn clean_jobs(&mut self, exclude_pid: i32) {
         let jobs = unsafe { from_raw_parts_mut(self.job_tab, self.maxjob as usize) };
 
@@ -158,7 +159,7 @@ impl SystemTab {
     pub fn assert_eq(&self, other: &Self) {
         use super::test_utils::{test_memory_segment_equality, DifferencesList};
         use ffi::VOL_DEF;
-        use pretty_assertions::{assert_eq, assert_ne};
+        use pretty_assertions::assert_eq;
         let discrepancies = test_memory_segment_equality(self.to_slice(), other.to_slice());
 
         let mut expected_discrepancies = DifferencesList::new();
@@ -204,6 +205,7 @@ impl Display for SystemTab {
     }
 }
 
+#[allow(dead_code)]
 fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SystemTab) {
     //I don't like this calculation.
     let job_index =
@@ -310,7 +312,7 @@ pub unsafe fn init<'a>(
 
 impl Eq for SystemTab {}
 impl PartialEq for SystemTab {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }
