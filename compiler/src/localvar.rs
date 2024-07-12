@@ -1,7 +1,7 @@
 use crate::models::{Expression, VariableHeading};
 
-use super::models;
 use crate::Compileable;
+use lang_model as models;
 
 pub enum VarTypes {
     Eval = ffi::OPVAR as isize,
@@ -87,7 +87,8 @@ impl<'a> Compileable for crate::models::Variable<'a> {
 
         if let Some(name) = self.name() {
             //TODO abstract away.
-            let name:ffi::VAR_U = name.node()
+            let name: ffi::VAR_U = name
+                .node()
                 .utf8_text(source_code.as_bytes())
                 .unwrap()
                 .try_into()
@@ -99,7 +100,7 @@ impl<'a> Compileable for crate::models::Variable<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_harness::test::compile_c, test_compile_command};
+    use crate::{test_compile_command, test_harness::test::compile_c};
     use rstest::rstest;
     #[rstest]
     #[case("SomeString")]

@@ -6,15 +6,6 @@ use std::{
 
 extern crate cbindgen;
 
-#[derive(Debug)]
-struct OpCodeParser;
-
-impl bindgen::callbacks::ParseCallbacks for OpCodeParser {
-    fn int_macro(&self, _name: &str, _value: i64) -> Option<bindgen::callbacks::IntKind> {
-        Some(bindgen::callbacks::IntKind::U8)
-    }
-}
-
 fn main() {
     // 1) c's header files exist.
     // 2) generate header files from rust code.

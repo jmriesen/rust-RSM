@@ -2,7 +2,7 @@ mod intrinsic_function;
 mod literals;
 pub use literals::*;
 
-use crate::models::*;
+use lang_model::*;
 
 use crate::{localvar::VarTypes, ExtrinsicFunctionContext, OpCode};
 

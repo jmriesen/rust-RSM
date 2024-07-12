@@ -1,5 +1,5 @@
-use crate::models;
 use super::OpCode;
+use lang_model as models;
 impl<'a> OpCode for models::UnaryOpp<'a> {
     fn op_code(&self) -> u8 {
         use models::UnaryOppChildren as E;

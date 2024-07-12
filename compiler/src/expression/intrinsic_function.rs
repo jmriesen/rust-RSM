@@ -1,13 +1,10 @@
-use crate::models::*;
-
 use crate::{
     function::{reserve_jump, write_jump},
     localvar::VarTypes,
 };
-
+use lang_model::*;
 
 use super::{ncopy, ExpressionContext};
-
 
 trait ExpFunctionsExt<'a> {
     fn opcode(&self) -> u8;
@@ -15,7 +12,6 @@ trait ExpFunctionsExt<'a> {
 }
 
 impl<'a> ExpFunctionsExt<'a> for ExpFunctions<'a> {
-
     fn opcode(&self) -> u8 {
         use ExpFunctionsChildren::*;
         match self.children() {
@@ -36,16 +32,16 @@ impl<'a> ExpFunctionsExt<'a> for ExpFunctions<'a> {
             Char(_) => ffi::FUNC,
         }
     }
-    fn args(&self)->Vec<Expression<'a>>{
+    fn args(&self) -> Vec<Expression<'a>> {
         use ExpFunctionsChildren::*;
         match self.children() {
-            View(x) =>  x.args(),
+            View(x) => x.args(),
             //TODO Text handling should be more detailed.
-            Text(x) =>  vec![x.args()],
+            Text(x) => vec![x.args()],
             Translate(x) => x.args(),
             Find(x) => x.args(),
-            Fnumber(x) =>  x.args(),
-            Random(x) =>  vec![x.args()],
+            Fnumber(x) => x.args(),
+            Random(x) => vec![x.args()],
             Reverse(x) => vec![x.args()],
             Piece(x) => x.args(),
             Justify(x) => x.args(),
@@ -122,7 +118,7 @@ impl<'a> Compileable for IntrinsicFunction<'a> {
                 let (opcode, var, args) = var_fun.components();
                 var.compile(source_code, comp, var_fun.var_types());
 
-                for arg in &args {
+                if let Some(arg) = &args {
                     arg.compile(source_code, comp, ExpressionContext::Eval)
                 }
 

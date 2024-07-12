@@ -5,7 +5,7 @@ use crate::systab;
 static SINGLETON: Mutex<()> = Mutex::new(());
 //This is intended to be a light wriapper around the C api that handles most of the unsafe stuff.
 pub struct GlobalGuard {
-    guard: MutexGuard<'static, ()>,
+    _guard: MutexGuard<'static, ()>,
 }
 
 impl Default for GlobalGuard {
@@ -20,7 +20,7 @@ impl GlobalGuard {
         //This will happen when tests fail
         SINGLETON.clear_poison();
         Self {
-            guard: SINGLETON.lock().unwrap(),
+            _guard: SINGLETON.lock().unwrap(),
         }
     }
     pub fn systab(&self) -> Option<&crate::SYSTAB> {
