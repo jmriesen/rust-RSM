@@ -3,8 +3,7 @@
 #[allow(unused)]
 use clap::{Parser, Subcommand};
 use interpreter::{units::Kibibytes, var_u::AlphaVAR_U};
-use std::ffi::CString;
-use std::num::NonZeroU32;
+use std::{ffi::CString, num::NonZeroU32};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

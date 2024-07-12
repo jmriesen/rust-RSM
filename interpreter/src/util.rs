@@ -2,8 +2,7 @@ use ffi::{
     systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
     VERSION_TEST, VOL_DEF,
 };
-use std::ffi::CString;
-use std::fs::OpenOptions;
+use std::{ffi::CString, fs::OpenOptions};
 
 use crate::shared_seg::sys_tab::SystemTab;
 

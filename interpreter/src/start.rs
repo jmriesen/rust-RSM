@@ -7,13 +7,15 @@ use crate::{
     units::{Bytes, Megbibytes, Pages},
 };
 use core::alloc::Layout;
-use ffi::{jobtab, u_int, vol_def, GBD, MAX_VOL};
-use ffi::{systab, DB_VER, LOCKTAB, RBD};
-use ffi::{MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
-use std::num::NonZeroU32;
-use std::path::Path;
-use std::path::PathBuf;
-use std::ptr::{from_mut, from_ref};
+use ffi::{
+    jobtab, systab, u_int, vol_def, DB_VER, GBD, LOCKTAB, MAX_GLOBAL_BUFFERS, MAX_JOBS,
+    MAX_ROUTINE_BUFFERS, MAX_VOL, RBD,
+};
+use std::{
+    num::NonZeroU32,
+    path::{Path, PathBuf},
+    ptr::{from_mut, from_ref},
+};
 use thiserror::Error;
 pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
     ::std::slice::from_raw_parts_mut(

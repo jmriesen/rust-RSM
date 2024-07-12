@@ -35,8 +35,7 @@ impl Drop for GlobalGuard {
 pub mod init {
     use super::*;
     use crate::{u_int, INIT_Start};
-    use std::ffi::c_int;
-    use std::ffi::CString;
+    use std::ffi::{c_int, CString};
 
     pub fn start(
         file_name: &str,

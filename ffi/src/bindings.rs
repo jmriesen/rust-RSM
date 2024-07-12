@@ -5,9 +5,10 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
 
-use std::ffi::CStr;
-use std::ffi::CString;
-use std::fmt;
+use std::{
+    ffi::{CStr, CString},
+    fmt,
+};
 //bingen dose not seem to handle size of properly
 pub const MAX_MAP_SIZE: u32 =
     (MAX_DATABASE_BLKS / 8 + (std::mem::size_of::<label_block>() as u32)) / 1024 + 1;

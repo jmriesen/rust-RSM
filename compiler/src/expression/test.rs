@@ -1,4 +1,4 @@
-use crate::{test_harness::test::*, test_compile_command};
+use crate::{test_compile_command, test_harness::test::*};
 use rstest::rstest;
 
 #[rstest]

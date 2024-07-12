@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use crate::{test_harness::test::compile_c, test_compile_command};
+    use crate::{test_compile_command, test_harness::test::compile_c};
     use rstest::rstest;
 
     #[rstest]

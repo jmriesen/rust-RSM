@@ -1,5 +1,7 @@
-use crate::units::{Bytes, Kibibytes, Words};
-use crate::var_u::AlphaVAR_U;
+use crate::{
+    units::{Bytes, Kibibytes, Words},
+    var_u::AlphaVAR_U,
+};
 use ffi::label_block;
 use std::{fs::OpenOptions, io::Seek};
 
@@ -98,8 +100,7 @@ impl FileConfig {
 
     pub fn create(self) -> std::io::Result<()> {
         use ffi::CSTRING;
-        use std::io::SeekFrom::Start;
-        use std::io::Write;
+        use std::io::{SeekFrom::Start, Write};
         //In source they also restricted permissions.
         let mut file = OpenOptions::new()
             .truncate(true)
@@ -204,10 +205,11 @@ mod tests {
     use super::*;
     use crate::INIT_Create_File;
     use rstest::rstest;
-    use std::ffi::CString;
-    use std::fs::remove_file;
-    use std::fs::File;
-    use std::io::prelude::*;
+    use std::{
+        ffi::CString,
+        fs::{remove_file, File},
+        io::prelude::*,
+    };
 
     #[ignore]
     #[rstest]

@@ -1,9 +1,6 @@
 use crate::units::{Bytes, Pages};
-use core::ffi::c_void;
-use core::marker::PhantomData;
-use std::alloc::Layout;
-use std::mem::MaybeUninit;
-use std::slice::from_mut_ptr_range;
+use core::{ffi::c_void, marker::PhantomData};
+use std::{alloc::Layout, mem::MaybeUninit, slice::from_mut_ptr_range};
 /*
 let sem_id = unsafe{semget(
 shar_mem_key,

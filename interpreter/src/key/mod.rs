@@ -235,8 +235,7 @@ pub mod a_b_testing {
 #[cfg(test)]
 mod tests {
     use a_b_testing::string_key;
-    use ffi::MAX_SUB_LEN;
-    use ffi::{CSTRING, MAX_STR_LEN};
+    use ffi::{CSTRING, MAX_STR_LEN, MAX_SUB_LEN};
     use internal::MAX_INT_SEGMENT_SIZE;
     use rstest::rstest;
 

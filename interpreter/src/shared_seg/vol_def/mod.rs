@@ -94,8 +94,7 @@ impl Display for Volume {
 
 #[cfg(test)]
 fn map_as_slice(val: &VOL_DEF) -> &[u8] {
-    use std::ops::Range;
-    use std::slice::from_ptr_range;
+    use std::{ops::Range, slice::from_ptr_range};
     //TODO verify that gdb_head always Corresponds to the end off the map section.
     unsafe {
         from_ptr_range(Range {

@@ -11,8 +11,7 @@ mod c_code {
     //Generated code violates a lot of formatting stuff conventions.
     //Pointless to warn about all of them
     #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
-    pub use ffi::CSTRING;
-    pub use ffi::VAR_U;
+    pub use ffi::{CSTRING, VAR_U};
     use std::sync::Mutex;
     pub static lock: Mutex<()> = Mutex::new(());
     include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));

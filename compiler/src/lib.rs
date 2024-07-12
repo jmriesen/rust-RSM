@@ -5,11 +5,11 @@ use ffi as bindings;
 mod command;
 mod dollar;
 mod expression;
-mod test_harness;
 mod function;
 mod localvar;
 mod op_code;
 mod routine;
+mod test_harness;
 
 use crate::function::{reserve_jump, write_jump};
 
@@ -269,7 +269,8 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
         comp.push(opcode as u8);
         use crate::bindings::var_u;
         if let Some(routine) = routine {
-            let routine :var_u = routine.node()
+            let routine: var_u = routine
+                .node()
                 .utf8_text(source_code.as_bytes())
                 .unwrap()
                 .try_into()
@@ -284,7 +285,8 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
                 NumericIdentifier(x) => x.node(),
             };
 
-            let tag :var_u = node.utf8_text(source_code.as_bytes())
+            let tag: var_u = node
+                .utf8_text(source_code.as_bytes())
                 .unwrap()
                 .try_into()
                 .unwrap();

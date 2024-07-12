@@ -30,5 +30,4 @@ fn main() {
 
     c_config.compile("parser");
     println!("cargo:rerun-if-changed={}", parser_path.to_str().unwrap());
-
 }

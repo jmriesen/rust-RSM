@@ -68,7 +68,7 @@ impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
 mod test {
     use core::ops::RangeInclusive;
 
-    use crate::{test_harness::test::compile_c, test_compile_command};
+    use crate::{test_compile_command, test_harness::test::compile_c};
     use rstest::rstest;
 
     #[test]

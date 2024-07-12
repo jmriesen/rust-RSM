@@ -1,5 +1,4 @@
-use super::Tab;
-use super::Table;
+use super::{Tab, Table};
 use std::fmt::Debug;
 impl Debug for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
