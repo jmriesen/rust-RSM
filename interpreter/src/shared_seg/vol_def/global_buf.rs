@@ -12,7 +12,7 @@ pub fn init_global_buffer_descriptors<'a>(
     buffer: &Allocation<u8>,
     block_size: Bytes,
 ) -> &'a mut [GlobalBufferDescriptor] {
-    let descriptors = descriptors.to_slice();
+    let descriptors = descriptors.into_slice();
     //Validate that the buffer is large enough
     assert!(buffer.layout.size() >= descriptors.len() * block_size.0);
 

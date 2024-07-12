@@ -158,8 +158,8 @@ pub unsafe fn new<'a>(
         map_dirty_flag: 0,
         first_free: map.cast(),
 
-        global_buf: global_buf.to_void_ptr(),
-        zero_block: zero_block.to_void_ptr(),
+        global_buf: global_buf.into_void_ptr(),
+        zero_block: zero_block.into_void_ptr(),
         num_gbd: gbd_blocks.len().try_into().unwrap(),
         gbd_head: gbd_blocks.as_mut_ptr(),
         gbd_hash: {
@@ -253,7 +253,7 @@ pub fn init_header_section<'a>(
     //NOTE it is safe to transmute right away since
     //all bit patterns are a valid [u8]
     #[allow(clippy::transmute_ptr_to_ptr)]
-    let header: &mut [u8] = unsafe { transmute(header.to_slice()) };
+    let header: &mut [u8] = unsafe { transmute(header.into_slice()) };
 
     file.read_exact(&mut header[..])
         .map_err(|_| Error::CouldNotReadLableSlashMapBlock)?;

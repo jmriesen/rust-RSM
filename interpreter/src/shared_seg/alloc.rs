@@ -119,7 +119,7 @@ impl<T> Allocation<T> {
         Self { ptr, layout }
     }
     #[must_use]
-    pub fn to_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
+    pub fn into_slice<'a>(self) -> &'a mut [MaybeUninit<T>] {
         unsafe { from_mut_ptr_range(self.ptr..self.ptr.byte_add(self.layout.size())) }
     }
     #[must_use]
@@ -130,7 +130,7 @@ impl<T> Allocation<T> {
 
 impl Allocation<u8> {
     #[must_use]
-    pub fn to_void_ptr(self) -> *mut c_void {
+    pub fn into_void_ptr(self) -> *mut c_void {
         self.ptr.cast::<c_void>()
     }
 }

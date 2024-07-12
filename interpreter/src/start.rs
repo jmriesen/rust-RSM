@@ -242,7 +242,7 @@ mod tests {
         result.unwrap();
         let c_sys_tab = SystemTab::from_raw(global_guard.systab().unwrap());
 
-        assert_sys_tab_eq(&sys_tab, c_sys_tab);
+        assert_sys_tab_eq(sys_tab, c_sys_tab);
         sys_tab.assert_eq(c_sys_tab);
     }
 }

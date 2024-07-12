@@ -70,8 +70,8 @@ impl<'a> Arbitrary<'a> for CArrayString {
 /// This is a work in progress
 ///
 /// NOTE this currently only supports one key.
-pub struct KeyList(Vec<u8>);
-impl KeyList {
+pub struct List(Vec<u8>);
+impl List {
     #[must_use]
     pub fn new() -> Self {
         Self(vec![0])
@@ -136,20 +136,20 @@ impl KeyList {
 
 //This lint seems to be a false positive.
 #[allow(clippy::into_iter_without_iter)]
-impl<'a> IntoIterator for &'a KeyList {
+impl<'a> IntoIterator for &'a List {
     type IntoIter = Iter<'a>;
     type Item = Ref<'a>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
-impl Default for KeyList {
+impl Default for List {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub struct Ref<'a>(&'a [u8]);
 pub struct Iter<'a> {
     tail: &'a [u8],
@@ -167,11 +167,11 @@ pub mod a_b_testing {
 
     use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
-    use super::{CArrayString, Error, KeyList};
+    use super::{CArrayString, Error, List};
 
     //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(string: &CArrayString) {
-        let mut keys = super::KeyList::new();
+        let mut keys = super::List::new();
         let result = keys.push(string);
         let mut buffer = [0; MAX_STR_LEN as usize + 1];
         let len =
@@ -192,7 +192,7 @@ pub mod a_b_testing {
     }
 
     pub fn extract(string: &CArrayString) -> Result<(), Error> {
-        let mut key_list = super::KeyList::new();
+        let mut key_list = super::List::new();
         key_list.push(string)?;
         let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
         let mut count = 0;
@@ -212,7 +212,7 @@ pub mod a_b_testing {
     }
 
     pub fn string_key(keys: &[CArrayString]) -> Result<(), Error> {
-        let mut key_list = KeyList::new();
+        let mut key_list = List::new();
         key_list.extend(keys.iter().cloned())?;
         let output = key_list.string_key();
 
@@ -286,20 +286,20 @@ mod tests {
 
     #[test]
     fn max_key_size() {
-        let mut keys = KeyList::new();
+        let mut keys = List::new();
         let result = keys.push(&"a".repeat(MAX_SUB_LEN as usize).as_str().into());
         assert_eq!(result, Ok(()));
     }
     #[test]
     fn key_that_is_to_large() {
-        let mut keys = KeyList::new();
+        let mut keys = List::new();
         let result = keys.push(&"a".repeat(MAX_SUB_LEN as usize + 1).as_str().into());
         assert_eq!(result, Err(Error::InputToLarge));
     }
 
     #[test]
     fn error_if_string_contains_null() {
-        let mut keys = KeyList::new();
+        let mut keys = List::new();
         let result = keys.push(&"a\0b".into());
         assert_eq!(result, Err(Error::ContainsNull));
     }
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn build_key_int_to_large() {
         let src: CArrayString = "1".repeat(MAX_INT_SEGMENT_SIZE + 1).as_str().into();
-        let mut keys = KeyList::new();
+        let mut keys = List::new();
         keys.push(&src).unwrap();
         assert!(matches!(
             ParsedKey::from_key_ref(Ref(keys.raw_keys())),
@@ -325,10 +325,7 @@ mod tests {
     #[case(&["f","s"])]
     #[case(&["","s","9","-9"])]
     fn key_extract_string(#[case] raw_keys: &[&str]) {
-        let keys = raw_keys
-            .into_iter()
-            .map(|x| (*x).into())
-            .collect::<Vec<_>>();
+        let keys = raw_keys.iter().map(|x| (*x).into()).collect::<Vec<_>>();
         matches!(string_key(&keys), Ok(()));
     }
 
@@ -339,7 +336,7 @@ mod tests {
         let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];
         //let keys = ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.into());
         for [a, b] in keys.array_windows() {
-            let mut list = KeyList::new();
+            let mut list = List::new();
             list.push(&dbg!((*a).into()))?;
             list.push(&dbg!((*b).into()))?;
             let mut iter = list.iter();

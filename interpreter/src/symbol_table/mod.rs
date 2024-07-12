@@ -59,14 +59,14 @@ impl ST_DEPEND {
         self.bytes[len_end..len_end + value.len()].copy_from_slice(value);
     }
 
-    fn new(key: &[u8]) -> Box<Self> {
+    fn new(key: &[u8]) -> Self {
         let mut bytes = [0; 65794];
         bytes[..key.len()].copy_from_slice(key);
-        Box::new(Self {
+        Self {
             deplnk: null_mut(),
             keylen: key.len() as u8,
             bytes,
-        })
+        }
     }
 }
 
@@ -180,7 +180,7 @@ impl ST_DATA {
                 );
             //Add a new node if it is needed
             if key_value(ref_to_next_ptr) != Some(key) {
-                let mut new_node = ST_DEPEND::new(key);
+                let mut new_node = Box::new(ST_DEPEND::new(key));
                 new_node.deplnk = *ref_to_next_ptr;
                 *ref_to_next_ptr = Box::into_raw(new_node);
             }
@@ -224,7 +224,7 @@ pub mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use crate::key::{CArrayString, KeyList};
+    use crate::key::{CArrayString, List};
 
     use super::c_code::{Table, MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
@@ -233,7 +233,7 @@ pub mod tests {
 
     //TODO clean this up at some point
     pub fn var_m(name: &str, keys: &[&str]) -> MVAR {
-        let mut key_buff = KeyList::new();
+        let mut key_buff = List::new();
         for key in keys {
             key_buff.push(&((*key).into())).unwrap();
         }
@@ -254,11 +254,11 @@ pub mod tests {
     ///Temporary shim layer for calling the C code.
     impl Table {
         fn c_set(&mut self, var: &mut MVAR, data: &mut CArrayString) {
-            self.set(var, data).unwrap()
+            self.set(var, data).unwrap();
             //unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
         }
         fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
-            self.get(var).ok_or_else(|| -6)
+            self.get(var).ok_or(-6)
         }
     }
 
@@ -360,11 +360,11 @@ pub mod tests {
             test_data.map(|(keys, value)| (var_m("foo", &keys), Box::new(value.into())));
 
         let mut table = Table::new();
-        for (var, value) in test_data.iter_mut() {
+        for (var, value) in &mut test_data {
             table.c_set(var, value);
         }
 
-        for (mut var, value) in test_data.into_iter() {
+        for (mut var, value) in test_data {
             assert_eq!(Ok(*value), table.c_get(&mut var));
         }
     }

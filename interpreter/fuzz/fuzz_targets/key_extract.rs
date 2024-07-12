@@ -1,11 +1,11 @@
 #![no_main]
 
-use interpreter::key::{a_b_testing, CArrayString, KeyList};
+use interpreter::key::{a_b_testing, CArrayString, List};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|string: CArrayString| {
     let _ = a_b_testing::extract(&string.clone());
-    let mut keys = KeyList::new();
+    let mut keys = List::new();
 
     if let Ok(()) = keys.push(&string) {
         let extracted = keys.key_extract(false);

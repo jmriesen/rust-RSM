@@ -36,7 +36,7 @@ pub struct SystemTab {
     pub start_user: c_int,
     /// head of lock table
     pub lock_start: *mut c_void,
-    /// size of lock_tab in bytes
+    /// size of `lock_tab` in bytes
     pub locksize: c_int,
     /// head of used locks
     pub lock_head: *mut locktab,
@@ -129,11 +129,11 @@ impl SystemTab {
     }
     #[cfg(test)]
     fn debug_layout(&self) -> String {
-        let mut layout = format!("label     \tpointer\t\toffset");
+        let mut layout = "label     \tpointer\t\toffset".to_string();
         let mut diagnostic = |label: &str, pointer: *mut c_void| {
             layout.push_str(&format!("\n{label:10}\t{:?}\t:{:>7}", pointer, unsafe {
                 pointer.byte_offset_from(self.address)
-            }))
+            }));
         };
         diagnostic("address", self.address.cast());
         diagnostic("job tab", self.job_tab.cast());
@@ -181,7 +181,7 @@ impl SystemTab {
                     + std::mem::offset_of!(VOL_DEF, shm_id),
             );
         }
-        assert_eq!(discrepancies, expected_discrepancies)
+        assert_eq!(discrepancies, expected_discrepancies);
     }
 }
 

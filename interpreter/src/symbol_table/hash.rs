@@ -52,7 +52,7 @@ impl std::ops::IndexMut<Index> for Table {
 pub struct CreationError;
 
 impl CreationError {
-    fn error_code(&self) -> i16 {
+    fn error_code() -> i16 {
         -256
     }
 }
@@ -82,7 +82,6 @@ impl Table {
     #[cfg(test)]
     fn clone_c_table() -> Self {
         use ffi::{st_hash, symtab};
-        use std::mem::transmute;
         let mut hash = [0; HASH_RAW_SIZE];
         hash.copy_from_slice(unsafe {
             std::slice::from_raw_parts(st_hash.as_ptr(), HASH_RAW_SIZE)
@@ -95,7 +94,7 @@ impl Table {
                     usage: x.usage,
                     //TODO Yes this is pointer copying.
                     //Fix this at some point
-                    data: unsafe { transmute(x.data) },
+                    data: x.data.cast(),
                     varnam: x.varnam,
                 }
             })
@@ -211,11 +210,6 @@ impl Iterator for LineIterator<'_> {
 }
 
 #[no_mangle]
-pub extern "C" fn TMP_Hash(var: super::c_code::var_u) -> i16 {
-    hash(var)
-}
-
-#[no_mangle]
 pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) -> i16 {
     Index::to_raw(table.locate(var))
 }
@@ -224,7 +218,7 @@ pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) ->
 pub extern "C" fn TMP_Create(var: super::c_code::var_u, table: &mut table_struct) -> i16 {
     match table.create(var) {
         Ok(index) => Index::to_raw(Some(index)),
-        Err(err) => err.error_code(),
+        Err(_err) => CreationError::error_code(),
     }
 }
 
@@ -314,8 +308,7 @@ mod tests {
 
     #[test]
     fn error_code() {
-        let err = CreationError;
-        assert_eq!(err.error_code(), -256);
+        assert_eq!(CreationError::error_code(), -256);
     }
 
     #[test]
@@ -323,7 +316,7 @@ mod tests {
         use ffi::VAR_U;
         let mut table = Table::new();
         let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
-        let vars: [VAR_U; 3] = vars.map(|x| var_u(x));
+        let vars: [VAR_U; 3] = vars.map(var_u);
         for var in vars {
             //These should all hash to the same value
             assert_eq!(super::hash(var), 10);
@@ -348,7 +341,7 @@ mod tests {
                 .map(char::from)
                 .collect::<String>()
         })
-        .filter(move |var| super::hash(var_u(&var)) == hash)
+        .filter(move |var| super::hash(var_u(var)) == hash)
     }
 
     #[test]
