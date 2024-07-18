@@ -2,7 +2,8 @@
   The goal of this project is for me (Jacob Riesen) to practice and try out programming techniques on a non-trivial code base.
   The non-trivial code base I chose is the [[https://gitlab.com/Reference-Standard-M/rsm][Reference Standard M]] implementation maintained by David Wicksell.
 ** Why RSM? 
-   I have always found language design interesting and when I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+   I have always found language design interesting. 
+   When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
    I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
    Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
    On a whim I started trying to convert some of the code to rust, and after a while the project became the main code base I would use to try stuff out.
@@ -15,40 +16,41 @@
    - Exposing an Unsafe API to the C code.
    - Exposing a Safe API to the C code
 *** Safe API considerations
-   Most of the other crates use the unsafe API currently, but I would like to move twoards only exposing a safe API.
+   Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
 **** Concurrency considerations
      The original RSM code was a single threaded/multi process application. 
-     Because of this there are many references to global variables without any sort of synchronization control. (If there is only one thread there is no reason to invoke the over head of a Mutex)
-
-     Additionally C uses a shared memory segment to manage cross process communication.
+     Because of this there are many references to global variables without any sort of synchronization control.
+     (If there is only one thread there is no reason to invoke the over head of a Mutex)
 
      Rust by default runs all of its unit test in parallel (multi-threaded) so care has to be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
 
+     Additionally C uses a shared memory segment to manage cross process communication.
+
 **** Type considerations
-     There are of course all the normal C vs rust type considerations.
+     There are of course all the normal C vs Rust type considerations.
 
      However in addition to that the C code makes heavy use of un-sized types and quasi self references types.
 
-****** Unsized types
-     One fairly common un-sized type used in the C code is the CSTRING.
+****** Dynamically sized types
+     One fairly common dynamically sized type used in the C code is the CSTRING.
      The Strut definition claims to hold a [u_char;65535] however in practice that is only the max size for this type.
      If the string is smaller then 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
 
-     Rust does have a way of creating un-sized types, but I have not explored that yet.
+     Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
 ****** Quisi Self References 
        Self references in Rust are hard since unless you use the Pin type, rust assumes that everything can be moved.
        Fortunately the C types are only kind of self referential.
        They frequently assume that type A will be immediately followed by type B.
-       So we end up with the logical composite type AB, witch is impotent for understanding the C code.
-       Fortunately this is mostly just a logical construction, and as long as you are aware that this is happening it is fairly easy to spot in the C code, and deal with in the rust rewrite.
+       So we end up with the logical composite type AB, which is impotent for understanding the C code.
+       Fortunately this is mostly just a logical construction, and as long as you are aware that this is happening it is fairly easy to spot in the C code, and deal with in the Rust rewrite.
 
 ** [[./tree-sitter-M][tree-sitter-m]]
    For this project I have chosen to use a [[https://tree-sitter.github.io/tree-sitter/][tree-sitter]] parser.
-   - Use JavaScript to specify the Grammar.
-   - Use an External Scanner to deal with indentation.
-   - Run the tree-sitter cli
-     This generates
+   - Uses JavaScript to specify the Grammar.
+   - Uses an External Scanner to deal with indentation.
+   - Runs the tree-sitter cli
+   - Generates
      - A C library that contains the parser
      - A Rust crate that wraps that C library.
      - A [[./tree-sitter-M/src/node-types.json][node-types.json]] file that describes the Grammars structure.
@@ -60,33 +62,51 @@
 
    This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here. As such there are still a number lingering artifacts, type defs/impls that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
 
-   Additionally I did not yet underhand how the Shared memory segment worked when writing most of this crate. So most of it just pretends that the global in the shared memory segment don't exist.
+   Additionally I did not yet understand how the shared memory segment worked when writing most of this crate.
+   So most of it just pretends that the global in the shared memory segment don't exist.
 ** [[./interpreter/][Interpreter]]
    This create is going to store the actual interpreter binary.
-   This rewrite effort has largely been a breath first search starting main method in the original C code.
    Currently the crate is responsible for 
    - creating a database file
    - setting up the shared memory segment
    - symbol table
 
-     In the future I will probably end up splitting out the Shared memory segment out into its own crate. The compiler will eventually need access to the shared memory segment. 
+     In the future I will probably end up splitting out the shared memory segment out into its own crate.
+     The compiler will eventually need access to the shared memory segment. 
 
 ** [[./lang-server][Language Server]]
-   This is a langage server for M.
+   This is a language server for M.
    This was a spur of the moment weekend project, and more or less only gives you some basic syntax highlighting/error detection.
    I think there are a lot of neat things you could do with a language server, but I will need a better grip on how the interpreter as a whole works before I can do any of them safely.
 
    Future feature idea
    - Find all assumed variables and indirection calls.
-     One of the biggest roadblocks as I see it to refactoring in M is the dynamic scoping of variables.
-     Dynamic Scoping makes it vary difficult to locally reason about renaming variables.
+     One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
+     Dynamic scoping makes it vary difficult to locally reason about renaming variables.
      To do most forms of static analyzes I will need a framework for tracking both of these.
    - Renaming Variables
    - Find all references
-   - lint for unused and assumed variables
+   - Lint for unused and assumed variables
    - Extract Method 
    - Introduce package scoping
 * Techniques/Concepts 
+** Mutation testing
+*** Concept Overview:
+
+   Mutation testing is a technique to check how well a test suite defines the behavior of codebase.
+   This is accomplished by introducing mutations.
+   If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.[fn::It is possible for a mutation to not change systems behavior, but I think this should be fairly rare.]
+   The main downside to mutation testing is that it takes time to run. 
+   For each mutation we may have to run the entire test suite. 
+
+*** How it is used in this project
+    I am currently trying out [[https://mutants.rs/][cargo-mutants]], and plan to run it whenever I have compleated a large chunk of code/feature.
+    Using the --file flag allows me to restrict where the mutations are being generated which significantly speeds up testing. 
+
+
+*** General thoughts on the Mutation Testing
+    Mutation testing is a low effort way of increasing my confidence in my test suite.
+    The first time I ran it I ended up finding a bug in my test code that would have been impossible to detect using traditional unit testing.
 ** Foreign Function Interface 
    Since I don't want to convert the entirety of this project at once.
    I need a way for my Rust code to call C and for C to call Rust.
@@ -141,14 +161,3 @@
    Going forward I want A/B test to primarily be used as a check of my test writing ability. 
 
 
-** Mutation testing
-   The idea of mutation testing is to check how well your tests specify the behavior of the program.
-   This is accomplished by repeatedly 
-   - introducing a mutation (change to the source code)
-   - running the unit tests
-   - logging if all the tests pass (unit tests failed to detect the mutation)
-
-   The main downside of mutation testing is it takes a while to compile all of the mutants.
-   It takes over an hour to run cargo mutants on this project. cargo mutants is significantly faster if you limit what files it should try mutating, but the order of magnitude is still minutes.
-
-   I am currently trying out [[https://mutants.rs/][cargo-mutants]] and it immediately helped identified a bug in my unit tests.
