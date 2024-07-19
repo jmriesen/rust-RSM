@@ -190,6 +190,46 @@ impl ST_DATA {
             current.set_value(data.content());
         }
     }
+
+    fn kill(&mut self, key: &[u8]) {
+        if key.is_empty() {
+            //Drop all nodes
+            for field in DependIterMut::new(self) {
+                if !field.is_null() {
+                    let ptr = *field;
+                    let _ = unsafe { Box::from_raw(ptr) };
+                }
+                *field = null_mut();
+            }
+
+            //Clear values
+            self.last_key = null_mut();
+            self.deplnk = null_mut();
+            self.dbc = VAR_UNDEFINED as u16;
+        } else {
+            //while key>current advance
+            //Check that key is a prefix of current
+            //While prefix matches remove notes.
+            todo!();
+            /*
+                        let key_value = |x: &*mut ST_DEPEND| -> Option<&[u8]> {
+                            let next = *x;
+                            unsafe { next.as_ref() }.map(ST_DEPEND::key)
+                        };
+                        //Ok I need to find the first-last key match.
+                        //Remove the key matches.
+                        let previous = DependIterMut::new(self).find(|x| match key_value(x) {
+                            Some(x) => x >= key,
+                            None => false,
+                        });
+                        //let part_of_index = |*|
+
+                        if let Some(mut previous) = previous {
+                            while previous !=null_mut() && key_value(previous) < Some()
+                        }
+            */
+        }
+    }
 }
 
 impl Table {
@@ -216,16 +256,38 @@ impl Table {
         data.set_value(var.key(), value);
         Ok(())
     }
+
+    fn kill(&mut self, var: &MVAR) {
+        use std::ptr::from_mut;
+        if let Some(index) = self.locate(var.name) {
+            if let Some(data) = unsafe { self[index].data.as_mut() } {
+                data.kill(var.key());
+
+                //Drop Data block if no longer used
+                if data.deplnk == null_mut() && data.attach <= 1 && data.dbc == VAR_UNDEFINED as u16
+                {
+                    self[index].data = null_mut();
+                    let _ = unsafe { Box::from_raw(from_mut(data)) };
+                }
+            }
+            //clean up hash table entry.
+            if self[index].data == null_mut() && self[index].usage == 0 {
+                self.free(var.name);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
 
+    use std::ptr::from_mut;
+
     use pretty_assertions::assert_eq;
 
     use crate::key::{CArrayString, List};
 
-    use super::c_code::{Table, MVAR, VAR_U};
+    use super::c_code::{TMP_Kill, Table, MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
     }
@@ -258,6 +320,10 @@ pub mod tests {
         }
         fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
             self.get(var).ok_or(-6)
+        }
+        fn c_kill(&mut self, var: &mut MVAR) {
+            //unsafe { TMP_Kill(from_mut(var), from_mut(self)) };
+            self.kill(var);
         }
     }
 
@@ -366,5 +432,45 @@ pub mod tests {
         for (mut var, value) in test_data {
             assert_eq!(Ok(*value), table.c_get(&mut var));
         }
+    }
+
+    #[test]
+    fn kill_uninitialized_var() {
+        let mut table = Table::new();
+        //These should be noops.
+        table.c_kill(&mut var_m("foo", &[]));
+        table.c_kill(&mut var_m("foo", &["arg"]));
+    }
+
+    #[test]
+    fn kill_initialized_root() {
+        let mut table = Table::new();
+        let mut var = var_m("foo", &[]);
+        let var_i = var_m("foo", &["i"]);
+        let var_ii = var_m("foo", &["i", "ii"]);
+        let data: CArrayString = "data".into();
+        table.set(&var, &data).unwrap();
+        table.set(&var_i, &data).unwrap();
+        table.set(&var_ii, &data).unwrap();
+        table.c_kill(&mut var);
+        assert_eq!(table.get(&var), None);
+        assert_eq!(table.get(&var_i), None);
+        assert_eq!(table.get(&var_i), None);
+    }
+
+    #[test]
+    fn kill_initialized_index() {
+        let mut table = Table::new();
+        let var = var_m("foo", &[]);
+        let mut var_i = var_m("foo", &["i"]);
+        let var_ii = var_m("foo", &["i", "ii"]);
+        let data: CArrayString = "data".into();
+        table.set(&var, &data).unwrap();
+        table.set(&var_i, &data).unwrap();
+        table.set(&var_ii, &data).unwrap();
+        table.c_kill(&mut var_i);
+        assert_eq!(table.get(&var), Some(data));
+        assert_eq!(table.get(&var_i), None);
+        assert_eq!(table.get(&var_i), None);
     }
 }
