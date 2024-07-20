@@ -157,34 +157,6 @@ impl<'a> Cursor<'a> {
     }
 }
 
-//Iterator over REVERENCES TO THE NEXT POINTERS (Not an iterator over ST_DEPEND)
-struct DependIterMut<'a> {
-    current: Option<&'a mut *mut ST_DEPEND>,
-}
-
-impl<'a> Iterator for DependIterMut<'a> {
-    type Item = &'a mut *mut ST_DEPEND;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(current) = self.current.take() {
-            let ptr_to_next_node = *current;
-            let next_node = unsafe { ptr_to_next_node.as_mut() };
-            self.current = next_node.map(|x| &mut x.deplnk);
-            Some(current)
-        } else {
-            None
-        }
-    }
-}
-
-impl<'a> DependIterMut<'a> {
-    fn new(data: &'a mut ST_DATA) -> Self {
-        Self {
-            current: Some(&mut data.deplnk),
-        }
-    }
-}
-
 impl ST_DATA {
     fn root_value(&self) -> Option<&[u8]> {
         if self.dbc == VAR_UNDEFINED as u16 {
@@ -234,10 +206,10 @@ impl ST_DATA {
     }
 
     fn kill(&mut self, key: &[u8]) {
+        let mut cursor = Cursor {
+            current: &mut self.deplnk,
+        };
         if key.is_empty() {
-            let mut cursor = Cursor {
-                current: &mut self.deplnk,
-            };
             while !cursor.at_list_end() {
                 cursor.remove()
             }
@@ -246,27 +218,19 @@ impl ST_DATA {
             self.last_key = null_mut();
             self.dbc = VAR_UNDEFINED as u16;
         } else {
-            //while key>current advance
-            //Check that key is a prefix of current
-            //While prefix matches remove notes.
-            todo!();
-            /*
-                        let key_value = |x: &*mut ST_DEPEND| -> Option<&[u8]> {
-                            let next = *x;
-                            unsafe { next.as_ref() }.map(ST_DEPEND::key)
-                        };
-                        //Ok I need to find the first-last key match.
-                        //Remove the key matches.
-                        let previous = DependIterMut::new(self).find(|x| match key_value(x) {
-                            Some(x) => x >= key,
-                            None => false,
-                        });
-                        //let part_of_index = |*|
-
-                        if let Some(mut previous) = previous {
-                            while previous !=null_mut() && key_value(previous) < Some()
-                        }
-            */
+            //advance before the index
+            while let Some(x) = cursor.key()
+                && x < key
+            {
+                cursor.advance();
+            }
+            //Remove all entries prefixed with the killed key
+            while let Some(x) = cursor.key()
+                && x[..key.len()] == *key
+            {
+                //NOTE if we ever start using last key wee need up update it hear.
+                cursor.remove()
+            }
         }
     }
 }
@@ -320,13 +284,11 @@ impl Table {
 #[cfg(test)]
 pub mod tests {
 
-    use std::ptr::from_mut;
-
     use pretty_assertions::assert_eq;
 
     use crate::key::{CArrayString, List};
 
-    use super::c_code::{TMP_Kill, Table, MVAR, VAR_U};
+    use super::c_code::{Table, MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
     }
