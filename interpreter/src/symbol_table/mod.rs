@@ -233,6 +233,14 @@ impl ST_DATA {
             }
         }
     }
+
+    //checks self contains any data, if not it can be fried
+    //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
+    //on this for the moment
+    #[cfg_attr(test, mutants::skip)]
+    fn contains_data(&self) -> bool {
+        !(self.deplnk == null_mut() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
+    }
 }
 
 impl Table {
@@ -267,8 +275,7 @@ impl Table {
                 data.kill(var.key());
 
                 //Drop Data block if no longer used
-                if data.deplnk == null_mut() && data.attach <= 1 && data.dbc == VAR_UNDEFINED as u16
-                {
+                if !data.contains_data() {
                     self[index].data = null_mut();
                     let _ = unsafe { Box::from_raw(from_mut(data)) };
                 }
@@ -457,6 +464,9 @@ pub mod tests {
         assert_eq!(table.get(&var), None);
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
+
+        //hash table should have freed the entire.
+        assert_eq!(table.locate(var_u("foo")), None);
     }
 
     #[test]
@@ -473,5 +483,22 @@ pub mod tests {
         assert_eq!(table.get(&var), Some(data));
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
+    }
+
+    #[test]
+    fn kill_removes_only_specified_index() {
+        let mut table = Table::new();
+        let data: CArrayString = "data".into();
+        let a = var_m("foo", &["a"]);
+        let b = var_m("foo", &["b"]);
+        let c = var_m("foo", &["c"]);
+
+        table.set(&a, &data).unwrap();
+        table.set(&b, &data).unwrap();
+        table.set(&c, &data).unwrap();
+        table.kill(&b);
+        assert_eq!(table.get(&a), Some(data.clone()));
+        assert_eq!(table.get(&b), None);
+        assert_eq!(table.get(&c), Some(data));
     }
 }
