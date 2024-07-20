@@ -98,6 +98,65 @@ impl<'a> DependIter<'a> {
     }
 }
 
+struct Cursor<'a> {
+    //Stores the reference to the current node of the linked list.
+    current: &'a mut *mut ST_DEPEND,
+}
+
+impl<'a> Cursor<'a> {
+    fn advance(&mut self) {
+        let ptr = *self.current;
+        if let Some(current_node) = unsafe { ptr.as_mut() } {
+            self.current = &mut current_node.deplnk;
+        } else {
+            //Do nothing (stay at the end of the list)
+        }
+    }
+
+    //consider replacing with some sort of get
+    fn key(&self) -> Option<&[u8]> {
+        let current = unsafe { (*self.current).as_ref() }?;
+        Some(current.key())
+    }
+
+    //consider replacing with some sort of get_mut
+    fn set_value(&mut self, data: &CArrayString) -> Result<(), &'static str> {
+        let current = unsafe { (*self.current).as_mut() }.ok_or("Set non existent node")?;
+        current.set_value(data.content());
+        Ok(())
+    }
+
+    //inserts at the current position.
+    //So if we have ABC current is at B and we insert N
+    //the resulting structure is ANBC
+    fn insert(&mut self, key: &[u8]) {
+        let next = *self.current;
+        let mut new_node = Box::new(ST_DEPEND::new(key));
+        new_node.deplnk = next;
+        *self.current = Box::into_raw(new_node);
+    }
+
+    //removes the current node
+    fn remove(&mut self) {
+        if *self.current != null_mut() {
+            let next = unsafe { (*self.current).as_ref() }
+                .expect("null check was already preformed")
+                .deplnk;
+            //un-link the node
+            let tmp = *self.current;
+            *self.current = next;
+            //convert node back into a box so it can be dropped.
+            let _ = unsafe { Box::from_raw(tmp) };
+        } else {
+            //do nothing if at the end of the list.
+        }
+    }
+
+    fn at_list_end(&self) -> bool {
+        self.key().is_none()
+    }
+}
+
 //Iterator over REVERENCES TO THE NEXT POINTERS (Not an iterator over ST_DEPEND)
 struct DependIterMut<'a> {
     current: Option<&'a mut *mut ST_DEPEND>,
@@ -154,57 +213,37 @@ impl ST_DATA {
     }
 
     fn set_value(&mut self, key: &[u8], data: &CArrayString) {
-        //Get the key value stored in the pointed to ST_DEPEND
-        let key_value = |x: &*mut ST_DEPEND| -> Option<&[u8]> {
-            let next = *x;
-            unsafe { next.as_ref() }.map(ST_DEPEND::key)
-        };
-
         if key.is_empty() {
             self.set_root(data);
         } else {
-            // advance until just before where the key's entire should be.
-            let ref_to_next_ptr = DependIterMut::new(self)
-                .find(|x| {
-                    //if there is is a next key compare.
-                    if let Some(next) = key_value(x) {
-                        next >= key
-                    } else {
-                        //don't go past the end of the list
-                        true
-                    }
-                })
-                .expect(
-                    "There will always be a next node since we only skip if the next key exists",
-                );
-            //Add a new node if it is needed
-            if key_value(ref_to_next_ptr) != Some(key) {
-                let mut new_node = Box::new(ST_DEPEND::new(key));
-                new_node.deplnk = *ref_to_next_ptr;
-                *ref_to_next_ptr = Box::into_raw(new_node);
+            let mut cursor = Cursor {
+                current: &mut self.deplnk,
+            };
+            while let Some(x) = cursor.key()
+                && x < key
+            {
+                cursor.advance();
             }
-
-            let current = *ref_to_next_ptr;
-            let current =
-                unsafe { current.as_mut() }.expect("A next node exists or we just inserted one");
-            current.set_value(data.content());
+            if Some(key) != cursor.key() {
+                cursor.insert(key);
+            }
+            cursor
+                .set_value(data)
+                .expect("either found key or just inserted key");
         }
     }
 
     fn kill(&mut self, key: &[u8]) {
         if key.is_empty() {
-            //Drop all nodes
-            for field in DependIterMut::new(self) {
-                if !field.is_null() {
-                    let ptr = *field;
-                    let _ = unsafe { Box::from_raw(ptr) };
-                }
-                *field = null_mut();
+            let mut cursor = Cursor {
+                current: &mut self.deplnk,
+            };
+            while !cursor.at_list_end() {
+                cursor.remove()
             }
 
             //Clear values
             self.last_key = null_mut();
-            self.deplnk = null_mut();
             self.dbc = VAR_UNDEFINED as u16;
         } else {
             //while key>current advance
