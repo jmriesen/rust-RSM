@@ -320,36 +320,21 @@ pub mod tests {
         }
     }
 
-    ///Temporary shim layer for calling the C code.
-    impl Table {
-        fn c_set(&mut self, var: &mut MVAR, data: &mut CArrayString) {
-            self.set(var, data).unwrap();
-            //unsafe { TMP_Set(from_mut(var), from_mut(data.as_mut()), from_mut(self)) };
-        }
-        fn c_get(&mut self, var: &mut MVAR) -> Result<CArrayString, i32> {
-            self.get(var).ok_or(-6)
-        }
-        fn c_kill(&mut self, var: &mut MVAR) {
-            //unsafe { TMP_Kill(from_mut(var), from_mut(self)) };
-            self.kill(var);
-        }
-    }
-
     #[test]
     fn get_unset_variable() {
-        let mut table = Table::new();
-        let mut m_var = var_m("foo", &[]);
-        assert_eq!(Err(-6), table.c_get(&mut m_var));
+        let table = Table::new();
+        let m_var = var_m("foo", &[]);
+        assert_eq!(table.get(&m_var), None);
     }
     #[test]
     fn get_unset_key() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
         let mut data: CArrayString = "Data".into();
-        table.c_set(&mut m_var, &mut data);
+        table.set(&mut m_var, &mut data).unwrap();
 
         let mut m_var = var_m("foo", &["bar"]);
-        assert_eq!(Err(-6), table.c_get(&mut m_var));
+        assert_eq!(table.get(&mut m_var), None);
     }
 
     #[test]
@@ -358,8 +343,8 @@ pub mod tests {
         let mut m_var = var_m("foo", &[]);
         let mut data: CArrayString = "Data".into();
 
-        table.c_set(&mut m_var, &mut data);
-        assert_eq!(Ok(data), table.c_get(&mut m_var));
+        table.set(&mut m_var, &mut data).unwrap();
+        assert_eq!(table.get(&mut m_var), Some(data));
     }
 
     #[test]
@@ -367,8 +352,8 @@ pub mod tests {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &["keys"]);
         let mut data: CArrayString = "Data".into();
-        table.c_set(&mut m_var, &mut data);
-        assert_eq!(Ok(data), table.c_get(&mut m_var));
+        table.set(&mut m_var, &mut data).unwrap();
+        assert_eq!(Some(data), table.get(&mut m_var));
     }
 
     #[test]
@@ -380,18 +365,18 @@ pub mod tests {
         {
             let mut table = Table::new();
 
-            table.c_set(&mut root, &mut root_data);
-            table.c_set(&mut with_key, &mut key_data);
-            assert_eq!(Ok(root_data.clone()), table.c_get(&mut root));
-            assert_eq!(Ok(key_data.clone()), table.c_get(&mut with_key));
+            table.set(&mut root, &mut root_data).unwrap();
+            table.set(&mut with_key, &mut key_data).unwrap();
+            assert_eq!(Some(root_data.clone()), table.get(&mut root));
+            assert_eq!(Some(key_data.clone()), table.get(&mut with_key));
         }
         {
             let mut table = Table::new();
 
-            table.c_set(&mut with_key, &mut key_data);
-            table.c_set(&mut root, &mut root_data);
-            assert_eq!(Ok(root_data.clone()), table.c_get(&mut root));
-            assert_eq!(Ok(key_data.clone()), table.c_get(&mut with_key));
+            table.set(&mut with_key, &mut key_data).unwrap();
+            table.set(&mut root, &mut root_data).unwrap();
+            assert_eq!(Some(root_data.clone()), table.get(&mut root));
+            assert_eq!(Some(key_data.clone()), table.get(&mut with_key));
         }
     }
 
@@ -401,8 +386,8 @@ pub mod tests {
         let mut m_var = var_m("foo", &[]);
         let mut data: CArrayString = "".into();
 
-        table.c_set(&mut m_var, &mut data);
-        assert_eq!(Ok(data), table.c_get(&mut m_var));
+        table.set(&mut m_var, &mut data).unwrap();
+        assert_eq!(Some(data), table.get(&mut m_var));
     }
 
     #[test]
@@ -412,11 +397,11 @@ pub mod tests {
         let mut initial_value: CArrayString = "inital".into();
         let mut end_value: CArrayString = "end".into();
 
-        table.c_set(&mut m_var, &mut initial_value);
-        assert_eq!(Ok(initial_value), table.c_get(&mut m_var));
+        table.set(&mut m_var, &mut initial_value).unwrap();
+        assert_eq!(Some(initial_value), table.get(&mut m_var));
 
-        table.c_set(&mut m_var, &mut end_value);
-        assert_eq!(Ok(end_value), table.c_get(&mut m_var));
+        table.set(&mut m_var, &mut end_value).unwrap();
+        assert_eq!(Some(end_value), table.get(&mut m_var));
     }
     #[test]
     fn do_a_bunch_of_sets() {
@@ -434,11 +419,11 @@ pub mod tests {
 
         let mut table = Table::new();
         for (var, value) in &mut test_data {
-            table.c_set(var, value);
+            table.set(var, value).unwrap();
         }
 
         for (mut var, value) in test_data {
-            assert_eq!(Ok(*value), table.c_get(&mut var));
+            assert_eq!(Some(*value), table.get(&mut var));
         }
     }
 
@@ -446,8 +431,8 @@ pub mod tests {
     fn kill_uninitialized_var() {
         let mut table = Table::new();
         //These should be noops.
-        table.c_kill(&mut var_m("foo", &[]));
-        table.c_kill(&mut var_m("foo", &["arg"]));
+        table.kill(&mut var_m("foo", &[]));
+        table.kill(&mut var_m("foo", &["arg"]));
     }
 
     #[test]
@@ -460,7 +445,7 @@ pub mod tests {
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
-        table.c_kill(&mut var);
+        table.kill(&mut var);
         assert_eq!(table.get(&var), None);
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
@@ -479,7 +464,7 @@ pub mod tests {
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
-        table.c_kill(&mut var_i);
+        table.kill(&mut var_i);
         assert_eq!(table.get(&var), Some(data));
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
