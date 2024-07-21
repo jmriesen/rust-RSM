@@ -138,7 +138,9 @@ impl<'a> Cursor<'a> {
 
     //removes the current node
     fn remove(&mut self) {
-        if *self.current != null_mut() {
+        if self.current.is_null() {
+            //do nothing if at the end of the list.
+        } else {
             let next = unsafe { (*self.current).as_ref() }
                 .expect("null check was already preformed")
                 .deplnk;
@@ -147,8 +149,6 @@ impl<'a> Cursor<'a> {
             *self.current = next;
             //convert node back into a box so it can be dropped.
             let _ = unsafe { Box::from_raw(tmp) };
-        } else {
-            //do nothing if at the end of the list.
         }
     }
 
@@ -211,7 +211,7 @@ impl ST_DATA {
         };
         if key.is_empty() {
             while !cursor.at_list_end() {
-                cursor.remove()
+                cursor.remove();
             }
 
             //Clear values
@@ -229,7 +229,7 @@ impl ST_DATA {
                 && x[..key.len()] == *key
             {
                 //NOTE if we ever start using last key wee need up update it hear.
-                cursor.remove()
+                cursor.remove();
             }
         }
     }
@@ -239,7 +239,7 @@ impl ST_DATA {
     //on this for the moment
     #[cfg_attr(test, mutants::skip)]
     fn contains_data(&self) -> bool {
-        !(self.deplnk == null_mut() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
+        !(self.deplnk.is_null() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
     }
 }
 
@@ -281,7 +281,7 @@ impl Table {
                 }
             }
             //clean up hash table entry.
-            if self[index].data == null_mut() && self[index].usage == 0 {
+            if self[index].data.is_null() && self[index].usage == 0 {
                 self.free(var.name);
             }
         }
