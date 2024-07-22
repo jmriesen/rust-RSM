@@ -20,7 +20,7 @@ pub mod create;
 pub mod run;
 mod shared_seg;
 pub mod start;
-mod symbol_table;
+pub mod symbol_table;
 pub mod units;
 pub mod util;
 pub mod var_u;

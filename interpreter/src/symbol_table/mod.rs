@@ -11,19 +11,21 @@ mod c_code {
     //Generated code violates a lot of formatting stuff conventions.
     //Pointless to warn about all of them
     #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
+
     pub use ffi::{CSTRING, VAR_U};
     use std::sync::Mutex;
     pub static lock: Mutex<()> = Mutex::new(());
     include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
 }
 
+pub use c_code::{Table, MVAR};
 //TODO remove and replace with derive once type move over to Rust
 mod hash;
 mod manual;
 
 use std::{env::vars, ptr::null_mut};
 
-use c_code::{Table, MVAR, ST_DATA, ST_DEPEND, VAR_UNDEFINED};
+use c_code::{ST_DATA, ST_DEPEND, VAR_UNDEFINED};
 use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
 
 use crate::key::CArrayString;
@@ -245,13 +247,13 @@ impl ST_DATA {
 }
 
 impl Table {
-    fn get(&self, var: &MVAR) -> Option<CArrayString> {
+    pub fn get(&self, var: &MVAR) -> Option<CArrayString> {
         self.locate(var.name)
             .and_then(|index| unsafe { self[index].data.as_ref() })
             .and_then(|data| data.value(var.key()))
     }
 
-    fn set(&mut self, var: &MVAR, value: &CArrayString) -> Result<(), ()> {
+    pub fn set(&mut self, var: &MVAR, value: &CArrayString) -> Result<(), ()> {
         let index = self.create(var.name).map_err(|_| ())?;
 
         if unsafe { self[index].data.as_mut() }.is_none() {
@@ -269,7 +271,7 @@ impl Table {
         Ok(())
     }
 
-    fn kill(&mut self, var: &MVAR) {
+    pub fn kill(&mut self, var: &MVAR) {
         use std::ptr::from_mut;
         if let Some(index) = self.locate(var.name) {
             if let Some(data) = unsafe { self[index].data.as_mut() } {
@@ -323,23 +325,17 @@ impl Table {
     }
 }
 
-#[cfg(test)]
-pub mod tests {
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod helpers {
+    use arbitrary::Arbitrary;
 
-    use ffi::UCI_IS_LOCALVAR;
-    use pretty_assertions::assert_eq;
+    use crate::key::List;
 
-    use crate::{
-        key::{CArrayString, List},
-        var_u,
-    };
-
-    use super::c_code::{Table, MVAR, VAR_U};
+    use super::c_code::{MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
     }
 
-    //TODO clean this up at some point
     pub fn var_m(name: &str, keys: &[&str]) -> MVAR {
         let mut key_buff = List::new();
         for key in keys {
@@ -359,6 +355,25 @@ pub mod tests {
         }
     }
 
+    impl<'a> Arbitrary<'a> for MVAR {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let name = u.arbitrary()?;
+            let index: Vec<_> = u.arbitrary()?;
+            Ok(var_m(name, &index))
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+
+    pub use super::helpers::{var_m, var_u};
+    use ffi::UCI_IS_LOCALVAR;
+    use pretty_assertions::assert_eq;
+
+    use crate::key::CArrayString;
+
+    use super::c_code::Table;
     #[test]
     fn get_unset_variable() {
         let table = Table::new();

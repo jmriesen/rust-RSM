@@ -163,11 +163,23 @@ pub enum Error {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod a_b_testing {
+    use crate::CSTRING;
     use std::ptr::{from_mut, from_ref};
 
     use ffi::{UTIL_Key_Build, UTIL_Key_Extract, ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN};
 
     use super::{CArrayString, Error, List};
+
+    impl From<&str> for CArrayString {
+        fn from(value: &str) -> Self {
+            let mut buffer = [0; MAX_STR_LEN as usize + 1];
+            buffer[..value.len()].copy_from_slice(value.as_bytes());
+            CArrayString(CSTRING {
+                len: value.len().try_into().unwrap(),
+                buf: buffer,
+            })
+        }
+    }
 
     //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(string: &CArrayString) {
@@ -240,17 +252,6 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-
-    impl From<&str> for CArrayString {
-        fn from(value: &str) -> Self {
-            let mut buffer = [0; MAX_STR_LEN as usize + 1];
-            buffer[..value.len()].copy_from_slice(value.as_bytes());
-            CArrayString(CSTRING {
-                len: value.len().try_into().unwrap(),
-                buf: buffer,
-            })
-        }
-    }
 
     #[rstest]
     #[case("")]
