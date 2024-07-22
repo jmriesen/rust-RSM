@@ -90,7 +90,40 @@
    - Extract Method 
    - Introduce package scoping
 * Techniques/Concepts 
+** Unit testing
+    The more unit tests I the more useful I realize unit tests are, and the less they seem to be about double checking my work.
+
+*** Concept overview 
+    The name unit test does surprisingly little to actually define what they are and why they are useful.
+    What is a unit? A class, A function, a module, an executable, an expression? And what are we testing, correctness, expected behavior, legacy behavior, performance, the happy path, the unhappy path? 
+    Unit testing tests can be used to test any of the above, but that does not really tell you what unit tests are.
+
+    Unit tests are code fragments that describes how a "unit" of code is invoked and what behavior is expected from that "unit".
+
+    I think unit test should be.
+    - Descriptive.
+      Well written unit test should be able to serve as documentation.
+    - Small.
+      If you need more then 20 lines of code to write a unit test you are probably violating the single responsibility heuristic. 
+    - Simple.
+      It should take less the 2 minutes for someone to look at a unit test, understand what it is verifying and why that is correct.
+    - Fast and deterministic. 
+      Unit test should be run frequently.
+      At least once every half an hour, often much more frequently.  
+
+    When I was first introduced to unit testing in collage, it was primarily presented as a afterthought, a way to verity your code was correct before turning in the assignment.
+    However waiting to write/run unit test until after the code is already in a finished state robes unit tests of most of there utility.
+
+    As I see it there are two main benefits to writing unit test before writing your code.
+   - First if it allows you to imagine how your code will be called. 
+      If writing unit tests is hard or requites convoluted logic for some reason, it is going to be hard and convoluted to write the application code relies on this unit of code.
+   - Second Once code behavior has been pined down with unit test you can fearlessly refactor without worrying about breaking changes.
+      Frequency it is only after my first draft solution that I truly understand the problem I am trying to solve.
+      Therefore I will nearly always want to refactor my code at some point in the future.
+      With a robust set of unit tests this is a fairly painless simple process.
+      Without them I have to be hyper aware of every change I make, any change could introduce a bug.
 ** Mutation testing
+
 *** Concept Overview:
 
    Mutation testing is a technique to check how well a test suite defines the behavior of codebase.
@@ -100,56 +133,43 @@
    For each mutation we may have to run the entire test suite. 
 
 *** How it is used in this project
-    I am currently trying out [[https://mutants.rs/][cargo-mutants]], and plan to run it whenever I have compleated a large chunk of code/feature.
+    I am currently trying out [[https://mutants.rs/][cargo-mutants]], and plan to run it whenever I have completed a large chunk of code/feature.
     Using the --file flag allows me to restrict where the mutations are being generated which significantly speeds up testing. 
 
 
 *** General thoughts on the Mutation Testing
     Mutation testing is a low effort way of increasing my confidence in my test suite.
     The first time I ran it I ended up finding a bug in my test code that would have been impossible to detect using traditional unit testing.
-** Foreign Function Interface 
-   Since I don't want to convert the entirety of this project at once.
-   I need a way for my Rust code to call C and for C to call Rust.
-   Fortunately this is relatively easy in Rust due to the bindgen and cbindgen crates.
-   Those to crates provide the pluming necessary for my build script to create and read header files.
+** C Foreign Function Interface 
+***  Concept Overview
+    A foreign function is simply a function that was written in a different programming language.
+    In this case I am calling C code from Rust and vs versa.
+    Calling code that was written in a different, requires some extra care:
+    - parameters must match the target languages memory layout
+    - The C/Rust compilers don't understand the other language and therefor have to assume the foreign code could do anything.
 
-   The harder task with ffi is creating a safe abstraction around the C code.
-   All ffi calls are inherently Unsafe since the Rust compiler dose not preform static analyzes on the foreign code, and therefore can't grantee it is memory safe.
-   So the programmer is required to go though and insure guaranties rust expects are being upheld.
+*** How is it used for this project.
+    In this project Rust is responsible for matching the C ABI when cross language calls occurs.
+    The bindgen and cbindgen tools do most of the work automating generating type and function definitions.
+    However there are a few things project specific things that have to be kept in mind:
+    - Don't blindly trust the generated type definitions.
+      The C code uses dynamically sized types, however the header files/generated rust types assume these types occupy there max size.
+      CSTRING is the most comoly used example.
+    - Pay extra attention to pointers/ pointer arithmetic.
+      The C code sometimes allocates memory for multiple structs of different types at once.
+      Pointer arithmetic is then sometimes used to calculate where the struct are.
+      This is particularly prominent in the shared memory segment.
+      This can be problematic since Rust assumes every struct can be moved, however as long as you are aware of this issue it is fairly easy to work around.
+    - The C code assumes it is single threaded.
+      The C cade uses a lot of global variables, and since it assumes it is single threaded there are no synchronization guards in place. (Atomics, Mutexs ext)
+      However Rust unit tests are multi threaded by default.
+      This can easily lead to race condition during AB testing,  
+      Most AB tests must grabbing some sort of Mutex lock before calling into C code.[fn::how this is enforced is vary inconsistent at the moment. I would like to develop a more holistic approach to this issue] 
 
-   For this project specifically that mostly means 
-   - Be careful to adhere to the structure of the C structs,
-       For example types like CSTRING are un-sized type in the original C code, however rust strut definition that is generated is sized.
-   - Pay extra attention to pointers/ pointer arithmetic.
-       The C code sometimes allocates memory for multiple structs of different types at once.
-       This is particularly prominent in the shared memory segment.
-   - Single thread all the C code.
-       The C cade uses a lot of global variables, and since it assumes it is single threaded there are no syncronization guards in place. (Atomics, Mutexs ext)
-       However rust unit tests are multi threaded. This can easily lead to race condition during AB testing,  
-       Most of my code requires grabbing some sort of Mutex lock before calling into C code.[fn::how this is enforced is vary inconsistent at the moment. I would like to develop a more holistic approach to this issue] 
-
-
-** Goals of Testing
-   I see tests as having two main goals.
-*** Documenting how the code should behave.
-    Tests ideally should reflect the minimum use case for some unit of code.[fn::function, class, modal ext]
-    - how it is initialized
-    - how it is evoked
-    - what behavior to expect
-    This means that[fn::ideally] tests do not refer to private fields or methods.
-    If there is some behavior that is impotent for the calling code to know about, *but* the public API offer a way to observe that behavior, you may need to re think your design.
-
-*** Specifying the behavior of a system.
-    Before refactoring code you first need to understand what that code is doing.[fn::ideally you want to understand how and why as well but that is sometimes harder to figure out.]
-    Refactoring by definition means changing the structure of code *without changing its behavior*.
-    Can you refactor without tests?... Yes however it is a significantly more error prone and nerve racking process.
-
-*** Non-Goal Testing how code works.
-    Internal implementation details should not be directly tested.
-    If, the calling code needs to know *how* some *internal* implementation detail happened, then you are dealing with a bad abstraction. 
-    This is not the end of the world, but is definitely not a preferred state.
-
-
+*** General Thoughts on FFI
+    Some times you just need functionality that was written in a another programming language.
+    There are a lot of invariants that need to be upheld, but it is manageable with the code gen build tools.
+    It is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 ** A/B Testing
    Since this project is a rewrite, the original RSM implementation defines the expected behavior of the new code.
    If I find a bug in the original implementation I will replicate that bug's behavior until the it is fixed upstream.[fn::So far this has only happened once [[https://gitlab.com/Reference-Standard-M/rsm/-/issues/7]]]
@@ -160,4 +180,19 @@
 
    Going forward I want A/B test to primarily be used as a check of my test writing ability. 
 
+
+** A/B and Fuzz Testing
+   A/B and Fuzz Testing are two separate concepts however in this project I frequently use them together.
+*** Concept Overview 
+    The idea behind Fuzz testing we want to verify some invariant is upheld for all inputs.
+    So we plug in a bunch of random inputs until and verify that the invariant holds. 
+
+    A/B testing at its core simply testing the invariant that system A should behave the same as system B.
+*** Use in this project
+    A lot of my unit tests so far have been A/B tests. 
+    Since this is a rewrite it is fairly easy to create A/B tests however I would like to move away from using this as a primary means of testing.
+    The fact that I have the original copy of the code that I can A/B test against is fairly artificial, so I think I will learn by focusing on other forms of unit tests.
+
+    That being said I think A/B testing can be put to great use checking how well I converted/tested a module of code.
+    If bugs are slipping past my unit tests and only being caught once I add A/B tests, this is an indication that my unit test writing skills need additional work.
 
