@@ -21,9 +21,10 @@ mod c_code {
 mod hash;
 mod manual;
 
-use std::ptr::null_mut;
+use std::{env::vars, ptr::null_mut};
 
 use c_code::{Table, MVAR, ST_DATA, ST_DEPEND, VAR_UNDEFINED};
+use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
 
 use crate::key::CArrayString;
 type Tab = c_code::symtab_struct;
@@ -286,14 +287,52 @@ impl Table {
             }
         }
     }
+
+    //Yes this code is horribly inefficient.
+    //However eventually this will be replaced by a std collection method so it is not really worth
+    //optimizing right now.
+    //NOTE not yet mutation tested
+    fn keep(&mut self, vars: &[VAR_U], tab: &mut PARTAB) {
+        //NOTE I am not sure how src_var is used, but this was done in the C code.
+        tab.src_var = ffi::MVAR {
+            uci: UCI_IS_LOCALVAR as u8,
+            slen: 0,
+            volset: 0,
+            ..tab.src_var
+        };
+
+        let to_kill: Vec<_> = self
+            .sym_tab
+            .iter_mut()
+            .filter(|x| !x.data.is_null())
+            .map(|x| x.varnam)
+            //always keep $ vars
+            .filter(|x| unsafe { x.var_cu[0] } != b'$')
+            .filter(|x| unsafe { x.var_cu[0] } != b'\0')
+            .filter(|x| !vars.contains(&x))
+            .collect();
+        for var in to_kill {
+            self.kill(&MVAR {
+                name: var,
+                volset: 0,
+                uci: 0,
+                slen: 0,
+                key: [0; 256],
+            });
+        }
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
 
+    use ffi::UCI_IS_LOCALVAR;
     use pretty_assertions::assert_eq;
 
-    use crate::key::{CArrayString, List};
+    use crate::{
+        key::{CArrayString, List},
+        var_u,
+    };
 
     use super::c_code::{Table, MVAR, VAR_U};
     pub fn var_u(var: &str) -> VAR_U {
@@ -485,5 +524,30 @@ pub mod tests {
         assert_eq!(table.get(&a), Some(data.clone()));
         assert_eq!(table.get(&b), None);
         assert_eq!(table.get(&c), Some(data));
+    }
+
+    #[test]
+    fn keep_vars() {
+        let mut table = Table::new();
+        let data: CArrayString = "data".into();
+        let dolor = var_m("$dolor", &[]);
+        let normal = var_m("normal", &[]);
+        let retain_a = var_m("retain_a", &[]);
+        let retain_b = var_m("retain_b", &[]);
+        table.set(&dolor, &data).unwrap();
+        table.set(&normal, &data).unwrap();
+        table.set(&retain_a, &data).unwrap();
+        table.set(&retain_b, &data).unwrap();
+        let mut part_tab = Default::default();
+
+        table.keep(&[retain_a.name, retain_b.name], &mut part_tab);
+        assert_eq!(part_tab.src_var.uci, UCI_IS_LOCALVAR as u8);
+        assert_eq!(part_tab.src_var.slen, 0);
+        assert_eq!(part_tab.src_var.volset, 0);
+
+        assert_eq!(table.get(&normal), None);
+        for var in [dolor /* retain_a , retain_b*/].iter() {
+            assert_eq!(table.get(&var), Some(data.clone()))
+        }
     }
 }
