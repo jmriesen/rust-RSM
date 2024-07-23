@@ -1,11 +1,16 @@
 /*
- * Package: Reference Standard M
- * File:    rsm/init/util.c
- * Summary: module init - command line utilities
+ * Package: Rust Reference Standard M
  *
- * David Wicksell <dlw@linux.com>
- * Copyright © 2021-2024 Fourth Watch Software LC
+ * Jacob Riesen <jacobriesen@gmail.com>
+ * https://github.com/jmriesen/rust-RSM
+ *
+ * Based on Reference Standard M by David Wicksell
+ * Copyright © 2020-2024 Fourth Watch Software LC
  * https://gitlab.com/Reference-Standard-M/rsm
+ *
+ * Which was based on MUMPS V1 by Raymond Douglas Newman
+ * Copyright © 1999-2018
+ * https://gitlab.com/Reference-Standard-M/mumpsv1
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License (AGPL) as
@@ -20,9 +25,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see https://www.gnu.org/licenses/.
  *
- * SPDX-FileCopyrightText:  © 2021 David Wicksell <dlw@linux.com>
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 
 #include <stdio.h>                                                              // always include
 #include <stdlib.h>                                                             // these two
