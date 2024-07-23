@@ -130,7 +130,7 @@ fn main() {
         .write_to_file(out_path.join("opcodes.rs"))
         .expect("Couldn't write bindings!");
 
-    //the C needs to link to these libraries.
+     //the C needs to link to these libraries.
     if cfg!(target_os = "linux") {
         //TODO based on the make file the crypt lib will probably be needed at some point.
         //However it builds/the tests run right now so I am delaying figuring out why this option
