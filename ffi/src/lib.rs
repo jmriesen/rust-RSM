@@ -115,6 +115,7 @@ pub fn shared_memory_key(file_path: &Path, system: i32) -> i32 {
 }
 
 pub fn shared_memory_id(file_path: &Path, system: i32) -> Result<i32, i32> {
+    //TODO check that error handling is correct
     let temp = unsafe { libc::shmget(shared_memory_key(file_path, system), 0, 0) };
     if temp == -1 {
         Err(std::io::Error::last_os_error().raw_os_error().unwrap())
@@ -145,6 +146,8 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
 
 impl Drop for SharedSegmentGuard {
     fn drop(&mut self) {
+        //TODO clean this up an handle cross platform support better
+
         use std::mem::MaybeUninit;
         let mut sbuf = unsafe { MaybeUninit::zeroed().assume_init() };
         unsafe {
