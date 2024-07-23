@@ -75,7 +75,6 @@ fn main() {
         .flag("-fsigned-char")
         .warnings(true)
         .std("gnu99")
-        .compiler("/usr/bin/gcc")
         .compile("cCode");
 
     for file in c_src {
@@ -130,8 +129,16 @@ fn main() {
         .write_to_file(out_path.join("opcodes.rs"))
         .expect("Couldn't write bindings!");
 
-    //the C needs to link to these libraries.
-    println!("cargo:rustc-link-lib=framework=CoreServices");
-    println!("cargo:rustc-link-lib=framework=DirectoryService");
-    println!("cargo:rustc-link-lib=framework=Security");
+     //the C needs to link to these libraries.
+    if cfg!(target_os = "linux") {
+        //TODO based on the make file the crypt lib will probably be needed at some point.
+        //However it builds/the tests run right now so I am delaying figuring out why this option
+        //is preventing me form compiling.
+        //println!("cargo:rustc-link-lib=crypt");
+        println!("cargo:rustc-link-lib=m");
+    } else {
+        println!("cargo:rustc-link-lib=framework=CoreServices");
+        println!("cargo:rustc-link-lib=framework=DirectoryService");
+        println!("cargo:rustc-link-lib=framework=Security");
+    }
 }
