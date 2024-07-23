@@ -74,7 +74,6 @@ fn main() {
         .flag("-fsigned-char")
         .warnings(true)
         .std("gnu99")
-        .compiler("/usr/bin/gcc")
         .compile("symbol_table");
 
     for file in c_src {
