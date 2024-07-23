@@ -151,7 +151,7 @@ impl Drop for SharedSegmentGuard {
             shm_cpid: 0,
             shm_ctime: 0,
             shm_dtime: 0,
-            #[cfg(target_os = "linux")]
+            #[cfg(not(target_os = "linux"))]
             shm_internal: std::ptr::null_mut(),
             shm_lpid: 0,
             shm_nattch: 0,
