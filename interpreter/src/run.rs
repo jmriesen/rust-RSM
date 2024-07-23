@@ -205,18 +205,20 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
             jobtab.start_len = unsafe { Vhorolog(jobtab.start_dh.as_ptr().cast_mut()) };
             jobtab.dostk[0].type_ = TYPE_RUN as u8;
         }
-        let mut tty_settings = libc::termios {
-            //These values will be overridden as soon as we call tcgetattr
-            c_iflag: 0,
-            c_oflag: 0,
-            c_cflag: 0,
-            c_lflag: 0,
-            c_cc: [0; 20],
-            c_ispeed: 0,
-            c_ospeed: 0,
-        };
+        /*
+                let mut tty_settings = libc::termios {
+                    //These values will be overridden as soon as we call tcgetattr
+                    c_iflag: 0,
+                    c_oflag: 0,
+                    c_cflag: 0,
+                    c_lflag: 0,
+                    c_cc: [0; 20],
+                    c_ispeed: 0,
+                    c_ospeed: 0,
+                };
 
-        let _failed_tty = unsafe { libc::tcgetattr(0, &mut tty_settings) };
+                let _failed_tty = unsafe { libc::tcgetattr(0, &mut tty_settings) };
+        */
         //unsafe {i = SQ_Init();}
         let index = unsafe { partab.jobtab.offset_from((*systab).jobtab) } as usize;
         unsafe { *systab }.last_blk_used[index] = 0;
@@ -239,7 +241,7 @@ fn clean_old_job(pid: i32) {
         if (ret != pid) && ret != 0 {
             if unsafe { libc::kill(ret, 0) } != 0 {
                 //TODO I do not know if this is correct.
-                if unsafe { *libc::__error() } == libc::ESRCH {
+                if std::io::Error::last_os_error().raw_os_error().unwrap() == libc::ESRCH {
                     unsafe { CleanJob(i as i32 + 1) };
                     break;
                 }

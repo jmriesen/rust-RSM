@@ -147,6 +147,7 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
 impl Drop for SharedSegmentGuard {
     fn drop(&mut self) {
         //TODO clean this up an handle cross platform support better
+
         use std::mem::MaybeUninit;
         let mut sbuf = unsafe { MaybeUninit::zeroed().assume_init() };
         unsafe {

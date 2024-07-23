@@ -215,7 +215,8 @@ impl SystemTab {
 }
 
 fn is_alive(pid: i32) -> bool {
-    !(unsafe { libc::kill(pid, 0) } != 0 && unsafe { *libc::__error() } == libc::ESRCH)
+    !(unsafe { libc::kill(pid, 0) } != 0
+        && std::io::Error::last_os_error().raw_os_error().unwrap() == libc::ESRCH)
 }
 
 impl Display for SystemTab {

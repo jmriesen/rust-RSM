@@ -144,6 +144,7 @@ impl FileConfig {
         )?;
 
         file.seek(Start(0))?;
+        let zero: libc::c_char = 0;
         let label = label_block {
             magic: RSM_MAGIC,
             max_block: self.number_of_blocks,
@@ -153,7 +154,7 @@ impl FileConfig {
             creation_time: unsafe { current_time(TRUE as i16) as u64 },
             db_ver: DB_VER as u16,
             journal_available: 0,
-            journal_file: [0_i8; 227],
+            journal_file: [zero; 227],
             journal_requested: 0,
             uci: {
                 let mut uci = [UCI_TAB {

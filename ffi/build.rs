@@ -88,6 +88,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate bindings for.
         // note order matters so I cant just pull all .h files from that folder.
+        .clang_arg("-funsigned-char")
         .header("sys/types.h")
         .header("C/include/rsm.h")
         .header("C/include/compile.h")
