@@ -145,25 +145,34 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
 
 impl Drop for SharedSegmentGuard {
     fn drop(&mut self) {
+        //TODO clean this up an handle cross platform support better
         let mut sbuf = libc::shmid_ds {
             shm_atime: 0,
             shm_cpid: 0,
             shm_ctime: 0,
             shm_dtime: 0,
+            #[cfg(target_os = "linux")]
             shm_internal: std::ptr::null_mut(),
             shm_lpid: 0,
             shm_nattch: 0,
             shm_perm: libc::ipc_perm {
+                #[cfg(target_os = "linux")]
+                __key: 0,
+                #[cfg(not(target_os = "linux"))]
                 _key: 0,
                 uid: 0,
                 gid: 0,
                 cuid: 0,
                 cgid: 0,
                 mode: 0,
+                #[cfg(target_os = "linux")]
+                __seq: 0,
+                #[cfg(not(target_os = "linux"))]
                 _seq: 0,
             },
             shm_segsz: 0,
         };
+
         unsafe {
             //signal that the shared mem segment should be destroyed.
             libc::shmctl(dbg!(self.0), libc::IPC_RMID, &mut sbuf);
