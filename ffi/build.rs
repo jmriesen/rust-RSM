@@ -135,7 +135,7 @@ fn main() {
         //TODO based on the make file the crypt lib will probably be needed at some point.
         //However it builds/the tests run right now so I am delaying figuring out why this option
         //is preventing me form compiling.
-        //println!("cargo:rustc-link-lib=crypt");
+        println!("cargo:rustc-link-lib=crypt");
         println!("cargo:rustc-link-lib=m");
     } else {
         println!("cargo:rustc-link-lib=framework=CoreServices");
