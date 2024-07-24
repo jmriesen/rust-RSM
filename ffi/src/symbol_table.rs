@@ -32,7 +32,7 @@ use std::{
     sync::{LockResult, Mutex, MutexGuard},
 };
 
-use crate::{ST_Get, ST_Init, ST_Kill, ST_Set, CSTRING, MVAR};
+use crate::{ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, CSTRING, MVAR, VAR_U};
 
 ///controls access to table globals
 static TABLE_MUTEX: Mutex<()> = Mutex::new(());
@@ -69,5 +69,12 @@ impl Table {
     }
     pub fn kill(&self, var: &MVAR) {
         unsafe { ST_Kill(from_ref(var).cast_mut()) };
+    }
+}
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        let mut array = [];
+        unsafe { ST_KillAll(array.len() as i32, array.as_mut_ptr()) };
     }
 }

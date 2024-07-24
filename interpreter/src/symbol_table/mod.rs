@@ -45,6 +45,19 @@ mod c_code {
     use std::sync::Mutex;
     pub static lock: Mutex<()> = Mutex::new(());
     include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
+
+    impl std::fmt::Debug for MVAR {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            //TODO implement a more complete implementation.
+            //Currently this is just enough to start fuzz testing.
+            let name = String::from_utf8(self.name.as_array().into()).unwrap();
+
+            let key =
+                String::from_utf8(crate::key::List::from_raw(&self.key).string_key()).unwrap();
+            let mut builder = f.debug_struct("MVar");
+            builder.field("name", &name).field("key", &key).finish()
+        }
+    }
 }
 
 pub use c_code::{Table, MVAR};
@@ -354,8 +367,16 @@ impl Table {
     }
 }
 
+impl Drop for Table {
+    fn drop(&mut self) {
+        self.keep(&[], &mut Default::default());
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
+    use std::ascii::AsciiExt;
+
     use arbitrary::Arbitrary;
 
     use crate::key::List;
@@ -386,9 +407,18 @@ pub mod helpers {
 
     impl<'a> Arbitrary<'a> for MVAR {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name = u.arbitrary()?;
-            let index: Vec<_> = u.arbitrary()?;
-            Ok(var_m(name, &index))
+            let name: [u8; 32] = u.arbitrary()?;
+            if name.is_ascii() && name.contains(&0) {
+                Ok(MVAR {
+                    name: VAR_U { var_cu: name },
+                    volset: 0,
+                    uci: 0,
+                    slen: 0,
+                    key: [0; 256],
+                })
+            } else {
+                Err(arbitrary::Error::IncorrectFormat)
+            }
         }
     }
 }

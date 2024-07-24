@@ -8,3 +8,4 @@ members=[
 	"interpreter",
 	"interpreter/fuzz",
 	"ffi"]
+

@@ -28,6 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![allow(dead_code)]
+use std::usize;
+
 use arbitrary::Arbitrary;
 use derive_more::{AsMut, AsRef};
 use ffi::CSTRING;
@@ -88,10 +90,13 @@ impl PartialEq for CArrayString {
 
 impl<'a> Arbitrary<'a> for CArrayString {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self(CSTRING {
-            len: u16::arbitrary(u)?,
-            buf: Arbitrary::arbitrary(u)?,
-        }))
+        let buf: [u8; 65535] = Arbitrary::arbitrary(u)?;
+        let len = u16::arbitrary(u)?;
+        if buf[0..len as usize].contains(&0) {
+            Err(arbitrary::Error::IncorrectFormat)
+        } else {
+            Ok(Self(CSTRING { len, buf }))
+        }
     }
 }
 
@@ -106,6 +111,11 @@ impl List {
         Self(vec![0])
     }
 
+    pub fn from_raw(raw_key: &[u8]) -> Self {
+        let len = raw_key[0] as usize + 1;
+        Self(raw_key[0..len].into())
+    }
+
     fn extend(&mut self, iter: impl std::iter::Iterator<Item = CArrayString>) -> Result<(), Error> {
         for key in iter {
             self.push(&key)?;
@@ -113,7 +123,7 @@ impl List {
         Ok(())
     }
 
-    fn string_key(&self) -> Vec<u8> {
+    pub fn string_key(&self) -> Vec<u8> {
         let mut out_put = vec![b'('];
         let mut keys = self
             .iter()
