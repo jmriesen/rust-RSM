@@ -54,8 +54,8 @@ pub mod units;
 pub mod util;
 pub mod var_u;
 pub use bindings::*;
-
 #[cfg(test)]
 pub mod test_helper;
+pub mod value;
 
 pub mod key;

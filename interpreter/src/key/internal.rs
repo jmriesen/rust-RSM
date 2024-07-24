@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::key::Ref;
+use crate::{key::Ref, value::Value};
 use ffi::MAX_SUB_LEN;
 
 /// Keys are stored in a special format to facilitate sorting.
@@ -46,7 +46,7 @@ static INT_ZERO_POINT: u8 = 0b100_0000;
 /// any number that takes more integer digits will be stored as a string.
 pub static MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
-use super::{CArrayString, Error, Iter, List};
+use super::{Error, Iter, List};
 
 /// represents a key parsed out into its individual parts.
 pub enum ParsedKey<'a> {
@@ -67,7 +67,7 @@ pub enum ParsedKey<'a> {
 }
 
 impl<'a> ParsedKey<'a> {
-    pub fn new(src: &'a CArrayString) -> Result<Self, Error> {
+    pub fn new(src: &'a Value) -> Result<Self, Error> {
         let contents = src.content();
         if contents.len() > MAX_SUB_LEN as usize {
             //TODO consider reevaluating where this should be enforced.
@@ -210,7 +210,7 @@ impl<'a> ParsedKey<'a> {
 }
 
 impl List {
-    pub fn push(&mut self, src: &CArrayString) -> Result<(), Error> {
+    pub fn push(&mut self, src: &Value) -> Result<(), Error> {
         let internal_key = ParsedKey::new(src)?;
         let end_mark = match internal_key {
             ParsedKey::Null => {

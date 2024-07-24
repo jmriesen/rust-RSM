@@ -32,7 +32,11 @@ use std::{
     sync::{LockResult, Mutex, MutexGuard},
 };
 
-use crate::{ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, CSTRING, MVAR, VAR_U};
+use libc::pthread_mutexattr_getpshared;
+
+use crate::{
+    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
+};
 
 ///controls access to table globals
 static TABLE_MUTEX: Mutex<()> = Mutex::new(());
@@ -76,5 +80,17 @@ impl Drop for Table {
     fn drop(&mut self) {
         let mut array = [];
         unsafe { ST_KillAll(array.len() as i32, array.as_mut_ptr()) };
+    }
+}
+
+pub fn build_key(key: &CSTRING) -> Result<Vec<u8>, i16> {
+    let mut buffer = [0; MAX_STR_LEN as usize + 1];
+    let len = unsafe { UTIL_Key_Build(from_ref(key).cast_mut(), buffer.as_mut_ptr()) };
+    if len >= 0 {
+        let mut vec = vec![len as u8];
+        vec.extend(&buffer[..len as usize]);
+        Ok(vec)
+    } else {
+        Err(len)
     }
 }

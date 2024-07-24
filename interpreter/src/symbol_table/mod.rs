@@ -70,7 +70,8 @@ use std::{env::vars, ptr::null_mut};
 use c_code::{ST_DATA, ST_DEPEND, VAR_UNDEFINED};
 use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
 
-use crate::key::CArrayString;
+use crate::value::Value;
+
 type Tab = c_code::symtab_struct;
 
 impl MVAR {
@@ -86,14 +87,15 @@ impl ST_DEPEND {
         &self.bytes[..self.keylen as usize]
     }
 
-    fn value(&self) -> &[u8] {
+    fn value(&self) -> Value {
         //data is stored as [(key:array),(possible padding)(value:CSTRING),(extra space)]
         //TODO move a way from this data layout
         //I don't like that we are relying on the specific data layout/padding details.
         let len_start = self.keylen.next_multiple_of(2) as usize;
         let len_end = len_start + size_of::<u16>();
         let len = u16::from_ne_bytes(self.bytes[len_start..len_end].try_into().unwrap());
-        &self.bytes[len_end..len_end + len as usize]
+        Value::try_from(&self.bytes[len_end..len_end + len as usize])
+            .expect("this buffer is dedicated to this")
     }
 
     fn set_value(&mut self, value: &[u8]) {
@@ -165,7 +167,7 @@ impl<'a> Cursor<'a> {
     }
 
     //consider replacing with some sort of get_mut
-    fn set_value(&mut self, data: &CArrayString) -> Result<(), &'static str> {
+    fn set_value(&mut self, data: &Value) -> Result<(), &'static str> {
         let current = unsafe { (*self.current).as_mut() }.ok_or("Set non existent node")?;
         current.set_value(data.content());
         Ok(())
@@ -203,21 +205,25 @@ impl<'a> Cursor<'a> {
 }
 
 impl ST_DATA {
-    fn root_value(&self) -> Option<&[u8]> {
+    fn root_value(&self) -> Option<Value> {
         if self.dbc == VAR_UNDEFINED as u16 {
             None
         } else {
-            Some(&self.data[..self.dbc as usize])
+            let buff = &self.data[..self.dbc as usize];
+            Some(
+                Value::try_from(buff)
+                    .expect("TODO this should be removed when the ST_Data strcut is redefined"),
+            )
         }
     }
 
-    fn set_root(&mut self, data: &CArrayString) {
+    fn set_root(&mut self, data: &Value) {
         let content = data.content();
         self.dbc = content.len() as u16;
         self.data[..content.len()].copy_from_slice(content);
     }
 
-    fn value(&self, key: &[u8]) -> Option<CArrayString> {
+    fn value(&self, key: &[u8]) -> Option<Value> {
         if key.is_empty() {
             self.root_value()
         } else {
@@ -226,10 +232,9 @@ impl ST_DATA {
             //I may try and add it with inner mutability in the future
             DependIter::new(self).find_key(key).map(ST_DEPEND::value)
         }
-        .map(|x| x.try_into().unwrap())
     }
 
-    fn set_value(&mut self, key: &[u8], data: &CArrayString) {
+    fn set_value(&mut self, key: &[u8], data: &Value) {
         if key.is_empty() {
             self.set_root(data);
         } else {
@@ -289,13 +294,13 @@ impl ST_DATA {
 }
 
 impl Table {
-    pub fn get(&self, var: &MVAR) -> Option<CArrayString> {
+    pub fn get(&self, var: &MVAR) -> Option<Value> {
         self.locate(var.name)
             .and_then(|index| unsafe { self[index].data.as_ref() })
             .and_then(|data| data.value(var.key()))
     }
 
-    pub fn set(&mut self, var: &MVAR, value: &CArrayString) -> Result<(), ()> {
+    pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
         let index = self.create(var.name).map_err(|_| ())?;
 
         if unsafe { self[index].data.as_mut() }.is_none() {
@@ -389,7 +394,7 @@ pub mod helpers {
     pub fn var_m(name: &str, keys: &[&str]) -> MVAR {
         let mut key_buff = List::new();
         for key in keys {
-            key_buff.push(&((*key).into())).unwrap();
+            key_buff.push(&((*key).try_into().unwrap())).unwrap();
         }
 
         let mut key = [0; 256];
@@ -430,8 +435,6 @@ pub mod tests {
     use ffi::UCI_IS_LOCALVAR;
     use pretty_assertions::assert_eq;
 
-    use crate::key::CArrayString;
-
     use super::c_code::Table;
     #[test]
     fn get_unset_variable() {
@@ -443,7 +446,7 @@ pub mod tests {
     fn get_unset_key() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
-        let mut data: CArrayString = "Data".into();
+        let mut data = "Data".try_into().unwrap();
         table.set(&mut m_var, &mut data).unwrap();
 
         let mut m_var = var_m("foo", &["bar"]);
@@ -454,7 +457,7 @@ pub mod tests {
     fn set_root_value() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
-        let mut data: CArrayString = "Data".into();
+        let mut data = "Data".try_into().unwrap();
 
         table.set(&mut m_var, &mut data).unwrap();
         assert_eq!(table.get(&mut m_var), Some(data));
@@ -464,7 +467,7 @@ pub mod tests {
     fn set_index_value() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &["keys"]);
-        let mut data: CArrayString = "Data".into();
+        let mut data = "Data".try_into().unwrap();
         table.set(&mut m_var, &mut data).unwrap();
         assert_eq!(Some(data), table.get(&mut m_var));
     }
@@ -472,9 +475,9 @@ pub mod tests {
     #[test]
     fn set_root_then_index() {
         let mut root = var_m("foo", &[]);
-        let mut root_data: CArrayString = "root Data".into();
+        let mut root_data = "root Data".try_into().unwrap();
         let mut with_key = var_m("foo", &["keys"]);
-        let mut key_data: CArrayString = "key Data".into();
+        let mut key_data = "key Data".try_into().unwrap();
         {
             let mut table = Table::new();
 
@@ -497,7 +500,7 @@ pub mod tests {
     fn set_null_value() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
-        let mut data: CArrayString = "".into();
+        let mut data = "".try_into().unwrap();
 
         table.set(&mut m_var, &mut data).unwrap();
         assert_eq!(Some(data), table.get(&mut m_var));
@@ -507,8 +510,8 @@ pub mod tests {
     fn set_overrides_value() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
-        let mut initial_value: CArrayString = "inital".into();
-        let mut end_value: CArrayString = "end".into();
+        let mut initial_value = "inital".try_into().unwrap();
+        let mut end_value = "end".try_into().unwrap();
 
         table.set(&mut m_var, &mut initial_value).unwrap();
         assert_eq!(Some(initial_value), table.get(&mut m_var));
@@ -516,6 +519,7 @@ pub mod tests {
         table.set(&mut m_var, &mut end_value).unwrap();
         assert_eq!(Some(end_value), table.get(&mut m_var));
     }
+
     #[test]
     fn do_a_bunch_of_sets() {
         let test_data = [
@@ -527,8 +531,8 @@ pub mod tests {
             (vec!["SomeKey4"], "someKey4"),
             (vec!["lots", "of", "Keys", "even", "more"], "lots of keys"),
         ];
-        let mut test_data =
-            test_data.map(|(keys, value)| (var_m("foo", &keys), Box::new(value.into())));
+        let mut test_data = test_data
+            .map(|(keys, value)| (var_m("foo", &keys), Box::new(value.try_into().unwrap())));
 
         let mut table = Table::new();
         for (var, value) in &mut test_data {
@@ -554,7 +558,7 @@ pub mod tests {
         let mut var = var_m("foo", &[]);
         let var_i = var_m("foo", &["i"]);
         let var_ii = var_m("foo", &["i", "ii"]);
-        let data: CArrayString = "data".into();
+        let data = "data".try_into().unwrap();
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
@@ -573,7 +577,7 @@ pub mod tests {
         let var = var_m("foo", &[]);
         let mut var_i = var_m("foo", &["i"]);
         let var_ii = var_m("foo", &["i", "ii"]);
-        let data: CArrayString = "data".into();
+        let data = "data".try_into().unwrap();
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
@@ -586,7 +590,7 @@ pub mod tests {
     #[test]
     fn kill_removes_only_specified_index() {
         let mut table = Table::new();
-        let data: CArrayString = "data".into();
+        let data = "data".try_into().unwrap();
         let a = var_m("foo", &["a"]);
         let b = var_m("foo", &["b"]);
         let c = var_m("foo", &["c"]);
@@ -603,7 +607,7 @@ pub mod tests {
     #[test]
     fn keep_vars() {
         let mut table = Table::new();
-        let data: CArrayString = "data".into();
+        let data = "data".try_into().unwrap();
         let dolor = var_m("$dolor", &[]);
         let normal = var_m("normal", &[]);
         let retain_a = var_m("retain_a", &[]);
