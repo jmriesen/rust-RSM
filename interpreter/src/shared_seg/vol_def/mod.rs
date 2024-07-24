@@ -484,7 +484,11 @@ pub mod tests {
         let zeros = [0; VOL_FILENAME_MAX as usize + 1];
         let path = String::from("short_name");
         let name = format_file_name_helper(&path);
-        let mut path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        let mut path = path
+            .as_bytes()
+            .iter()
+            .map(|x| *x as libc::c_char)
+            .collect::<Vec<_>>();
         path.push(0);
         assert_eq!(&name[0..path.len()], &path[..]);
         assert_eq!(&name[path.len()..], &zeros[path.len()..]);
@@ -494,7 +498,11 @@ pub mod tests {
     fn name_exact_size() {
         let path: String = "a".repeat(VOL_FILENAME_MAX as usize);
         let name = format_file_name_helper(&path);
-        let mut path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        let mut path = path
+            .as_bytes()
+            .iter()
+            .map(|x| *x as libc::c_char)
+            .collect::<Vec<_>>();
         path.push(0);
         assert_eq!(&name[..], &path[..]);
     }
@@ -508,7 +516,11 @@ pub mod tests {
             .chain(once('c'))
             .collect();
         let name = format_file_name_helper(&path);
-        let mut path = path.as_bytes().iter().map(|x| *x as i8).collect::<Vec<_>>();
+        let mut path = path
+            .as_bytes()
+            .iter()
+            .map(|x| *x as libc::c_char)
+            .collect::<Vec<_>>();
         path.push(0);
         //If the name is to long we only store the end of it.
         assert_eq!(

@@ -68,7 +68,7 @@ short TMP_LocateIdx(int idx,table_struct * table)                               
  * When the data pointer changes, this fixes count pointers to it
  * Only called internally from this file
  */
-void FixData(const ST_data *old, ST_data *new, int count, table_struct * table)
+void TMP_Fix_Data(const ST_data *old, ST_data *new, int count, table_struct * table)
 {
     int       i;                                                                // for loops
     ST_newtab *newtab;                                                          // for NEW tables
@@ -604,7 +604,7 @@ short TMP_SymSet(short pos, cstring *data, table_struct * table)
         if (ptr == ST_DATA_NULL) return -(ERRZ56 + ERRMLAST);                   // no memory available
 
         if ((ptr != table->sym_tab[pos].data) && (ptr->attach > 1)) {                   // did it move and many attached?
-            FixData(table->sym_tab[pos].data, ptr, ptr->attach,table);                        // fix it
+            TMP_Fix_Data(table->sym_tab[pos].data, ptr, ptr->attach,table);                        // fix it
         } else {
             table->sym_tab[pos].data = ptr;                                             // or just do this one
         }

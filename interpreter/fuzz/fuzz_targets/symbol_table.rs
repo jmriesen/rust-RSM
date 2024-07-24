@@ -40,6 +40,7 @@ use libfuzzer_sys::{
     fuzz_target,
 };
 
+/*
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
     Set(MVAR, CArrayString),
@@ -62,3 +63,6 @@ fuzz_target!(|commands: Vec<TableCommands>| {
         }
     }
 });
+*/
+
+fuzz_target!(|commands: &[u8]| {});

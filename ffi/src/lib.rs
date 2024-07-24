@@ -115,9 +115,10 @@ pub fn shared_memory_key(file_path: &Path, system: i32) -> i32 {
 }
 
 pub fn shared_memory_id(file_path: &Path, system: i32) -> Result<i32, i32> {
+    //TODO check that error handling is correct
     let temp = unsafe { libc::shmget(shared_memory_key(file_path, system), 0, 0) };
     if temp == -1 {
-        Err(unsafe { *libc::__error() })
+        Err(std::io::Error::last_os_error().raw_os_error().unwrap())
     } else {
         Ok(temp)
     }
@@ -145,25 +146,10 @@ pub fn util_share(file_path: &Path) -> SharedSegmentGuard {
 
 impl Drop for SharedSegmentGuard {
     fn drop(&mut self) {
-        let mut sbuf = libc::shmid_ds {
-            shm_atime: 0,
-            shm_cpid: 0,
-            shm_ctime: 0,
-            shm_dtime: 0,
-            shm_internal: std::ptr::null_mut(),
-            shm_lpid: 0,
-            shm_nattch: 0,
-            shm_perm: libc::ipc_perm {
-                _key: 0,
-                uid: 0,
-                gid: 0,
-                cuid: 0,
-                cgid: 0,
-                mode: 0,
-                _seq: 0,
-            },
-            shm_segsz: 0,
-        };
+        //TODO clean this up an handle cross platform support better
+
+        use std::mem::MaybeUninit;
+        let mut sbuf = unsafe { MaybeUninit::zeroed().assume_init() };
         unsafe {
             //signal that the shared mem segment should be destroyed.
             libc::shmctl(dbg!(self.0), libc::IPC_RMID, &mut sbuf);
