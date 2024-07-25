@@ -35,8 +35,8 @@ use std::{
 use libc::pthread_mutexattr_getpshared;
 
 use crate::{
-    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract, CSTRING,
-    MAX_STR_LEN, MVAR, VAR_U,
+    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract,
+    UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
 };
 
 ///controls access to table globals
@@ -108,4 +108,14 @@ pub fn extract_key(key: &[u8]) -> Result<Vec<u8>, i16> {
     } else {
         Ok(Vec::from(&buf[..len as usize]))
     }
+}
+
+pub fn string_key(key: &[u8], max_subs: i32) -> Vec<u8> {
+    let mut buf = [0; 65535];
+    let len = unsafe { UTIL_String_Key(key.as_ptr().cast_mut(), buf.as_mut_ptr(), max_subs) };
+    Vec::from(
+        &buf[..len.try_into().expect(
+            "C code should always return a positive length and short should be less the usize",
+        )],
+    )
 }

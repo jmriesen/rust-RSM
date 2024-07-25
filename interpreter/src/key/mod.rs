@@ -30,7 +30,6 @@
 #![allow(dead_code)]
 use std::usize;
 
-
 mod internal;
 use internal::ParsedKey;
 
@@ -45,7 +44,8 @@ impl Key {
         Self(vec![0])
     }
 
-    #[must_use] pub fn from_raw(raw_key: &[u8]) -> Self {
+    #[must_use]
+    pub fn from_raw(raw_key: &[u8]) -> Self {
         let len = raw_key[0] as usize + 1;
         Self(raw_key[0..len].into())
     }
@@ -57,7 +57,8 @@ impl Key {
         Ok(())
     }
 
-    #[must_use] pub fn string_key(&self) -> Vec<u8> {
+    #[must_use]
+    pub fn string_key(&self) -> Vec<u8> {
         let mut out_put = vec![b'('];
         let mut keys = self
             .iter()
@@ -136,11 +137,12 @@ pub enum Error {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod a_b_testing {
+
     use crate::value::Value;
 
     use ffi::{
-        symbol_table::{build_key, extract_key},
-        ERRMLAST, ERRZ1, ERRZ5, MAX_STR_LEN,
+        symbol_table::{build_key, extract_key, string_key},
+        ERRMLAST, ERRZ1, ERRZ5,
     };
     use pretty_assertions::assert_eq;
 
@@ -165,30 +167,21 @@ pub mod a_b_testing {
         Ok(())
     }
 
-    pub fn string_key(keys: &[Value]) -> Result<(), Error> {
+    //TODO push key creation up to calling code.
+    pub fn string(keys: &[Value]) -> Result<(), Error> {
         let mut key_list = Key::new();
         key_list.extend(keys.iter().cloned())?;
-        let output = key_list.string_key();
-
-        let mut output_buffer = [0; MAX_STR_LEN as usize + 1];
-
-        //less then zero means there was a error building the key.
-        let len = unsafe {
-            ffi::UTIL_String_Key(
-                key_list.0.as_mut_ptr(),
-                output_buffer.as_mut_ptr(),
-                keys.len() as i32,
-            )
-        };
-
-        assert_eq!(&output, &output_buffer[..len as usize]);
+        assert_eq!(
+            key_list.string_key(),
+            string_key(&key_list.0[..], i32::max_value())
+        );
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use a_b_testing::string_key;
+    use a_b_testing::string;
     use ffi::MAX_SUB_LEN;
     use internal::MAX_INT_SEGMENT_SIZE;
     use rstest::rstest;
@@ -285,7 +278,7 @@ mod tests {
             .iter()
             .map(|x| (*x).try_into().unwrap())
             .collect::<Vec<_>>();
-        matches!(string_key(&keys), Ok(()));
+        matches!(string(&keys), Ok(()));
     }
 
     #[test]
