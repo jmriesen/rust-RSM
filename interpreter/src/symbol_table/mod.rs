@@ -52,8 +52,7 @@ mod c_code {
             //Currently this is just enough to start fuzz testing.
             let name = String::from_utf8(self.name.as_array().into()).unwrap();
 
-            let key =
-                String::from_utf8(crate::key::List::from_raw(&self.key).string_key()).unwrap();
+            let key = String::from_utf8(crate::key::Key::from_raw(&self.key).string_key()).unwrap();
             let mut builder = f.debug_struct("MVar");
             builder.field("name", &name).field("key", &key).finish()
         }
@@ -65,7 +64,7 @@ pub use c_code::{Table, MVAR};
 mod hash;
 mod manual;
 
-use std::{env::vars, ptr::null_mut};
+use std::ptr::null_mut;
 
 use c_code::{ST_DATA, ST_DEPEND, VAR_UNDEFINED};
 use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
@@ -294,6 +293,7 @@ impl ST_DATA {
 }
 
 impl Table {
+    #[must_use]
     pub fn get(&self, var: &MVAR) -> Option<Value> {
         self.locate(var.name)
             .and_then(|index| unsafe { self[index].data.as_ref() })
@@ -358,7 +358,7 @@ impl Table {
             //always keep $ vars
             .filter(|x| unsafe { x.var_cu[0] } != b'$')
             .filter(|x| unsafe { x.var_cu[0] } != b'\0')
-            .filter(|x| !vars.contains(&x))
+            .filter(|x| !vars.contains(x))
             .collect();
         for var in to_kill {
             self.kill(&MVAR {
@@ -384,15 +384,17 @@ pub mod helpers {
 
     use arbitrary::Arbitrary;
 
-    use crate::key::List;
+    use crate::key::Key;
 
     use super::c_code::{MVAR, VAR_U};
+    #[must_use]
     pub fn var_u(var: &str) -> VAR_U {
         var.try_into().unwrap()
     }
 
+    #[must_use]
     pub fn var_m(name: &str, keys: &[&str]) -> MVAR {
-        let mut key_buff = List::new();
+        let mut key_buff = Key::new();
         for key in keys {
             key_buff.push(&((*key).try_into().unwrap())).unwrap();
         }
@@ -624,8 +626,8 @@ pub mod tests {
         assert_eq!(part_tab.src_var.volset, 0);
 
         assert_eq!(table.get(&normal), None);
-        for var in [dolor /* retain_a , retain_b*/].iter() {
-            assert_eq!(table.get(&var), Some(data.clone()))
+        for var in &[dolor, retain_a, retain_b] {
+            assert_eq!(table.get(var), Some(data.clone()));
         }
     }
 }

@@ -46,7 +46,7 @@ static INT_ZERO_POINT: u8 = 0b100_0000;
 /// any number that takes more integer digits will be stored as a string.
 pub static MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
-use super::{Error, Iter, List};
+use super::{Error, Iter, Key};
 
 /// represents a key parsed out into its individual parts.
 pub enum ParsedKey<'a> {
@@ -209,7 +209,7 @@ impl<'a> ParsedKey<'a> {
     }
 }
 
-impl List {
+impl Key {
     pub fn push(&mut self, src: &Value) -> Result<(), Error> {
         let internal_key = ParsedKey::new(src)?;
         let end_mark = match internal_key {

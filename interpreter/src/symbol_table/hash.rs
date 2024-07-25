@@ -86,8 +86,14 @@ impl CreationError {
     }
 }
 
+impl Default for Table {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Table {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
         *hash.last_mut().unwrap() = 0;
         let var_name: VAR_U = "".try_into().expect("string literals should not fail");
@@ -176,7 +182,7 @@ impl Table {
         }
     }
 
-    pub fn locate(&self, var: VAR_U) -> Option<Index> {
+    #[must_use] pub fn locate(&self, var: VAR_U) -> Option<Index> {
         self.locate_helper(var).map(|(_, x)| x)
     }
 

@@ -49,7 +49,7 @@ impl Value {
         String::from_utf8(self.0)
     }
 
-    pub fn into_cstring(self) -> CSTRING {
+    #[must_use] pub fn into_cstring(self) -> CSTRING {
         let mut buf = [0; MAX_STR_LEN as usize + 1];
         buf[..self.0.len()].copy_from_slice(&self.0[..]);
         CSTRING {

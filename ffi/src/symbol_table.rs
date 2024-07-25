@@ -35,7 +35,8 @@ use std::{
 use libc::pthread_mutexattr_getpshared;
 
 use crate::{
-    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
+    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract, CSTRING,
+    MAX_STR_LEN, MVAR, VAR_U,
 };
 
 ///controls access to table globals
@@ -92,5 +93,19 @@ pub fn build_key(key: &CSTRING) -> Result<Vec<u8>, i16> {
         Ok(vec)
     } else {
         Err(len)
+    }
+}
+
+pub fn extract_key(key: &[u8]) -> Result<Vec<u8>, i16> {
+    let mut buf = [0; 65535];
+    //Note currently this does not care about the cnt value
+    //That value is used to figure out if string should be quoted AND who much of the slice was
+    //read
+    //TODO Actually use the cnt variable.
+    let len = unsafe { UTIL_Key_Extract(key.as_ptr().cast_mut(), buf.as_mut_ptr(), &mut 0) };
+    if len < 0 {
+        Err(len)
+    } else {
+        Ok(Vec::from(&buf[..len as usize]))
     }
 }
