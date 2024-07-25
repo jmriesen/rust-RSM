@@ -88,9 +88,7 @@ pub fn build_key(key: &CSTRING) -> Result<Vec<u8>, i16> {
     let mut buffer = [0; MAX_STR_LEN as usize + 1];
     let len = unsafe { UTIL_Key_Build(from_ref(key).cast_mut(), buffer.as_mut_ptr()) };
     if len >= 0 {
-        let mut vec = vec![len as u8];
-        vec.extend(&buffer[..len as usize]);
-        Ok(vec)
+        Ok(Vec::from(&buffer[..len as usize]))
     } else {
         Err(len)
     }
@@ -111,8 +109,12 @@ pub fn extract_key(key: &[u8]) -> Result<Vec<u8>, i16> {
 }
 
 pub fn string_key(key: &[u8], max_subs: i32) -> Vec<u8> {
+    //This function requires the key length and for some reason just wants it as the fist byte of
+    //the key array.
+    let mut formated_key = vec![key.len() as u8];
+    formated_key.extend(key);
     let mut buf = [0; 65535];
-    let len = unsafe { UTIL_String_Key(key.as_ptr().cast_mut(), buf.as_mut_ptr(), max_subs) };
+    let len = unsafe { UTIL_String_Key(formated_key.as_mut_ptr(), buf.as_mut_ptr(), max_subs) };
     Vec::from(
         &buf[..len.try_into().expect(
             "C code should always return a positive length and short should be less the usize",

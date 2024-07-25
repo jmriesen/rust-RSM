@@ -244,7 +244,6 @@ impl Key {
         //NOTE Negatives use 255 as an end mark for some reason.
         //at some point when I understand 9's complement better I should see if I can remove this
         self.0.push(end_mark.unwrap_or(b'\0'));
-        self.0[0] = self.0.len() as u8 - 1;
         Ok(())
     }
 }

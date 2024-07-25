@@ -36,12 +36,11 @@ use internal::ParsedKey;
 use crate::value::Value;
 
 /// Stores a list of keys.
-/// This is a work in progress
 pub struct Key(Vec<u8>);
 impl Key {
     #[must_use]
     pub fn new() -> Self {
-        Self(vec![0])
+        Self(vec![])
     }
 
     #[must_use]
@@ -81,18 +80,18 @@ impl Key {
 
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0[0] as usize
+        self.0.len()
     }
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.0.is_empty()
     }
 
     #[must_use]
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn raw_keys(&self) -> &[u8] {
-        &self.0[1..]
+        &self.0[..]
     }
 
     //Note I should probably remove this at some point.
@@ -104,7 +103,7 @@ impl Key {
 
     #[must_use]
     pub fn iter(&self) -> Iter {
-        Iter { tail: &self.0[1..] }
+        Iter { tail: &self.0[..] }
     }
 }
 
