@@ -36,24 +36,22 @@ use internal::ParsedKey;
 use crate::value::Value;
 
 /// Stores a list of keys.
+#[derive(Eq, PartialEq)]
 pub struct Key(Vec<u8>);
 impl Key {
     #[must_use]
-    pub fn new() -> Self {
-        Self(vec![])
+    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
+        let mut key = Self(Vec::new());
+        for value in values {
+            key.push(&value)?;
+        }
+        Ok(key)
     }
 
     #[must_use]
     pub fn from_raw(raw_key: &[u8]) -> Self {
         let len = raw_key[0] as usize + 1;
         Self(raw_key[0..len].into())
-    }
-
-    fn extend(&mut self, iter: impl std::iter::Iterator<Item = Value>) -> Result<(), Error> {
-        for key in iter {
-            self.push(&key)?;
-        }
-        Ok(())
     }
 
     #[must_use]
@@ -116,11 +114,6 @@ impl<'a> IntoIterator for &'a Key {
         self.iter()
     }
 }
-impl Default for Key {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 //represents one segment of a key
 //If we have the Mvar x("a","b")
@@ -138,6 +131,18 @@ pub enum Error {
     ContainsNull,
 }
 
+impl std::fmt::Debug for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("key");
+        let value = String::from_utf8(self.string_key());
+        match value {
+            Ok(string) => builder.field("utf8", &string),
+            Err(_) => builder.field("raw", &self.0),
+        };
+        builder.finish()
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod a_b_testing {
 
@@ -153,9 +158,8 @@ pub mod a_b_testing {
 
     //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(value: &Value) {
-        let mut keys = super::Key::new();
-        let result = keys.push(value);
-        let result = result.map(|()| keys.0).map_err(|x| match x {
+        let key = super::Key::new([value]);
+        let result = key.map(|x| x.0).map_err(|x| match x {
             Error::InputToLarge => -((ERRZ1 + ERRMLAST) as i16),
             Error::ContainsNull => -((ERRZ5 + ERRMLAST) as i16),
         });
@@ -164,16 +168,14 @@ pub mod a_b_testing {
 
     //TODO push key creation up to calling code.
     pub fn extract(string: &Value) -> Result<(), Error> {
-        let mut key = super::Key::new();
-        key.push(string)?;
+        let key = super::Key::new([string])?;
         assert_eq!(key.key_extract(false), extract_key(key.raw_keys()).unwrap());
         Ok(())
     }
 
     //TODO push key creation up to calling code.
     pub fn string(keys: &[Value]) -> Result<(), Error> {
-        let mut key_list = Key::new();
-        key_list.extend(keys.iter().cloned())?;
+        let key_list = Key::new(keys)?;
         assert_eq!(
             key_list.string_key(),
             string_key(&key_list.0[..], i32::max_value())
@@ -224,45 +226,40 @@ mod tests {
 
     #[test]
     fn max_key_size() {
-        let mut keys = Key::new();
-        let result = keys.push(
-            &"a".repeat(MAX_SUB_LEN as usize)
-                .as_str()
-                .try_into()
-                .unwrap(),
-        );
-        assert_eq!(result, Ok(()));
+        let result = Key::new([&"a"
+            .repeat(MAX_SUB_LEN as usize)
+            .as_str()
+            .try_into()
+            .unwrap()]);
+        assert!(result.is_ok());
     }
     #[test]
     fn key_that_is_to_large() {
-        let mut keys = Key::new();
-        let result = keys.push(
-            &"a".repeat(MAX_SUB_LEN as usize + 1)
-                .as_str()
-                .try_into()
-                .unwrap(),
-        );
+        let result = Key::new([&"a"
+            .repeat(MAX_SUB_LEN as usize + 1)
+            .as_str()
+            .try_into()
+            .unwrap()]);
         assert_eq!(result, Err(Error::InputToLarge));
     }
 
     #[test]
     fn error_if_string_contains_null() {
-        let mut keys = Key::new();
-        let result = keys.push(&"a\0b".try_into().unwrap());
+        let result = Key::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::ContainsNull));
     }
 
     #[test]
     fn build_key_int_to_large() {
-        let src = "1"
+        let key = Key::new([&"1"
             .repeat(MAX_INT_SEGMENT_SIZE + 1)
             .as_str()
             .try_into()
-            .unwrap();
-        let mut keys = Key::new();
-        keys.push(&src).unwrap();
+            .unwrap()])
+        .unwrap();
+        //TODO find a better way of testing this
         assert!(matches!(
-            ParsedKey::from_key_ref(Segment(keys.raw_keys())),
+            ParsedKey::from_key_ref(Segment(key.raw_keys())),
             ParsedKey::String(_)
         ));
     }
@@ -286,17 +283,9 @@ mod tests {
 
     #[test]
     fn key_cmp() -> Result<(), Error> {
-        //let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];
-        //let keys = ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.into());
-        let keys: [Value; 7] =
-            ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.try_into().unwrap());
+        let keys: [Key; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
+            .map(|x| Key::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
-            let mut list = Key::new();
-            list.push(a)?;
-            list.push(b)?;
-            let mut iter = list.iter();
-            let a = iter.next().unwrap();
-            let b = iter.next().unwrap();
             assert!(a < b);
         }
         Ok(())

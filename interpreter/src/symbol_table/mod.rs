@@ -380,11 +380,10 @@ impl Drop for Table {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
-    use std::ascii::AsciiExt;
 
     use arbitrary::Arbitrary;
 
-    use crate::key::Key;
+    use crate::{key::Key, value::Value};
 
     use super::c_code::{MVAR, VAR_U};
     #[must_use]
@@ -393,22 +392,23 @@ pub mod helpers {
     }
 
     #[must_use]
-    pub fn var_m(name: &str, keys: &[&str]) -> MVAR {
-        let mut key_buff = Key::new();
-        for key in keys {
-            key_buff.push(&((*key).try_into().unwrap())).unwrap();
-        }
+    pub fn var_m(name: &str, values: &[&str]) -> MVAR {
+        let values = values
+            .into_iter()
+            .map(|x| Value::try_from(*x).unwrap())
+            .collect::<Vec<_>>();
+        let key = Key::new(&values).unwrap();
 
-        let mut key = [0; 256];
-        let len = key_buff.len();
-        key[..key_buff.len()].copy_from_slice(key_buff.raw_keys());
+        let mut key_buff = [0; 256];
+        let len = key.len();
+        key_buff[..key.len()].copy_from_slice(key.raw_keys());
 
         MVAR {
             name: var_u(name),
             volset: Default::default(),
             uci: Default::default(),
             slen: len as u8,
-            key,
+            key: key_buff,
         }
     }
 

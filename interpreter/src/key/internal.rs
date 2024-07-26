@@ -284,22 +284,17 @@ impl<'a> std::iter::Iterator for Iter<'a> {
     }
 }
 
-impl<'a> Ord for Segment<'a> {
+impl Ord for Key {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        //dbg!(&self);
-        dbg!(&self.0);
-        // dbg!(&other);
-        dbg!(&other.0);
-        let len = self.0.len().min(other.0.len());
-
-        match self.0[..len].cmp(&other.0[..len]) {
+        let min_len = self.0.len().min(other.0.len());
+        match self.0[..min_len].cmp(&other.0[..min_len]) {
             //NOTE If the prefixes are the same the longer one comes first.
             std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()).reverse(),
             x => x,
         }
     }
 }
-impl<'a> PartialOrd for Segment<'a> {
+impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
