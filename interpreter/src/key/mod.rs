@@ -111,7 +111,7 @@ impl Key {
 #[allow(clippy::into_iter_without_iter)]
 impl<'a> IntoIterator for &'a Key {
     type IntoIter = Iter<'a>;
-    type Item = Ref<'a>;
+    type Item = Segment<'a>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -122,8 +122,12 @@ impl Default for Key {
     }
 }
 
+//represents one segment of a key
+//If we have the Mvar x("a","b")
+//"a" is one segment of the key ("a","b").
+//TODO consider making this private.
 #[derive(PartialEq, Eq, Copy, Clone)]
-pub struct Ref<'a>(&'a [u8]);
+pub struct Segment<'a>(&'a [u8]);
 pub struct Iter<'a> {
     tail: &'a [u8],
 }
@@ -258,7 +262,7 @@ mod tests {
         let mut keys = Key::new();
         keys.push(&src).unwrap();
         assert!(matches!(
-            ParsedKey::from_key_ref(Ref(keys.raw_keys())),
+            ParsedKey::from_key_ref(Segment(keys.raw_keys())),
             ParsedKey::String(_)
         ));
     }
@@ -282,12 +286,14 @@ mod tests {
 
     #[test]
     fn key_cmp() -> Result<(), Error> {
-        let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];
+        //let keys = ["", "-9.9", "-9.8", "-9", "0", "9", "9,8"];
         //let keys = ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.into());
+        let keys: [Value; 7] =
+            ["", "-9.9", "-9", "0", "9", "9.9", "string"].map(|x| x.try_into().unwrap());
         for [a, b] in keys.array_windows() {
             let mut list = Key::new();
-            list.push(&dbg!((*a).try_into().unwrap()))?;
-            list.push(&dbg!((*b).try_into().unwrap()))?;
+            list.push(a)?;
+            list.push(b)?;
             let mut iter = list.iter();
             let a = iter.next().unwrap();
             let b = iter.next().unwrap();

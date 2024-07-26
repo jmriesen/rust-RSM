@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::{key::Ref, value::Value};
+use crate::{key::Segment, value::Value};
 use ffi::MAX_SUB_LEN;
 
 /// Keys are stored in a special format to facilitate sorting.
@@ -120,11 +120,9 @@ impl<'a> ParsedKey<'a> {
         }
     }
 
-    // I don't really like returning the tail as part of the tuple
-    // but it will work for now.
-    pub fn from_key_ref(key: Ref<'a>) -> Self {
+    pub fn from_key_ref(key: Segment<'a>) -> Self {
         let flag = key.0[0];
-        let data = &key.0[1..];
+        let data = &key.0[1..key.0.len() - 1]; //don't include flag or end marker
         match flag {
             0 if data.is_empty() => Self::Null,
             x if x & STRING_FLAG != 0 => Self::String(data),
@@ -249,19 +247,14 @@ impl Key {
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {
-    type Item = Ref<'a>;
+    type Item = Segment<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.tail.first() {
+        let key_end_index = match self.tail.first() {
             //special handling for null.
             //since the flagged value == the end mark value
             //we need to manually split the string.
-            Some(b'\0') => {
-                // null internally stored as [b'\0',b'\0']
-                let (key, tail) = (&self.tail[..1], &self.tail[2..]);
-                self.tail = tail;
-                Some(Ref(key))
-            }
+            Some(b'\0') => Some(2),
             Some(x) => {
                 let end_mark = match *x {
                     x if x & STRING_FLAG != 0 => b'\0',
@@ -269,20 +262,34 @@ impl<'a> std::iter::Iterator for Iter<'a> {
                     //negative numbers
                     _ => 255,
                 };
-                let (key, tail) = self
+                let index = self
                     .tail
-                    .split_once(|x| *x == end_mark)
+                    .iter()
+                    .enumerate()
+                    //Find the index of the end mark
+                    .find_map(|(i, x)| (*x == end_mark).then_some(i))
                     .expect("all keys must contain an endmark");
-                self.tail = tail;
-                Some(Ref(key))
+                Some(index + 1)
             }
             None => None,
+        };
+
+        if let Some(key_end) = key_end_index {
+            let (key, tail) = self.tail.split_at(key_end);
+            self.tail = tail;
+            Some(Segment(&key[..key.len()]))
+        } else {
+            None
         }
     }
 }
 
-impl<'a> Ord for Ref<'a> {
+impl<'a> Ord for Segment<'a> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        //dbg!(&self);
+        dbg!(&self.0);
+        // dbg!(&other);
+        dbg!(&other.0);
         let len = self.0.len().min(other.0.len());
 
         match self.0[..len].cmp(&other.0[..len]) {
@@ -292,7 +299,7 @@ impl<'a> Ord for Ref<'a> {
         }
     }
 }
-impl<'a> PartialOrd for Ref<'a> {
+impl<'a> PartialOrd for Segment<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

@@ -509,6 +509,20 @@ pub mod tests {
     }
 
     #[test]
+    fn set_works_while_with_prefixs() {
+        let mut table = Table::new();
+        let mut prefix = var_m("foo", &["prefix"]);
+        let mut full = var_m("foo", &["prefixAndMore"]);
+        let mut prefix_data = "prefix".try_into().unwrap();
+        let mut full_data = "full".try_into().unwrap();
+
+        table.set(&mut prefix, &mut prefix_data).unwrap();
+        table.set(&mut full, &mut full_data).unwrap();
+        assert_eq!(Some(prefix_data), table.get(&mut prefix));
+        assert_eq!(Some(full_data), table.get(&mut full));
+    }
+
+    #[test]
     fn set_overrides_value() {
         let mut table = Table::new();
         let mut m_var = var_m("foo", &[]);
