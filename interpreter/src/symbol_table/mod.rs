@@ -41,10 +41,10 @@ mod c_code {
     //Pointless to warn about all of them
     #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
 
-    pub use ffi::{CSTRING, VAR_U};
-    use std::sync::Mutex;
+    pub use ffi::VAR_U;
+    use ffi::{u_char, u_short};
+    use std::{ffi::c_short, sync::Mutex};
     pub static lock: Mutex<()> = Mutex::new(());
-    include!(concat!(env!("OUT_DIR"), "/symbol_table_c.rs"));
 
     impl std::fmt::Debug for MVAR {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -57,6 +57,46 @@ mod c_code {
             builder.field("name", &name).field("key", &key).finish()
         }
     }
+    #[repr(C, packed)]
+    #[derive(Copy, Clone)]
+    pub struct MVAR {
+        pub name: VAR_U,
+        pub volset: u_char,
+        pub uci: u_char,
+        pub slen: u_char,
+        pub key: [u_char; 256usize],
+    }
+    pub const ST_HASH: u32 = 1023;
+    pub const ST_FREE: u32 = 1023;
+    pub const ST_MAX: u32 = 3072;
+
+    #[derive(Debug, Copy, Clone)]
+    pub struct ST_DATA {
+        pub deplnk: *mut ST_DEPEND,
+        pub last_key: *mut ST_DEPEND,
+        pub attach: ::std::os::raw::c_short,
+        pub dbc: u_short,
+        pub data: [u_char; 65535usize],
+    }
+
+    #[derive(Debug, Copy, Clone)]
+    pub struct ST_DEPEND {
+        pub deplnk: *mut ST_DEPEND,
+        pub keylen: u_char,
+        pub bytes: [u_char; 65794usize],
+    }
+    pub struct table_struct {
+        pub st_hash_temp: [i16; 1024],
+        pub sym_tab: [SYMTAB; 3073],
+    }
+    pub type Table = table_struct;
+    pub struct SYMTAB {
+        pub fwd_link: c_short,
+        pub usage: c_short,
+        pub data: *mut ST_DATA,
+        pub varnam: VAR_U,
+    }
+    pub type symtab_struct = SYMTAB;
 }
 
 pub use c_code::{Table, MVAR};
@@ -66,8 +106,8 @@ mod manual;
 
 use std::ptr::null_mut;
 
-use c_code::{ST_DATA, ST_DEPEND, VAR_UNDEFINED};
-use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
+use c_code::{ST_DATA, ST_DEPEND};
+use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U, VAR_UNDEFINED};
 
 use crate::value::Value;
 

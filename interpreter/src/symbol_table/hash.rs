@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use super::{c_code::table_struct, Tab, Table};
+use super::{Tab, Table};
 use ffi::VAR_U;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
@@ -93,7 +93,8 @@ impl Default for Table {
 }
 
 impl Table {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let mut hash = [-1; HASH_RAW_SIZE];
         *hash.last_mut().unwrap() = 0;
         let var_name: VAR_U = "".try_into().expect("string literals should not fail");
@@ -182,7 +183,8 @@ impl Table {
         }
     }
 
-    #[must_use] pub fn locate(&self, var: VAR_U) -> Option<Index> {
+    #[must_use]
+    pub fn locate(&self, var: VAR_U) -> Option<Index> {
         self.locate_helper(var).map(|(_, x)| x)
     }
 
@@ -243,6 +245,7 @@ impl Iterator for LineIterator<'_> {
         }
     }
 }
+/*
 
 #[no_mangle]
 pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) -> i16 {
@@ -262,6 +265,7 @@ pub extern "C" fn TMP_Free(var: super::c_code::var_u, table: &mut table_struct) 
     table.free(var);
 }
 
+*/
 fn hash(var: VAR_U) -> i16 {
     let primes = [
         3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,

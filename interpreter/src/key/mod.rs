@@ -152,7 +152,6 @@ pub mod a_b_testing {
         symbol_table::{build_key, extract_key, string_key},
         ERRMLAST, ERRZ1, ERRZ5,
     };
-    use pretty_assertions::assert_eq;
 
     use super::{Error, Key};
 
