@@ -33,6 +33,7 @@
 #![warn(clippy::all, clippy::pedantic)]
 #![feature(array_windows)]
 #![feature(slice_split_once)]
+#![feature(btree_cursors)]
 //TODO remove these allows.
 #![allow(
     clippy::cast_possible_truncation,

@@ -50,8 +50,7 @@ impl Key {
 
     #[must_use]
     pub fn from_raw(raw_key: &[u8]) -> Self {
-        let len = raw_key[0] as usize + 1;
-        Self(raw_key[0..len].into())
+        Self(Vec::from(raw_key))
     }
 
     #[must_use]

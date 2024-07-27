@@ -244,6 +244,10 @@ impl Key {
         self.0.push(end_mark.unwrap_or(b'\0'));
         Ok(())
     }
+
+    pub fn is_sub_key_of(&self, key: &Self) -> bool {
+        self.0[..key.len()] == key.0
+    }
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {

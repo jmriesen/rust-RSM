@@ -43,7 +43,9 @@ mod c_code {
 
     pub use ffi::VAR_U;
     use ffi::{u_char, u_short};
-    use std::{ffi::c_short, sync::Mutex};
+    use std::{collections::BTreeMap, ffi::c_short, sync::Mutex};
+
+    use crate::{key::Key, value::Value};
     pub static lock: Mutex<()> = Mutex::new(());
 
     impl std::fmt::Debug for MVAR {
@@ -57,6 +59,7 @@ mod c_code {
             builder.field("name", &name).field("key", &key).finish()
         }
     }
+
     #[repr(C, packed)]
     #[derive(Copy, Clone)]
     pub struct MVAR {
@@ -70,21 +73,14 @@ mod c_code {
     pub const ST_FREE: u32 = 1023;
     pub const ST_MAX: u32 = 3072;
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug)]
     pub struct ST_DATA {
-        pub deplnk: *mut ST_DEPEND,
-        pub last_key: *mut ST_DEPEND,
+        pub sub_values: BTreeMap<Key, Value>,
         pub attach: ::std::os::raw::c_short,
         pub dbc: u_short,
         pub data: [u_char; 65535usize],
     }
 
-    #[derive(Debug, Copy, Clone)]
-    pub struct ST_DEPEND {
-        pub deplnk: *mut ST_DEPEND,
-        pub keylen: u_char,
-        pub bytes: [u_char; 65794usize],
-    }
     pub struct table_struct {
         pub st_hash_temp: [i16; 1024],
         pub sym_tab: [SYMTAB; 3073],
@@ -106,140 +102,16 @@ mod manual;
 
 use std::ptr::null_mut;
 
-use c_code::{ST_DATA, ST_DEPEND};
+use c_code::ST_DATA;
 use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U, VAR_UNDEFINED};
 
-use crate::value::Value;
+use crate::{key::Key, value::Value};
 
 type Tab = c_code::symtab_struct;
 
 impl MVAR {
     fn key(&self) -> &[u8] {
         &self.key[..self.slen as usize]
-    }
-}
-
-//Both the Key and the value are stored in the bytes array.
-//Also the C code uses this a dynamically sized type (rust thinks this is a sized type).
-impl ST_DEPEND {
-    fn key(&self) -> &[u8] {
-        &self.bytes[..self.keylen as usize]
-    }
-
-    fn value(&self) -> Value {
-        //data is stored as [(key:array),(possible padding)(value:CSTRING),(extra space)]
-        //TODO move a way from this data layout
-        //I don't like that we are relying on the specific data layout/padding details.
-        let len_start = self.keylen.next_multiple_of(2) as usize;
-        let len_end = len_start + size_of::<u16>();
-        let len = u16::from_ne_bytes(self.bytes[len_start..len_end].try_into().unwrap());
-        Value::try_from(&self.bytes[len_end..len_end + len as usize])
-            .expect("this buffer is dedicated to this")
-    }
-
-    fn set_value(&mut self, value: &[u8]) {
-        let len_start = self.keylen.next_multiple_of(2) as usize;
-        let len_end = len_start + size_of::<u16>();
-        self.bytes[len_start..len_end].copy_from_slice(&(value.len() as u16).to_ne_bytes());
-        self.bytes[len_end..len_end + value.len()].copy_from_slice(value);
-    }
-
-    fn new(key: &[u8]) -> Self {
-        let mut bytes = [0; 65794];
-        bytes[..key.len()].copy_from_slice(key);
-        Self {
-            deplnk: null_mut(),
-            keylen: key.len() as u8,
-            bytes,
-        }
-    }
-}
-
-struct DependIter<'a> {
-    current: Option<&'a ST_DEPEND>,
-}
-
-impl<'a> Iterator for DependIter<'a> {
-    type Item = &'a ST_DEPEND;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let temp = self.current;
-        if let Some(current) = self.current {
-            self.current = unsafe { current.deplnk.as_ref() };
-        }
-        temp
-    }
-}
-
-impl<'a> DependIter<'a> {
-    fn new(data: &'a ST_DATA) -> Self {
-        Self {
-            current: unsafe { data.deplnk.as_ref() },
-        }
-    }
-    //Find the dependent block that contains the key.
-    fn find_key(&mut self, key: &[u8]) -> Option<&'a ST_DEPEND> {
-        //Keys are stored in sorted order so don't need to check all of them
-        self.find(|x| x.key() >= key).filter(|x| x.key() == key)
-    }
-}
-
-struct Cursor<'a> {
-    //Stores the reference to the current node of the linked list.
-    current: &'a mut *mut ST_DEPEND,
-}
-
-impl<'a> Cursor<'a> {
-    fn advance(&mut self) {
-        let ptr = *self.current;
-        if let Some(current_node) = unsafe { ptr.as_mut() } {
-            self.current = &mut current_node.deplnk;
-        } else {
-            //Do nothing (stay at the end of the list)
-        }
-    }
-
-    //consider replacing with some sort of get
-    fn key(&self) -> Option<&[u8]> {
-        let current = unsafe { (*self.current).as_ref() }?;
-        Some(current.key())
-    }
-
-    //consider replacing with some sort of get_mut
-    fn set_value(&mut self, data: &Value) -> Result<(), &'static str> {
-        let current = unsafe { (*self.current).as_mut() }.ok_or("Set non existent node")?;
-        current.set_value(data.content());
-        Ok(())
-    }
-
-    //inserts at the current position.
-    //So if we have ABC current is at B and we insert N
-    //the resulting structure is ANBC
-    fn insert(&mut self, key: &[u8]) {
-        let next = *self.current;
-        let mut new_node = Box::new(ST_DEPEND::new(key));
-        new_node.deplnk = next;
-        *self.current = Box::into_raw(new_node);
-    }
-
-    //removes the current node
-    fn remove(&mut self) {
-        if self.current.is_null() {
-            //do nothing if at the end of the list.
-        } else {
-            let next = unsafe { (*self.current).as_ref() }
-                .expect("null check was already preformed")
-                .deplnk;
-            //un-link the node
-            let tmp = *self.current;
-            *self.current = next;
-            //convert node back into a box so it can be dropped.
-            let _ = unsafe { Box::from_raw(tmp) };
-        }
-    }
-
-    fn at_list_end(&self) -> bool {
-        self.key().is_none()
     }
 }
 
@@ -266,10 +138,13 @@ impl ST_DATA {
         if key.is_empty() {
             self.root_value()
         } else {
-            //TODO This can be optimized using using the last key value
-            //I am not doing that optimization at the moment since I want this to be a &self function
-            //I may try and add it with inner mutability in the future
-            DependIter::new(self).find_key(key).map(ST_DEPEND::value)
+            //NOTE There is probably room for optimization here.
+            //It is fairly common for the M code to access the values sequentially using $O
+            //The C code speed up $O by string a reference to the last used node.
+            //I am not doing this right now as it would require making a self referential type
+            //and I am not focusing on performance right now. (just correctness)
+            //NOTE you could also probably accomplish the last key thing using using a sorted vec
+            self.sub_values.get(&Key::from_raw(key)).cloned()
         }
     }
 
@@ -277,48 +152,29 @@ impl ST_DATA {
         if key.is_empty() {
             self.set_root(data);
         } else {
-            let mut cursor = Cursor {
-                current: &mut self.deplnk,
-            };
-            while let Some(x) = cursor.key()
-                && x < key
-            {
-                cursor.advance();
-            }
-            if Some(key) != cursor.key() {
-                cursor.insert(key);
-            }
-            cursor
-                .set_value(data)
-                .expect("either found key or just inserted key");
+            let _ = self.sub_values.insert(Key::from_raw(key), data.clone());
         }
     }
 
     fn kill(&mut self, key: &[u8]) {
-        let mut cursor = Cursor {
-            current: &mut self.deplnk,
-        };
+        let key = Key::from_raw(key);
         if key.is_empty() {
-            while !cursor.at_list_end() {
-                cursor.remove();
-            }
-
+            self.sub_values.retain(|_, _| false);
             //Clear values
-            self.last_key = null_mut();
             self.dbc = VAR_UNDEFINED as u16;
         } else {
-            //advance before the index
-            while let Some(x) = cursor.key()
-                && x < key
+            //NOTE Removing a range of keys seems like something the std BTree map should support,
+            //However it looks like there is still some design swirl going on, and the design has
+            //not been touched in a while
+            //https://github.com/rust-lang/rust/issues/81074
+            //So I just chose to use the cursor api for now.
+            let mut cursor = self
+                .sub_values
+                .lower_bound_mut(std::ops::Bound::Included(&key));
+            while let Some((current_key, _)) = cursor.peek_next()
+                && current_key.is_sub_key_of(&key)
             {
-                cursor.advance();
-            }
-            //Remove all entries prefixed with the killed key
-            while let Some(x) = cursor.key()
-                && x[..key.len()] == *key
-            {
-                //NOTE if we ever start using last key wee need up update it hear.
-                cursor.remove();
+                cursor.remove_next();
             }
         }
     }
@@ -328,7 +184,7 @@ impl ST_DATA {
     //on this for the moment
     #[cfg_attr(test, mutants::skip)]
     fn contains_data(&self) -> bool {
-        !(self.deplnk.is_null() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
+        !(self.sub_values.is_empty() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
     }
 }
 
@@ -345,8 +201,7 @@ impl Table {
 
         if unsafe { self[index].data.as_mut() }.is_none() {
             self[index].data = Box::into_raw(Box::new(ST_DATA {
-                deplnk: null_mut(),
-                last_key: null_mut(),
+                sub_values: Default::default(),
                 attach: 1,
                 dbc: 0,
                 data: [0; 65535],
