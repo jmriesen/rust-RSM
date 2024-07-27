@@ -60,6 +60,7 @@ mod c_code {
         }
     }
 
+    //TODO make fields private
     #[repr(C, packed)]
     #[derive(Copy, Clone)]
     pub struct MVAR {
@@ -77,8 +78,7 @@ mod c_code {
     pub struct ST_DATA {
         pub sub_values: BTreeMap<Key, Value>,
         pub attach: ::std::os::raw::c_short,
-        pub dbc: u_short,
-        pub data: [u_char; 65535usize],
+        pub value: Option<Value>,
     }
 
     pub struct table_struct {
@@ -116,27 +116,10 @@ impl MVAR {
 }
 
 impl ST_DATA {
-    fn root_value(&self) -> Option<Value> {
-        if self.dbc == VAR_UNDEFINED as u16 {
-            None
-        } else {
-            let buff = &self.data[..self.dbc as usize];
-            Some(
-                Value::try_from(buff)
-                    .expect("TODO this should be removed when the ST_Data strcut is redefined"),
-            )
-        }
-    }
-
-    fn set_root(&mut self, data: &Value) {
-        let content = data.content();
-        self.dbc = content.len() as u16;
-        self.data[..content.len()].copy_from_slice(content);
-    }
-
     fn value(&self, key: &[u8]) -> Option<Value> {
+        //TODO remove clones
         if key.is_empty() {
-            self.root_value()
+            self.value.clone()
         } else {
             //NOTE There is probably room for optimization here.
             //It is fairly common for the M code to access the values sequentially using $O
@@ -150,7 +133,7 @@ impl ST_DATA {
 
     fn set_value(&mut self, key: &[u8], data: &Value) {
         if key.is_empty() {
-            self.set_root(data);
+            self.value = Some(data.clone());
         } else {
             let _ = self.sub_values.insert(Key::from_raw(key), data.clone());
         }
@@ -159,9 +142,9 @@ impl ST_DATA {
     fn kill(&mut self, key: &[u8]) {
         let key = Key::from_raw(key);
         if key.is_empty() {
-            self.sub_values.retain(|_, _| false);
             //Clear values
-            self.dbc = VAR_UNDEFINED as u16;
+            self.sub_values = Default::default();
+            self.value = None;
         } else {
             //NOTE Removing a range of keys seems like something the std BTree map should support,
             //However it looks like there is still some design swirl going on, and the design has
@@ -184,7 +167,7 @@ impl ST_DATA {
     //on this for the moment
     #[cfg_attr(test, mutants::skip)]
     fn contains_data(&self) -> bool {
-        !(self.sub_values.is_empty() && self.attach <= 1 && self.dbc == VAR_UNDEFINED as u16)
+        !(self.sub_values.is_empty() && self.attach <= 1 && self.value.is_none())
     }
 }
 
@@ -203,8 +186,7 @@ impl Table {
             self[index].data = Box::into_raw(Box::new(ST_DATA {
                 sub_values: Default::default(),
                 attach: 1,
-                dbc: 0,
-                data: [0; 65535],
+                value: None,
             }));
         }
         let data =
