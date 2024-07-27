@@ -41,8 +41,8 @@ mod c_code {
     //Pointless to warn about all of them
     #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
 
+    use ffi::u_char;
     pub use ffi::VAR_U;
-    use ffi::{u_char, u_short};
     use std::{collections::BTreeMap, ffi::c_short, sync::Mutex};
 
     use crate::{key::Key, value::Value};
@@ -54,21 +54,21 @@ mod c_code {
             //Currently this is just enough to start fuzz testing.
             let name = String::from_utf8(self.name.as_array().into()).unwrap();
 
-            let key = String::from_utf8(crate::key::Key::from_raw(&self.key).string_key()).unwrap();
             let mut builder = f.debug_struct("MVar");
-            builder.field("name", &name).field("key", &key).finish()
+            builder
+                .field("name", &name)
+                .field("key", &self.key)
+                .finish()
         }
     }
 
     //TODO make fields private
-    #[repr(C, packed)]
-    #[derive(Copy, Clone)]
+    #[derive(Clone)]
     pub struct MVAR {
         pub name: VAR_U,
         pub volset: u_char,
         pub uci: u_char,
-        pub slen: u_char,
-        pub key: [u_char; 256usize],
+        pub key: Key,
     }
     pub const ST_HASH: u32 = 1023;
     pub const ST_FREE: u32 = 1023;
@@ -103,20 +103,14 @@ mod manual;
 use std::ptr::null_mut;
 
 use c_code::ST_DATA;
-use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U, VAR_UNDEFINED};
+use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
 
 use crate::{key::Key, value::Value};
 
 type Tab = c_code::symtab_struct;
 
-impl MVAR {
-    fn key(&self) -> &[u8] {
-        &self.key[..self.slen as usize]
-    }
-}
-
 impl ST_DATA {
-    fn value(&self, key: &[u8]) -> Option<Value> {
+    fn value(&self, key: &Key) -> Option<Value> {
         //TODO remove clones
         if key.is_empty() {
             self.value.clone()
@@ -127,20 +121,19 @@ impl ST_DATA {
             //I am not doing this right now as it would require making a self referential type
             //and I am not focusing on performance right now. (just correctness)
             //NOTE you could also probably accomplish the last key thing using using a sorted vec
-            self.sub_values.get(&Key::from_raw(key)).cloned()
+            self.sub_values.get(&key).cloned()
         }
     }
 
-    fn set_value(&mut self, key: &[u8], data: &Value) {
+    fn set_value(&mut self, key: &Key, data: &Value) {
         if key.is_empty() {
             self.value = Some(data.clone());
         } else {
-            let _ = self.sub_values.insert(Key::from_raw(key), data.clone());
+            let _ = self.sub_values.insert(key.clone(), data.clone());
         }
     }
 
-    fn kill(&mut self, key: &[u8]) {
-        let key = Key::from_raw(key);
+    fn kill(&mut self, key: &Key) {
         if key.is_empty() {
             //Clear values
             self.sub_values = Default::default();
@@ -176,7 +169,7 @@ impl Table {
     pub fn get(&self, var: &MVAR) -> Option<Value> {
         self.locate(var.name)
             .and_then(|index| unsafe { self[index].data.as_ref() })
-            .and_then(|data| data.value(var.key()))
+            .and_then(|data| data.value(&var.key))
     }
 
     pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
@@ -191,7 +184,7 @@ impl Table {
         }
         let data =
             unsafe { self[index].data.as_mut() }.expect("If it was none we should have created it");
-        data.set_value(var.key(), value);
+        data.set_value(&var.key, value);
         Ok(())
     }
 
@@ -199,7 +192,7 @@ impl Table {
         use std::ptr::from_mut;
         if let Some(index) = self.locate(var.name) {
             if let Some(data) = unsafe { self[index].data.as_mut() } {
-                data.kill(var.key());
+                data.kill(&var.key);
 
                 //Drop Data block if no longer used
                 if !data.contains_data() {
@@ -242,8 +235,7 @@ impl Table {
                 name: var,
                 volset: 0,
                 uci: 0,
-                slen: 0,
-                key: [0; 256],
+                key: Key::empty(),
             });
         }
     }
@@ -276,16 +268,11 @@ pub mod helpers {
             .collect::<Vec<_>>();
         let key = Key::new(&values).unwrap();
 
-        let mut key_buff = [0; 256];
-        let len = key.len();
-        key_buff[..key.len()].copy_from_slice(key.raw_keys());
-
         MVAR {
             name: var_u(name),
             volset: Default::default(),
             uci: Default::default(),
-            slen: len as u8,
-            key: key_buff,
+            key,
         }
     }
 
@@ -297,8 +284,8 @@ pub mod helpers {
                     name: VAR_U { var_cu: name },
                     volset: 0,
                     uci: 0,
-                    slen: 0,
-                    key: [0; 256],
+                    //TODO implement arbitrary for key.
+                    key: Key::empty(),
                 })
             } else {
                 Err(arbitrary::Error::IncorrectFormat)

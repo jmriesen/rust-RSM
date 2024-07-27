@@ -36,21 +36,21 @@ use internal::ParsedKey;
 use crate::value::Value;
 
 /// Stores a list of keys.
-#[derive(Eq, PartialEq)]
+//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
+#[derive(Eq, PartialEq, Clone)]
 pub struct Key(Vec<u8>);
 impl Key {
     #[must_use]
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
         let mut key = Self(Vec::new());
         for value in values {
-            key.push(&value)?;
+            key = key.push(&value)?;
         }
         Ok(key)
     }
 
-    #[must_use]
-    pub fn from_raw(raw_key: &[u8]) -> Self {
-        Self(Vec::from(raw_key))
+    pub fn empty() -> Self {
+        Self(Vec::new())
     }
 
     #[must_use]
@@ -126,8 +126,9 @@ pub struct Iter<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    InputToLarge,
+    SubscriptToLarge,
     ContainsNull,
+    KeyOverFlow(usize),
 }
 
 impl std::fmt::Debug for Key {
@@ -158,8 +159,9 @@ pub mod a_b_testing {
     pub fn build(value: &Value) {
         let key = super::Key::new([value]);
         let result = key.map(|x| x.0).map_err(|x| match x {
-            Error::InputToLarge => -((ERRZ1 + ERRMLAST) as i16),
+            Error::SubscriptToLarge => -((ERRZ1 + ERRMLAST) as i16),
             Error::ContainsNull => -((ERRZ5 + ERRMLAST) as i16),
+            _ => unreachable!(),
         });
         assert_eq!(result, build_key(&value.clone().into_cstring()));
     }
@@ -238,7 +240,7 @@ mod tests {
             .as_str()
             .try_into()
             .unwrap()]);
-        assert_eq!(result, Err(Error::InputToLarge));
+        assert_eq!(result, Err(Error::SubscriptToLarge));
     }
 
     #[test]

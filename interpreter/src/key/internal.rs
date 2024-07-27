@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::{key::Segment, value::Value};
-use ffi::MAX_SUB_LEN;
+use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
 
 /// Keys are stored in a special format to facilitate sorting.
 /// They start with a discriminant.
@@ -73,7 +73,7 @@ impl<'a> ParsedKey<'a> {
             //TODO consider reevaluating where this should be enforced.
             //If the goal of this is to prevent a buffer overflow then it should really be owned by
             //KeyList
-            Err(Error::InputToLarge)
+            Err(Error::SubscriptToLarge)
         } else if contents.is_empty() {
             Ok(Self::Null)
         } else if contents == [b'0'] {
@@ -208,7 +208,7 @@ impl<'a> ParsedKey<'a> {
 }
 
 impl Key {
-    pub fn push(&mut self, src: &Value) -> Result<(), Error> {
+    pub fn push(mut self, src: &Value) -> Result<Self, Error> {
         let internal_key = ParsedKey::new(src)?;
         let end_mark = match internal_key {
             ParsedKey::Null => {
@@ -242,7 +242,11 @@ impl Key {
         //NOTE Negatives use 255 as an end mark for some reason.
         //at some point when I understand 9's complement better I should see if I can remove this
         self.0.push(end_mark.unwrap_or(b'\0'));
-        Ok(())
+        if self.len() > MAX_KEY_SIZE as usize {
+            Err(Error::KeyOverFlow(self.len()))
+        } else {
+            Ok(self)
+        }
     }
 
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
