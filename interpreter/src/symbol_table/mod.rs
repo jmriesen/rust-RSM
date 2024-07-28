@@ -43,7 +43,12 @@ mod c_code {
 
     use ffi::u_char;
     pub use ffi::VAR_U;
-    use std::{collections::BTreeMap, ffi::c_short, sync::Mutex};
+    use std::{collections::BTreeMap, ffi::c_short, hash::Hash, ptr::null_mut, sync::Mutex};
+
+    //New type wrapper so I can implement methods on VAR_U
+    //TODO decouple from ffi
+    #[derive(Clone, Debug)]
+    pub struct VarU(pub ffi::VAR_U);
 
     use crate::{key::Key, value::Value};
     pub static lock: Mutex<()> = Mutex::new(());
@@ -52,7 +57,7 @@ mod c_code {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             //TODO implement a more complete implementation.
             //Currently this is just enough to start fuzz testing.
-            let name = String::from_utf8(self.name.as_array().into()).unwrap();
+            let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
 
             let mut builder = f.debug_struct("MVar");
             builder
@@ -65,7 +70,7 @@ mod c_code {
     //TODO make fields private
     #[derive(Clone)]
     pub struct MVAR {
-        pub name: VAR_U,
+        pub name: VarU,
         pub volset: u_char,
         pub uci: u_char,
         pub key: Key,
@@ -81,10 +86,43 @@ mod c_code {
         pub value: Option<Value>,
     }
 
-    pub struct table_struct {
-        pub st_hash_temp: [i16; 1024],
-        pub sym_tab: [SYMTAB; 3073],
+    impl Default for ST_DATA {
+        fn default() -> Self {
+            Self {
+                sub_values: Default::default(),
+                attach: 0,
+                value: None,
+            }
+        }
     }
+
+    impl Hash for VarU {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            unsafe { self.0.var_cu }.hash(state)
+        }
+    }
+
+    impl Eq for VarU {}
+    impl PartialEq for VarU {
+        fn eq(&self, other: &Self) -> bool {
+            unsafe { self.0.var_cu == other.0.var_cu }
+        }
+    }
+
+    pub type table_struct = super::hash::HashTable<VarU, SYMTAB>;
+
+    //NOTE memory leak since data null is not being cleaned up on drop
+    impl Default for SYMTAB {
+        fn default() -> Self {
+            Self {
+                fwd_link: 0,
+                usage: 0,
+                data: null_mut(),
+                varnam: "".try_into().unwrap(),
+            }
+        }
+    }
+
     pub type Table = table_struct;
     pub struct SYMTAB {
         pub fwd_link: c_short,
@@ -102,8 +140,8 @@ mod manual;
 
 use std::ptr::null_mut;
 
-use c_code::ST_DATA;
-use ffi::{PARTAB, UCI_IS_LOCALVAR, VAR_U};
+use c_code::{VarU, ST_DATA};
+use ffi::{PARTAB, UCI_IS_LOCALVAR};
 
 use crate::{key::Key, value::Value};
 
@@ -155,7 +193,7 @@ impl ST_DATA {
         }
     }
 
-    //checks self contains any data, if not it can be fried
+    //checks self contains any data, if not it can be freed
     //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
     //on this for the moment
     #[cfg_attr(test, mutants::skip)]
@@ -167,13 +205,13 @@ impl ST_DATA {
 impl Table {
     #[must_use]
     pub fn get(&self, var: &MVAR) -> Option<Value> {
-        self.locate(var.name)
+        self.locate(&var.name)
             .and_then(|index| unsafe { self[index].data.as_ref() })
             .and_then(|data| data.value(&var.key))
     }
 
     pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
-        let index = self.create(var.name).map_err(|_| ())?;
+        let index = self.create(var.name.clone()).map_err(|_| ())?;
 
         if unsafe { self[index].data.as_mut() }.is_none() {
             self[index].data = Box::into_raw(Box::new(ST_DATA {
@@ -190,7 +228,7 @@ impl Table {
 
     pub fn kill(&mut self, var: &MVAR) {
         use std::ptr::from_mut;
-        if let Some(index) = self.locate(var.name) {
+        if let Some(index) = self.locate(&var.name) {
             if let Some(data) = unsafe { self[index].data.as_mut() } {
                 data.kill(&var.key);
 
@@ -202,16 +240,13 @@ impl Table {
             }
             //clean up hash table entry.
             if self[index].data.is_null() && self[index].usage == 0 {
-                self.free(var.name);
+                self.free(&var.name);
             }
         }
     }
 
-    //Yes this code is horribly inefficient.
-    //However eventually this will be replaced by a std collection method so it is not really worth
-    //optimizing right now.
     //NOTE not yet mutation tested
-    fn keep(&mut self, vars: &[VAR_U], tab: &mut PARTAB) {
+    fn keep(&mut self, vars: &[VarU], tab: &mut PARTAB) {
         //NOTE I am not sure how src_var is used, but this was done in the C code.
         tab.src_var = ffi::MVAR {
             uci: UCI_IS_LOCALVAR as u8,
@@ -219,34 +254,21 @@ impl Table {
             volset: 0,
             ..tab.src_var
         };
-
-        let to_kill: Vec<_> = self
-            .sym_tab
-            .iter_mut()
-            .filter(|x| !x.data.is_null())
-            .map(|x| x.varnam)
-            //always keep $ vars
-            .filter(|x| unsafe { x.var_cu[0] } != b'$')
-            .filter(|x| unsafe { x.var_cu[0] } != b'\0')
-            .filter(|x| !vars.contains(x))
+        let mut to_be_removed: Vec<_> = self
+            .map
+            .extract_if(|x, _| !vars.contains(x) && unsafe { x.0.var_cu[0] } != b'$')
+            .map(|(_, index)| index)
             .collect();
-        for var in to_kill {
-            self.kill(&MVAR {
-                name: var,
-                volset: 0,
-                uci: 0,
-                key: Key::empty(),
-            });
+
+        //NOTE the only reason I am sorting is so that the order of keys inserted back into open
+        //slots is deterministic
+        to_be_removed.sort_by(|a, b| a.cmp(b).reverse());
+        self.open_slots.extend_from_slice(&to_be_removed);
+        for index in &to_be_removed {
+            self.slots[*index] = None;
         }
     }
 }
-
-impl Drop for Table {
-    fn drop(&mut self) {
-        self.keep(&[], &mut Default::default());
-    }
-}
-
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
@@ -254,10 +276,10 @@ pub mod helpers {
 
     use crate::{key::Key, value::Value};
 
-    use super::c_code::{MVAR, VAR_U};
+    use super::c_code::{VarU, MVAR, VAR_U};
     #[must_use]
-    pub fn var_u(var: &str) -> VAR_U {
-        var.try_into().unwrap()
+    pub fn var_u(var: &str) -> VarU {
+        VarU(var.try_into().unwrap())
     }
 
     #[must_use]
@@ -281,7 +303,7 @@ pub mod helpers {
             let name: [u8; 32] = u.arbitrary()?;
             if name.is_ascii() && name.contains(&0) {
                 Ok(MVAR {
-                    name: VAR_U { var_cu: name },
+                    name: VarU(VAR_U { var_cu: name }),
                     volset: 0,
                     uci: 0,
                     //TODO implement arbitrary for key.
@@ -448,7 +470,7 @@ pub mod tests {
         assert_eq!(table.get(&var_i), None);
 
         //hash table should have freed the entire.
-        assert_eq!(table.locate(var_u("foo")), None);
+        assert_eq!(table.locate(&var_u("foo")), None);
     }
 
     #[test]
@@ -498,7 +520,10 @@ pub mod tests {
         table.set(&retain_b, &data).unwrap();
         let mut part_tab = Default::default();
 
-        table.keep(&[retain_a.name, retain_b.name], &mut part_tab);
+        table.keep(
+            &[retain_a.name.clone(), retain_b.name.clone()],
+            &mut part_tab,
+        );
         assert_eq!(part_tab.src_var.uci, UCI_IS_LOCALVAR as u8);
         assert_eq!(part_tab.src_var.slen, 0);
         assert_eq!(part_tab.src_var.volset, 0);

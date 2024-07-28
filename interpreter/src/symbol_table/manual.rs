@@ -31,16 +31,19 @@ use super::{Tab, Table};
 use std::fmt::Debug;
 impl Debug for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("Table");
-        builder.field("sym_tab", &self.sym_tab);
-        builder.field("hash", &self.st_hash_temp);
+        let mut builder = f.debug_map();
+        builder.entries(
+            self.map
+                .iter()
+                .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap())),
+        );
         builder.finish()
     }
 }
 
 impl PartialEq for Table {
     fn eq(&self, other: &Self) -> bool {
-        self.sym_tab == other.sym_tab && self.st_hash_temp == other.st_hash_temp
+        self.slots == other.slots && self.map == other.map
     }
 }
 
