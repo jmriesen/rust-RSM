@@ -184,11 +184,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use super::{
-        super::{tests::var_u, VarU},
-        CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS,
-    };
-    use crate::symbol_table::var_data::VarData;
+    use super::{super::VarU, CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
+    use crate::symbol_table::{var_data::VarData, var_u::helpers::var_u};
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
 

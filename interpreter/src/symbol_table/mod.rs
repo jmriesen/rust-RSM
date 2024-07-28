@@ -31,55 +31,13 @@
 #![allow(dead_code)]
 
 mod hash;
+mod m_var;
 mod var_data;
-use ffi::u_char;
-use std::hash::Hash;
+mod var_u;
+use crate::value::Value;
+use m_var::MVar;
 use var_data::VarData;
-
-//New type wrapper so I can implement methods on VAR_U
-//TODO decouple from ffi
-#[derive(Clone, Debug)]
-pub struct VarU(pub ffi::VAR_U);
-
-use crate::{key::Key, value::Value};
-
-impl std::fmt::Debug for MVAR {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO implement a more complete implementation.
-        //Currently this is just enough to start fuzz testing.
-        let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
-
-        let mut builder = f.debug_struct("MVar");
-        builder
-            .field("name", &name)
-            .field("key", &self.key)
-            .field("volume set", &self.volset)
-            .field("uci", &self.uci)
-            .finish()
-    }
-}
-
-//TODO make fields private
-#[derive(Clone)]
-pub struct MVAR {
-    name: VarU,
-    volset: u_char,
-    uci: u_char,
-    key: Key,
-}
-
-impl Hash for VarU {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        unsafe { self.0.var_cu }.hash(state);
-    }
-}
-
-impl Eq for VarU {}
-impl PartialEq for VarU {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { self.0.var_cu == other.0.var_cu }
-    }
-}
+use var_u::VarU;
 
 impl hash::Key for VarU {
     fn error() -> Self {
@@ -98,11 +56,11 @@ impl Table {
     }
 
     #[must_use]
-    pub fn get(&self, var: &MVAR) -> Option<Value> {
+    pub fn get(&self, var: &MVar) -> Option<Value> {
         self.0.locate(&var.name)?.value(&var.key)
     }
 
-    pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
+    pub fn set(&mut self, var: &MVar, value: &Value) -> Result<(), ()> {
         self.0
             .create(var.name.clone())
             .map_err(|_| ())?
@@ -110,7 +68,7 @@ impl Table {
         Ok(())
     }
 
-    pub fn kill(&mut self, var: &MVAR) {
+    pub fn kill(&mut self, var: &MVar) {
         if let Some(data) = self.0.locate_mut(&var.name) {
             data.kill(&var.key);
             if !data.contains_data() {
@@ -140,56 +98,11 @@ impl Default for Table {
     }
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
-pub mod helpers {
-
-    use super::{VarU, MVAR};
-    use crate::{key::Key, value::Value};
-    use arbitrary::Arbitrary;
-    use ffi::VAR_U;
-    #[must_use]
-    pub fn var_u(var: &str) -> VarU {
-        VarU(var.try_into().unwrap())
-    }
-
-    #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVAR {
-        let values = values
-            .iter()
-            .map(|x| Value::try_from(*x).unwrap())
-            .collect::<Vec<_>>();
-        let key = Key::new(&values).unwrap();
-
-        MVAR {
-            name: var_u(name),
-            volset: Default::default(),
-            uci: Default::default(),
-            key,
-        }
-    }
-
-    impl<'a> Arbitrary<'a> for MVAR {
-        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name: [u8; 32] = u.arbitrary()?;
-            if name.is_ascii() && name.contains(&0) {
-                Ok(MVAR {
-                    name: VarU(VAR_U { var_cu: name }),
-                    volset: 0,
-                    uci: 0,
-                    //TODO implement arbitrary for key.
-                    key: Key::empty(),
-                })
-            } else {
-                Err(arbitrary::Error::IncorrectFormat)
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
 
-    pub use super::helpers::{var_m, var_u};
+    use crate::symbol_table::m_var::helpers::var_m;
+
     use super::Table;
     use ffi::UCI_IS_LOCALVAR;
     use pretty_assertions::assert_eq;
@@ -340,7 +253,7 @@ pub mod tests {
         assert_eq!(table.get(&var_i), None);
 
         //hash table should have freed the entire.
-        assert_eq!(table.0.locate(&var_u("foo")), None);
+        assert_eq!(table.0.locate(&var.name), None);
     }
 
     #[test]
