@@ -122,7 +122,6 @@ use std::collections::BTreeMap;
 pub use c_code::{Table, MVAR};
 //TODO remove and replace with derive once type move over to Rust
 mod hash;
-mod manual;
 
 use c_code::{VarU, ST_DATA};
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
@@ -215,19 +214,9 @@ impl Table {
             volset: 0,
             ..tab.src_var
         };
-        let mut to_be_removed: Vec<_> = self
-            .map
-            .extract_if(|x, _| !vars.contains(x) && unsafe { x.0.var_cu[0] } != b'$')
-            .map(|(_, index)| index)
-            .collect();
-
-        //NOTE the only reason I am sorting is so that the order of keys inserted back into open
-        //slots is deterministic
-        to_be_removed.sort_by(|a, b| a.cmp(b).reverse());
-        self.open_slots.extend_from_slice(&to_be_removed);
-        for index in &to_be_removed {
-            self.slots[*index] = None;
-        }
+        //Keep anything from the passed in slice and all $ vars
+        self.remove_if(|x| !(vars.contains(x) || unsafe { x.0.var_cu[0] } == b'$'))
+        //
     }
 }
 #[cfg(any(test, feature = "fuzzing"))]

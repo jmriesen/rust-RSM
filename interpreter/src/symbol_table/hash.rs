@@ -27,16 +27,32 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+use std::{
+    array,
+    collections::{hash_map, HashMap},
+    fmt::{self, Debug},
+};
 
+///Required trait bounds for Keys in the hashtable
 pub trait Key: Eq + std::hash::Hash + Sized {
     //The special Error key.
     //Even if the map is full 'HashTable' will allow you to push this error.
     fn error() -> Self;
 }
 
+/// The only error condition is if we run out of room in the table.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct CreationError;
+
+impl CreationError {
+    fn error_code() -> i16 {
+        -256
+    }
+}
+
 const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
 const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
-//TODO make fields private
+
 /// Wrapper around the std `std::collections::HashMap` with a few additional properties.
 /// Max number of entries is '`NUM_SLOTS`'*
 /// If the map is full we can still insert a special Error Key.
@@ -48,21 +64,11 @@ where
     V: Default,
 {
     /// Maps keys to their internal index
-    pub map: std::collections::HashMap<K, usize>,
+    map: std::collections::HashMap<K, usize>,
     ///Stack storing which indexes are available
-    pub open_slots: Vec<usize>,
+    open_slots: Vec<usize>,
     ///The actual data store
-    pub slots: [Option<V>; NUMBER_OF_NORMAL_SLOTS + 1], //the extra slot is for Error
-}
-
-impl<K, V> Default for HashTable<K, V>
-where
-    K: Key,
-    V: Default,
-{
-    fn default() -> Self {
-        Self::new()
-    }
+    slots: [Option<V>; NUMBER_OF_NORMAL_SLOTS + 1], //the extra slot is for Error
 }
 
 impl<K, V> HashTable<K, V>
@@ -119,22 +125,57 @@ where
             }
         }
     }
+
+    pub fn remove_if(&mut self, predict: impl Fn(&K) -> bool) {
+        let mut to_be_removed: Vec<_> = self
+            .map
+            .extract_if(|key, _| predict(key))
+            .map(|(_, index)| index)
+            .collect();
+
+        //NOTE the only reason I am sorting is so that the order of keys inserted back into open
+        //slots is deterministic
+        to_be_removed.sort_by(|a, b| a.cmp(b).reverse());
+        self.open_slots.extend_from_slice(&to_be_removed);
+        for index in &to_be_removed {
+            self.slots[*index] = None;
+        }
+    }
 }
 
-/// The symbol table stores its values using a hash table.
-/// All the hash table specific things live in this module.
-use std::{
-    array,
-    collections::{hash_map, HashMap},
-};
+impl<K, V> Default for HashTable<K, V>
+where
+    K: Key,
+    V: Default,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-/// The only error condition is if we run out of room in the table.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct CreationError;
+impl<K, V> Debug for HashTable<K, V>
+where
+    K: Key + Debug,
+    V: Default + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut builder = f.debug_map();
+        builder.entries(
+            self.map
+                .iter()
+                .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap())),
+        );
+        builder.finish()
+    }
+}
 
-impl CreationError {
-    fn error_code() -> i16 {
-        -256
+impl<K, V> PartialEq for HashTable<K, V>
+where
+    K: Key,
+    V: Default + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.slots == other.slots && self.map == other.map
     }
 }
 
@@ -142,12 +183,11 @@ impl CreationError {
 mod tests {
 
     use super::{
-        super::{tests::var_u, Table},
+        super::{tests::var_u, Table, VarU, ST_DATA},
         CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS,
     };
-    use crate::symbol_table::c_code::{VarU, ST_DATA};
     use pretty_assertions::assert_eq;
-    use std::ptr::{from_mut, from_ref};
+    use std::ptr::from_ref;
 
     //For testing I want to know that the refreezes are the same
     //These helper methods just convert things into ptrs so I don't have to worry about lifetimes.
@@ -158,7 +198,7 @@ mod tests {
             tmp
         }
         fn create_ptr(&mut self, key: VarU) -> Result<*const ST_DATA, CreationError> {
-            self.create(key).map(|x| from_mut(x).cast_const())
+            self.create(key).map(|x| from_ref(x))
         }
         fn index_ptr(&self, index: usize) -> Option<*const ST_DATA> {
             self.slots[index].as_ref().map(|x| from_ref(x))
