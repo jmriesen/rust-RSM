@@ -249,7 +249,7 @@ impl Key {
         }
     }
 
-    pub fn is_sub_key_of(&self, key: &Self) -> bool {
+    #[must_use] pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
     }
 }

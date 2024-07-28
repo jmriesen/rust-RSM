@@ -42,7 +42,7 @@ mod c_code {
     #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
 
     use ffi::u_char;
-    pub use ffi::VAR_U;
+
     use std::{collections::BTreeMap, hash::Hash, sync::Mutex};
 
     //New type wrapper so I can implement methods on VAR_U
@@ -117,6 +117,8 @@ mod c_code {
     pub type Table = table_struct;
 }
 
+use std::collections::BTreeMap;
+
 pub use c_code::{Table, MVAR};
 //TODO remove and replace with derive once type move over to Rust
 mod hash;
@@ -139,7 +141,7 @@ impl ST_DATA {
             //I am not doing this right now as it would require making a self referential type
             //and I am not focusing on performance right now. (just correctness)
             //NOTE you could also probably accomplish the last key thing using using a sorted vec
-            self.sub_values.get(&key).cloned()
+            self.sub_values.get(key).cloned()
         }
     }
 
@@ -154,7 +156,7 @@ impl ST_DATA {
     fn kill(&mut self, key: &Key) {
         if key.is_empty() {
             //Clear values
-            self.sub_values = Default::default();
+            self.sub_values = BTreeMap::default();
             self.value = None;
         } else {
             //NOTE Removing a range of keys seems like something the std BTree map should support,
@@ -164,9 +166,9 @@ impl ST_DATA {
             //So I just chose to use the cursor api for now.
             let mut cursor = self
                 .sub_values
-                .lower_bound_mut(std::ops::Bound::Included(&key));
+                .lower_bound_mut(std::ops::Bound::Included(key));
             while let Some((current_key, _)) = cursor.peek_next()
-                && current_key.is_sub_key_of(&key)
+                && current_key.is_sub_key_of(key)
             {
                 cursor.remove_next();
             }
@@ -235,7 +237,8 @@ pub mod helpers {
 
     use crate::{key::Key, value::Value};
 
-    use super::c_code::{VarU, MVAR, VAR_U};
+    use super::c_code::{VarU, MVAR};
+    use ffi::VAR_U;
     #[must_use]
     pub fn var_u(var: &str) -> VarU {
         VarU(var.try_into().unwrap())
@@ -244,7 +247,7 @@ pub mod helpers {
     #[must_use]
     pub fn var_m(name: &str, values: &[&str]) -> MVAR {
         let values = values
-            .into_iter()
+            .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
         let key = Key::new(&values).unwrap();

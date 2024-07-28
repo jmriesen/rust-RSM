@@ -37,8 +37,8 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
 const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
 //TODO make fields private
-/// Wrapper around the std std::collections::HashMap with a few additional properties.
-/// Max number of entries is 'NUM_SLOTS'*
+/// Wrapper around the std `std::collections::HashMap` with a few additional properties.
+/// Max number of entries is '`NUM_SLOTS`'*
 /// If the map is full we can still insert a special Error Key.
 /// Internally the keys are stored in a array, and the indexes into that array are handed out using
 /// a stack.
@@ -55,6 +55,16 @@ where
     pub slots: [Option<V>; NUMBER_OF_NORMAL_SLOTS + 1], //the extra slot is for Error
 }
 
+impl<K, V> Default for HashTable<K, V>
+where
+    K: Key,
+    V: Default,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K, V> HashTable<K, V>
 where
     K: Key,
@@ -63,11 +73,11 @@ where
     pub fn new() -> Self {
         let mut open_slots = Vec::with_capacity(NUMBER_OF_NORMAL_SLOTS);
         for i in (0..NUMBER_OF_NORMAL_SLOTS).rev() {
-            open_slots.push(i)
+            open_slots.push(i);
         }
         Self {
             open_slots,
-            map: Default::default(),
+            map: HashMap::default(),
             slots: array::from_fn(|_| None),
         }
     }
@@ -80,7 +90,7 @@ where
                     .open_slots
                     .pop()
                     //If slots are all filled check if we should use the error slot
-                    .or_else(|| (entry.key() == &K::error()).then(|| ERROR_SLOT_INDEX));
+                    .or_else(|| (entry.key() == &K::error()).then_some(ERROR_SLOT_INDEX));
 
                 if let Some(new_slot_index) = index {
                     entry.insert(new_slot_index);
@@ -98,7 +108,7 @@ where
     }
 
     pub fn free(&mut self, key: &K) {
-        if let Some(index) = self.map.remove(&key) {
+        if let Some(index) = self.map.remove(key) {
             self.slots[index] = None;
             if index != ERROR_SLOT_INDEX {
                 self.open_slots.push(index);
@@ -111,8 +121,8 @@ use super::Table;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
 use std::{
-    array::{self},
-    collections::hash_map,
+    array,
+    collections::{hash_map, HashMap},
 };
 
 ///Some API calls give out the internal index where data has been stored
@@ -169,10 +179,8 @@ impl CreationError {
 mod tests {
 
     use pretty_assertions::assert_eq;
-    use rand::{distributions::Alphanumeric, Rng};
 
     use super::{CreationError, Index, Table, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
-    use rstest::*;
 
     //Some syntactic sugar around try_into/unwrap
     //to make the tests a bit cleaner.
@@ -250,6 +258,6 @@ mod tests {
         let index = table.create(var.clone()).unwrap();
         table.free(&var);
 
-        assert!(table.slots[index.0 as usize].is_none())
+        assert!(table.slots[index.0 as usize].is_none());
     }
 }

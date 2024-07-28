@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use std::{string::FromUtf8Error, usize};
+use std::string::FromUtf8Error;
 
 use ffi::{CSTRING, MAX_STR_LEN};
 
