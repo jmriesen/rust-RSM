@@ -43,7 +43,7 @@ mod c_code {
 
     use ffi::u_char;
     pub use ffi::VAR_U;
-    use std::{collections::BTreeMap, ffi::c_short, hash::Hash, ptr::null_mut, sync::Mutex};
+    use std::{collections::BTreeMap, hash::Hash, sync::Mutex};
 
     //New type wrapper so I can implement methods on VAR_U
     //TODO decouple from ffi
@@ -75,13 +75,11 @@ mod c_code {
         pub uci: u_char,
         pub key: Key,
     }
-    pub const ST_HASH: u32 = 1023;
-    pub const ST_FREE: u32 = 1023;
-    pub const ST_MAX: u32 = 3072;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq)]
     pub struct ST_DATA {
         pub sub_values: BTreeMap<Key, Value>,
+        //TODO consider removing I am currently not using attach
         pub attach: ::std::os::raw::c_short,
         pub value: Option<Value>,
     }
@@ -114,28 +112,9 @@ mod c_code {
             Self("$ECODE".try_into().expect("the error key is a valid VarU"))
         }
     }
-    pub type table_struct = super::hash::HashTable<VarU, SYMTAB>;
-
-    //NOTE memory leak since data null is not being cleaned up on drop
-    impl Default for SYMTAB {
-        fn default() -> Self {
-            Self {
-                fwd_link: 0,
-                usage: 0,
-                data: null_mut(),
-                varnam: "".try_into().unwrap(),
-            }
-        }
-    }
+    pub type table_struct = super::hash::HashTable<VarU, ST_DATA>;
 
     pub type Table = table_struct;
-    pub struct SYMTAB {
-        pub fwd_link: c_short,
-        pub usage: c_short,
-        pub data: *mut ST_DATA,
-        pub varnam: VAR_U,
-    }
-    pub type symtab_struct = SYMTAB;
 }
 
 pub use c_code::{Table, MVAR};
@@ -143,14 +122,10 @@ pub use c_code::{Table, MVAR};
 mod hash;
 mod manual;
 
-use std::ptr::null_mut;
-
 use c_code::{VarU, ST_DATA};
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 
 use crate::{key::Key, value::Value};
-
-type Tab = c_code::symtab_struct;
 
 impl ST_DATA {
     fn value(&self, key: &Key) -> Option<Value> {
@@ -211,40 +186,19 @@ impl Table {
     #[must_use]
     pub fn get(&self, var: &MVAR) -> Option<Value> {
         self.locate(&var.name)
-            .and_then(|index| unsafe { self[index].data.as_ref() })
-            .and_then(|data| data.value(&var.key))
+            .and_then(|index| self[index].value(&var.key))
     }
 
     pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
         let index = self.create(var.name.clone()).map_err(|_| ())?;
-
-        if unsafe { self[index].data.as_mut() }.is_none() {
-            self[index].data = Box::into_raw(Box::new(ST_DATA {
-                sub_values: Default::default(),
-                attach: 1,
-                value: None,
-            }));
-        }
-        let data =
-            unsafe { self[index].data.as_mut() }.expect("If it was none we should have created it");
-        data.set_value(&var.key, value);
+        self[index].set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVAR) {
-        use std::ptr::from_mut;
         if let Some(index) = self.locate(&var.name) {
-            if let Some(data) = unsafe { self[index].data.as_mut() } {
-                data.kill(&var.key);
-
-                //Drop Data block if no longer used
-                if !data.contains_data() {
-                    self[index].data = null_mut();
-                    let _ = unsafe { Box::from_raw(from_mut(data)) };
-                }
-            }
-            //clean up hash table entry.
-            if self[index].data.is_null() && self[index].usage == 0 {
+            self[index].kill(&var.key);
+            if !self[index].contains_data() {
                 self.free(&var.name);
             }
         }

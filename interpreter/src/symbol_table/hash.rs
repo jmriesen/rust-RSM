@@ -106,20 +106,15 @@ where
         }
     }
 }
-use super::{c_code::VarU, Tab, Table};
-use ffi::VAR_U;
+
+use super::Table;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
 use std::{
-    array::{self, from_fn},
+    array::{self},
     collections::hash_map,
-    default,
-    ptr::null_mut,
 };
 
-use super::c_code::{ST_HASH, ST_MAX, SYMTAB};
-const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
-const HASH_RAW_SIZE: usize = ST_HASH as usize + 1;
 ///Some API calls give out the internal index where data has been stored
 ///This type represents a index that has come from a table and is therefore valid.
 ///I would rather just return references to the data, but that
@@ -147,7 +142,7 @@ impl Index {
 }
 
 impl std::ops::Index<Index> for Table {
-    type Output = SYMTAB;
+    type Output = super::ST_DATA;
 
     fn index(&self, index: Index) -> &Self::Output {
         self.slots[index.0 as usize].as_ref().unwrap()
@@ -173,14 +168,10 @@ impl CreationError {
 #[cfg(test)]
 mod tests {
 
-    use std::ptr::null_mut;
-
     use pretty_assertions::assert_eq;
     use rand::{distributions::Alphanumeric, Rng};
 
-    use crate::{shared_seg::lock_tab::tests::assert_eq, symbol_table::c_code::VarU};
-
-    use super::{CreationError, Index, Table, ST_MAX};
+    use super::{CreationError, Index, Table, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
     use rstest::*;
 
     //Some syntactic sugar around try_into/unwrap
@@ -190,7 +181,7 @@ mod tests {
     #[test]
     fn create() {
         let mut table = Table::new();
-        for i in 0..ST_MAX as i16 {
+        for i in 0..NUMBER_OF_NORMAL_SLOTS as i16 {
             let var = var_u(&format!("var{i}"));
             let index = table.create(var.clone());
             //NOTE having sequential indexes probably improves cash locality
@@ -205,7 +196,7 @@ mod tests {
         //There is a special node reserved for ECODE in the case that everything else has
         //been filed.
         let index = table.create(var_u("$ECODE"));
-        assert_eq!(index, Ok(Index(ST_MAX as i16)));
+        assert_eq!(index, Ok(Index(ERROR_SLOT_INDEX as i16)));
     }
 
     #[test]
