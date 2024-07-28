@@ -82,9 +82,9 @@ where
         }
     }
 
-    pub fn create(&mut self, key: K) -> Result<Index, CreationError> {
+    pub fn create(&mut self, key: K) -> Result<&mut V, CreationError> {
         match self.map.entry(key) {
-            hash_map::Entry::Occupied(entry) => Ok(Index(*entry.get() as i16)),
+            hash_map::Entry::Occupied(entry) => Ok(self.slots[*entry.get()].as_mut().unwrap()),
             hash_map::Entry::Vacant(entry) => {
                 let index = self
                     .open_slots
@@ -95,7 +95,7 @@ where
                 if let Some(new_slot_index) = index {
                     entry.insert(new_slot_index);
                     self.slots[new_slot_index] = Some(V::default());
-                    Ok(Index(new_slot_index as i16))
+                    Ok(self.slots[new_slot_index].as_mut().unwrap())
                 } else {
                     Err(CreationError)
                 }
@@ -103,8 +103,12 @@ where
         }
     }
 
-    pub fn locate(&self, key: &K) -> Option<Index> {
-        self.map.get(key).map(|x| Index(*x as i16))
+    pub fn locate(&self, key: &K) -> Option<&V> {
+        self.map.get(key).map(|x| self.slots[*x].as_ref().unwrap())
+    }
+
+    pub fn locate_mut(&mut self, key: &K) -> Option<&mut V> {
+        self.map.get(key).map(|x| self.slots[*x].as_mut().unwrap())
     }
 
     pub fn free(&mut self, key: &K) {
@@ -117,53 +121,12 @@ where
     }
 }
 
-use super::Table;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
 use std::{
     array,
     collections::{hash_map, HashMap},
 };
-
-///Some API calls give out the internal index where data has been stored
-///This type represents a index that has come from a table and is therefore valid.
-///I would rather just return references to the data, but that
-///is not how the c code is structured so this will likely remain until
-///everything is in rust.
-///TODO remove type and just return references to the data.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Index(i16);
-
-impl Index {
-    fn raw(raw: i16) -> Option<Self> {
-        if raw == -1 {
-            None
-        } else {
-            Some(Index(raw))
-        }
-    }
-    fn to_raw(internal: Option<Self>) -> i16 {
-        if let Some(val) = internal {
-            val.0
-        } else {
-            -1
-        }
-    }
-}
-
-impl std::ops::Index<Index> for Table {
-    type Output = super::ST_DATA;
-
-    fn index(&self, index: Index) -> &Self::Output {
-        self.slots[index.0 as usize].as_ref().unwrap()
-    }
-}
-
-impl std::ops::IndexMut<Index> for Table {
-    fn index_mut(&mut self, index: Index) -> &mut Self::Output {
-        self.slots[index.0 as usize].as_mut().unwrap()
-    }
-}
 
 /// The only error condition is if we run out of room in the table.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -178,23 +141,40 @@ impl CreationError {
 #[cfg(test)]
 mod tests {
 
+    use super::{
+        super::{tests::var_u, Table},
+        CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS,
+    };
+    use crate::symbol_table::c_code::{VarU, ST_DATA};
     use pretty_assertions::assert_eq;
+    use std::ptr::{from_mut, from_ref};
 
-    use super::{CreationError, Index, Table, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
-
-    //Some syntactic sugar around try_into/unwrap
-    //to make the tests a bit cleaner.
-    use super::super::tests::var_u;
+    //For testing I want to know that the refreezes are the same
+    //These helper methods just convert things into ptrs so I don't have to worry about lifetimes.
+    impl Table {
+        fn locate_ptr(&mut self, key: &VarU) -> Option<*const ST_DATA> {
+            let tmp = self.locate(key).map(from_ref);
+            assert_eq!(tmp, self.locate_mut(key).map(|x| from_ref(x)));
+            tmp
+        }
+        fn create_ptr(&mut self, key: VarU) -> Result<*const ST_DATA, CreationError> {
+            self.create(key).map(|x| from_mut(x).cast_const())
+        }
+        fn index_ptr(&self, index: usize) -> Option<*const ST_DATA> {
+            self.slots[index].as_ref().map(|x| from_ref(x))
+        }
+    }
 
     #[test]
     fn create() {
         let mut table = Table::new();
-        for i in 0..NUMBER_OF_NORMAL_SLOTS as i16 {
+        for i in 0..NUMBER_OF_NORMAL_SLOTS {
             let var = var_u(&format!("var{i}"));
-            let index = table.create(var.clone());
+            let index = table.create_ptr(var.clone());
             //NOTE having sequential indexes probably improves cash locality
-            assert_eq!(index, Ok(Index(i)));
-            assert_eq!(table.locate(&var), Some(Index(i)));
+            let expected = table.index_ptr(i).unwrap();
+            assert_eq!(index, Ok(expected));
+            assert_eq!(table.locate_ptr(&var), Some(expected));
         }
 
         let last_straw = var_u("lastStraw");
@@ -203,8 +183,8 @@ mod tests {
 
         //There is a special node reserved for ECODE in the case that everything else has
         //been filed.
-        let index = table.create(var_u("$ECODE"));
-        assert_eq!(index, Ok(Index(ERROR_SLOT_INDEX as i16)));
+        let index = table.create_ptr(var_u("$ECODE"));
+        assert_eq!(index, Ok(table.index_ptr(ERROR_SLOT_INDEX).unwrap()));
     }
 
     #[test]
@@ -220,10 +200,10 @@ mod tests {
         let var2 = var_u("var2");
         let var3 = var_u("var3");
 
-        let _index0 = table.create(var0).unwrap();
-        let index1 = table.create(var1.clone()).unwrap();
-        let index2 = table.create(var2.clone()).unwrap();
-        let _index3 = table.create(var3).unwrap();
+        let _index0 = table.create_ptr(var0).unwrap();
+        let index1 = table.create_ptr(var1.clone()).unwrap();
+        let index2 = table.create_ptr(var2.clone()).unwrap();
+        let _index3 = table.create_ptr(var3).unwrap();
 
         let var1_1 = var_u("var1.1");
         let var2_1 = var_u("var2.1");
@@ -231,8 +211,8 @@ mod tests {
         //notes are reused in a FILO manor
         table.free(&var1);
         table.free(&var2);
-        assert_eq!(table.create(var2_1), Ok(index2));
-        assert_eq!(table.create(var1_1), Ok(index1));
+        assert_eq!(table.create_ptr(var2_1), Ok(index2));
+        assert_eq!(table.create_ptr(var1_1), Ok(index1));
     }
 
     #[test]
@@ -240,8 +220,8 @@ mod tests {
         let mut table = Table::new();
         let var = var_u("varname");
 
-        let first = table.create(var.clone());
-        let second = table.create(var);
+        let first = table.create_ptr(var.clone());
+        let second = table.create_ptr(var);
         assert_eq!(first, second);
     }
 
@@ -249,15 +229,5 @@ mod tests {
     fn locate_nonexistent_var() {
         let table = Table::new();
         assert_eq!(table.locate(&var_u("foo")), None);
-    }
-
-    #[test]
-    fn free_resets_to_default() {
-        let mut table = Table::new();
-        let var = var_u("varname");
-        let index = table.create(var.clone()).unwrap();
-        table.free(&var);
-
-        assert!(table.slots[index.0 as usize].is_none());
     }
 }

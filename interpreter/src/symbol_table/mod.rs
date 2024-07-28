@@ -187,20 +187,20 @@ impl ST_DATA {
 impl Table {
     #[must_use]
     pub fn get(&self, var: &MVAR) -> Option<Value> {
-        self.locate(&var.name)
-            .and_then(|index| self[index].value(&var.key))
+        self.locate(&var.name)?.value(&var.key)
     }
 
     pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
-        let index = self.create(var.name.clone()).map_err(|_| ())?;
-        self[index].set_value(&var.key, value);
+        self.create(var.name.clone())
+            .map_err(|_| ())?
+            .set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVAR) {
-        if let Some(index) = self.locate(&var.name) {
-            self[index].kill(&var.key);
-            if !self[index].contains_data() {
+        if let Some(data) = self.locate_mut(&var.name) {
+            data.kill(&var.key);
+            if !data.contains_data() {
                 self.free(&var.name);
             }
         }
