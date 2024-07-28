@@ -30,11 +30,11 @@
 //TODO remove once this module is actually being used.
 #![allow(dead_code)]
 
+mod hash;
 mod var_data;
 use ffi::u_char;
-use var_data::VarData;
-
 use std::hash::Hash;
+use var_data::VarData;
 
 //New type wrapper so I can implement methods on VAR_U
 //TODO decouple from ffi
@@ -53,6 +53,8 @@ impl std::fmt::Debug for MVAR {
         builder
             .field("name", &name)
             .field("key", &self.key)
+            .field("volume set", &self.volset)
+            .field("uci", &self.uci)
             .finish()
     }
 }
@@ -68,7 +70,7 @@ pub struct MVAR {
 
 impl Hash for VarU {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        unsafe { self.0.var_cu }.hash(state)
+        unsafe { self.0.var_cu }.hash(state);
     }
 }
 
@@ -85,30 +87,34 @@ impl hash::Key for VarU {
     }
 }
 
-pub type Table = hash::HashTable<VarU, VarData>;
-
-mod hash;
+pub struct Table(hash::HashTable<VarU, VarData>);
 
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 
 impl Table {
     #[must_use]
+    pub fn new() -> Self {
+        Self(hash::HashTable::new())
+    }
+
+    #[must_use]
     pub fn get(&self, var: &MVAR) -> Option<Value> {
-        self.locate(&var.name)?.value(&var.key)
+        self.0.locate(&var.name)?.value(&var.key)
     }
 
     pub fn set(&mut self, var: &MVAR, value: &Value) -> Result<(), ()> {
-        self.create(var.name.clone())
+        self.0
+            .create(var.name.clone())
             .map_err(|_| ())?
             .set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVAR) {
-        if let Some(data) = self.locate_mut(&var.name) {
+        if let Some(data) = self.0.locate_mut(&var.name) {
             data.kill(&var.key);
             if !data.contains_data() {
-                self.free(&var.name);
+                self.0.free(&var.name);
             }
         }
     }
@@ -123,9 +129,17 @@ impl Table {
             ..tab.src_var
         };
         //Keep anything from the passed in slice and all $ vars
-        self.remove_if(|x| !(vars.contains(x) || unsafe { x.0.var_cu[0] } == b'$'))
+        self.0
+            .remove_if(|x| !(vars.contains(x) || unsafe { x.0.var_cu[0] } == b'$'));
     }
 }
+
+impl Default for Table {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
@@ -326,7 +340,7 @@ pub mod tests {
         assert_eq!(table.get(&var_i), None);
 
         //hash table should have freed the entire.
-        assert_eq!(table.locate(&var_u("foo")), None);
+        assert_eq!(table.0.locate(&var_u("foo")), None);
     }
 
     #[test]

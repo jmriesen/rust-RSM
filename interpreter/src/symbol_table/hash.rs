@@ -184,19 +184,19 @@ where
 #[cfg(test)]
 mod tests {
 
-    use crate::symbol_table::var_data::VarData;
-
     use super::{
-        super::{tests::var_u, Table, VarU},
+        super::{tests::var_u, VarU},
         CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS,
     };
+    use crate::symbol_table::var_data::VarData;
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
 
     //For testing I want to know that the references are the same.
     //These helper methods just convert things into pointers so I don't
     //have to worry about lifetimes.
-    impl Table {
+    type Map = super::HashTable<VarU, VarData>;
+    impl Map {
         fn locate_ptr(&mut self, key: &VarU) -> Option<*const VarData> {
             let pointer = self.locate(key).map(from_ref);
             assert_eq!(pointer, self.locate_mut(key).map(|x| from_ref(x)));
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn create() {
-        let mut table = Table::new();
+        let mut table = Map::new();
         for i in 0..NUMBER_OF_NORMAL_SLOTS {
             let var = var_u(&format!("var{i}"));
             let index = table.create_ptr(var.clone());
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn create_free_create() {
-        let mut table = Table::new();
+        let mut table = Map::new();
         let var0 = var_u("var0");
         let var1 = var_u("var1");
         let var2 = var_u("var2");
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn create_duplicates() {
-        let mut table = Table::new();
+        let mut table = Map::new();
         let var = var_u("varname");
 
         let first = table.create_ptr(var.clone());
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn locate_nonexistent_var() {
-        let table = Table::new();
+        let table = Map::new();
         assert_eq!(table.locate(&var_u("foo")), None);
     }
 }
