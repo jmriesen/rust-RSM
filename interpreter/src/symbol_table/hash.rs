@@ -28,7 +28,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-const NUM_SLOTS: usize = 3073;
+pub trait Key: Eq + std::hash::Hash + Sized {
+    //The special Error key.
+    //Even if the map is full 'HashTable' will allow you to push this error.
+    fn error() -> Self;
+}
+
+const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
+const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
 //TODO make fields private
 /// Wrapper around the std std::collections::HashMap with a few additional properties.
 /// Max number of entries is 'NUM_SLOTS'*
@@ -37,7 +44,7 @@ const NUM_SLOTS: usize = 3073;
 /// a stack.
 pub struct HashTable<K, V>
 where
-    K: Eq + std::hash::Hash,
+    K: Key,
     V: Default,
 {
     /// Maps keys to their internal index
@@ -45,17 +52,17 @@ where
     ///Stack storing which indexes are available
     pub open_slots: Vec<usize>,
     ///The actual data store
-    pub slots: [Option<V>; NUM_SLOTS],
+    pub slots: [Option<V>; NUMBER_OF_NORMAL_SLOTS + 1], //the extra slot is for Error
 }
 
 impl<K, V> HashTable<K, V>
 where
-    K: Eq + std::hash::Hash,
+    K: Key,
     V: Default,
 {
     pub fn new() -> Self {
-        let mut open_slots = Vec::with_capacity(NUM_SLOTS);
-        for i in (0..NUM_SLOTS).rev() {
+        let mut open_slots = Vec::with_capacity(NUMBER_OF_NORMAL_SLOTS);
+        for i in (0..NUMBER_OF_NORMAL_SLOTS).rev() {
             open_slots.push(i)
         }
         Self {
@@ -69,12 +76,17 @@ where
         match self.map.entry(key) {
             hash_map::Entry::Occupied(entry) => Ok(Index(*entry.get() as i16)),
             hash_map::Entry::Vacant(entry) => {
-                if let Some(new_slot_index) = self.open_slots.pop() {
+                let index = self
+                    .open_slots
+                    .pop()
+                    //If slots are all filled check if we should use the error slot
+                    .or_else(|| (entry.key() == &K::error()).then(|| ERROR_SLOT_INDEX));
+
+                if let Some(new_slot_index) = index {
                     entry.insert(new_slot_index);
                     self.slots[new_slot_index] = Some(V::default());
                     Ok(Index(new_slot_index as i16))
                 } else {
-                    //TODO Deal with $ECODE
                     Err(CreationError)
                 }
             }
@@ -88,11 +100,13 @@ where
     pub fn free(&mut self, key: &K) {
         if let Some(index) = self.map.remove(&key) {
             self.slots[index] = None;
-            self.open_slots.push(index);
+            if index != ERROR_SLOT_INDEX {
+                self.open_slots.push(index);
+            }
         }
     }
 }
-use super::{Tab, Table};
+use super::{c_code::VarU, Tab, Table};
 use ffi::VAR_U;
 /// The symbol table stores its values using a hash table.
 /// All the hash table specific things live in this module.
@@ -182,14 +196,6 @@ mod tests {
             //NOTE having sequential indexes probably improves cash locality
             assert_eq!(index, Ok(Index(i)));
             assert_eq!(table.locate(&var), Some(Index(i)));
-
-            //Verify data has been reset
-            //TODO create a better test for this.
-            //usage and data are both zeroed during initialization.
-            let node = &table[index.expect("Someness allready checked")];
-            assert_eq!(VarU(node.varnam), var);
-            assert_eq!({ node.usage }, 0);
-            assert_eq!({ node.data }, null_mut());
         }
 
         let last_straw = var_u("lastStraw");

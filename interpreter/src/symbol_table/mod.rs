@@ -109,6 +109,11 @@ mod c_code {
         }
     }
 
+    impl super::hash::Key for VarU {
+        fn error() -> Self {
+            Self("$ECODE".try_into().expect("the error key is a valid VarU"))
+        }
+    }
     pub type table_struct = super::hash::HashTable<VarU, SYMTAB>;
 
     //NOTE memory leak since data null is not being cleaned up on drop
