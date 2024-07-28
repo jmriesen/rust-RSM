@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use std::{string::FromUtf8Error, usize};
+use std::string::FromUtf8Error;
 
 use ffi::{CSTRING, MAX_STR_LEN};
 
@@ -37,7 +37,7 @@ use ffi::{CSTRING, MAX_STR_LEN};
 //
 //NOTE There is a byte_maxs of 65535 (just like 'CSTRINGS')
 
-#[derive(Clone, PartialEq)] //NOTE keep the Manual Debug implementation in sync
+#[derive(Clone, PartialEq, Eq)] //NOTE keep the Manual Debug implementation in sync
 pub struct Value(Vec<u8>);
 
 impl Value {
@@ -49,7 +49,8 @@ impl Value {
         String::from_utf8(self.0)
     }
 
-    #[must_use] pub fn into_cstring(self) -> CSTRING {
+    #[must_use]
+    pub fn into_cstring(self) -> CSTRING {
         let mut buf = [0; MAX_STR_LEN as usize + 1];
         buf[..self.0.len()].copy_from_slice(&self.0[..]);
         CSTRING {

@@ -34,6 +34,7 @@
 #![feature(array_windows)]
 #![feature(slice_split_once)]
 #![feature(btree_cursors)]
+#![feature(hash_extract_if)]
 //TODO remove these allows.
 #![allow(
     clippy::cast_possible_truncation,

@@ -28,7 +28,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![allow(dead_code)]
-use std::usize;
 
 mod internal;
 use internal::ParsedKey;
@@ -40,15 +39,15 @@ use crate::value::Value;
 #[derive(Eq, PartialEq, Clone)]
 pub struct Key(Vec<u8>);
 impl Key {
-    #[must_use]
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
         let mut key = Self(Vec::new());
         for value in values {
-            key = key.push(&value)?;
+            key = key.push(value)?;
         }
         Ok(key)
     }
 
+    #[must_use]
     pub fn empty() -> Self {
         Self(Vec::new())
     }
