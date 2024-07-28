@@ -30,9 +30,11 @@
 //TODO remove once this module is actually being used.
 #![allow(dead_code)]
 
+mod var_data;
 use ffi::u_char;
+use var_data::VarData;
 
-use std::{collections::BTreeMap, hash::Hash};
+use std::hash::Hash;
 
 //New type wrapper so I can implement methods on VAR_U
 //TODO decouple from ffi
@@ -64,24 +66,6 @@ pub struct MVAR {
     key: Key,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ST_DATA {
-    sub_values: BTreeMap<Key, Value>,
-    //TODO consider removing I am currently not using attach
-    attach: ::std::os::raw::c_short,
-    value: Option<Value>,
-}
-
-impl Default for ST_DATA {
-    fn default() -> Self {
-        Self {
-            sub_values: Default::default(),
-            attach: 0,
-            value: None,
-        }
-    }
-}
-
 impl Hash for VarU {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         unsafe { self.0.var_cu }.hash(state)
@@ -101,66 +85,11 @@ impl hash::Key for VarU {
     }
 }
 
-pub type Table = hash::HashTable<VarU, ST_DATA>;
+pub type Table = hash::HashTable<VarU, VarData>;
 
 mod hash;
 
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
-
-impl ST_DATA {
-    fn value(&self, key: &Key) -> Option<Value> {
-        //TODO remove clones
-        if key.is_empty() {
-            self.value.clone()
-        } else {
-            //NOTE There is probably room for optimization here.
-            //It is fairly common for the M code to access the values sequentially using $O
-            //The C code speed up $O by string a reference to the last used node.
-            //I am not doing this right now as it would require making a self referential type
-            //and I am not focusing on performance right now. (just correctness)
-            //NOTE you could also probably accomplish the last key thing using using a sorted vec
-            self.sub_values.get(key).cloned()
-        }
-    }
-
-    fn set_value(&mut self, key: &Key, data: &Value) {
-        if key.is_empty() {
-            self.value = Some(data.clone());
-        } else {
-            let _ = self.sub_values.insert(key.clone(), data.clone());
-        }
-    }
-
-    fn kill(&mut self, key: &Key) {
-        if key.is_empty() {
-            //Clear values
-            self.sub_values = BTreeMap::default();
-            self.value = None;
-        } else {
-            //NOTE Removing a range of keys seems like something the std BTree map should support,
-            //However it looks like there is still some design swirl going on, and the design has
-            //not been touched in a while
-            //https://github.com/rust-lang/rust/issues/81074
-            //So I just chose to use the cursor api for now.
-            let mut cursor = self
-                .sub_values
-                .lower_bound_mut(std::ops::Bound::Included(key));
-            while let Some((current_key, _)) = cursor.peek_next()
-                && current_key.is_sub_key_of(key)
-            {
-                cursor.remove_next();
-            }
-        }
-    }
-
-    //checks self contains any data, if not it can be freed
-    //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
-    //on this for the moment
-    #[cfg_attr(test, mutants::skip)]
-    fn contains_data(&self) -> bool {
-        !(self.sub_values.is_empty() && self.attach <= 1 && self.value.is_none())
-    }
-}
 
 impl Table {
     #[must_use]
@@ -195,17 +124,14 @@ impl Table {
         };
         //Keep anything from the passed in slice and all $ vars
         self.remove_if(|x| !(vars.contains(x) || unsafe { x.0.var_cu[0] } == b'$'))
-        //
     }
 }
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
-    use arbitrary::Arbitrary;
-
-    use crate::{key::Key, value::Value};
-
     use super::{VarU, MVAR};
+    use crate::{key::Key, value::Value};
+    use arbitrary::Arbitrary;
     use ffi::VAR_U;
     #[must_use]
     pub fn var_u(var: &str) -> VarU {

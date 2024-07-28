@@ -184,8 +184,10 @@ where
 #[cfg(test)]
 mod tests {
 
+    use crate::symbol_table::var_data::VarData;
+
     use super::{
-        super::{tests::var_u, Table, VarU, ST_DATA},
+        super::{tests::var_u, Table, VarU},
         CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS,
     };
     use pretty_assertions::assert_eq;
@@ -195,15 +197,15 @@ mod tests {
     //These helper methods just convert things into pointers so I don't
     //have to worry about lifetimes.
     impl Table {
-        fn locate_ptr(&mut self, key: &VarU) -> Option<*const ST_DATA> {
+        fn locate_ptr(&mut self, key: &VarU) -> Option<*const VarData> {
             let pointer = self.locate(key).map(from_ref);
             assert_eq!(pointer, self.locate_mut(key).map(|x| from_ref(x)));
             pointer
         }
-        fn create_ptr(&mut self, key: VarU) -> Result<*const ST_DATA, CreationError> {
+        fn create_ptr(&mut self, key: VarU) -> Result<*const VarData, CreationError> {
             self.create(key).map(|x| from_ref(x))
         }
-        fn index_ptr(&self, index: usize) -> Option<*const ST_DATA> {
+        fn index_ptr(&self, index: usize) -> Option<*const VarData> {
             self.slots[index].as_ref().map(|x| from_ref(x))
         }
     }
