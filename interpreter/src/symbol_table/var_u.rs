@@ -3,6 +3,11 @@
 use std::hash::Hash;
 #[derive(Clone, Debug)]
 pub struct VarU(pub ffi::VAR_U);
+impl VarU {
+    pub fn is_intrinsic(&self) -> bool {
+        unsafe { self.0.var_cu[0] == b'$' }
+    }
+}
 
 impl Hash for VarU {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

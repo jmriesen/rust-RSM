@@ -88,7 +88,7 @@ impl Table {
         };
         //Keep anything from the passed in slice and all $ vars
         self.0
-            .remove_if(|x| !(vars.contains(x) || unsafe { x.0.var_cu[0] } == b'$'));
+            .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
 }
 
