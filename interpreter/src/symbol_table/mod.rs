@@ -35,6 +35,7 @@ mod m_var;
 mod var_data;
 mod var_u;
 use crate::value::Value;
+use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use m_var::MVar;
 use var_data::VarData;
 use var_u::VarU;
@@ -45,14 +46,13 @@ impl hash::Key for VarU {
     }
 }
 
+#[derive(Default, Debug)]
 pub struct Table(hash::HashTable<VarU, VarData>);
-
-use ffi::{PARTAB, UCI_IS_LOCALVAR};
 
 impl Table {
     #[must_use]
     pub fn new() -> Self {
-        Self(hash::HashTable::new())
+        Self::default()
     }
 
     #[must_use]
@@ -92,18 +92,11 @@ impl Table {
     }
 }
 
-impl Default for Table {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
 
-    use crate::symbol_table::m_var::helpers::var_m;
-
     use super::Table;
+    use crate::symbol_table::m_var::helpers::var_m;
     use ffi::UCI_IS_LOCALVAR;
     use pretty_assertions::assert_eq;
 
