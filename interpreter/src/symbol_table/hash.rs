@@ -51,6 +51,8 @@ impl CreationError {
 }
 
 const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
+///The +1 is so that we always have room for the error key.
+const NUMBER_OF_TOTAL_SLOTS: usize = NUMBER_OF_NORMAL_SLOTS + 1;
 const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
 
 /// Wrapper around the std `std::collections::HashMap` with a few additional properties.
@@ -68,7 +70,7 @@ where
     ///Stack storing which indexes are available
     open_slots: Vec<usize>,
     ///The actual data store
-    slots: [Option<V>; NUMBER_OF_NORMAL_SLOTS + 1], //the extra slot is for Error
+    slots: [Option<V>; NUMBER_OF_TOTAL_SLOTS],
 }
 
 impl<K, V> HashTable<K, V>
@@ -189,13 +191,14 @@ mod tests {
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
 
-    //For testing I want to know that the refreezes are the same
-    //These helper methods just convert things into ptrs so I don't have to worry about lifetimes.
+    //For testing I want to know that the references are the same.
+    //These helper methods just convert things into pointers so I don't
+    //have to worry about lifetimes.
     impl Table {
         fn locate_ptr(&mut self, key: &VarU) -> Option<*const ST_DATA> {
-            let tmp = self.locate(key).map(from_ref);
-            assert_eq!(tmp, self.locate_mut(key).map(|x| from_ref(x)));
-            tmp
+            let pointer = self.locate(key).map(from_ref);
+            assert_eq!(pointer, self.locate_mut(key).map(|x| from_ref(x)));
+            pointer
         }
         fn create_ptr(&mut self, key: VarU) -> Result<*const ST_DATA, CreationError> {
             self.create(key).map(|x| from_ref(x))
