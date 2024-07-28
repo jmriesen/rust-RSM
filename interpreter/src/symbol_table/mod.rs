@@ -30,103 +30,82 @@
 //TODO remove once this module is actually being used.
 #![allow(dead_code)]
 
-#[allow(
-    dead_code,
-    non_snake_case,
-    non_upper_case_globals,
-    non_camel_case_types
-)]
-mod c_code {
-    //Generated code violates a lot of formatting stuff conventions.
-    //Pointless to warn about all of them
-    #![allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
+use ffi::u_char;
 
-    use ffi::u_char;
+use std::{collections::BTreeMap, hash::Hash};
 
-    use std::{collections::BTreeMap, hash::Hash, sync::Mutex};
-
-    //New type wrapper so I can implement methods on VAR_U
-    //TODO decouple from ffi
-    #[derive(Clone, Debug)]
-    pub struct VarU(pub ffi::VAR_U);
-
-    use crate::{key::Key, value::Value};
-    pub static lock: Mutex<()> = Mutex::new(());
-
-    impl std::fmt::Debug for MVAR {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            //TODO implement a more complete implementation.
-            //Currently this is just enough to start fuzz testing.
-            let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
-
-            let mut builder = f.debug_struct("MVar");
-            builder
-                .field("name", &name)
-                .field("key", &self.key)
-                .finish()
-        }
-    }
-
-    //TODO make fields private
-    #[derive(Clone)]
-    pub struct MVAR {
-        pub name: VarU,
-        pub volset: u_char,
-        pub uci: u_char,
-        pub key: Key,
-    }
-
-    #[derive(Debug, PartialEq, Eq)]
-    pub struct ST_DATA {
-        pub sub_values: BTreeMap<Key, Value>,
-        //TODO consider removing I am currently not using attach
-        pub attach: ::std::os::raw::c_short,
-        pub value: Option<Value>,
-    }
-
-    impl Default for ST_DATA {
-        fn default() -> Self {
-            Self {
-                sub_values: Default::default(),
-                attach: 0,
-                value: None,
-            }
-        }
-    }
-
-    impl Hash for VarU {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            unsafe { self.0.var_cu }.hash(state)
-        }
-    }
-
-    impl Eq for VarU {}
-    impl PartialEq for VarU {
-        fn eq(&self, other: &Self) -> bool {
-            unsafe { self.0.var_cu == other.0.var_cu }
-        }
-    }
-
-    impl super::hash::Key for VarU {
-        fn error() -> Self {
-            Self("$ECODE".try_into().expect("the error key is a valid VarU"))
-        }
-    }
-    pub type table_struct = super::hash::HashTable<VarU, ST_DATA>;
-
-    pub type Table = table_struct;
-}
-
-use std::collections::BTreeMap;
-
-pub use c_code::{Table, MVAR};
-//TODO remove and replace with derive once type move over to Rust
-mod hash;
-
-use c_code::{VarU, ST_DATA};
-use ffi::{PARTAB, UCI_IS_LOCALVAR};
+//New type wrapper so I can implement methods on VAR_U
+//TODO decouple from ffi
+#[derive(Clone, Debug)]
+pub struct VarU(pub ffi::VAR_U);
 
 use crate::{key::Key, value::Value};
+
+impl std::fmt::Debug for MVAR {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //TODO implement a more complete implementation.
+        //Currently this is just enough to start fuzz testing.
+        let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
+
+        let mut builder = f.debug_struct("MVar");
+        builder
+            .field("name", &name)
+            .field("key", &self.key)
+            .finish()
+    }
+}
+
+//TODO make fields private
+#[derive(Clone)]
+pub struct MVAR {
+    name: VarU,
+    volset: u_char,
+    uci: u_char,
+    key: Key,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ST_DATA {
+    sub_values: BTreeMap<Key, Value>,
+    //TODO consider removing I am currently not using attach
+    attach: ::std::os::raw::c_short,
+    value: Option<Value>,
+}
+
+impl Default for ST_DATA {
+    fn default() -> Self {
+        Self {
+            sub_values: Default::default(),
+            attach: 0,
+            value: None,
+        }
+    }
+}
+
+impl Hash for VarU {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe { self.0.var_cu }.hash(state)
+    }
+}
+
+impl Eq for VarU {}
+impl PartialEq for VarU {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { self.0.var_cu == other.0.var_cu }
+    }
+}
+
+impl hash::Key for VarU {
+    fn error() -> Self {
+        Self("$ECODE".try_into().expect("the error key is a valid VarU"))
+    }
+}
+
+pub type Table = hash::HashTable<VarU, ST_DATA>;
+
+mod hash;
+
+use ffi::{PARTAB, UCI_IS_LOCALVAR};
 
 impl ST_DATA {
     fn value(&self, key: &Key) -> Option<Value> {
@@ -226,7 +205,7 @@ pub mod helpers {
 
     use crate::{key::Key, value::Value};
 
-    use super::c_code::{VarU, MVAR};
+    use super::{VarU, MVAR};
     use ffi::VAR_U;
     #[must_use]
     pub fn var_u(var: &str) -> VarU {
@@ -271,10 +250,10 @@ pub mod helpers {
 pub mod tests {
 
     pub use super::helpers::{var_m, var_u};
+    use super::Table;
     use ffi::UCI_IS_LOCALVAR;
     use pretty_assertions::assert_eq;
 
-    use super::c_code::Table;
     #[test]
     fn get_unset_variable() {
         let table = Table::new();
