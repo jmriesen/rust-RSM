@@ -127,9 +127,10 @@ pub struct Iter<'a> {
 pub enum Error {
     SubscriptToLarge,
     ContainsNull,
-    KeyOverFlow(usize),
+    KeyToLarge,
 }
 
+#[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("key");
@@ -142,6 +143,7 @@ impl std::fmt::Debug for Key {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod a_b_testing {
 
@@ -186,7 +188,7 @@ pub mod a_b_testing {
 #[cfg(test)]
 mod tests {
     use a_b_testing::string;
-    use ffi::MAX_SUB_LEN;
+    use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
     use internal::MAX_INT_SEGMENT_SIZE;
     use rstest::rstest;
 
@@ -224,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn max_key_size() {
+    fn subscript_max_size() {
         let result = Key::new([&"a"
             .repeat(MAX_SUB_LEN as usize)
             .as_str()
@@ -233,13 +235,44 @@ mod tests {
         assert!(result.is_ok());
     }
     #[test]
-    fn key_that_is_to_large() {
+    fn subscript_that_is_to_large() {
         let result = Key::new([&"a"
             .repeat(MAX_SUB_LEN as usize + 1)
             .as_str()
             .try_into()
             .unwrap()]);
         assert_eq!(result, Err(Error::SubscriptToLarge));
+    }
+
+    #[test]
+    fn key_max_size() {
+        let result = Key::new([
+            &"a".repeat(MAX_SUB_LEN as usize)
+                .as_str()
+                .try_into()
+                .unwrap(),
+            //NOTE -4 to account for the 2 null terminators + 2 type markers
+            &"a".repeat((MAX_KEY_SIZE - MAX_SUB_LEN - 4) as usize)
+                .as_str()
+                .try_into()
+                .unwrap(),
+        ]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn key_that_is_to_large() {
+        let result = Key::new([
+            &"a".repeat(MAX_SUB_LEN as usize)
+                .as_str()
+                .try_into()
+                .unwrap(),
+            &"a".repeat(MAX_SUB_LEN as usize)
+                .as_str()
+                .try_into()
+                .unwrap(),
+        ]);
+        assert_eq!(result, Err(Error::KeyToLarge));
     }
 
     #[test]
@@ -250,6 +283,9 @@ mod tests {
 
     #[test]
     fn build_key_int_to_large() {
+        //NOTE I tried to put the mutants::skip attribute on 'MAX_INT_SEGMENT_SIZE'
+        //but mutants were still being generated
+        assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
         let key = Key::new([&"1"
             .repeat(MAX_INT_SEGMENT_SIZE + 1)
             .as_str()

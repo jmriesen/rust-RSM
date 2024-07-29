@@ -39,12 +39,12 @@ use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
 /// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] -> negative number; x is # of integer digits (base 10)
 /// [`STRING_FLAG`,..., 0] -> string (if numbers are to large they are stored as strings.
 
-static STRING_FLAG: u8 = 0b1000_0000;
-static INT_ZERO_POINT: u8 = 0b100_0000;
+const STRING_FLAG: u8 = 0b1000_0000;
+const INT_ZERO_POINT: u8 = 0b100_0000;
 
 /// Only 7 bytes are allocated to store the size of the int portion of a number.
 /// any number that takes more integer digits will be stored as a string.
-pub static MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
+pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
 use super::{Error, Iter, Key};
 
@@ -243,13 +243,14 @@ impl Key {
         //at some point when I understand 9's complement better I should see if I can remove this
         self.0.push(end_mark.unwrap_or(b'\0'));
         if self.len() > MAX_KEY_SIZE as usize {
-            Err(Error::KeyOverFlow(self.len()))
+            Err(Error::KeyToLarge)
         } else {
             Ok(self)
         }
     }
 
-    #[must_use] pub fn is_sub_key_of(&self, key: &Self) -> bool {
+    #[must_use]
+    pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
     }
 }
