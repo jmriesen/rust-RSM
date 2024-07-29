@@ -32,7 +32,12 @@ use std::{
     sync::{LockResult, Mutex, MutexGuard},
 };
 
-use crate::{ST_Get, ST_Init, ST_Kill, ST_Set, CSTRING, MVAR};
+use libc::pthread_mutexattr_getpshared;
+
+use crate::{
+    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract,
+    UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
+};
 
 ///controls access to table globals
 static TABLE_MUTEX: Mutex<()> = Mutex::new(());
@@ -70,4 +75,49 @@ impl Table {
     pub fn kill(&self, var: &MVAR) {
         unsafe { ST_Kill(from_ref(var).cast_mut()) };
     }
+}
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        let mut array = [];
+        unsafe { ST_KillAll(array.len() as i32, array.as_mut_ptr()) };
+    }
+}
+
+pub fn build_key(key: &CSTRING) -> Result<Vec<u8>, i16> {
+    let mut buffer = [0; MAX_STR_LEN as usize + 1];
+    let len = unsafe { UTIL_Key_Build(from_ref(key).cast_mut(), buffer.as_mut_ptr()) };
+    if len >= 0 {
+        Ok(Vec::from(&buffer[..len as usize]))
+    } else {
+        Err(len)
+    }
+}
+
+pub fn extract_key(key: &[u8]) -> Result<Vec<u8>, i16> {
+    let mut buf = [0; 65535];
+    //Note currently this does not care about the cnt value
+    //That value is used to figure out if string should be quoted AND who much of the slice was
+    //read
+    //TODO Actually use the cnt variable.
+    let len = unsafe { UTIL_Key_Extract(key.as_ptr().cast_mut(), buf.as_mut_ptr(), &mut 0) };
+    if len < 0 {
+        Err(len)
+    } else {
+        Ok(Vec::from(&buf[..len as usize]))
+    }
+}
+
+pub fn string_key(key: &[u8], max_subs: i32) -> Vec<u8> {
+    //This function requires the key length and for some reason just wants it as the fist byte of
+    //the key array.
+    let mut formated_key = vec![key.len() as u8];
+    formated_key.extend(key);
+    let mut buf = [0; 65535];
+    let len = unsafe { UTIL_String_Key(formated_key.as_mut_ptr(), buf.as_mut_ptr(), max_subs) };
+    Vec::from(
+        &buf[..len.try_into().expect(
+            "C code should always return a positive length and short should be less the usize",
+        )],
+    )
 }

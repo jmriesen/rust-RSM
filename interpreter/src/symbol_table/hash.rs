@@ -27,53 +27,17 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use super::{c_code::table_struct, Tab, Table};
-use ffi::VAR_U;
-/// The symbol table stores its values using a hash table.
-/// All the hash table specific things live in this module.
-use std::{array::from_fn, ptr::null_mut};
+use std::{
+    array,
+    collections::{hash_map, HashMap},
+    fmt::{self, Debug},
+};
 
-use super::c_code::{ST_HASH, ST_MAX, SYMTAB};
-const TAB_RAW_SIZE: usize = ST_MAX as usize + 1;
-const HASH_RAW_SIZE: usize = ST_HASH as usize + 1;
-///Some API calls give out the internal index where data has been stored
-///This type represents a index that has come from a table and is therefore valid.
-///I would rather just return references to the data, but that
-///is not how the c code is structured so this will likely remain until
-///everything is in rust.
-///TODO remove type and just return references to the data.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Index(i16);
-
-impl Index {
-    fn raw(raw: i16) -> Option<Self> {
-        if raw == -1 {
-            None
-        } else {
-            Some(Index(raw))
-        }
-    }
-    fn to_raw(internal: Option<Self>) -> i16 {
-        if let Some(val) = internal {
-            val.0
-        } else {
-            -1
-        }
-    }
-}
-
-impl std::ops::Index<Index> for Table {
-    type Output = SYMTAB;
-
-    fn index(&self, index: Index) -> &Self::Output {
-        &self.sym_tab[index.0 as usize]
-    }
-}
-
-impl std::ops::IndexMut<Index> for Table {
-    fn index_mut(&mut self, index: Index) -> &mut Self::Output {
-        &mut self.sym_tab[index.0 as usize]
-    }
+///Required trait bounds for Keys in the hashtable
+pub trait Key: Eq + std::hash::Hash + Sized {
+    //The special Error key.
+    //Even if the map is full 'HashTable' will allow you to push this error.
+    fn error() -> Self;
 }
 
 /// The only error condition is if we run out of room in the table.
@@ -86,243 +50,186 @@ impl CreationError {
     }
 }
 
-impl Table {
+const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
+///The +1 is so that we always have room for the error key.
+const NUMBER_OF_TOTAL_SLOTS: usize = NUMBER_OF_NORMAL_SLOTS + 1;
+const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
+
+/// Wrapper around the std `std::collections::HashMap` with a few additional properties.
+/// Max number of entries is '`NUM_SLOTS`'*
+/// If the map is full we can still insert a special Error Key.
+/// Internally the keys are stored in a array, and the indexes into that array are handed out using
+/// a stack.
+pub struct HashTable<K, V>
+where
+    K: Key,
+    V: Default,
+{
+    /// Maps keys to their internal index
+    map: std::collections::HashMap<K, usize>,
+    ///Stack storing which indexes are available
+    open_slots: Vec<usize>,
+    ///The actual data store
+    slots: [Option<V>; NUMBER_OF_TOTAL_SLOTS],
+}
+
+impl<K, V> HashTable<K, V>
+where
+    K: Key,
+    V: Default,
+{
     pub fn new() -> Self {
-        let mut hash = [-1; HASH_RAW_SIZE];
-        *hash.last_mut().unwrap() = 0;
-        let var_name: VAR_U = "".try_into().expect("string literals should not fail");
-
-        let mut tabs = from_fn(|i| Tab {
-            fwd_link: 1 + i as i16,
-            usage: 0,
-            data: null_mut(),
-            varnam: var_name,
-        });
-        // -1 == end of the list;
-        tabs.last_mut().unwrap().fwd_link = -1;
-
+        let mut open_slots = Vec::with_capacity(NUMBER_OF_NORMAL_SLOTS);
+        for i in (0..NUMBER_OF_NORMAL_SLOTS).rev() {
+            open_slots.push(i);
+        }
         Self {
-            st_hash_temp: hash,
-            sym_tab: tabs,
+            open_slots,
+            map: HashMap::default(),
+            slots: array::from_fn(|_| None),
         }
     }
 
-    //Question how isolated are these from the rest of C code
-    #[cfg(test)]
-    fn clone_c_table() -> Self {
-        use ffi::{st_hash, symtab};
-        let mut hash = [0; HASH_RAW_SIZE];
-        hash.copy_from_slice(unsafe {
-            std::slice::from_raw_parts(st_hash.as_ptr(), HASH_RAW_SIZE)
-        });
-        let tabs: Vec<_> = unsafe { std::slice::from_raw_parts(symtab.as_ptr(), TAB_RAW_SIZE) }
-            .iter()
-            .map(|x| {
-                Tab {
-                    fwd_link: x.fwd_link,
-                    usage: x.usage,
-                    //TODO Yes this is pointer copying.
-                    //Fix this at some point
-                    data: x.data.cast(),
-                    varnam: x.varnam,
+    pub fn create(&mut self, key: K) -> Result<&mut V, CreationError> {
+        match self.map.entry(key) {
+            hash_map::Entry::Occupied(entry) => Ok(self.slots[*entry.get()].as_mut().unwrap()),
+            hash_map::Entry::Vacant(entry) => {
+                let index = self
+                    .open_slots
+                    .pop()
+                    //If slots are all filled check if we should use the error slot
+                    .or_else(|| (entry.key() == &K::error()).then_some(ERROR_SLOT_INDEX));
+
+                if let Some(new_slot_index) = index {
+                    entry.insert(new_slot_index);
+                    self.slots[new_slot_index] = Some(V::default());
+                    Ok(self.slots[new_slot_index].as_mut().unwrap())
+                } else {
+                    Err(CreationError)
                 }
-            })
+            }
+        }
+    }
+
+    pub fn locate(&self, key: &K) -> Option<&V> {
+        self.map.get(key).map(|x| self.slots[*x].as_ref().unwrap())
+    }
+
+    pub fn locate_mut(&mut self, key: &K) -> Option<&mut V> {
+        self.map.get(key).map(|x| self.slots[*x].as_mut().unwrap())
+    }
+
+    pub fn free(&mut self, key: &K) {
+        if let Some(index) = self.map.remove(key) {
+            self.slots[index] = None;
+            if index != ERROR_SLOT_INDEX {
+                self.open_slots.push(index);
+            }
+        }
+    }
+
+    pub fn remove_if(&mut self, predict: impl Fn(&K) -> bool) {
+        let mut to_be_removed: Vec<_> = self
+            .map
+            .extract_if(|key, _| predict(key))
+            .map(|(_, index)| index)
             .collect();
 
-        Self {
-            st_hash_temp: hash,
-            sym_tab: tabs.try_into().unwrap(),
+        //NOTE the only reason I am sorting is so that the order of keys inserted back into open
+        //slots is deterministic
+        to_be_removed.sort_by(|a, b| a.cmp(b).reverse());
+        self.open_slots.extend_from_slice(&to_be_removed);
+        for index in &to_be_removed {
+            self.slots[*index] = None;
         }
     }
 
-    fn next_free(&self) -> Option<Index> {
-        use super::c_code::ST_FREE;
-        Index::raw(self.st_hash_temp[ST_FREE as usize])
+    fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.map
+            .iter()
+            .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap()))
     }
+}
 
-    fn set_next_free(&mut self, index: Option<Index>) {
-        use super::c_code::ST_FREE;
-        self.st_hash_temp[ST_FREE as usize] = Index::to_raw(index);
+impl<K, V> Default for HashTable<K, V>
+where
+    K: Key,
+    V: Default,
+{
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    //The tables have a max capacity and will fail if to many variables are added.
-    pub fn create(&mut self, var: VAR_U) -> Result<Index, CreationError> {
-        const ERR_SLOT: i16 = ST_MAX as i16;
-        if let Some(index) = self.locate(var) {
-            Ok(index)
-        } else {
-            match self.next_free() {
-                None => Err(CreationError),
-                //This slot is reserved for $ECODE
-                //Note $ECODE does not have to use it, but it should always be available in case we
-                //need to report and error.
-                Some(Index(ERR_SLOT)) if var != "$ECODE".try_into().unwrap() => Err(CreationError),
-                Some(next_free) => {
-                    let hash = hash(var);
-                    self.set_next_free(Index::raw(self[next_free].fwd_link));
-                    //Insert as head
-                    self[next_free].fwd_link = self.st_hash_temp[hash as usize];
-                    self.st_hash_temp[hash as usize] = Index::to_raw(Some(next_free));
+#[cfg_attr(test, mutants::skip)]
+impl<K, V> Debug for HashTable<K, V>
+where
+    K: Key + Debug,
+    V: Default + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut builder = f.debug_map();
+        builder.entries(self.iter());
+        builder.finish()
+    }
+}
 
-                    self[next_free] = SYMTAB {
-                        usage: 0,
-                        varnam: var,
-                        data: null_mut(),
-                        ..self[next_free]
-                    };
-                    Ok(next_free)
-                }
+impl<K, V> PartialEq for HashTable<K, V>
+where
+    K: Key,
+    V: Default + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        for (key, value) in self.iter() {
+            if Some(value) != other.locate(key) {
+                return false;
             }
         }
-    }
-
-    pub fn locate(&self, var: VAR_U) -> Option<Index> {
-        self.locate_helper(var).map(|(_, x)| x)
-    }
-
-    fn locate_helper(&self, var: VAR_U) -> Option<(Option<Index>, Index)> {
-        LineIterator {
-            table: self,
-            next: Index::raw(self.st_hash_temp[hash(var) as usize]),
-            previous: None,
-        }
-        .find(|(_, i)| self[*i].varnam == var)
-    }
-
-    pub fn free(&mut self, var: VAR_U) {
-        match self.locate_helper(var) {
-            None => { /*Value never found do nothing */ }
-            Some((previous, current)) => {
-                //Update links
-                if let Some(previous) = previous {
-                    self[previous].fwd_link = self[current].fwd_link;
-                } else {
-                    self.st_hash_temp[hash(var) as usize] = self[current].fwd_link;
-                }
-                //I don't know if I like ST_FREE being used as a special index.
-                self[current].fwd_link = Index::to_raw(self.next_free());
-                self.set_next_free(Some(current));
-
-                //Clear old data.
-                self[current] = SYMTAB {
-                    data: null_mut(),
-                    varnam: "".try_into().unwrap(),
-                    ..self[current]
-                };
+        for (key, value) in other.iter() {
+            if Some(value) != self.locate(key) {
+                return false;
             }
         }
+        true
     }
-}
-
-#[derive(Clone)]
-struct LineIterator<'a> {
-    table: &'a Table,
-    next: Option<Index>,
-    previous: Option<Index>,
-}
-
-//Iterates over the nodes fwd_links.
-//Returns (next-1,next) since having the next-1 node make un-linking easier.
-impl Iterator for LineIterator<'_> {
-    type Item = (Option<Index>, Index);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(cur) = self.next {
-            let val = (self.previous, cur);
-            self.previous = self.next;
-            self.next = Index::raw(self.table[cur].fwd_link);
-            Some(val)
-        } else {
-            None
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn TMP_Locate(var: super::c_code::var_u, table: &table_struct) -> i16 {
-    Index::to_raw(table.locate(var))
-}
-
-#[no_mangle]
-pub extern "C" fn TMP_Create(var: super::c_code::var_u, table: &mut table_struct) -> i16 {
-    match table.create(var) {
-        Ok(index) => Index::to_raw(Some(index)),
-        Err(_err) => CreationError::error_code(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn TMP_Free(var: super::c_code::var_u, table: &mut table_struct) {
-    table.free(var);
-}
-
-fn hash(var: VAR_U) -> i16 {
-    let primes = [
-        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
-        97, 101, 103, 107, 109, 113, 127, 131, 137,
-    ];
-    (var.as_array()
-        .iter()
-        .copied()
-        .take_while(|x| *x != 0)
-        .enumerate()
-        //Note using i32 to mimic C's int
-        .map(|(i, x)| i32::from(x) * primes[i])
-        .sum::<i32>()
-        //matching casting behavior of C
-        % ST_HASH as i32) as i16
 }
 
 #[cfg(test)]
 mod tests {
 
-    use std::ptr::null_mut;
-
+    use super::{super::VarU, CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
+    use crate::symbol_table::{var_data::VarData, var_u::helpers::var_u};
     use pretty_assertions::assert_eq;
-    use rand::{distributions::Alphanumeric, Rng};
+    use std::ptr::from_ref;
 
-    use super::{CreationError, Index, Table, ST_MAX};
-    use rstest::*;
-
-    //Some syntactic sugar around try_into/unwrap
-    //to make the tests a bit cleaner.
-    use super::super::tests::var_u;
-
-    #[test]
-    fn init() {
-        //This may not be referring to the right table
-        unsafe { ffi::ST_Init() }
-        let c = Table::clone_c_table();
-        assert_eq!(c, Table::new());
-    }
-
-    #[rstest]
-    #[case("", 0)]
-    #[case("Some string", 704)]
-    #[case("Another string", 35)]
-    #[case("      ", 769)]
-    #[case("aaaa", 476)]
-    fn hash(#[case] input: &str, #[case] expected: i16) {
-        assert_eq!(super::hash(var_u(dbg!(input))), expected);
+    //For testing I want to know that the references are the same.
+    //These helper methods just convert things into pointers so I don't
+    //have to worry about lifetimes.
+    type Map = super::HashTable<VarU, VarData>;
+    impl Map {
+        fn locate_ptr(&mut self, key: &VarU) -> Option<*const VarData> {
+            let pointer = self.locate(key).map(from_ref);
+            assert_eq!(pointer, self.locate_mut(key).map(|x| from_ref(x)));
+            pointer
+        }
+        fn create_ptr(&mut self, key: VarU) -> Result<*const VarData, CreationError> {
+            self.create(key).map(|x| from_ref(x))
+        }
+        fn index_ptr(&self, index: usize) -> Option<*const VarData> {
+            self.slots[index].as_ref().map(|x| from_ref(x))
+        }
     }
 
     #[test]
     fn create() {
-        let mut table = Table::new();
-        for i in 0..ST_MAX as i16 {
+        let mut table = Map::new();
+        for i in 0..NUMBER_OF_NORMAL_SLOTS {
             let var = var_u(&format!("var{i}"));
-            let index = table.create(var);
+            let index = table.create_ptr(var.clone());
             //NOTE having sequential indexes probably improves cash locality
-            assert_eq!(index, Ok(Index(i)));
-            assert_eq!(table.locate(var), Some(Index(i)));
-
-            //Verify data has been reset
-            //TODO create a better test for this.
-            //usage and data are both zeroed during initialization.
-            let node = &table[index.expect("Someness allready checked")];
-            assert_eq!(node.varnam, var);
-            assert_eq!({ node.usage }, 0);
-            assert_eq!({ node.data }, null_mut());
+            let expected = table.index_ptr(i).unwrap();
+            assert_eq!(index, Ok(expected));
+            assert_eq!(table.locate_ptr(&var), Some(expected));
         }
 
         let last_straw = var_u("lastStraw");
@@ -331,8 +238,8 @@ mod tests {
 
         //There is a special node reserved for ECODE in the case that everything else has
         //been filed.
-        let index = table.create(var_u("$ECODE"));
-        assert_eq!(index, Ok(Index(ST_MAX as i16)));
+        let index = table.create_ptr(var_u("$ECODE"));
+        assert_eq!(index, Ok(table.index_ptr(ERROR_SLOT_INDEX).unwrap()));
     }
 
     #[test]
@@ -341,86 +248,61 @@ mod tests {
     }
 
     #[test]
-    fn create_duplicate_hash() {
-        use ffi::VAR_U;
-        let mut table = Table::new();
-        let vars = ["TMNriCuk1j", "kYyWF1E499", "ZdTKA4eNgW"];
-        let vars: [VAR_U; 3] = vars.map(var_u);
-        for var in vars {
-            //These should all hash to the same value
-            assert_eq!(super::hash(var), 10);
-            let _ = table.create(var);
-        }
-        //Verify we can still access the remaining values
-        table.free(vars[1]);
-        assert_ne!(table.locate(vars[0]), None);
-        assert_ne!(table.locate(vars[2]), None);
-    }
-
-    //helper function used to find the hash conflicts that are used in the tests
-    //
-    //This tries a bunch of random strings and checks if they hash to the provided value.
-    #[allow(dead_code)]
-    #[cfg(test)]
-    fn find_hash_coalitions(hash: i16) -> impl std::iter::Iterator<Item = String> {
-        std::iter::repeat_with(|| {
-            rand::thread_rng()
-                .sample_iter(Alphanumeric)
-                .take(10)
-                .map(char::from)
-                .collect::<String>()
-        })
-        .filter(move |var| super::hash(var_u(var)) == hash)
-    }
-
-    #[test]
     fn create_free_create() {
-        let mut table = Table::new();
+        let mut table = Map::new();
         let var0 = var_u("var0");
         let var1 = var_u("var1");
         let var2 = var_u("var2");
         let var3 = var_u("var3");
 
-        let _index0 = table.create(var0).unwrap();
-        let index1 = table.create(var1).unwrap();
-        let index2 = table.create(var2).unwrap();
-        let _index3 = table.create(var3).unwrap();
+        let _index0 = table.create_ptr(var0).unwrap();
+        let index1 = table.create_ptr(var1.clone()).unwrap();
+        let index2 = table.create_ptr(var2.clone()).unwrap();
+        let _index3 = table.create_ptr(var3).unwrap();
 
         let var1_1 = var_u("var1.1");
         let var2_1 = var_u("var2.1");
 
         //notes are reused in a FILO manor
-        table.free(var1);
-        table.free(var2);
-        assert_eq!(table.create(var2_1), Ok(index2));
-        assert_eq!(table.create(var1_1), Ok(index1));
+        table.free(&var1);
+        table.free(&var2);
+        assert_eq!(table.create_ptr(var2_1), Ok(index2));
+        assert_eq!(table.create_ptr(var1_1), Ok(index1));
     }
 
     #[test]
     fn create_duplicates() {
-        let mut table = Table::new();
+        let mut table = Map::new();
         let var = var_u("varname");
 
-        let first = table.create(var);
-        let second = table.create(var);
+        let first = table.create_ptr(var.clone());
+        let second = table.create_ptr(var);
         assert_eq!(first, second);
     }
 
     #[test]
     fn locate_nonexistent_var() {
-        let table = Table::new();
-        assert_eq!(table.locate(var_u("foo")), None);
+        let table = Map::new();
+        assert_eq!(table.locate(&var_u("foo")), None);
     }
 
     #[test]
-    fn free_resets_to_default() {
-        let mut table = Table::new();
-        let var = var_u("varname");
-        let index = table.create(var).unwrap();
-        table.free(var);
+    fn equality() {
+        let mut keys = [var_u("a"), var_u("b"), var_u("c"), var_u("d"), var_u("e")];
+        let mut first = Map::new();
+        for key in keys.clone() {
+            let _ = first.create(key);
+        }
 
-        let node = &table[index];
-        assert_eq!(node.varnam, var_u(""));
-        assert_eq!({ node.data }, null_mut());
+        use rand::seq::SliceRandom;
+        keys.shuffle(&mut rand::thread_rng());
+        let mut second = Map::new();
+        for key in keys.clone() {
+            let _ = second.create(key);
+        }
+        assert_eq!(first, second);
+
+        let _ = second.create(var_u("f"));
+        assert_ne!(first, second);
     }
 }

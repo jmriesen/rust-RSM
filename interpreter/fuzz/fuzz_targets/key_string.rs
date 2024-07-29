@@ -29,12 +29,12 @@
  */
 #![no_main]
 
-use interpreter::key::{a_b_testing::string_key, CArrayString};
+use interpreter::{key::a_b_testing::string, value::Value};
 use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|keys: Vec<CArrayString>| {
+fuzz_target!(|keys: Vec<Value>| {
     if keys.is_empty() {
     } else {
-        let _ = string_key(&keys);
+        let _ = string(&keys);
     }
 });

@@ -27,8 +27,8 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::key::Ref;
-use ffi::MAX_SUB_LEN;
+use crate::{key::Segment, value::Value};
+use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
 
 /// Keys are stored in a special format to facilitate sorting.
 /// They start with a discriminant.
@@ -39,14 +39,14 @@ use ffi::MAX_SUB_LEN;
 /// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] -> negative number; x is # of integer digits (base 10)
 /// [`STRING_FLAG`,..., 0] -> string (if numbers are to large they are stored as strings.
 
-static STRING_FLAG: u8 = 0b1000_0000;
-static INT_ZERO_POINT: u8 = 0b100_0000;
+const STRING_FLAG: u8 = 0b1000_0000;
+const INT_ZERO_POINT: u8 = 0b100_0000;
 
 /// Only 7 bytes are allocated to store the size of the int portion of a number.
 /// any number that takes more integer digits will be stored as a string.
-pub static MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
+pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
-use super::{CArrayString, Error, Iter, List};
+use super::{Error, Iter, Key};
 
 /// represents a key parsed out into its individual parts.
 pub enum ParsedKey<'a> {
@@ -67,13 +67,13 @@ pub enum ParsedKey<'a> {
 }
 
 impl<'a> ParsedKey<'a> {
-    pub fn new(src: &'a CArrayString) -> Result<Self, Error> {
+    pub fn new(src: &'a Value) -> Result<Self, Error> {
         let contents = src.content();
         if contents.len() > MAX_SUB_LEN as usize {
             //TODO consider reevaluating where this should be enforced.
             //If the goal of this is to prevent a buffer overflow then it should really be owned by
             //KeyList
-            Err(Error::InputToLarge)
+            Err(Error::SubscriptToLarge)
         } else if contents.is_empty() {
             Ok(Self::Null)
         } else if contents == [b'0'] {
@@ -120,11 +120,9 @@ impl<'a> ParsedKey<'a> {
         }
     }
 
-    // I don't really like returning the tail as part of the tuple
-    // but it will work for now.
-    pub fn from_key_ref(key: Ref<'a>) -> Self {
+    pub fn from_key_ref(key: Segment<'a>) -> Self {
         let flag = key.0[0];
-        let data = &key.0[1..];
+        let data = &key.0[1..key.0.len() - 1]; //don't include flag or end marker
         match flag {
             0 if data.is_empty() => Self::Null,
             x if x & STRING_FLAG != 0 => Self::String(data),
@@ -209,8 +207,8 @@ impl<'a> ParsedKey<'a> {
     }
 }
 
-impl List {
-    pub fn push(&mut self, src: &CArrayString) -> Result<(), Error> {
+impl Key {
+    pub fn push(mut self, src: &Value) -> Result<Self, Error> {
         let internal_key = ParsedKey::new(src)?;
         let end_mark = match internal_key {
             ParsedKey::Null => {
@@ -244,25 +242,28 @@ impl List {
         //NOTE Negatives use 255 as an end mark for some reason.
         //at some point when I understand 9's complement better I should see if I can remove this
         self.0.push(end_mark.unwrap_or(b'\0'));
-        self.0[0] = self.0.len() as u8 - 1;
-        Ok(())
+        if self.len() > MAX_KEY_SIZE as usize {
+            Err(Error::KeyToLarge)
+        } else {
+            Ok(self)
+        }
+    }
+
+    #[must_use]
+    pub fn is_sub_key_of(&self, key: &Self) -> bool {
+        self.0[..key.len()] == key.0
     }
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {
-    type Item = Ref<'a>;
+    type Item = Segment<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.tail.first() {
+        let key_end_index = match self.tail.first() {
             //special handling for null.
             //since the flagged value == the end mark value
             //we need to manually split the string.
-            Some(b'\0') => {
-                // null internally stored as [b'\0',b'\0']
-                let (key, tail) = (&self.tail[..1], &self.tail[2..]);
-                self.tail = tail;
-                Some(Ref(key))
-            }
+            Some(b'\0') => Some(2),
             Some(x) => {
                 let end_mark = match *x {
                     x if x & STRING_FLAG != 0 => b'\0',
@@ -270,30 +271,39 @@ impl<'a> std::iter::Iterator for Iter<'a> {
                     //negative numbers
                     _ => 255,
                 };
-                let (key, tail) = self
+                let index = self
                     .tail
-                    .split_once(|x| *x == end_mark)
+                    .iter()
+                    .enumerate()
+                    //Find the index of the end mark
+                    .find_map(|(i, x)| (*x == end_mark).then_some(i))
                     .expect("all keys must contain an endmark");
-                self.tail = tail;
-                Some(Ref(key))
+                Some(index + 1)
             }
             None => None,
+        };
+
+        if let Some(key_end) = key_end_index {
+            let (key, tail) = self.tail.split_at(key_end);
+            self.tail = tail;
+            Some(Segment(&key[..key.len()]))
+        } else {
+            None
         }
     }
 }
 
-impl<'a> Ord for Ref<'a> {
+impl Ord for Key {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let len = self.0.len().min(other.0.len());
-
-        match self.0[..len].cmp(&other.0[..len]) {
+        let min_len = self.0.len().min(other.0.len());
+        match self.0[..min_len].cmp(&other.0[..min_len]) {
             //NOTE If the prefixes are the same the longer one comes first.
             std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()).reverse(),
             x => x,
         }
     }
 }
-impl<'a> PartialOrd for Ref<'a> {
+impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

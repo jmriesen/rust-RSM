@@ -29,40 +29,39 @@
  */
 #![no_main]
 
-use std::mem::transmute;
-
+use arbitrary::Arbitrary;
 use interpreter::{
-    key::CArrayString,
-    symbol_table::{Table, MVAR},
+    symbol_table::{MVar, Table},
+    value::Value,
 };
-use libfuzzer_sys::{
-    arbitrary::{Arbitrary, Result, Unstructured},
-    fuzz_target,
-};
+use libfuzzer_sys::fuzz_target;
 
-/*
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
-    Set(MVAR, CArrayString),
-    Get(MVAR),
-    Kill(MVAR),
+    Set(MVar, Value),
+    Get(MVar),
+    Kill(MVar),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
 
-    for command in commands {
+    for command in commands.into_iter().take(100) {
         match command {
             TableCommands::Set(var, val) => {
-                table.set(&var, &val);
-                c_table.set(&unsafe { transmute(var) }, &val.as_ref())
+                let _ = table.set(&var, &val);
+                c_table.set(&var.into_cmvar(), &val.into_cstring())
             }
-            TableCommands::Get(var) => todo!(),
-            TableCommands::Kill(var) => todo!(),
+            TableCommands::Get(var) => {
+                let rust_val = table.get(&var);
+                let c_val = c_table.get(&var.into_cmvar()).map(|x| (&x).into());
+                assert_eq!(rust_val, c_val.as_ref())
+            }
+            TableCommands::Kill(var) => {
+                table.kill(&var);
+                c_table.kill(&var.into_cmvar());
+            }
         }
     }
 });
-*/
-
-fuzz_target!(|commands: &[u8]| {});

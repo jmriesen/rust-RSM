@@ -29,9 +29,9 @@
  */
 #![no_main]
 
-use interpreter::key::{a_b_testing::build, CArrayString};
+use interpreter::{key::a_b_testing::build, value::Value};
 use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|string: CArrayString| {
+fuzz_target!(|string: Value| {
     build(&string);
 });

@@ -33,6 +33,8 @@
 #![warn(clippy::all, clippy::pedantic)]
 #![feature(array_windows)]
 #![feature(slice_split_once)]
+#![feature(btree_cursors)]
+#![feature(hash_extract_if)]
 //TODO remove these allows.
 #![allow(
     clippy::cast_possible_truncation,
@@ -54,8 +56,8 @@ pub mod units;
 pub mod util;
 pub mod var_u;
 pub use bindings::*;
-
 #[cfg(test)]
 pub mod test_helper;
+pub mod value;
 
 pub mod key;
