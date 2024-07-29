@@ -42,8 +42,6 @@ pub struct MVar {
 #[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for MVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //TODO implement a more complete implementation.
-        //Currently this is just enough to start fuzz testing.
         let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
 
         let mut builder = f.debug_struct("MVar");

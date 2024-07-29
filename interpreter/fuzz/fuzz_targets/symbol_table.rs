@@ -52,8 +52,6 @@ fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
 
-    //NOTE I think there is some sort of memory leak going on here.
-    //I keep getting allocation issues during fuzz testing.
     for command in commands.into_iter().take(100) {
         match command {
             TableCommands::Set(var, val) => {
