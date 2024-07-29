@@ -41,10 +41,9 @@ pub struct VarData {
 }
 
 impl VarData {
-    pub fn value(&self, key: &Key) -> Option<Value> {
-        //TODO remove clones
+    pub fn value(&self, key: &Key) -> Option<&Value> {
         if key.is_empty() {
-            self.value.clone()
+            self.value.as_ref()
         } else {
             //NOTE There is probably room for optimization here.
             //It is fairly common for the M code to access the values sequentially using $O
@@ -52,7 +51,7 @@ impl VarData {
             //I am not doing this right now as it would require making a self referential type
             //and I am not focusing on performance right now. (just correctness)
             //NOTE you could also probably accomplish the last key thing using using a sorted vec
-            self.sub_values.get(key).cloned()
+            self.sub_values.get(key)
         }
     }
 

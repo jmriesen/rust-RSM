@@ -56,7 +56,7 @@ impl Table {
     }
 
     #[must_use]
-    pub fn get(&self, var: &MVar) -> Option<Value> {
+    pub fn get(&self, var: &MVar) -> Option<&Value> {
         self.0.locate(&var.name)?.value(&var.key)
     }
 
@@ -124,7 +124,7 @@ pub mod tests {
         let mut data = "Data".try_into().unwrap();
 
         table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(table.get(&mut m_var), Some(data));
+        assert_eq!(table.get(&mut m_var), Some(&data));
     }
 
     #[test]
@@ -133,7 +133,7 @@ pub mod tests {
         let mut m_var = var_m("foo", &["keys"]);
         let mut data = "Data".try_into().unwrap();
         table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(Some(data), table.get(&mut m_var));
+        assert_eq!(Some(&data), table.get(&mut m_var));
     }
 
     #[test]
@@ -147,16 +147,16 @@ pub mod tests {
 
             table.set(&mut root, &mut root_data).unwrap();
             table.set(&mut with_key, &mut key_data).unwrap();
-            assert_eq!(Some(root_data.clone()), table.get(&mut root));
-            assert_eq!(Some(key_data.clone()), table.get(&mut with_key));
+            assert_eq!(Some(&root_data), table.get(&mut root));
+            assert_eq!(Some(&key_data), table.get(&mut with_key));
         }
         {
             let mut table = Table::new();
 
             table.set(&mut with_key, &mut key_data).unwrap();
             table.set(&mut root, &mut root_data).unwrap();
-            assert_eq!(Some(root_data.clone()), table.get(&mut root));
-            assert_eq!(Some(key_data.clone()), table.get(&mut with_key));
+            assert_eq!(Some(&root_data), table.get(&mut root));
+            assert_eq!(Some(&key_data), table.get(&mut with_key));
         }
     }
 
@@ -167,7 +167,7 @@ pub mod tests {
         let mut data = "".try_into().unwrap();
 
         table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(Some(data), table.get(&mut m_var));
+        assert_eq!(Some(&data), table.get(&mut m_var));
     }
 
     #[test]
@@ -180,8 +180,8 @@ pub mod tests {
 
         table.set(&mut prefix, &mut prefix_data).unwrap();
         table.set(&mut full, &mut full_data).unwrap();
-        assert_eq!(Some(prefix_data), table.get(&mut prefix));
-        assert_eq!(Some(full_data), table.get(&mut full));
+        assert_eq!(Some(&prefix_data), table.get(&mut prefix));
+        assert_eq!(Some(&full_data), table.get(&mut full));
     }
 
     #[test]
@@ -192,10 +192,10 @@ pub mod tests {
         let mut end_value = "end".try_into().unwrap();
 
         table.set(&mut m_var, &mut initial_value).unwrap();
-        assert_eq!(Some(initial_value), table.get(&mut m_var));
+        assert_eq!(Some(&initial_value), table.get(&mut m_var));
 
         table.set(&mut m_var, &mut end_value).unwrap();
-        assert_eq!(Some(end_value), table.get(&mut m_var));
+        assert_eq!(Some(&end_value), table.get(&mut m_var));
     }
 
     #[test]
@@ -209,8 +209,8 @@ pub mod tests {
             (vec!["SomeKey4"], "someKey4"),
             (vec!["lots", "of", "Keys", "even", "more"], "lots of keys"),
         ];
-        let mut test_data = test_data
-            .map(|(keys, value)| (var_m("foo", &keys), Box::new(value.try_into().unwrap())));
+        let mut test_data =
+            test_data.map(|(keys, value)| (var_m("foo", &keys), value.try_into().unwrap()));
 
         let mut table = Table::new();
         for (var, value) in &mut test_data {
@@ -218,7 +218,7 @@ pub mod tests {
         }
 
         for (mut var, value) in test_data {
-            assert_eq!(Some(*value), table.get(&mut var));
+            assert_eq!(Some(&value), table.get(&mut var));
         }
     }
 
@@ -260,7 +260,7 @@ pub mod tests {
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
         table.kill(&mut var_i);
-        assert_eq!(table.get(&var), Some(data));
+        assert_eq!(table.get(&var), Some(&data));
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
     }
@@ -277,9 +277,9 @@ pub mod tests {
         table.set(&b, &data).unwrap();
         table.set(&c, &data).unwrap();
         table.kill(&b);
-        assert_eq!(table.get(&a), Some(data.clone()));
+        assert_eq!(table.get(&a), Some(&data));
         assert_eq!(table.get(&b), None);
-        assert_eq!(table.get(&c), Some(data));
+        assert_eq!(table.get(&c), Some(&data));
     }
 
     #[test]
@@ -306,7 +306,7 @@ pub mod tests {
 
         assert_eq!(table.get(&normal), None);
         for var in &[dolor, retain_a, retain_b] {
-            assert_eq!(table.get(var), Some(data.clone()));
+            assert_eq!(table.get(var), Some(&data));
         }
     }
 }
