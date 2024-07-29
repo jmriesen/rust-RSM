@@ -36,7 +36,7 @@ mod var_data;
 mod var_u;
 use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
-use m_var::MVar;
+pub use m_var::MVar;
 use var_data::VarData;
 use var_u::VarU;
 
