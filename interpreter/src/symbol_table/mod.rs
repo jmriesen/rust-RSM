@@ -90,6 +90,13 @@ impl Table {
         self.0
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
+
+    pub fn data(&self, var: &MVar) -> (bool, bool) {
+        self.0
+            .locate(&var.name)
+            .map(|x| x.data(&var.key))
+            .unwrap_or((false, false))
+    }
 }
 
 #[cfg(test)]

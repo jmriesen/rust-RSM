@@ -85,6 +85,29 @@ impl VarData {
         }
     }
 
+    pub fn data(&self, key: &Key) -> (bool, bool) {
+        if key.is_empty() {
+            (!self.sub_values.is_empty(), self.value.is_some())
+        } else {
+            let mut cursor = self.sub_values.lower_bound(std::ops::Bound::Included(key));
+            if let Some(node) = cursor.next() {
+                if node.0 == key {
+                    (
+                        cursor
+                            .next()
+                            .filter(|(key, _)| key.is_sub_key_of(key))
+                            .is_some(),
+                        true,
+                    )
+                } else {
+                    (node.0.is_sub_key_of(key), false)
+                }
+            } else {
+                (false, false)
+            }
+        }
+    }
+
     //todo Data
     //Order
     //Query
@@ -112,47 +135,49 @@ impl Default for VarData {
 #[cfg(test)]
 mod tests {
     mod data {
-        use ffi::symbol_table::Table;
 
-        use crate::{symbol_table::m_var::helpers::var_m, value::Value};
+        use crate::{
+            symbol_table::{m_var::helpers::var_m, Table},
+            value::Value,
+        };
 
         #[test]
         fn root_data() {
             let mut table = Table::new();
             let var = var_m("var", &[]);
-            assert!(!table.data(&var.clone().into_cmvar()).1);
+            assert!(!table.data(&var).1);
             let data: Value = "data".try_into().unwrap();
-            table.set(&var.clone().into_cmvar(), &data.into_cstring());
-            assert!(table.data(&var.into_cmvar()).1);
+            let _ = table.set(&var, &data);
+            assert!(table.data(&var).1);
         }
         #[test]
         fn root_descendants() {
             let mut table = Table::new();
             let root = var_m("var", &[]);
             let sub = var_m("var", &["sub"]);
-            assert!(!table.data(&root.clone().into_cmvar()).0);
+            assert!(!table.data(&root).0);
             let data: Value = "data".try_into().unwrap();
-            table.set(&sub.into_cmvar(), &data.into_cstring());
-            assert!(table.data(&root.into_cmvar()).0);
+            let _ = table.set(&sub, &data);
+            assert!(table.data(&root).0);
         }
         #[test]
         fn sub_key_data() {
             let mut table = Table::new();
             let var = var_m("var", &["sub"]);
-            assert!(!table.data(&var.clone().into_cmvar()).1);
+            assert!(!table.data(&var).1);
             let data: Value = "data".try_into().unwrap();
-            table.set(&var.clone().into_cmvar(), &data.into_cstring());
-            assert!(table.data(&var.into_cmvar()).1);
+            let _ = table.set(&var, &data);
+            assert!(table.data(&var).1);
         }
         #[test]
         fn sub_key_descendants() {
             let mut table = Table::new();
             let sub = var_m("var", &[]);
             let sub_sub = var_m("var", &["sub"]);
-            assert!(!table.data(&sub.clone().into_cmvar()).0);
+            assert!(!table.data(&sub).0);
             let data: Value = "data".try_into().unwrap();
-            table.set(&sub_sub.into_cmvar(), &data.into_cstring());
-            assert!(table.data(&sub.into_cmvar()).0);
+            let _ = table.set(&sub_sub, &data);
+            assert!(table.data(&sub).0);
         }
     }
 }
