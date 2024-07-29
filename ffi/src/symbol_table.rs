@@ -35,7 +35,7 @@ use std::{
 use libc::pthread_mutexattr_getpshared;
 
 use crate::{
-    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract,
+    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract,
     UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
 };
 
@@ -74,6 +74,18 @@ impl Table {
     }
     pub fn kill(&self, var: &MVAR) {
         unsafe { ST_Kill(from_ref(var).cast_mut()) };
+    }
+
+    pub fn data(&self, var: &MVAR) -> (bool, bool) {
+        let mut buff = [0; 3];
+        unsafe { ST_Data(from_ref(var).cast_mut(), buff.as_mut_ptr()) };
+        match &buff[..2] {
+            b"0\0" => (false, false),
+            b"1\0" => (false, true),
+            b"10" => (true, false),
+            b"11" => (true, true),
+            _ => unreachable!(),
+        }
     }
 }
 

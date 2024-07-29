@@ -85,6 +85,11 @@ impl VarData {
         }
     }
 
+    //todo Data
+    //Order
+    //Query
+    //Dump
+
     //checks self contains any data, if not it can be freed
     //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
     //on this for the moment
@@ -100,6 +105,54 @@ impl Default for VarData {
             sub_values: Default::default(),
             attach: 0,
             value: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    mod data {
+        use ffi::symbol_table::Table;
+
+        use crate::{symbol_table::m_var::helpers::var_m, value::Value};
+
+        #[test]
+        fn root_data() {
+            let mut table = Table::new();
+            let var = var_m("var", &[]);
+            assert!(!table.data(&var.clone().into_cmvar()).1);
+            let data: Value = "data".try_into().unwrap();
+            table.set(&var.clone().into_cmvar(), &data.into_cstring());
+            assert!(table.data(&var.into_cmvar()).1);
+        }
+        #[test]
+        fn root_descendants() {
+            let mut table = Table::new();
+            let root = var_m("var", &[]);
+            let sub = var_m("var", &["sub"]);
+            assert!(!table.data(&root.clone().into_cmvar()).0);
+            let data: Value = "data".try_into().unwrap();
+            table.set(&sub.into_cmvar(), &data.into_cstring());
+            assert!(table.data(&root.into_cmvar()).0);
+        }
+        #[test]
+        fn sub_key_data() {
+            let mut table = Table::new();
+            let var = var_m("var", &["sub"]);
+            assert!(!table.data(&var.clone().into_cmvar()).1);
+            let data: Value = "data".try_into().unwrap();
+            table.set(&var.clone().into_cmvar(), &data.into_cstring());
+            assert!(table.data(&var.into_cmvar()).1);
+        }
+        #[test]
+        fn sub_key_descendants() {
+            let mut table = Table::new();
+            let sub = var_m("var", &[]);
+            let sub_sub = var_m("var", &["sub"]);
+            assert!(!table.data(&sub.clone().into_cmvar()).0);
+            let data: Value = "data".try_into().unwrap();
+            table.set(&sub_sub.into_cmvar(), &data.into_cstring());
+            assert!(table.data(&sub.into_cmvar()).0);
         }
     }
 }
