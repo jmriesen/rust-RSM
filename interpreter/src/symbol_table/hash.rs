@@ -143,6 +143,12 @@ where
             self.slots[*index] = None;
         }
     }
+
+    fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.map
+            .iter()
+            .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap()))
+    }
 }
 
 impl<K, V> Default for HashTable<K, V>
@@ -155,6 +161,7 @@ where
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 impl<K, V> Debug for HashTable<K, V>
 where
     K: Key + Debug,
@@ -162,11 +169,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_map();
-        builder.entries(
-            self.map
-                .iter()
-                .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap())),
-        );
+        builder.entries(self.iter());
         builder.finish()
     }
 }
@@ -177,7 +180,17 @@ where
     V: Default + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.slots == other.slots && self.map == other.map
+        for (key, value) in self.iter() {
+            if Some(value) != other.locate(key) {
+                return false;
+            }
+        }
+        for (key, value) in other.iter() {
+            if Some(value) != self.locate(key) {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -271,5 +284,25 @@ mod tests {
     fn locate_nonexistent_var() {
         let table = Map::new();
         assert_eq!(table.locate(&var_u("foo")), None);
+    }
+
+    #[test]
+    fn equality() {
+        let mut keys = [var_u("a"), var_u("b"), var_u("c"), var_u("d"), var_u("e")];
+        let mut first = Map::new();
+        for key in keys.clone() {
+            let _ = first.create(key);
+        }
+
+        use rand::seq::SliceRandom;
+        keys.shuffle(&mut rand::thread_rng());
+        let mut second = Map::new();
+        for key in keys.clone() {
+            let _ = second.create(key);
+        }
+        assert_eq!(first, second);
+
+        let _ = second.create(var_u("f"));
+        assert_ne!(first, second);
     }
 }

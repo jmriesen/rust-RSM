@@ -10,6 +10,7 @@ pub struct MVar {
     pub key: Key,
 }
 
+#[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for MVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO implement a more complete implementation.
@@ -50,6 +51,7 @@ pub mod helpers {
         }
     }
 
+    #[cfg_attr(test, mutants::skip)]
     impl<'a> Arbitrary<'a> for MVar {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let name: [u8; 32] = u.arbitrary()?;

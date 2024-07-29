@@ -10,6 +10,7 @@ impl VarU {
 }
 
 impl Hash for VarU {
+    #[cfg_attr(test, mutants::skip)]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         unsafe { self.0.var_cu }.hash(state);
     }
