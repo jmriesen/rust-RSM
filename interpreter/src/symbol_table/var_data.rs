@@ -108,7 +108,7 @@ impl VarData {
         }
     }
 
-    //todo Data
+    //todo
     //Order
     //Query
     //Dump
@@ -134,12 +134,12 @@ impl Default for VarData {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        symbol_table::{m_var::helpers::var_m, Table},
+        value::Value,
+    };
     mod data {
-
-        use crate::{
-            symbol_table::{m_var::helpers::var_m, Table},
-            value::Value,
-        };
+        use super::*;
 
         #[test]
         fn root_data() {
@@ -178,6 +178,115 @@ mod tests {
             let data: Value = "data".try_into().unwrap();
             let _ = table.set(&sub_sub, &data);
             assert!(table.data(&sub).0);
+        }
+    }
+    mod query {
+
+        use ffi::symbol_table::Table;
+
+        use super::*;
+        #[test]
+        fn forward_and_backward() {
+            let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
+            let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+
+            let mut table = Table::new();
+            for var in &m_vars {
+                table.set(
+                    &var.clone().into_cmvar(),
+                    &Value::try_from("Value").unwrap().into_cstring(),
+                )
+            }
+
+            m_vars.insert(0, var_m("foo", &["".try_into().unwrap()]));
+            m_vars.push(var_m("foo", &["".try_into().unwrap()]));
+
+            for i in 0..m_vars.len() - 2 {
+                assert_eq!(
+                    String::from_utf8(table.query(&dbg!(m_vars[i].clone()).into_cmvar(), false))
+                        .unwrap(),
+                    format!("{}", m_vars[i + 1])
+                );
+            }
+            for i in (2..m_vars.len()).rev() {
+                assert_eq!(
+                    String::from_utf8(table.query(&dbg!(m_vars[i].clone()).into_cmvar(), true))
+                        .unwrap(),
+                    format!("{}", m_vars[i - 1])
+                );
+            }
+        }
+
+        #[test]
+        fn value_with_no_subscripts() {
+            let mut table = Table::new();
+            table.set(
+                &var_m("foo", &[]).into_cmvar(),
+                &Value::try_from("Value").unwrap().into_cstring(),
+            );
+            assert_eq!(
+                String::from_utf8(table.query(&var_m("foo", &[""]).clone().into_cmvar(), true))
+                    .unwrap(),
+                ""
+            );
+            assert_eq!(
+                String::from_utf8(table.query(
+                    &var_m("foo", &["".try_into().unwrap()]).clone().into_cmvar(),
+                    false
+                ))
+                .unwrap(),
+                ""
+            );
+        }
+
+        ///A trailing null is treated as the fist key while moving forward and the last key when moving
+        ///backwards.
+        #[test]
+        fn moving_backwards_null_subscript() {
+            let keys: [&[&str]; 5] = [&["-1"], &["0"], &["0", "-1"], &["0", "1"], &["1"]];
+            let m_vars = keys.map(|x| var_m("foo", x));
+
+            let mut table = Table::new();
+            for var in &m_vars {
+                table.set(
+                    &var.clone().into_cmvar(),
+                    &Value::try_from("Value").unwrap().into_cstring(),
+                )
+            }
+            let null_last_key = var_m("foo", &["0", ""]).clone().into_cmvar();
+            assert_eq!(
+                String::from_utf8(table.query(&null_last_key, false)).unwrap(),
+                format!("{}", m_vars[2])
+            );
+            assert_eq!(
+                String::from_utf8(table.query(&null_last_key, true)).unwrap(),
+                format!("{}", m_vars[3])
+            );
+        }
+
+        ///If in the middle of the key null is treated normally (null< everything else)
+        #[test]
+        fn null_in_the_middle() {
+            let keys: [&[&str]; 4] = [&["-1"], &["0", "1", "-1"], &["0", "1", "1"], &["1"]];
+            let m_vars = keys.map(|x| var_m("foo", x));
+
+            let mut table = Table::new();
+            for var in &m_vars {
+                table.set(
+                    &var.clone().into_cmvar(),
+                    &Value::try_from("Value").unwrap().into_cstring(),
+                )
+            }
+
+            let null_in_middle = var_m("foo", &["0", "", "0"]).clone().into_cmvar();
+            assert_eq!(
+                String::from_utf8(table.query(&null_in_middle, false)).unwrap(),
+                format!("{}", m_vars[1])
+            );
+            assert_eq!(
+                String::from_utf8(table.query(&null_in_middle, true)).unwrap(),
+                format!("{}", m_vars[0])
+            );
         }
     }
 }
