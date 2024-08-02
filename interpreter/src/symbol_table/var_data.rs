@@ -275,4 +275,102 @@ mod tests {
             );
         }
     }
+
+    mod order {
+
+        use super::*;
+
+        #[test]
+        fn forward_and_backward() {
+            let mut table = ffi::symbol_table::Table::new();
+            let data = Value::try_from("data").unwrap().into_cstring();
+            table.set(&var_m("foo", &["0"]).into_cmvar(), &data);
+            table.set(&var_m("foo", &["1", "a"]).into_cmvar(), &data);
+            table.set(&var_m("foo", &["1", "b"]).into_cmvar(), &data);
+            table.set(&var_m("foo", &["2"]).into_cmvar(), &data);
+
+            //Top level forward
+            assert_eq!(
+                "0",
+                String::from_utf8(table.order(&var_m("foo", &[""]).into_cmvar(), false)).unwrap()
+            );
+            assert_eq!(
+                "1",
+                String::from_utf8(table.order(&var_m("foo", &["0"]).into_cmvar(), false)).unwrap()
+            );
+            assert_eq!(
+                "2",
+                String::from_utf8(table.order(&var_m("foo", &["1"]).into_cmvar(), false)).unwrap()
+            );
+            assert_eq!(
+                "",
+                String::from_utf8(table.order(&var_m("foo", &["2"]).into_cmvar(), false)).unwrap()
+            );
+
+            //Top level Backwords
+            assert_eq!(
+                "2",
+                String::from_utf8(table.order(&var_m("foo", &[""]).into_cmvar(), true)).unwrap()
+            );
+            assert_eq!(
+                "1",
+                String::from_utf8(table.order(&var_m("foo", &["2"]).into_cmvar(), true)).unwrap()
+            );
+            assert_eq!(
+                "0",
+                String::from_utf8(table.order(&var_m("foo", &["1"]).into_cmvar(), true)).unwrap()
+            );
+            assert_eq!(
+                "",
+                String::from_utf8(table.order(&var_m("foo", &["0"]).into_cmvar(), true)).unwrap()
+            );
+
+            //sub layer Forward
+            assert_eq!(
+                "a",
+                String::from_utf8(table.order(&var_m("foo", &["1", ""]).into_cmvar(), false))
+                    .unwrap()
+            );
+            assert_eq!(
+                "b",
+                String::from_utf8(table.order(&var_m("foo", &["1", "a"]).into_cmvar(), false))
+                    .unwrap()
+            );
+            assert_eq!(
+                "",
+                String::from_utf8(table.order(&var_m("foo", &["1", "b"]).into_cmvar(), false))
+                    .unwrap()
+            );
+
+            //Top level Backwords
+            assert_eq!(
+                "b",
+                String::from_utf8(table.order(&var_m("foo", &["1", ""]).into_cmvar(), true))
+                    .unwrap()
+            );
+            assert_eq!(
+                "a",
+                String::from_utf8(table.order(&var_m("foo", &["1", "b"]).into_cmvar(), true))
+                    .unwrap()
+            );
+            assert_eq!(
+                "",
+                String::from_utf8(table.order(&var_m("foo", &["1", "a"]).into_cmvar(), true))
+                    .unwrap()
+            );
+        }
+
+        #[test]
+        fn value_with_no_subscripts() {
+            let mut table = ffi::symbol_table::Table::new();
+            let foo = var_m("foo", &[]).into_cmvar();
+            let bar = var_m("bar", &["subscript"]).into_cmvar();
+            let _ = table.set(&foo, &Value::try_from("Value").unwrap().into_cstring());
+            let _ = table.set(&bar, &Value::try_from("Value").unwrap().into_cstring());
+            assert_eq!("", String::from_utf8(table.order(&foo, false)).unwrap());
+            assert_eq!("", String::from_utf8(table.order(&bar, false)).unwrap());
+            assert_eq!("", String::from_utf8(table.order(&foo, true)).unwrap());
+            assert_eq!("", String::from_utf8(table.order(&bar, true)).unwrap());
+        }
+    }
 }

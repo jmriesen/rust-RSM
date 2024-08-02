@@ -95,7 +95,7 @@ impl Table {
         //If the key contains null and we are going backwards mess with key so that null comes
         //after everything else.
         // This logic was copied from the Dquery2 function.
-        if reverse {
+        if reverse && var.slen >= 2 {
             if (var.key[var.slen as usize - 1] == b'\0')
                 && (var.key[var.slen as usize - 2] == b'\0')
             {
@@ -118,7 +118,7 @@ impl Table {
         //If the key contains null and we are going backwards mess with key so that null comes
         //after everything else.
         // This logic was copied from the Dquery2 function.
-        if reverse {
+        if reverse && var.slen >= 2 {
             if (var.key[var.slen as usize - 1] == b'\0')
                 && (var.key[var.slen as usize - 2] == b'\0')
             {
