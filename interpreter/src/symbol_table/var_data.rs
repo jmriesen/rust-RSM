@@ -27,9 +27,14 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Bound};
 
 use crate::{key::Key, value::Value};
+
+pub enum Direction {
+    Forward,
+    Backward,
+}
 
 ///Data associated for a specific variable
 #[derive(Debug, PartialEq, Eq)]
@@ -74,9 +79,7 @@ impl VarData {
             //not been touched in a while
             //https://github.com/rust-lang/rust/issues/81074
             //So I just chose to use the cursor api for now.
-            let mut cursor = self
-                .sub_values
-                .lower_bound_mut(std::ops::Bound::Included(key));
+            let mut cursor = self.sub_values.lower_bound_mut(Bound::Included(key));
             while let Some((current_key, _)) = cursor.peek_next()
                 && current_key.is_sub_key_of(key)
             {
@@ -89,7 +92,7 @@ impl VarData {
         if key.is_empty() {
             (!self.sub_values.is_empty(), self.value.is_some())
         } else {
-            let mut cursor = self.sub_values.lower_bound(std::ops::Bound::Included(key));
+            let mut cursor = self.sub_values.lower_bound(Bound::Included(key));
             if let Some(node) = cursor.next() {
                 if node.0 == key {
                     (
@@ -106,6 +109,14 @@ impl VarData {
                 (false, false)
             }
         }
+    }
+
+    pub fn query(&self, key: &Key, direction: Direction) -> Option<&Key> {
+        match direction {
+            Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
+            Direction::Backward => self.sub_values.upper_bound(Bound::Excluded(key)).prev(),
+        }
+        .map(|x| x.0)
     }
 
     //todo
@@ -180,9 +191,12 @@ mod tests {
             assert!(table.data(&sub).0);
         }
     }
+
     mod query {
 
         use ffi::symbol_table::Table;
+
+        use crate::symbol_table::var_data::Direction;
 
         use super::*;
         #[test]
@@ -190,28 +204,24 @@ mod tests {
             let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
             let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
-            let mut table = Table::new();
+            let mut table = super::Table::new();
             for var in &m_vars {
-                table.set(
-                    &var.clone().into_cmvar(),
-                    &Value::try_from("Value").unwrap().into_cstring(),
-                )
+                table.set(&var, &Value::try_from("Value").unwrap()).unwrap();
             }
 
-            m_vars.insert(0, var_m("foo", &["".try_into().unwrap()]));
-            m_vars.push(var_m("foo", &["".try_into().unwrap()]));
+            m_vars.insert(0, var_m("foo", &[""]));
+            m_vars.push(var_m("foo", &[""]));
 
             for i in 0..m_vars.len() - 2 {
                 assert_eq!(
-                    String::from_utf8(table.query(&dbg!(m_vars[i].clone()).into_cmvar(), false))
-                        .unwrap(),
+                    table.query(&m_vars[i], Direction::Forward),
                     format!("{}", m_vars[i + 1])
                 );
             }
             for i in (2..m_vars.len()).rev() {
+                dbg!(&m_vars[i]);
                 assert_eq!(
-                    String::from_utf8(table.query(&dbg!(m_vars[i].clone()).into_cmvar(), true))
-                        .unwrap(),
+                    table.query(&m_vars[i], Direction::Backward),
                     format!("{}", m_vars[i - 1])
                 );
             }
@@ -219,22 +229,13 @@ mod tests {
 
         #[test]
         fn value_with_no_subscripts() {
-            let mut table = Table::new();
-            table.set(
-                &var_m("foo", &[]).into_cmvar(),
-                &Value::try_from("Value").unwrap().into_cstring(),
-            );
+            let mut table = super::Table::new();
+            let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+            assert_eq!(table.query(&var_m("foo", &[""]), Direction::Forward), "");
+            assert_eq!(table.query(&var_m("foo", &["bar"]), Direction::Forward), "");
+            assert_eq!(table.query(&var_m("foo", &[""]), Direction::Backward), "");
             assert_eq!(
-                String::from_utf8(table.query(&var_m("foo", &[""]).clone().into_cmvar(), true))
-                    .unwrap(),
-                ""
-            );
-            assert_eq!(
-                String::from_utf8(table.query(
-                    &var_m("foo", &["".try_into().unwrap()]).clone().into_cmvar(),
-                    false
-                ))
-                .unwrap(),
+                table.query(&var_m("foo", &["bar"]), Direction::Backward),
                 ""
             );
         }

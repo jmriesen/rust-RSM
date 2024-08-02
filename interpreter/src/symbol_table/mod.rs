@@ -37,7 +37,7 @@ mod var_u;
 use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 pub use m_var::MVar;
-use var_data::VarData;
+use var_data::{Direction, VarData};
 use var_u::VarU;
 
 impl hash::Key for VarU {
@@ -96,6 +96,19 @@ impl Table {
             .locate(&var.name)
             .map(|x| x.data(&var.key))
             .unwrap_or((false, false))
+    }
+
+    //Returns a string representation of Key in the given MVar.
+    pub fn query(&self, var: &MVar, direction: Direction) -> String {
+        self.0
+            .locate(&var.name)
+            .and_then(|data| data.query(&var.key, direction))
+            .map(|key| {
+                let mut next_var = var.clone();
+                next_var.key = key.clone();
+                format!("{}", next_var)
+            })
+            .unwrap_or("".into())
     }
 }
 

@@ -298,7 +298,7 @@ impl Ord for Key {
         let min_len = self.0.len().min(other.0.len());
         match self.0[..min_len].cmp(&other.0[..min_len]) {
             //NOTE If the prefixes are the same the longer one comes first.
-            std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()).reverse(),
+            std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()),
             x => x,
         }
     }
