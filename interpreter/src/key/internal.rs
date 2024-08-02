@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 /*
  * Package: Rust Reference Standard M
  *
@@ -252,6 +254,24 @@ impl Key {
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
+    }
+
+    /// a trailing null is considered both the smallish and larges subkey value
+    /// during specific operations.
+    /// If the key contains a trailing "" this function will return a new key
+    /// with the last sub keys value maximized.
+    /// otherwise this is a no op.
+    ///
+    /// This function has been marked unsafe sine the returned key should ONLY be used as a bound.
+    /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
+    pub unsafe fn wrap_null_key(&self) -> std::borrow::Cow<Self> {
+        if self.0[self.0.len() - 2..] == [0, 0] {
+            let mut modified_key = self.clone();
+            modified_key.0[self.len() - 2] = 255;
+            std::borrow::Cow::Owned(modified_key)
+        } else {
+            std::borrow::Cow::Borrowed(self)
+        }
     }
 }
 

@@ -114,7 +114,10 @@ impl VarData {
     pub fn query(&self, key: &Key, direction: Direction) -> Option<&Key> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
-            Direction::Backward => self.sub_values.upper_bound(Bound::Excluded(key)).prev(),
+            Direction::Backward => self
+                .sub_values
+                .upper_bound(Bound::Excluded(unsafe { &key.wrap_null_key() }))
+                .prev(),
         }
         .map(|x| x.0)
     }
@@ -194,17 +197,15 @@ mod tests {
 
     mod query {
 
-        use ffi::symbol_table::Table;
-
+        use super::*;
         use crate::symbol_table::var_data::Direction;
 
-        use super::*;
         #[test]
         fn forward_and_backward() {
             let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
             let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
-            let mut table = super::Table::new();
+            let mut table = Table::new();
             for var in &m_vars {
                 table.set(&var, &Value::try_from("Value").unwrap()).unwrap();
             }
@@ -219,7 +220,6 @@ mod tests {
                 );
             }
             for i in (2..m_vars.len()).rev() {
-                dbg!(&m_vars[i]);
                 assert_eq!(
                     table.query(&m_vars[i], Direction::Backward),
                     format!("{}", m_vars[i - 1])
@@ -249,18 +249,15 @@ mod tests {
 
             let mut table = Table::new();
             for var in &m_vars {
-                table.set(
-                    &var.clone().into_cmvar(),
-                    &Value::try_from("Value").unwrap().into_cstring(),
-                )
+                table.set(&var, &Value::try_from("Value").unwrap()).unwrap()
             }
-            let null_last_key = var_m("foo", &["0", ""]).clone().into_cmvar();
+            let null_last_key = var_m("foo", &["0", ""]);
             assert_eq!(
-                String::from_utf8(table.query(&null_last_key, false)).unwrap(),
+                table.query(&null_last_key, Direction::Forward),
                 format!("{}", m_vars[2])
             );
             assert_eq!(
-                String::from_utf8(table.query(&null_last_key, true)).unwrap(),
+                table.query(&null_last_key, Direction::Backward),
                 format!("{}", m_vars[3])
             );
         }
@@ -273,19 +270,16 @@ mod tests {
 
             let mut table = Table::new();
             for var in &m_vars {
-                table.set(
-                    &var.clone().into_cmvar(),
-                    &Value::try_from("Value").unwrap().into_cstring(),
-                )
+                table.set(&var, &Value::try_from("Value").unwrap()).unwrap()
             }
 
-            let null_in_middle = var_m("foo", &["0", "", "0"]).clone().into_cmvar();
+            let null_in_middle = var_m("foo", &["0", "", "0"]);
             assert_eq!(
-                String::from_utf8(table.query(&null_in_middle, false)).unwrap(),
+                table.query(&null_in_middle, Direction::Forward),
                 format!("{}", m_vars[1])
             );
             assert_eq!(
-                String::from_utf8(table.query(&null_in_middle, true)).unwrap(),
+                table.query(&null_in_middle, Direction::Backward),
                 format!("{}", m_vars[0])
             );
         }
