@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::{collections::BTreeMap, ops::Bound, thread::current};
+use std::{collections::BTreeMap, ops::Bound};
 
 use crate::{key::Key, value::Value};
 
@@ -120,9 +120,8 @@ impl VarData {
     }
 
     //todo
-    //Order
-    //Query
     //Dump
+    //order
 
     //checks self contains any data, if not it can be freed
     //TODO I don't really understand how attached is supposed to work so am skipping mutation testing

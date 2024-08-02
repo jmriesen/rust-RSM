@@ -35,7 +35,7 @@ use std::{
 use libc::pthread_mutexattr_getpshared;
 
 use crate::{
-    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Query, ST_Set, UTIL_Key_Build,
+    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set, UTIL_Key_Build,
     UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
 };
 
@@ -104,6 +104,29 @@ impl Table {
         }
         let len = unsafe {
             ST_Query(
+                from_mut(&mut var),
+                buf.as_mut_ptr(),
+                if reverse { -1 } else { 1 },
+            )
+        };
+        Vec::from(&buf[..len as usize])
+    }
+
+    pub fn order(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
+        let mut buf = [0; 65535];
+        let mut var = var.clone();
+        //If the key contains null and we are going backwards mess with key so that null comes
+        //after everything else.
+        // This logic was copied from the Dquery2 function.
+        if reverse {
+            if (var.key[var.slen as usize - 1] == b'\0')
+                && (var.key[var.slen as usize - 2] == b'\0')
+            {
+                var.key[var.slen as usize - 2] = 255;
+            }
+        }
+        let len = unsafe {
+            ST_Order(
                 from_mut(&mut var),
                 buf.as_mut_ptr(),
                 if reverse { -1 } else { 1 },
