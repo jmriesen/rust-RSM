@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::{collections::BTreeMap, ops::Bound};
+use std::{collections::BTreeMap, ops::Bound, thread::current};
 
 use crate::{key::Key, value::Value};
 
@@ -93,21 +93,18 @@ impl VarData {
             (!self.sub_values.is_empty(), self.value.is_some())
         } else {
             let mut cursor = self.sub_values.lower_bound(Bound::Included(key));
-            if let Some(node) = cursor.next() {
-                if node.0 == key {
-                    (
-                        cursor
-                            .next()
-                            .filter(|(key, _)| key.is_sub_key_of(key))
-                            .is_some(),
-                        true,
-                    )
-                } else {
-                    (node.0.is_sub_key_of(key), false)
-                }
+
+            let temp = cursor.next();
+            let (current, next) = if matches!(temp, Some(x) if x.0 ==key) {
+                (temp, cursor.next())
             } else {
-                (false, false)
-            }
+                (None, temp)
+            };
+
+            (
+                next.map(|(key, _)| key.is_sub_key_of(key)).unwrap_or(false),
+                current.is_some(),
+            )
         }
     }
 
