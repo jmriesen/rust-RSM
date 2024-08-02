@@ -92,18 +92,13 @@ impl VarData {
         if key.is_empty() {
             (!self.sub_values.is_empty(), self.value.is_some())
         } else {
-            let mut cursor = self.sub_values.lower_bound(Bound::Included(key));
-
-            let temp = cursor.next();
-            let (current, next) = if matches!(temp, Some(x) if x.0 ==key) {
-                (temp, cursor.next())
-            } else {
-                (None, temp)
-            };
-
             (
-                next.map(|(key, _)| key.is_sub_key_of(key)).unwrap_or(false),
-                current.is_some(),
+                self.sub_values
+                    .lower_bound(Bound::Excluded(key))
+                    .next()
+                    .map(|(key, _)| key.is_sub_key_of(key))
+                    .unwrap_or(false),
+                self.sub_values.contains_key(key),
             )
         }
     }
