@@ -73,7 +73,7 @@ impl Table {
         unsafe { ST_Kill(from_ref(var).cast_mut()) };
     }
 
-    ///returns (there is data,there are descendants)
+    ///returns (there are descendants,there is data)
     pub fn data(&self, var: &MVAR) -> (bool, bool) {
         let mut buff = [0; 3];
         unsafe { ST_Data(from_ref(var).cast_mut(), buff.as_mut_ptr()) };
