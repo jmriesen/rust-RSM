@@ -115,8 +115,6 @@ impl VarData {
     }
 
     pub fn order(&self, key: &Key, direction: Direction) -> Value {
-        dbg!(&self.sub_values);
-        dbg!(key);
         let sub_len = key.iter().count();
         match direction {
             Direction::Forward => self
@@ -129,7 +127,7 @@ impl VarData {
                 .prev(),
         }
         .map(|x| x.0)
-        .and_then(|key| dbg!(&key).iter().skip(sub_len - 1).next())
+        .and_then(|key| key.iter().skip(sub_len - 1).next())
         .map(|x| x.into())
         .unwrap_or_default()
     }

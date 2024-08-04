@@ -265,8 +265,8 @@ impl Key {
     /// with the last sub keys value maximized.
     /// otherwise this is a no op.
     ///
-    /// This function has been marked unsafe sine the returned key should ONLY be used as a bound.
     /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
+    /// This should only be used to create a bound
     pub fn wrap_null_key(&self) -> std::borrow::Cow<Self> {
         if self.0[self.0.len() - 2..] == [0, 0] {
             let mut modified_key = self.clone();
@@ -276,9 +276,10 @@ impl Key {
             std::borrow::Cow::Borrowed(self)
         }
     }
-}
 
-impl Key {
+    ///Returns a new key that corresponds to the maximum subscript of the input key.
+    /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
+    /// This should only be used to create a bound
     pub fn upper_subscript_bound(&self) -> Key {
         let mut modified_key = self.0.clone();
         modified_key.push(255);

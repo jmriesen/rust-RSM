@@ -53,6 +53,7 @@ impl std::fmt::Debug for MVar {
             .finish()
     }
 }
+
 impl std::fmt::Display for MVar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
@@ -62,6 +63,7 @@ impl std::fmt::Display for MVar {
                 f,
                 "{}{}",
                 self.name.0,
+                //TODO handle non Ascii case
                 String::from_utf8(self.key.string_key()).unwrap()
             )
         }

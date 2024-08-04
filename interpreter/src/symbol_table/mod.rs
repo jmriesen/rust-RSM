@@ -95,7 +95,7 @@ impl Table {
         self.0
             .locate(&var.name)
             .map(|x| x.data(&var.key))
-            .unwrap_or((false, false))
+            .unwrap_or_default()
     }
 
     //Returns a string representation of Key in the given MVar.
@@ -108,7 +108,7 @@ impl Table {
                 next_var.key = key.clone();
                 format!("{}", next_var)
             })
-            .unwrap_or("".into())
+            .unwrap_or_default()
     }
 
     pub fn order(&self, var: &MVar, direction: Direction) -> Value {
