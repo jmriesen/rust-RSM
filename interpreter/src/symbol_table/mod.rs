@@ -118,7 +118,8 @@ impl Table {
     pub fn order(&self, var: &MVar, direction: Direction) -> Value {
         self.0
             .locate(&var.name)
-            .map(|data| data.order(&var.key, direction))
+            .and_then(|data| data.order(&var.key, direction))
+            .map(|x| x.into())
             .unwrap_or_default()
     }
 }

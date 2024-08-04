@@ -114,7 +114,7 @@ impl VarData {
         .map(|x| x.0)
     }
 
-    pub fn order(&self, key: &Key, direction: Direction) -> Value {
+    pub fn order(&self, key: &Key, direction: Direction) -> Option<crate::key::Segment> {
         let sub_len = key.iter().count();
         match direction {
             Direction::Forward => self
@@ -128,8 +128,6 @@ impl VarData {
         }
         .map(|x| x.0)
         .and_then(|key| key.iter().nth(sub_len - 1))
-        .map(Value::from)
-        .unwrap_or_default()
     }
 
     //todo
