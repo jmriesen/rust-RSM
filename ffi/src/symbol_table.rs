@@ -42,7 +42,7 @@ static TABLE_MUTEX: Mutex<()> = Mutex::new(());
 pub struct Table {
     _guard: LockResult<MutexGuard<'static, ()>>,
 }
-
+#[allow(clippy::new_without_default)]
 impl Table {
     pub fn new() -> Self {
         let temp = Self {
@@ -88,17 +88,11 @@ impl Table {
 
     pub fn query(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
         let mut buf = [0; 65535];
-        let mut var = var.clone();
-        //If the key contains null and we are going backwards mess with key so that null comes
-        //after everything else.
-        // This logic was copied from the Dquery2 function.
-        if reverse && var.slen >= 2 {
-            if (var.key[var.slen as usize - 1] == b'\0')
-                && (var.key[var.slen as usize - 2] == b'\0')
-            {
-                var.key[var.slen as usize - 2] = 255;
-            }
+        let mut var = *var;
+        if reverse {
+            flip_trailing_null(&mut var);
         }
+
         let len = unsafe {
             ST_Query(
                 from_mut(&mut var),
@@ -111,16 +105,9 @@ impl Table {
 
     pub fn order(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
         let mut buf = [0; 65535];
-        let mut var = var.clone();
-        //If the key contains null and we are going backwards mess with key so that null comes
-        //after everything else.
-        // This logic was copied from the Dquery2 function.
-        if reverse && var.slen >= 2 {
-            if (var.key[var.slen as usize - 1] == b'\0')
-                && (var.key[var.slen as usize - 2] == b'\0')
-            {
-                var.key[var.slen as usize - 2] = 255;
-            }
+        let mut var = *var;
+        if reverse {
+            flip_trailing_null(&mut var);
         }
         let len = unsafe {
             ST_Order(
@@ -130,6 +117,18 @@ impl Table {
             )
         };
         Vec::from(&buf[..len as usize])
+    }
+}
+
+//If the last subscript in the key is null, swap it for the max subscript value.
+//This is used when trailing backwards and though the keys
+// This logic was copied from the Dquery2 function.
+fn flip_trailing_null(var: &mut MVAR) {
+    if var.slen >= 2
+        && (var.key[var.slen as usize - 1] == b'\0')
+        && (var.key[var.slen as usize - 2] == b'\0')
+    {
+        var.key[var.slen as usize - 2] = 255;
     }
 }
 

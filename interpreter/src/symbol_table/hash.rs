@@ -60,6 +60,7 @@ const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
 /// If the map is full we can still insert a special Error Key.
 /// Internally the keys are stored in a array, and the indexes into that array are handed out using
 /// a stack.
+#[allow(clippy::module_name_repetitions)]
 pub struct HashTable<K, V>
 where
     K: Key,
@@ -216,7 +217,7 @@ mod tests {
             self.create(key).map(|x| from_ref(x))
         }
         fn index_ptr(&self, index: usize) -> Option<*const VarData> {
-            self.slots[index].as_ref().map(|x| from_ref(x))
+            self.slots[index].as_ref().map(from_ref)
         }
     }
 

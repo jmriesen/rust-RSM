@@ -31,13 +31,14 @@ use std::{collections::BTreeMap, ops::Bound};
 
 use crate::{key::Key, value::Value};
 
+#[derive(Clone, Copy)]
 pub enum Direction {
     Forward,
     Backward,
 }
 
 ///Data associated for a specific variable
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct VarData {
     sub_values: BTreeMap<Key, Value>,
     //TODO consider removing I am currently not using attach
@@ -96,8 +97,7 @@ impl VarData {
                 self.sub_values
                     .lower_bound(Bound::Excluded(key))
                     .next()
-                    .map(|(key, _)| key.is_sub_key_of(key))
-                    .unwrap_or(false),
+                    .is_some_and(|(key, _)| key.is_sub_key_of(key)),
                 self.sub_values.contains_key(key),
             )
         }
@@ -127,8 +127,8 @@ impl VarData {
                 .prev(),
         }
         .map(|x| x.0)
-        .and_then(|key| key.iter().skip(sub_len - 1).next())
-        .map(|x| x.into())
+        .and_then(|key| key.iter().nth(sub_len - 1))
+        .map(Value::from)
         .unwrap_or_default()
     }
 
@@ -141,16 +141,6 @@ impl VarData {
     #[cfg_attr(test, mutants::skip)]
     pub fn contains_data(&self) -> bool {
         !(self.sub_values.is_empty() && self.attach <= 1 && self.value.is_none())
-    }
-}
-
-impl Default for VarData {
-    fn default() -> Self {
-        Self {
-            sub_values: Default::default(),
-            attach: 0,
-            value: None,
-        }
     }
 }
 
@@ -215,7 +205,7 @@ mod tests {
 
             let mut table = Table::new();
             for var in &m_vars {
-                table.set(&var, &Value::try_from("Value").unwrap()).unwrap();
+                table.set(var, &Value::try_from("Value").unwrap()).unwrap();
             }
 
             m_vars.insert(0, var_m("foo", &[""]));
@@ -257,7 +247,7 @@ mod tests {
 
             let mut table = Table::new();
             for var in &m_vars {
-                table.set(&var, &Value::try_from("Value").unwrap()).unwrap()
+                table.set(var, &Value::try_from("Value").unwrap()).unwrap();
             }
             let null_last_key = var_m("foo", &["0", ""]);
             assert_eq!(
@@ -278,7 +268,7 @@ mod tests {
 
             let mut table = Table::new();
             for var in &m_vars {
-                table.set(&var, &Value::try_from("Value").unwrap()).unwrap()
+                table.set(var, &Value::try_from("Value").unwrap()).unwrap();
             }
 
             let null_in_middle = var_m("foo", &["0", "", "0"]);
@@ -378,8 +368,8 @@ mod tests {
             let mut table = ffi::symbol_table::Table::new();
             let foo = var_m("foo", &[]).into_cmvar();
             let bar = var_m("bar", &["subscript"]).into_cmvar();
-            let _ = table.set(&foo, &Value::try_from("Value").unwrap().into_cstring());
-            let _ = table.set(&bar, &Value::try_from("Value").unwrap().into_cstring());
+            let () = table.set(&foo, &Value::try_from("Value").unwrap().into_cstring());
+            let () = table.set(&bar, &Value::try_from("Value").unwrap().into_cstring());
             assert_eq!("", String::from_utf8(table.order(&foo, false)).unwrap());
             assert_eq!("", String::from_utf8(table.order(&bar, false)).unwrap());
             assert_eq!("", String::from_utf8(table.order(&foo, true)).unwrap());

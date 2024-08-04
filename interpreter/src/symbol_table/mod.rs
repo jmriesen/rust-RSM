@@ -36,6 +36,7 @@ mod var_data;
 mod var_u;
 use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
+use hash::CreationError;
 pub use m_var::MVar;
 use var_data::{Direction, VarData};
 use var_u::VarU;
@@ -55,16 +56,15 @@ impl Table {
         Self::default()
     }
 
+    ///Gets a value that was stored in the symbol table.
     #[must_use]
     pub fn get(&self, var: &MVar) -> Option<&Value> {
         self.0.locate(&var.name)?.value(&var.key)
     }
 
-    pub fn set(&mut self, var: &MVar, value: &Value) -> Result<(), ()> {
-        self.0
-            .create(var.name.clone())
-            .map_err(|_| ())?
-            .set_value(&var.key, value);
+    /// Inserts a value into the symbol table
+    pub fn set(&mut self, var: &MVar, value: &Value) -> Result<(), CreationError> {
+        self.0.create(var.name.clone())?.set_value(&var.key, value);
         Ok(())
     }
 
@@ -91,7 +91,7 @@ impl Table {
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
 
-    pub fn data(&self, var: &MVar) -> (bool, bool) {
+    #[must_use] pub fn data(&self, var: &MVar) -> (bool, bool) {
         self.0
             .locate(&var.name)
             .map(|x| x.data(&var.key))
@@ -99,19 +99,19 @@ impl Table {
     }
 
     //Returns a string representation of Key in the given MVar.
-    pub fn query(&self, var: &MVar, direction: Direction) -> String {
+    #[must_use] pub fn query(&self, var: &MVar, direction: Direction) -> String {
         self.0
             .locate(&var.name)
             .and_then(|data| data.query(&var.key, direction))
             .map(|key| {
                 let mut next_var = var.clone();
                 next_var.key = key.clone();
-                format!("{}", next_var)
+                format!("{next_var}")
             })
             .unwrap_or_default()
     }
 
-    pub fn order(&self, var: &MVar, direction: Direction) -> Value {
+    #[must_use] pub fn order(&self, var: &MVar, direction: Direction) -> Value {
         self.0
             .locate(&var.name)
             .map(|data| data.order(&var.key, direction))

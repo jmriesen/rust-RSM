@@ -114,7 +114,7 @@ pub mod helpers {
     }
 
     impl MVar {
-        pub fn into_cmvar(self) -> ffi::MVAR {
+        #[must_use] pub fn into_cmvar(self) -> ffi::MVAR {
             let mut key = [0; 256];
             key[..self.key.len()].copy_from_slice(self.key.raw_keys());
             ffi::MVAR {

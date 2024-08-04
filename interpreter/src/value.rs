@@ -34,7 +34,7 @@ use std::string::FromUtf8Error;
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
 ///
-///NOTE There is a byte_maxs of 65535 (just like 'CSTRINGS')
+///NOTE There is a `byte_maxs` of 65535 (just like 'CSTRINGS')
 #[derive(Clone, PartialEq, Eq)] //NOTE keep the Manual Debug implementation in sync
 pub struct Value(Vec<u8>);
 
@@ -56,7 +56,7 @@ impl Value {
             buf,
         }
     }
-    pub const fn empty() -> Self {
+    #[must_use] pub const fn empty() -> Self {
         Self(Vec::new())
     }
 }
