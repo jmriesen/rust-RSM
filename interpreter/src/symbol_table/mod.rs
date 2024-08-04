@@ -110,6 +110,13 @@ impl Table {
             })
             .unwrap_or("".into())
     }
+
+    pub fn order(&self, var: &MVar, direction: Direction) -> Value {
+        self.0
+            .locate(&var.name)
+            .map(|data| data.order(&var.key, direction))
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]

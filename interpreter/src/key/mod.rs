@@ -123,6 +123,13 @@ pub struct Iter<'a> {
     tail: &'a [u8],
 }
 
+impl<'a> From<Segment<'a>> for Value {
+    fn from(value: Segment<'a>) -> Self {
+        Value::try_from(&ParsedKey::from_key_ref(value).external_fmt(false)[..])
+            .expect("max key len is < max Value len")
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Error {
     SubscriptToLarge,
@@ -148,7 +155,6 @@ impl std::fmt::Debug for Key {
 pub mod a_b_testing {
 
     use crate::value::Value;
-
     use ffi::{
         symbol_table::{build_key, extract_key, string_key},
         ERRMLAST, ERRZ1, ERRZ5,

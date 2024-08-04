@@ -28,9 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use std::string::FromUtf8Error;
-
 use ffi::{CSTRING, MAX_STR_LEN};
+use std::string::FromUtf8Error;
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
@@ -56,6 +55,15 @@ impl Value {
             len: self.0.len() as u16,
             buf,
         }
+    }
+    pub const fn empty() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 

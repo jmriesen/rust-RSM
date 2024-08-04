@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 /*
  * Package: Rust Reference Standard M
  *
@@ -251,6 +249,11 @@ impl Key {
         }
     }
 
+    pub fn parent(&self) -> Segment {
+        let last_segment_len = self.iter().last().map_or(0, |x| x.0.len());
+        Segment(&self.0[..self.0.len() - last_segment_len])
+    }
+
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
@@ -264,7 +267,7 @@ impl Key {
     ///
     /// This function has been marked unsafe sine the returned key should ONLY be used as a bound.
     /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
-    pub unsafe fn wrap_null_key(&self) -> std::borrow::Cow<Self> {
+    pub fn wrap_null_key(&self) -> std::borrow::Cow<Self> {
         if self.0[self.0.len() - 2..] == [0, 0] {
             let mut modified_key = self.clone();
             modified_key.0[self.len() - 2] = 255;
@@ -272,6 +275,15 @@ impl Key {
         } else {
             std::borrow::Cow::Borrowed(self)
         }
+    }
+}
+
+impl Key {
+    pub fn upper_subscript_bound(&self) -> Key {
+        let mut modified_key = self.0.clone();
+        modified_key.push(255);
+        modified_key.push(0);
+        Key(modified_key)
     }
 }
 
@@ -323,6 +335,7 @@ impl Ord for Key {
         }
     }
 }
+
 impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))

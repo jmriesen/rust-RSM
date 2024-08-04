@@ -108,15 +108,34 @@ impl VarData {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(unsafe { &key.wrap_null_key() }))
+                .upper_bound(Bound::Excluded(&key.wrap_null_key()))
                 .prev(),
         }
         .map(|x| x.0)
     }
 
+    pub fn order(&self, key: &Key, direction: Direction) -> Value {
+        dbg!(&self.sub_values);
+        dbg!(key);
+        let sub_len = key.iter().count();
+        match direction {
+            Direction::Forward => self
+                .sub_values
+                .lower_bound(Bound::Excluded(&key.upper_subscript_bound()))
+                .next(),
+            Direction::Backward => self
+                .sub_values
+                .upper_bound(Bound::Excluded(&key.wrap_null_key()))
+                .prev(),
+        }
+        .map(|x| x.0)
+        .and_then(|key| dbg!(&key).iter().skip(sub_len - 1).next())
+        .map(|x| x.into())
+        .unwrap_or_default()
+    }
+
     //todo
     //Dump
-    //order
 
     //checks self contains any data, if not it can be freed
     //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
@@ -278,85 +297,81 @@ mod tests {
 
     mod order {
 
+        use crate::symbol_table::var_data::Direction;
+
         use super::*;
 
         #[test]
         fn forward_and_backward() {
-            let mut table = ffi::symbol_table::Table::new();
-            let data = Value::try_from("data").unwrap().into_cstring();
-            table.set(&var_m("foo", &["0"]).into_cmvar(), &data);
-            table.set(&var_m("foo", &["1", "a"]).into_cmvar(), &data);
-            table.set(&var_m("foo", &["1", "b"]).into_cmvar(), &data);
-            table.set(&var_m("foo", &["2"]).into_cmvar(), &data);
+            let mut table = Table::new();
+            let data = Value::try_from("data").unwrap();
+            table.set(&var_m("foo", &["0"]), &data).unwrap();
+            table.set(&var_m("foo", &["1", "a"]), &data).unwrap();
+            table.set(&var_m("foo", &["1", "b"]), &data).unwrap();
+            table.set(&var_m("foo", &["2"]), &data).unwrap();
 
             //Top level forward
             assert_eq!(
-                "0",
-                String::from_utf8(table.order(&var_m("foo", &[""]).into_cmvar(), false)).unwrap()
+                table.order(&var_m("foo", &[""]), Direction::Forward),
+                "0".try_into().unwrap(),
             );
             assert_eq!(
-                "1",
-                String::from_utf8(table.order(&var_m("foo", &["0"]).into_cmvar(), false)).unwrap()
+                table.order(&var_m("foo", &["0"]), Direction::Forward),
+                "1".try_into().unwrap(),
             );
             assert_eq!(
-                "2",
-                String::from_utf8(table.order(&var_m("foo", &["1"]).into_cmvar(), false)).unwrap()
+                table.order(&var_m("foo", &["1"]), Direction::Forward),
+                "2".try_into().unwrap(),
             );
             assert_eq!(
-                "",
-                String::from_utf8(table.order(&var_m("foo", &["2"]).into_cmvar(), false)).unwrap()
+                table.order(&var_m("foo", &["2"]), Direction::Forward),
+                "".try_into().unwrap(),
             );
 
             //Top level Backwords
             assert_eq!(
-                "2",
-                String::from_utf8(table.order(&var_m("foo", &[""]).into_cmvar(), true)).unwrap()
+                table.order(&var_m("foo", &[""]), Direction::Backward),
+                "2".try_into().unwrap(),
             );
             assert_eq!(
-                "1",
-                String::from_utf8(table.order(&var_m("foo", &["2"]).into_cmvar(), true)).unwrap()
+                table.order(&var_m("foo", &["2"]), Direction::Backward),
+                "1".try_into().unwrap(),
             );
             assert_eq!(
-                "0",
-                String::from_utf8(table.order(&var_m("foo", &["1"]).into_cmvar(), true)).unwrap()
+                table.order(&var_m("foo", &["1"]), Direction::Backward),
+                "0".try_into().unwrap(),
             );
             assert_eq!(
-                "",
-                String::from_utf8(table.order(&var_m("foo", &["0"]).into_cmvar(), true)).unwrap()
+                table.order(&var_m("foo", &["0"]), Direction::Backward),
+                "".try_into().unwrap(),
             );
 
             //sub layer Forward
             assert_eq!(
-                "a",
-                String::from_utf8(table.order(&var_m("foo", &["1", ""]).into_cmvar(), false))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", ""]), Direction::Forward),
+                "a".try_into().unwrap(),
             );
             assert_eq!(
-                "b",
-                String::from_utf8(table.order(&var_m("foo", &["1", "a"]).into_cmvar(), false))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", "a"]), Direction::Forward),
+                "b".try_into().unwrap(),
             );
             assert_eq!(
-                "",
-                String::from_utf8(table.order(&var_m("foo", &["1", "b"]).into_cmvar(), false))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", "b"]), Direction::Forward),
+                "".try_into().unwrap(),
             );
 
             //Top level Backwords
             assert_eq!(
-                "b",
-                String::from_utf8(table.order(&var_m("foo", &["1", ""]).into_cmvar(), true))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", ""]), Direction::Backward),
+                "b".try_into().unwrap(),
             );
             assert_eq!(
-                "a",
-                String::from_utf8(table.order(&var_m("foo", &["1", "b"]).into_cmvar(), true))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", "b"]), Direction::Backward),
+                "a".try_into().unwrap(),
             );
             assert_eq!(
-                "",
-                String::from_utf8(table.order(&var_m("foo", &["1", "a"]).into_cmvar(), true))
-                    .unwrap()
+                table.order(&var_m("foo", &["1", "a"]), Direction::Backward),
+                "".try_into().unwrap(),
             );
         }
 

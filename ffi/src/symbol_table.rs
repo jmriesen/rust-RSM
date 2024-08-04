@@ -27,16 +27,13 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+use crate::{
+    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set, UTIL_Key_Build,
+    UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR,
+};
 use std::{
     ptr::{from_mut, from_ref},
     sync::{LockResult, Mutex, MutexGuard},
-};
-
-use libc::pthread_mutexattr_getpshared;
-
-use crate::{
-    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set, UTIL_Key_Build,
-    UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
 };
 
 ///controls access to table globals
