@@ -108,7 +108,7 @@ impl VarData {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_key()))
+                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
                 .prev(),
         }
         .map(|x| x.0)
@@ -123,7 +123,7 @@ impl VarData {
                 .next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_key()))
+                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
                 .prev(),
         }
         .map(|x| x.0)

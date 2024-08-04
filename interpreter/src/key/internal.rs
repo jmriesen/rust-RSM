@@ -249,7 +249,8 @@ impl Key {
         }
     }
 
-    #[must_use] pub fn parent(&self) -> Segment {
+    #[must_use]
+    pub fn parent(&self) -> Segment {
         let last_segment_len = self.iter().last().map_or(0, |x| x.0.len());
         Segment(&self.0[..self.0.len() - last_segment_len])
     }
@@ -267,8 +268,9 @@ impl Key {
     ///
     /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
     /// This should only be used to create a bound
-    #[must_use] pub fn wrap_null_key(&self) -> std::borrow::Cow<Self> {
-        if self.0[self.0.len() - 2..] == [0, 0] {
+    #[must_use]
+    pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
+        if self.len() >= 2 && self.0[self.0.len() - 2..] == [0, 0] {
             let mut modified_key = self.clone();
             modified_key.0[self.len() - 2] = 255;
             std::borrow::Cow::Owned(modified_key)
@@ -280,7 +282,8 @@ impl Key {
     ///Returns a new key that corresponds to the maximum subscript of the input key.
     /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
     /// This should only be used to create a bound
-    #[must_use] pub fn upper_subscript_bound(&self) -> Key {
+    #[must_use]
+    pub fn upper_subscript_bound(&self) -> Key {
         let mut modified_key = self.0.clone();
         modified_key.push(255);
         modified_key.push(0);

@@ -231,14 +231,15 @@ mod order {
 
     #[test]
     fn value_with_no_subscripts() {
-        let mut table = ffi::symbol_table::Table::new();
-        let foo = var_m("foo", &[]).into_cmvar();
-        let bar = var_m("bar", &["subscript"]).into_cmvar();
-        let () = table.set(&foo, &Value::try_from("Value").unwrap().into_cstring());
-        let () = table.set(&bar, &Value::try_from("Value").unwrap().into_cstring());
-        assert_eq!("", String::from_utf8(table.order(&foo, false)).unwrap());
-        assert_eq!("", String::from_utf8(table.order(&bar, false)).unwrap());
-        assert_eq!("", String::from_utf8(table.order(&foo, true)).unwrap());
-        assert_eq!("", String::from_utf8(table.order(&bar, true)).unwrap());
+        let mut table = Table::new();
+        let foo = var_m("foo", &[]);
+        let bar = var_m("bar", &["subscript"]);
+        table.set(&foo, &Value::try_from("Value").unwrap()).unwrap();
+        table.set(&bar, &Value::try_from("Value").unwrap()).unwrap();
+        let null = Value::empty();
+        assert_eq!(null, table.order(&foo, Direction::Forward));
+        assert_eq!(null, table.order(&bar, Direction::Forward));
+        assert_eq!(null, table.order(&foo, Direction::Backward));
+        assert_eq!(null, table.order(&bar, Direction::Backward));
     }
 }
