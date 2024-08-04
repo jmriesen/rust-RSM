@@ -47,34 +47,48 @@ mod data {
 
 mod query {
 
+    use std::thread::current;
+
     use super::*;
-    use crate::symbol_table::var_data::Direction;
+    use crate::{shared_seg::lock_tab::tests::assert_eq, symbol_table::var_data::Direction};
 
     #[test]
     fn forward_and_backward() {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
-        let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
         let mut table = Table::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
 
-        m_vars.insert(0, var_m("foo", &[""]));
-        m_vars.push(var_m("foo", &[""]));
+        assert_eq!(
+            table.query(&var_m("foo", &[""]), Direction::Forward),
+            format!("{}", m_vars.first().unwrap())
+        );
+        for [current, expected] in m_vars.array_windows() {
+            assert_eq!(
+                table.query(&current, Direction::Forward),
+                format!("{}", expected)
+            );
+        }
+        assert_eq!(table.query(m_vars.last().unwrap(), Direction::Forward), "");
 
-        for i in 0..m_vars.len() - 2 {
+        //Backwards
+        assert_eq!(
+            table.query(&var_m("foo", &[""]), Direction::Backward),
+            format!("{}", m_vars.last().unwrap())
+        );
+        for [expected, current] in m_vars.array_windows().rev() {
             assert_eq!(
-                table.query(&m_vars[i], Direction::Forward),
-                format!("{}", m_vars[i + 1])
+                table.query(&current, Direction::Backward),
+                format!("{}", expected)
             );
         }
-        for i in (2..m_vars.len()).rev() {
-            assert_eq!(
-                table.query(&m_vars[i], Direction::Backward),
-                format!("{}", m_vars[i - 1])
-            );
-        }
+        assert_eq!(
+            table.query(m_vars.first().unwrap(), Direction::Backward),
+            ""
+        );
     }
 
     #[test]
