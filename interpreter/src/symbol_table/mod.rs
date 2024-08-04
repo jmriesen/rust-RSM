@@ -91,7 +91,8 @@ impl Table {
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
 
-    #[must_use] pub fn data(&self, var: &MVar) -> (bool, bool) {
+    #[must_use]
+    pub fn data(&self, var: &MVar) -> (bool, bool) {
         self.0
             .locate(&var.name)
             .map(|x| x.data(&var.key))
@@ -99,7 +100,8 @@ impl Table {
     }
 
     //Returns a string representation of Key in the given MVar.
-    #[must_use] pub fn query(&self, var: &MVar, direction: Direction) -> String {
+    #[must_use]
+    pub fn query(&self, var: &MVar, direction: Direction) -> String {
         self.0
             .locate(&var.name)
             .and_then(|data| data.query(&var.key, direction))
@@ -111,7 +113,8 @@ impl Table {
             .unwrap_or_default()
     }
 
-    #[must_use] pub fn order(&self, var: &MVar, direction: Direction) -> Value {
+    #[must_use]
+    pub fn order(&self, var: &MVar, direction: Direction) -> Value {
         self.0
             .locate(&var.name)
             .map(|data| data.order(&var.key, direction))
@@ -136,93 +139,93 @@ pub mod tests {
     #[test]
     fn get_unset_key() {
         let mut table = Table::new();
-        let mut m_var = var_m("foo", &[]);
+        let m_var = var_m("foo", &[]);
         let mut data = "Data".try_into().unwrap();
-        table.set(&mut m_var, &mut data).unwrap();
+        table.set(&m_var, &mut data).unwrap();
 
-        let mut m_var = var_m("foo", &["bar"]);
-        assert_eq!(table.get(&mut m_var), None);
+        let m_var = var_m("foo", &["bar"]);
+        assert_eq!(table.get(&m_var), None);
     }
 
     #[test]
     fn set_root_value() {
         let mut table = Table::new();
-        let mut m_var = var_m("foo", &[]);
+        let m_var = var_m("foo", &[]);
         let mut data = "Data".try_into().unwrap();
 
-        table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(table.get(&mut m_var), Some(&data));
+        table.set(&m_var, &mut data).unwrap();
+        assert_eq!(table.get(&m_var), Some(&data));
     }
 
     #[test]
     fn set_index_value() {
         let mut table = Table::new();
-        let mut m_var = var_m("foo", &["keys"]);
+        let m_var = var_m("foo", &["keys"]);
         let mut data = "Data".try_into().unwrap();
-        table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(Some(&data), table.get(&mut m_var));
+        table.set(&m_var, &mut data).unwrap();
+        assert_eq!(Some(&data), table.get(&m_var));
     }
 
     #[test]
     fn set_root_then_index() {
-        let mut root = var_m("foo", &[]);
-        let mut root_data = "root Data".try_into().unwrap();
-        let mut with_key = var_m("foo", &["keys"]);
-        let mut key_data = "key Data".try_into().unwrap();
+        let root = var_m("foo", &[]);
+        let root_data = "root Data".try_into().unwrap();
+        let with_key = var_m("foo", &["keys"]);
+        let key_data = "key Data".try_into().unwrap();
         {
             let mut table = Table::new();
 
-            table.set(&mut root, &mut root_data).unwrap();
-            table.set(&mut with_key, &mut key_data).unwrap();
-            assert_eq!(Some(&root_data), table.get(&mut root));
-            assert_eq!(Some(&key_data), table.get(&mut with_key));
+            table.set(&root, &root_data).unwrap();
+            table.set(&with_key, &key_data).unwrap();
+            assert_eq!(Some(&root_data), table.get(&root));
+            assert_eq!(Some(&key_data), table.get(&with_key));
         }
         {
             let mut table = Table::new();
 
-            table.set(&mut with_key, &mut key_data).unwrap();
-            table.set(&mut root, &mut root_data).unwrap();
-            assert_eq!(Some(&root_data), table.get(&mut root));
-            assert_eq!(Some(&key_data), table.get(&mut with_key));
+            table.set(&with_key, &key_data).unwrap();
+            table.set(&root, &root_data).unwrap();
+            assert_eq!(Some(&root_data), table.get(&root));
+            assert_eq!(Some(&key_data), table.get(&with_key));
         }
     }
 
     #[test]
     fn set_null_value() {
         let mut table = Table::new();
-        let mut m_var = var_m("foo", &[]);
-        let mut data = "".try_into().unwrap();
+        let m_var = var_m("foo", &[]);
+        let data = "".try_into().unwrap();
 
-        table.set(&mut m_var, &mut data).unwrap();
-        assert_eq!(Some(&data), table.get(&mut m_var));
+        table.set(&m_var, &data).unwrap();
+        assert_eq!(Some(&data), table.get(&m_var));
     }
 
     #[test]
     fn set_works_while_with_prefixs() {
         let mut table = Table::new();
-        let mut prefix = var_m("foo", &["prefix"]);
-        let mut full = var_m("foo", &["prefixAndMore"]);
-        let mut prefix_data = "prefix".try_into().unwrap();
-        let mut full_data = "full".try_into().unwrap();
+        let prefix = var_m("foo", &["prefix"]);
+        let full = var_m("foo", &["prefixAndMore"]);
+        let prefix_data = "prefix".try_into().unwrap();
+        let full_data = "full".try_into().unwrap();
 
-        table.set(&mut prefix, &mut prefix_data).unwrap();
-        table.set(&mut full, &mut full_data).unwrap();
-        assert_eq!(Some(&prefix_data), table.get(&mut prefix));
-        assert_eq!(Some(&full_data), table.get(&mut full));
+        table.set(&prefix, &prefix_data).unwrap();
+        table.set(&full, &full_data).unwrap();
+        assert_eq!(Some(&prefix_data), table.get(&prefix));
+        assert_eq!(Some(&full_data), table.get(&full));
     }
 
     #[test]
     fn set_overrides_value() {
         let mut table = Table::new();
-        let mut m_var = var_m("foo", &[]);
-        let mut initial_value = "inital".try_into().unwrap();
-        let mut end_value = "end".try_into().unwrap();
+        let m_var = var_m("foo", &[]);
+        let initial_value = "inital".try_into().unwrap();
+        let end_value = "end".try_into().unwrap();
 
-        table.set(&mut m_var, &mut initial_value).unwrap();
-        assert_eq!(Some(&initial_value), table.get(&mut m_var));
+        table.set(&m_var, &initial_value).unwrap();
+        assert_eq!(Some(&initial_value), table.get(&m_var));
 
-        table.set(&mut m_var, &mut end_value).unwrap();
-        assert_eq!(Some(&end_value), table.get(&mut m_var));
+        table.set(&m_var, &end_value).unwrap();
+        assert_eq!(Some(&end_value), table.get(&m_var));
     }
 
     #[test]
@@ -236,16 +239,16 @@ pub mod tests {
             (vec!["SomeKey4"], "someKey4"),
             (vec!["lots", "of", "Keys", "even", "more"], "lots of keys"),
         ];
-        let mut test_data =
+        let test_data =
             test_data.map(|(keys, value)| (var_m("foo", &keys), value.try_into().unwrap()));
 
         let mut table = Table::new();
-        for (var, value) in &mut test_data {
+        for (var, value) in &test_data {
             table.set(var, value).unwrap();
         }
 
-        for (mut var, value) in test_data {
-            assert_eq!(Some(&value), table.get(&mut var));
+        for (var, value) in test_data {
+            assert_eq!(Some(&value), table.get(&var));
         }
     }
 
@@ -253,21 +256,21 @@ pub mod tests {
     fn kill_uninitialized_var() {
         let mut table = Table::new();
         //These should be noops.
-        table.kill(&mut var_m("foo", &[]));
-        table.kill(&mut var_m("foo", &["arg"]));
+        table.kill(&var_m("foo", &[]));
+        table.kill(&var_m("foo", &["arg"]));
     }
 
     #[test]
     fn kill_initialized_root() {
         let mut table = Table::new();
-        let mut var = var_m("foo", &[]);
+        let var = var_m("foo", &[]);
         let var_i = var_m("foo", &["i"]);
         let var_ii = var_m("foo", &["i", "ii"]);
         let data = "data".try_into().unwrap();
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
-        table.kill(&mut var);
+        table.kill(&var);
         assert_eq!(table.get(&var), None);
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
@@ -280,13 +283,13 @@ pub mod tests {
     fn kill_initialized_index() {
         let mut table = Table::new();
         let var = var_m("foo", &[]);
-        let mut var_i = var_m("foo", &["i"]);
+        let var_i = var_m("foo", &["i"]);
         let var_ii = var_m("foo", &["i", "ii"]);
         let data = "data".try_into().unwrap();
         table.set(&var, &data).unwrap();
         table.set(&var_i, &data).unwrap();
         table.set(&var_ii, &data).unwrap();
-        table.kill(&mut var_i);
+        table.kill(&var_i);
         assert_eq!(table.get(&var), Some(&data));
         assert_eq!(table.get(&var_i), None);
         assert_eq!(table.get(&var_i), None);
