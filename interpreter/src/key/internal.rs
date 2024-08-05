@@ -250,12 +250,6 @@ impl Key {
     }
 
     #[must_use]
-    pub fn parent(&self) -> Segment {
-        let last_segment_len = self.iter().last().map_or(0, |x| x.0.len());
-        Segment(&self.0[..self.0.len() - last_segment_len])
-    }
-
-    #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
     }

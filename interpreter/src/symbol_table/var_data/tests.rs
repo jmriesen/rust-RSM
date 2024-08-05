@@ -39,12 +39,26 @@ mod data {
     #[test]
     fn sub_key_descendants() {
         let mut table = Table::new();
-        let sub = var_m("var", &[]);
-        let sub_sub = var_m("var", &["sub"]);
-        assert!(!table.data(&sub).has_descendants);
         let data: Value = "data".try_into().unwrap();
-        let _ = table.set(&sub_sub, &data);
-        assert!(table.data(&sub).has_descendants);
+        let var = var_m("var", &["sub"]);
+        let descendant = var_m("var", &["sub", "sub"]);
+        assert!(!table.data(&var).has_descendants);
+        let _ = table.set(&descendant, &data);
+        assert!(table.data(&var).has_descendants);
+    }
+
+    ///All of the variables keys are stored in one sorted list
+    #[test]
+    fn adjacent_keys_are_not_sub_keys() {
+        let mut table = Table::new();
+        let data: Value = "data".try_into().unwrap();
+        let a = var_m("var", &["a"]);
+        let b = var_m("var", &["b"]);
+        let c = var_m("var", &["c"]);
+        let _ = table.set(&a, &data);
+        let _ = table.set(&b, &data);
+        let _ = table.set(&c, &data);
+        assert!(!dbg!(table.data(&b)).has_descendants);
     }
 
     #[test]

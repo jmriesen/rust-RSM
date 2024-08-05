@@ -70,6 +70,27 @@ impl std::fmt::Display for MVar {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::helpers::var_m;
+    #[test]
+    fn no_subscripts() {
+        assert_eq!(format!("{}", var_m("foo", &[])), "foo");
+    }
+
+    #[test]
+    fn subscripts() {
+        assert_eq!(format!("{}", var_m("foo", &["sub1"])), "foo(\"sub1\")");
+        assert_eq!(
+            format!("{}", var_m("foo", &["sub1", "sub2"])),
+            "foo(\"sub1\",\"sub2\")"
+        );
+        assert_eq!(format!("{}", var_m("foo", &["3"])), "foo(3)");
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
@@ -114,7 +135,8 @@ pub mod helpers {
     }
 
     impl MVar {
-        #[must_use] pub fn into_cmvar(self) -> ffi::MVAR {
+        #[must_use]
+        pub fn into_cmvar(self) -> ffi::MVAR {
             let mut key = [0; 256];
             key[..self.key.len()].copy_from_slice(self.key.raw_keys());
             ffi::MVAR {

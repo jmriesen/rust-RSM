@@ -37,6 +37,7 @@ pub enum Direction {
     Backward,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct DataResult {
     pub has_value: bool,
     pub has_descendants: bool,
@@ -132,7 +133,7 @@ impl VarData {
                     .sub_values
                     .lower_bound(Bound::Excluded(key))
                     .next()
-                    .is_some_and(|(key, _)| key.is_sub_key_of(key)),
+                    .is_some_and(|(x, _)| x.is_sub_key_of(key)),
             }
         }
     }
