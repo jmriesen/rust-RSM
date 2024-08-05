@@ -3,54 +3,88 @@ use crate::{
     value::Value,
 };
 mod data {
+    use crate::symbol_table::var_data::DataResult;
+
     use super::*;
 
     #[test]
     fn root_data() {
         let mut table = Table::new();
         let var = var_m("var", &[]);
-        assert!(!table.data(&var).1);
+        assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&var, &data);
-        assert!(table.data(&var).1);
+        assert!(table.data(&var).has_value);
     }
     #[test]
     fn root_descendants() {
         let mut table = Table::new();
         let root = var_m("var", &[]);
         let sub = var_m("var", &["sub"]);
-        assert!(!table.data(&root).0);
+        assert!(!table.data(&root).has_descendants);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&sub, &data);
-        assert!(table.data(&root).0);
+        assert!(table.data(&root).has_descendants);
     }
     #[test]
     fn sub_key_data() {
         let mut table = Table::new();
         let var = var_m("var", &["sub"]);
-        assert!(!table.data(&var).1);
+        assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&var, &data);
-        assert!(table.data(&var).1);
+        assert!(table.data(&var).has_value);
     }
+
     #[test]
     fn sub_key_descendants() {
         let mut table = Table::new();
         let sub = var_m("var", &[]);
         let sub_sub = var_m("var", &["sub"]);
-        assert!(!table.data(&sub).0);
+        assert!(!table.data(&sub).has_descendants);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&sub_sub, &data);
-        assert!(table.data(&sub).0);
+        assert!(table.data(&sub).has_descendants);
+    }
+
+    #[test]
+    fn into_value() {
+        assert_eq!(
+            Value::try_from("0").unwrap(),
+            Value::from(DataResult {
+                has_value: false,
+                has_descendants: false,
+            }),
+        );
+        assert_eq!(
+            Value::try_from("1").unwrap(),
+            Value::from(DataResult {
+                has_value: true,
+                has_descendants: false,
+            }),
+        );
+        assert_eq!(
+            Value::try_from("10").unwrap(),
+            Value::from(DataResult {
+                has_value: false,
+                has_descendants: true,
+            }),
+        );
+        assert_eq!(
+            Value::try_from("11").unwrap(),
+            Value::from(DataResult {
+                has_value: true,
+                has_descendants: true,
+            }),
+        );
     }
 }
 
 mod query {
 
-    use std::thread::current;
+    use crate::symbol_table::var_data::Direction;
 
     use super::*;
-    use crate::{shared_seg::lock_tab::tests::assert_eq, symbol_table::var_data::Direction};
 
     #[test]
     fn forward_and_backward() {

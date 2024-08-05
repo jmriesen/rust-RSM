@@ -37,6 +37,36 @@ pub enum Direction {
     Backward,
 }
 
+pub struct DataResult {
+    pub has_value: bool,
+    pub has_descendants: bool,
+}
+
+impl From<DataResult> for Value {
+    fn from(value: DataResult) -> Self {
+        match value {
+            DataResult {
+                has_value: false,
+                has_descendants: false,
+            } => &b"0"[..],
+            DataResult {
+                has_value: true,
+                has_descendants: false,
+            } => &b"1"[..],
+            DataResult {
+                has_value: false,
+                has_descendants: true,
+            } => &b"10"[..],
+            DataResult {
+                has_value: true,
+                has_descendants: true,
+            } => &b"11"[..],
+        }
+        .try_into()
+        .expect("all data values should convert without issue")
+    }
+}
+
 ///Data associated for a specific variable
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct VarData {
@@ -89,17 +119,21 @@ impl VarData {
         }
     }
 
-    pub fn data(&self, key: &Key) -> (bool, bool) {
+    pub fn data(&self, key: &Key) -> DataResult {
         if key.is_empty() {
-            (!self.sub_values.is_empty(), self.value.is_some())
+            DataResult {
+                has_value: self.value.is_some(),
+                has_descendants: !self.sub_values.is_empty(),
+            }
         } else {
-            (
-                self.sub_values
+            DataResult {
+                has_value: self.sub_values.contains_key(key),
+                has_descendants: self
+                    .sub_values
                     .lower_bound(Bound::Excluded(key))
                     .next()
                     .is_some_and(|(key, _)| key.is_sub_key_of(key)),
-                self.sub_values.contains_key(key),
-            )
+            }
         }
     }
 

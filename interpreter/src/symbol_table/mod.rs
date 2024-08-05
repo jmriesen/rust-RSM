@@ -38,7 +38,7 @@ use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
 pub use m_var::MVar;
-use var_data::{Direction, VarData};
+use var_data::{DataResult, Direction, VarData};
 use var_u::VarU;
 
 impl hash::Key for VarU {
@@ -92,11 +92,14 @@ impl Table {
     }
 
     #[must_use]
-    pub fn data(&self, var: &MVar) -> (bool, bool) {
+    pub fn data(&self, var: &MVar) -> DataResult {
         self.0
             .locate(&var.name)
             .map(|x| x.data(&var.key))
-            .unwrap_or_default()
+            .unwrap_or(DataResult {
+                has_value: false,
+                has_descendants: false,
+            })
     }
 
     //Returns a string representation of Key in the given MVar.
