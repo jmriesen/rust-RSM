@@ -27,16 +27,13 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+use crate::{
+    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set, UTIL_Key_Build,
+    UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR,
+};
 use std::{
     ptr::{from_mut, from_ref},
     sync::{LockResult, Mutex, MutexGuard},
-};
-
-use libc::pthread_mutexattr_getpshared;
-
-use crate::{
-    ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Set, UTIL_Key_Build, UTIL_Key_Extract,
-    UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR, VAR_U,
 };
 
 ///controls access to table globals
@@ -45,7 +42,7 @@ static TABLE_MUTEX: Mutex<()> = Mutex::new(());
 pub struct Table {
     _guard: LockResult<MutexGuard<'static, ()>>,
 }
-
+#[allow(clippy::new_without_default)]
 impl Table {
     pub fn new() -> Self {
         let temp = Self {
@@ -74,6 +71,64 @@ impl Table {
     }
     pub fn kill(&self, var: &MVAR) {
         unsafe { ST_Kill(from_ref(var).cast_mut()) };
+    }
+
+    ///returns (there are descendants,there is data)
+    pub fn data(&self, var: &MVAR) -> (bool, bool) {
+        let mut buff = [0; 3];
+        unsafe { ST_Data(from_ref(var).cast_mut(), buff.as_mut_ptr()) };
+        match &buff[..2] {
+            b"0\0" => (false, false),
+            b"1\0" => (false, true),
+            b"10" => (true, false),
+            b"11" => (true, true),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn query(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
+        let mut buf = [0; 65535];
+        let mut var = *var;
+        if reverse {
+            flip_trailing_null(&mut var);
+        }
+
+        let len = unsafe {
+            ST_Query(
+                from_mut(&mut var),
+                buf.as_mut_ptr(),
+                if reverse { -1 } else { 1 },
+            )
+        };
+        Vec::from(&buf[..len as usize])
+    }
+
+    pub fn order(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
+        let mut buf = [0; 65535];
+        let mut var = *var;
+        if reverse {
+            flip_trailing_null(&mut var);
+        }
+        let len = unsafe {
+            ST_Order(
+                from_mut(&mut var),
+                buf.as_mut_ptr(),
+                if reverse { -1 } else { 1 },
+            )
+        };
+        Vec::from(&buf[..len as usize])
+    }
+}
+
+//If the last subscript in the key is null, swap it for the max subscript value.
+//This is used when trailing backwards and though the keys
+// This logic was copied from the Dquery2 function.
+fn flip_trailing_null(var: &mut MVAR) {
+    if var.slen >= 2
+        && (var.key[var.slen as usize - 1] == b'\0')
+        && (var.key[var.slen as usize - 2] == b'\0')
+    {
+        var.key[var.slen as usize - 2] = 255;
     }
 }
 

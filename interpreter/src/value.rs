@@ -28,14 +28,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use std::string::FromUtf8Error;
-
 use ffi::{CSTRING, MAX_STR_LEN};
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
 ///
-///NOTE There is a byte_maxs of 65535 (just like 'CSTRINGS')
+///NOTE There is a `byte_maxs` of 65535 (just like 'CSTRINGS')
 #[derive(Clone, PartialEq, Eq)] //NOTE keep the Manual Debug implementation in sync
 pub struct Value(Vec<u8>);
 
@@ -43,9 +41,6 @@ impl Value {
     #[must_use]
     pub fn content(&self) -> &[u8] {
         &self.0[..]
-    }
-    pub fn into_string(self) -> Result<String, FromUtf8Error> {
-        String::from_utf8(self.0)
     }
 
     #[must_use]
@@ -57,9 +52,20 @@ impl Value {
             buf,
         }
     }
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::empty()
+    }
 }
 
 impl From<&CSTRING> for Value {
+    #[cfg_attr(test, mutants::skip)]
     fn from(value: &CSTRING) -> Self {
         let data = &value.buf[..value.len as usize];
         Self(Vec::from(data))
@@ -77,11 +83,15 @@ impl TryFrom<&[u8]> for Value {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Value")
             .field("content", &self.content())
-            .field("content_as_utf8", &self.clone().into_string())
+            .field(
+                "content_as_utf8",
+                &String::from_utf8(self.0.clone()).unwrap(),
+            )
             .finish()
     }
 }
@@ -94,6 +104,7 @@ pub mod utility {
     use super::Value;
 
     impl<'a> Arbitrary<'a> for Value {
+        #[cfg_attr(test, mutants::skip)]
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let len: usize = u.int_in_range(0..=MAX_STR_LEN as usize)?;
             Ok(Self(Vec::from(u.bytes(len)?)))

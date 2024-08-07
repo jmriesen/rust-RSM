@@ -54,13 +54,50 @@ impl std::fmt::Debug for MVar {
     }
 }
 
+impl std::fmt::Display for MVar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.key.is_empty() {
+            write!(f, "{}", self.name.0)
+        } else {
+            write!(
+                f,
+                "{}{}",
+                self.name.0,
+                //TODO handle non Ascii case
+                String::from_utf8(self.key.string_key()).unwrap()
+            )
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::helpers::var_m;
+    #[test]
+    fn no_subscripts() {
+        assert_eq!(format!("{}", var_m("foo", &[])), "foo");
+    }
+
+    #[test]
+    fn subscripts() {
+        assert_eq!(format!("{}", var_m("foo", &["sub1"])), "foo(\"sub1\")");
+        assert_eq!(
+            format!("{}", var_m("foo", &["sub1", "sub2"])),
+            "foo(\"sub1\",\"sub2\")"
+        );
+        assert_eq!(format!("{}", var_m("foo", &["3"])), "foo(3)");
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
     use super::{MVar, VarU};
     use crate::{key::Key, symbol_table::var_u::helpers::var_u, value::Value};
     use arbitrary::Arbitrary;
-    use ffi::VAR_U;
+    use ffi::{UCI_IS_LOCALVAR, VAR_U};
 
     #[must_use]
     pub fn var_m(name: &str, values: &[&str]) -> MVar {
@@ -70,10 +107,11 @@ pub mod helpers {
             .collect::<Vec<_>>();
         let key = Key::new(&values).unwrap();
 
+        //TODO All M vars are currently assumed to be local  have a vol set of 0;
         MVar {
             name: var_u(name),
             volset: Default::default(),
-            uci: Default::default(),
+            uci: UCI_IS_LOCALVAR as u8,
             key,
         }
     }
@@ -97,6 +135,7 @@ pub mod helpers {
     }
 
     impl MVar {
+        #[must_use]
         pub fn into_cmvar(self) -> ffi::MVAR {
             let mut key = [0; 256];
             key[..self.key.len()].copy_from_slice(self.key.raw_keys());

@@ -253,6 +253,36 @@ impl Key {
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
     }
+
+    /// a trailing null is considered both the smallish and larges subkey value
+    /// during specific operations.
+    /// If the key contains a trailing "" this function will return a new key
+    /// with the last sub keys value maximized.
+    /// otherwise this is a no op.
+    ///
+    /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
+    /// This should only be used to create a bound
+    #[must_use]
+    pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
+        if self.len() >= 2 && self.0[self.0.len() - 2..] == [0, 0] {
+            let mut modified_key = self.clone();
+            modified_key.0[self.len() - 2] = 255;
+            std::borrow::Cow::Owned(modified_key)
+        } else {
+            std::borrow::Cow::Borrowed(self)
+        }
+    }
+
+    ///Returns a new key that corresponds to the maximum subscript of the input key.
+    /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
+    /// This should only be used to create a bound
+    #[must_use]
+    pub fn upper_subscript_bound(&self) -> Key {
+        let mut modified_key = self.0.clone();
+        modified_key.push(255);
+        modified_key.push(0);
+        Key(modified_key)
+    }
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {
@@ -298,11 +328,12 @@ impl Ord for Key {
         let min_len = self.0.len().min(other.0.len());
         match self.0[..min_len].cmp(&other.0[..min_len]) {
             //NOTE If the prefixes are the same the longer one comes first.
-            std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()).reverse(),
+            std::cmp::Ordering::Equal => self.0.len().cmp(&other.0.len()),
             x => x,
         }
     }
 }
+
 impl PartialOrd for Key {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
