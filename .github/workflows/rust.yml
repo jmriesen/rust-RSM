@@ -25,7 +25,7 @@ jobs:
     - name: install tree-sitter
       run: cargo install tree-sitter-cli --version 0.22.6  --locked
     - name: dbg
-      run: ls ./target
+      run: ls ./
     - name: Build
       run: cargo build --verbose
     - name: Run tests
