@@ -15,22 +15,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/cache@v3
+      with:
+       path: |
+         ~/.cargo/bin/
+         ~/.cargo/registry/index/
+         ~/.cargo/registry/cache/
+         ~/.cargo/git/db/
+         target/
+       key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - uses: actions/checkout@v4
-    - name: restore cargo install cash
-      uses: actions/cache/restore@v4
-      id: restore_cache
-      with: 
-        path: ~/.cargo
-        key: cargo_install_v1
     - name: install tree-sitter
       run: cargo install tree-sitter-cli --version 0.22.6  --locked
-    - name: save cargo install cash
-      uses: actions/cache/save@v4
-      id: save_cache
-      with: 
-        path: ~/.cargo
-        key: cargo_install_v1
-    
     - name: Build
       run: cargo build --verbose
     - name: Run tests
