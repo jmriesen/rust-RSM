@@ -16,8 +16,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/cache@v4
+      with:
+       path: |
+         ~/.rustup
+         ~/.cargo
+         ./target
+       key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: install tree-sitter
-      run: cargo install tree-sitter-cli
+      run: cargo install tree-sitter-cli --version 0.22.6  --locked
     - name: Build
       run: cargo build --verbose
     - name: Run tests
