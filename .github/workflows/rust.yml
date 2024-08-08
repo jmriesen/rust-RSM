@@ -24,6 +24,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: install tree-sitter
       run: cargo install tree-sitter-cli --version 0.22.6  --locked
+    - name: dbg
+      run: ls ./target
     - name: Build
       run: cargo build --verbose
     - name: Run tests
