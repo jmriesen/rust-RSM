@@ -19,16 +19,13 @@ jobs:
     - uses: actions/cache@v4
       with:
        path: |
+         ~/.rustup
          ~/.cargo
-         ./target/
+         ./target
        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: install tree-sitter
       run: cargo install tree-sitter-cli --version 0.22.6  --locked
-    - name: dbg
-      run: ls ./
     - name: Build
       run: cargo build --verbose
-    - name: dbg
-      run: ls ./
     - name: Run tests
       run: cargo test --verbose
