@@ -52,21 +52,26 @@ impl Table {
         temp
     }
 
-    pub fn set(&mut self, var: &MVAR, data: &CSTRING) {
-        unsafe { ST_Set(from_ref(var).cast_mut(), from_ref(data).cast_mut()) };
+    pub fn set(&mut self, var: &MVAR, data: &CSTRING) -> Result<(), i32> {
+        let result = unsafe { ST_Set(from_ref(var).cast_mut(), from_ref(data).cast_mut()) };
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(result)
+        }
     }
 
-    pub fn get(&self, var: &MVAR) -> Option<CSTRING> {
+    pub fn get(&self, var: &MVAR) -> Result<CSTRING, i32> {
         let mut buf = [0; 65535];
         let len = unsafe { ST_Get(from_ref(var).cast_mut(), buf.as_mut_ptr()) };
 
         if len >= 0 {
-            Some(CSTRING {
+            Ok(CSTRING {
                 buf,
                 len: len as u16,
             })
         } else {
-            None
+            Err(len)
         }
     }
     pub fn kill(&self, var: &MVAR) {

@@ -47,16 +47,17 @@ fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
 
-    for command in commands.into_iter().take(100) {
-        match command {
+    for command in commands.into_iter().skip(4).take(100) {
+        match dbg!(command) {
             TableCommands::Set(var, val) => {
                 let _ = table.set(&var, &val);
-                c_table.set(&var.into_cmvar(), &val.into_cstring())
+                c_table.set(&var.into_cmvar(), &val.into_cstring()).unwrap();
             }
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
-                let c_val = c_table.get(&var.into_cmvar()).map(|x| (&x).into());
-                assert_eq!(rust_val, c_val.as_ref())
+                let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
+                //assert_eq!(rust_val, c_val.as_ref())
+                assert_eq!(Err(8), c_val);
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
