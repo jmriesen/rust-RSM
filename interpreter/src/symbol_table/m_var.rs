@@ -119,18 +119,12 @@ pub mod helpers {
     #[cfg_attr(test, mutants::skip)]
     impl<'a> Arbitrary<'a> for MVar {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name: [u8; 32] = u.arbitrary()?;
-            if name.is_ascii() && name.contains(&0) {
-                Ok(MVar {
-                    name: VarU(VAR_U { var_cu: name }),
-                    volset: 0,
-                    uci: 0,
-                    //TODO implement arbitrary for key.
-                    key: Key::empty(),
-                })
-            } else {
-                Err(arbitrary::Error::IncorrectFormat)
-            }
+            Ok(MVar {
+                name: VarU::arbitrary(u)?,
+                key: Key::arbitrary(u)?,
+                uci: UCI_IS_LOCALVAR as u8,
+                volset: 0,
+            })
         }
     }
 

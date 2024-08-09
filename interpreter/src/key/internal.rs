@@ -251,7 +251,7 @@ impl Key {
 
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
-        self.0[..key.len()] == key.0
+        self.len() > key.len() && self.0[..key.len()] == key.0
     }
 
     /// a trailing null is considered both the smallish and larges subkey value

@@ -53,7 +53,24 @@ impl PartialEq for VarU {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
+    use arbitrary::Arbitrary;
+    use ffi::VAR_U;
+
     use super::VarU;
+
+    impl<'a> Arbitrary<'a> for VarU {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let mut var_cu: [u8; 32] = u.arbitrary()?;
+            if var_cu.is_ascii() && var_cu.contains(&0) {
+                for x in var_cu.iter_mut().skip_while(|x| **x != 0) {
+                    *x = 0;
+                }
+                Ok(Self(VAR_U { var_cu }))
+            } else {
+                Err(arbitrary::Error::IncorrectFormat)
+            }
+        }
+    }
 
     #[must_use]
     pub fn var_u(var: &str) -> VarU {

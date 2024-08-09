@@ -155,12 +155,20 @@ impl std::fmt::Debug for Key {
 pub mod a_b_testing {
 
     use crate::value::Value;
+    use arbitrary::Arbitrary;
     use ffi::{
         symbol_table::{build_key, extract_key, string_key},
         ERRMLAST, ERRZ1, ERRZ5,
     };
 
     use super::{Error, Key};
+
+    impl<'a> Arbitrary<'a> for Key {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let sub_keys = Vec::<Value>::arbitrary(u)?;
+            Key::new(sub_keys.iter()).map_err(|_| arbitrary::Error::IncorrectFormat)
+        }
+    }
 
     //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(value: &Value) {

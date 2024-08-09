@@ -202,6 +202,7 @@ short ST_Create(var_u var)                                                      
  */
 short ST_Kill(mvar *var)                                                        // var name in a quad
 {
+
     short     ptr;                                                              // for the pointer
     ST_data   *data;                                                            // and ptr to data block
     ST_depend *check = ST_DEPEND_NULL;                                          // working dependent pointer
@@ -237,6 +238,7 @@ short ST_Kill(mvar *var)                                                        
 
                 // start search at last used key, rather than at the beginning (var after lastkey)
                 if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
+
                     check = lastkey;
                 }
 
@@ -245,8 +247,11 @@ short ST_Kill(mvar *var)                                                        
                     checkprev = check;                                          // save current to previous
                     check = check->deplnk;                                      // go to next
                 }                                                               // end if we go past it, or end
-
-                if ((check != ST_DEPEND_NULL) && (memcmp(check->bytes, var->key, var->slen) == 0)) { // valid remove
+                //We are M copying without carring about bytes length.
+                //TODO TODO TODO TODO 
+                //Find minimum replication and file an issue upstream.
+                //Set foo("aLooooooooong_inital_key","bshort_second_key");
+                if ((check != ST_DEPEND_NULL) && check->keylen >= var->slen && (memcmp(check->bytes, var->key, var->slen) == 0)) { // valid remove
                     ST_RemDp(data, checkprev, check, var);                      // get rid of it
                 }                                                               // end if valid remove found
 
@@ -275,11 +280,13 @@ void ST_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr)
 {
     if (dp == ST_DEPEND_NULL) return;                                           // no dependents to check
 
-    if ((dp->deplnk != ST_DEPEND_NULL) && (memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0)) { // next dep, has part match key
+    //TODO memcmp into undefined behavir
+    if ((dp->deplnk != ST_DEPEND_NULL) && dp->keylen >= mvardr->slen && (memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0)) { // next dep, has part match key
         ST_RemDp(dblk, dp, dp->deplnk, mvardr);                                 // try to get rid of next one
     }                                                                           // end if keys part match
 
-    if (memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0) {                    // keys match to slen
+    //TODO memcmp into undefined behavir
+    if (dp->keylen >= mvardr->slen && memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0) {                    // keys match to slen
         if (prev != ST_DEPEND_NULL) {                                           // if not removing first dep
             prev->deplnk = dp->deplnk;                                          // bypass a dep killee
         } else {                                                                // end if !removing first dep - removing first dep
