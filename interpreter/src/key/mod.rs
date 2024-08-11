@@ -141,118 +141,36 @@ impl std::fmt::Debug for NullableKey {
     }
 }
 
-#[cfg_attr(test, mutants::skip)]
 #[cfg(any(test, feature = "fuzzing"))]
-pub mod a_b_testing {
-
-    use crate::value::Value;
-    use ffi::{
-        symbol_table::{build_key, extract_key, string_key},
-        ERRMLAST, ERRZ1, ERRZ5,
-    };
-
-    use super::{Error, NullableKey};
-
-    //TODO all of these should be revamped to work on arrays of keys.
-    pub fn build(value: &Value) {
-        let key = super::NullableKey::new([value]);
-        let result = key.map(|x| x.0).map_err(|x| match x {
-            Error::SubscriptToLarge => -((ERRZ1 + ERRMLAST) as i16),
-            Error::SubKeyContainsNull => -((ERRZ5 + ERRMLAST) as i16),
-            _ => unreachable!(),
-        });
-        assert_eq!(result, build_key(&value.clone().into_cstring()));
-    }
-
-    //TODO push key creation up to calling code.
-    pub fn extract(string: &Value) -> Result<(), Error> {
-        let key = super::NullableKey::new([string])?;
-        assert_eq!(key.key_extract(false), extract_key(&key.0).unwrap());
-        Ok(())
-    }
-
-    //TODO push key creation up to calling code.
-    pub fn string(keys: &[Value]) -> Result<(), Error> {
-        let key_list = NullableKey::new(keys)?;
-        assert_eq!(
-            key_list.string_key(),
-            string_key(&key_list.0[..], i32::max_value())
-        );
-        Ok(())
-    }
-}
+pub mod a_b_testing;
 
 #[cfg(test)]
 mod tests {
-    use a_b_testing::string;
+    use super::*;
     use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
     use internal::MAX_INT_SEGMENT_SIZE;
-    use rstest::rstest;
 
-    use super::*;
-
-    #[rstest]
-    #[case("")]
-    #[case(".")]
-    #[case("1.")]
-    #[case("test string")]
-    #[case("0")]
-    #[case("10")]
-    #[case("10E")]
-    #[case("10.4")]
-    #[case(".4")]
-    #[case("10.4E")]
-    #[case("10.0")]
-    #[case("010")]
-    #[case("10.5.")]
-    #[case("-")]
-    #[case("-.")]
-    #[case("-10")]
-    #[case("-10E")]
-    #[case("-10.4")]
-    #[case("-.4")]
-    #[case("-4.")]
-    #[case("-10.4E")]
-    #[case("-10.0")]
-    #[case("-010")]
-    #[case("-10.5.")]
-    fn build_a_b_test_cases(#[case] input: &str) {
-        super::a_b_testing::build(&input.try_into().unwrap());
-        super::a_b_testing::extract(&input.try_into().unwrap())
-            .expect("all of the test strings should produce valid keys");
+    fn generate_value(pattern: &str, count: u32) -> Value {
+        pattern.repeat(count as usize).as_str().try_into().unwrap()
     }
 
     #[test]
     fn subscript_max_size() {
-        let result = NullableKey::new([&"a"
-            .repeat(MAX_SUB_LEN as usize)
-            .as_str()
-            .try_into()
-            .unwrap()]);
+        let result = NullableKey::new([&generate_value("a", MAX_SUB_LEN)]);
         assert!(result.is_ok());
     }
     #[test]
     fn subscript_that_is_to_large() {
-        let result = NullableKey::new([&"a"
-            .repeat(MAX_SUB_LEN as usize + 1)
-            .as_str()
-            .try_into()
-            .unwrap()]);
+        let result = NullableKey::new([&generate_value("a", MAX_SUB_LEN + 1)]);
         assert_eq!(result, Err(Error::SubscriptToLarge));
     }
 
     #[test]
     fn key_max_size() {
         let result = NullableKey::new([
-            &"a".repeat(MAX_SUB_LEN as usize)
-                .as_str()
-                .try_into()
-                .unwrap(),
+            &generate_value("a", MAX_SUB_LEN),
             //NOTE -4 to account for the 2 null terminators + 2 type markers
-            &"a".repeat((MAX_KEY_SIZE - MAX_SUB_LEN - 4) as usize)
-                .as_str()
-                .try_into()
-                .unwrap(),
+            &generate_value("a", MAX_KEY_SIZE - MAX_SUB_LEN - 4),
         ]);
         assert!(result.is_ok());
     }
@@ -260,14 +178,8 @@ mod tests {
     #[test]
     fn key_that_is_to_large() {
         let result = NullableKey::new([
-            &"a".repeat(MAX_SUB_LEN as usize)
-                .as_str()
-                .try_into()
-                .unwrap(),
-            &"a".repeat(MAX_SUB_LEN as usize)
-                .as_str()
-                .try_into()
-                .unwrap(),
+            &generate_value("a", MAX_SUB_LEN),
+            &generate_value("a", MAX_SUB_LEN),
         ]);
         assert_eq!(result, Err(Error::KeyToLarge));
     }
@@ -296,37 +208,18 @@ mod tests {
             .try_into()
             .unwrap()])
         .unwrap();
-        //TODO find a better way of testing this
         assert!(matches!(
             ParsedKey::from_key_ref(key.iter().next().unwrap()),
             ParsedKey::String(_)
         ));
     }
 
-    #[rstest]
-    #[case(&["only"])]
-    #[case(&[""])]
-    #[case(&["\""])]
-    #[case(&["9"])]
-    #[case(&["-9"])]
-    #[case(&["-9.0"])]
-    #[case(&["f","s"])]
-    #[case(&["","s","9","-9"])]
-    fn key_extract_string(#[case] raw_keys: &[&str]) {
-        let keys = raw_keys
-            .iter()
-            .map(|x| (*x).try_into().unwrap())
-            .collect::<Vec<_>>();
-        matches!(string(&keys), Ok(()));
-    }
-
     #[test]
-    fn key_cmp() -> Result<(), Error> {
+    fn key_cmp() {
         let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
             .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
-        Ok(())
     }
 }
