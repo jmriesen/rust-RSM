@@ -46,7 +46,7 @@ const INT_ZERO_POINT: u8 = 0b100_0000;
 /// any number that takes more integer digits will be stored as a string.
 pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
-use super::{Error, Iter, Key};
+use super::{Error, Iter, NullableKey};
 
 /// represents a key parsed out into its individual parts.
 pub enum ParsedKey<'a> {
@@ -207,7 +207,7 @@ impl<'a> ParsedKey<'a> {
     }
 }
 
-impl Key {
+impl NullableKey {
     pub fn push(mut self, src: &Value) -> Result<Self, Error> {
         if self.has_trailing_null() {
             Err(Error::SubKeyIsNull)
@@ -253,6 +253,12 @@ impl Key {
         }
     }
 
+    pub fn into_ckey(self) -> (u8, [u8; 256]) {
+        let mut key = [0; 256];
+        key[..self.len()].copy_from_slice(&self.0);
+        (self.len() as u8, key)
+    }
+
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
@@ -285,11 +291,11 @@ impl Key {
     /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
     /// This should only be used to create a bound
     #[must_use]
-    pub fn upper_subscript_bound(&self) -> Key {
+    pub fn upper_subscript_bound(&self) -> NullableKey {
         let mut modified_key = self.0.clone();
         modified_key.push(255);
         modified_key.push(0);
-        Key(modified_key)
+        NullableKey(modified_key)
     }
 }
 
@@ -331,7 +337,7 @@ impl<'a> std::iter::Iterator for Iter<'a> {
     }
 }
 
-impl Ord for Key {
+impl Ord for NullableKey {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let min_len = self.0.len().min(other.0.len());
         match self.0[..min_len].cmp(&other.0[..min_len]) {
@@ -342,7 +348,7 @@ impl Ord for Key {
     }
 }
 
-impl PartialOrd for Key {
+impl PartialOrd for NullableKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

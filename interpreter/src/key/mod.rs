@@ -37,8 +37,8 @@ use crate::value::Value;
 /// Stores a list of keys.
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
 #[derive(Eq, PartialEq, Clone)]
-pub struct Key(Vec<u8>);
-impl Key {
+pub struct NullableKey(Vec<u8>);
+impl NullableKey {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
         let mut key = Self(Vec::new());
         for value in values {
@@ -47,11 +47,7 @@ impl Key {
         Ok(key)
     }
 
-    #[must_use]
-    pub fn empty() -> Self {
-        Self(Vec::new())
-    }
-
+    //TODO consider replacing with Display
     #[must_use]
     pub fn string_key(&self) -> Vec<u8> {
         let mut out_put = vec![b'('];
@@ -84,12 +80,6 @@ impl Key {
         self.0.is_empty()
     }
 
-    #[must_use]
-    #[cfg(any(test, feature = "fuzzing"))]
-    pub fn raw_keys(&self) -> &[u8] {
-        &self.0[..]
-    }
-
     //Note I should probably remove this at some point.
     //It currently assumes there is at least one key in storage.
     #[must_use]
@@ -105,7 +95,7 @@ impl Key {
 
 //This lint seems to be a false positive.
 #[allow(clippy::into_iter_without_iter)]
-impl<'a> IntoIterator for &'a Key {
+impl<'a> IntoIterator for &'a NullableKey {
     type IntoIter = Iter<'a>;
     type Item = Segment<'a>;
     fn into_iter(self) -> Self::IntoIter {
@@ -139,7 +129,7 @@ pub enum Error {
 }
 
 #[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for Key {
+impl std::fmt::Debug for NullableKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("key");
         let value = String::from_utf8(self.string_key());
@@ -161,11 +151,11 @@ pub mod a_b_testing {
         ERRMLAST, ERRZ1, ERRZ5,
     };
 
-    use super::{Error, Key};
+    use super::{Error, NullableKey};
 
     //TODO all of these should be revamped to work on arrays of keys.
     pub fn build(value: &Value) {
-        let key = super::Key::new([value]);
+        let key = super::NullableKey::new([value]);
         let result = key.map(|x| x.0).map_err(|x| match x {
             Error::SubscriptToLarge => -((ERRZ1 + ERRMLAST) as i16),
             Error::SubKeyContainsNull => -((ERRZ5 + ERRMLAST) as i16),
@@ -176,14 +166,14 @@ pub mod a_b_testing {
 
     //TODO push key creation up to calling code.
     pub fn extract(string: &Value) -> Result<(), Error> {
-        let key = super::Key::new([string])?;
-        assert_eq!(key.key_extract(false), extract_key(key.raw_keys()).unwrap());
+        let key = super::NullableKey::new([string])?;
+        assert_eq!(key.key_extract(false), extract_key(&key.0).unwrap());
         Ok(())
     }
 
     //TODO push key creation up to calling code.
     pub fn string(keys: &[Value]) -> Result<(), Error> {
-        let key_list = Key::new(keys)?;
+        let key_list = NullableKey::new(keys)?;
         assert_eq!(
             key_list.string_key(),
             string_key(&key_list.0[..], i32::max_value())
@@ -234,7 +224,7 @@ mod tests {
 
     #[test]
     fn subscript_max_size() {
-        let result = Key::new([&"a"
+        let result = NullableKey::new([&"a"
             .repeat(MAX_SUB_LEN as usize)
             .as_str()
             .try_into()
@@ -243,7 +233,7 @@ mod tests {
     }
     #[test]
     fn subscript_that_is_to_large() {
-        let result = Key::new([&"a"
+        let result = NullableKey::new([&"a"
             .repeat(MAX_SUB_LEN as usize + 1)
             .as_str()
             .try_into()
@@ -253,7 +243,7 @@ mod tests {
 
     #[test]
     fn key_max_size() {
-        let result = Key::new([
+        let result = NullableKey::new([
             &"a".repeat(MAX_SUB_LEN as usize)
                 .as_str()
                 .try_into()
@@ -269,7 +259,7 @@ mod tests {
 
     #[test]
     fn key_that_is_to_large() {
-        let result = Key::new([
+        let result = NullableKey::new([
             &"a".repeat(MAX_SUB_LEN as usize)
                 .as_str()
                 .try_into()
@@ -284,13 +274,13 @@ mod tests {
 
     #[test]
     fn error_if_string_contains_null() {
-        let result = Key::new([&"a\0b".try_into().unwrap()]);
+        let result = NullableKey::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::SubKeyContainsNull));
     }
 
     #[test]
     fn non_terminal_null() {
-        let key = Key::new(&[Value::empty()]).expect("trailing null is fine");
+        let key = NullableKey::new(&[Value::empty()]).expect("trailing null is fine");
         let result = key.push(&"a".try_into().unwrap());
         assert_eq!(result, Err(Error::SubKeyIsNull));
     }
@@ -300,7 +290,7 @@ mod tests {
         //NOTE I tried to put the mutants::skip attribute on 'MAX_INT_SEGMENT_SIZE'
         //but mutants were still being generated
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
-        let key = Key::new([&"1"
+        let key = NullableKey::new([&"1"
             .repeat(MAX_INT_SEGMENT_SIZE + 1)
             .as_str()
             .try_into()
@@ -308,7 +298,7 @@ mod tests {
         .unwrap();
         //TODO find a better way of testing this
         assert!(matches!(
-            ParsedKey::from_key_ref(Segment(key.raw_keys())),
+            ParsedKey::from_key_ref(key.iter().next().unwrap()),
             ParsedKey::String(_)
         ));
     }
@@ -332,8 +322,8 @@ mod tests {
 
     #[test]
     fn key_cmp() -> Result<(), Error> {
-        let keys: [Key; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
-            .map(|x| Key::new([&x.try_into().unwrap()]).unwrap());
+        let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
+            .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }

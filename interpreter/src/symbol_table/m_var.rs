@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::Key;
+use crate::key::NullableKey;
 use ffi::u_char;
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ pub struct MVar {
     pub name: VarU,
     volset: u_char,
     uci: u_char,
-    pub key: Key,
+    pub key: NullableKey,
 }
 
 #[cfg_attr(test, mutants::skip)]
@@ -95,7 +95,7 @@ mod tests {
 pub mod helpers {
 
     use super::{MVar, VarU};
-    use crate::{key::Key, symbol_table::var_u::helpers::var_u, value::Value};
+    use crate::{key::NullableKey, symbol_table::var_u::helpers::var_u, value::Value};
     use arbitrary::Arbitrary;
     use ffi::{UCI_IS_LOCALVAR, VAR_U};
 
@@ -105,7 +105,7 @@ pub mod helpers {
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = Key::new(&values).unwrap();
+        let key = NullableKey::new(&values).unwrap();
 
         //TODO All M vars are currently assumed to be local  have a vol set of 0;
         MVar {
@@ -126,7 +126,7 @@ pub mod helpers {
                     volset: 0,
                     uci: 0,
                     //TODO implement arbitrary for key.
-                    key: Key::empty(),
+                    key: NullableKey::new(&[]).expect("Empty key creattion will never fail"),
                 })
             } else {
                 Err(arbitrary::Error::IncorrectFormat)
@@ -137,13 +137,12 @@ pub mod helpers {
     impl MVar {
         #[must_use]
         pub fn into_cmvar(self) -> ffi::MVAR {
-            let mut key = [0; 256];
-            key[..self.key.len()].copy_from_slice(self.key.raw_keys());
+            let (slen, key) = self.key.into_ckey();
             ffi::MVAR {
                 name: self.name.0,
                 volset: self.volset,
                 uci: self.uci,
-                slen: self.key.len() as u8,
+                slen,
                 key,
             }
         }
