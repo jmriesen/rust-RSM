@@ -173,28 +173,6 @@ mod query {
             format!("{}", m_vars[3])
         );
     }
-
-    ///If in the middle of the key null is treated normally (null< everything else)
-    #[test]
-    fn null_in_the_middle() {
-        let keys: [&[&str]; 4] = [&["-1"], &["0", "1", "-1"], &["0", "1", "1"], &["1"]];
-        let m_vars = keys.map(|x| var_m("foo", x));
-
-        let mut table = Table::new();
-        for var in &m_vars {
-            table.set(var, &Value::try_from("Value").unwrap()).unwrap();
-        }
-
-        let null_in_middle = var_m("foo", &["0", "", "0"]);
-        assert_eq!(
-            table.query(&null_in_middle, Direction::Forward),
-            format!("{}", m_vars[1])
-        );
-        assert_eq!(
-            table.query(&null_in_middle, Direction::Backward),
-            format!("{}", m_vars[0])
-        );
-    }
 }
 
 mod order {

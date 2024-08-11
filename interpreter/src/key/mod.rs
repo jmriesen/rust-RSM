@@ -133,8 +133,9 @@ impl<'a> From<Segment<'a>> for Value {
 #[derive(Debug, PartialEq)]
 pub enum Error {
     SubscriptToLarge,
-    ContainsNull,
+    SubKeyContainsNull,
     KeyToLarge,
+    SubKeyIsNull,
 }
 
 #[cfg_attr(test, mutants::skip)]
@@ -167,7 +168,7 @@ pub mod a_b_testing {
         let key = super::Key::new([value]);
         let result = key.map(|x| x.0).map_err(|x| match x {
             Error::SubscriptToLarge => -((ERRZ1 + ERRMLAST) as i16),
-            Error::ContainsNull => -((ERRZ5 + ERRMLAST) as i16),
+            Error::SubKeyContainsNull => -((ERRZ5 + ERRMLAST) as i16),
             _ => unreachable!(),
         });
         assert_eq!(result, build_key(&value.clone().into_cstring()));
@@ -284,7 +285,14 @@ mod tests {
     #[test]
     fn error_if_string_contains_null() {
         let result = Key::new([&"a\0b".try_into().unwrap()]);
-        assert_eq!(result, Err(Error::ContainsNull));
+        assert_eq!(result, Err(Error::SubKeyContainsNull));
+    }
+
+    #[test]
+    fn non_terminal_null() {
+        let key = Key::new(&[Value::empty()]).expect("trailing null is fine");
+        let result = key.push(&"a".try_into().unwrap());
+        assert_eq!(result, Err(Error::SubKeyIsNull));
     }
 
     #[test]

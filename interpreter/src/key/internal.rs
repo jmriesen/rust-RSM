@@ -79,7 +79,7 @@ impl<'a> ParsedKey<'a> {
         } else if contents == [b'0'] {
             Ok(Self::Zero)
         } else if contents.contains(&b'\0') {
-            Err(Error::ContainsNull)
+            Err(Error::SubKeyContainsNull)
         } else {
             //attempt to parse as a number
             let negative = contents.starts_with(&[b'-']);
@@ -209,49 +209,57 @@ impl<'a> ParsedKey<'a> {
 
 impl Key {
     pub fn push(mut self, src: &Value) -> Result<Self, Error> {
-        let internal_key = ParsedKey::new(src)?;
-        let end_mark = match internal_key {
-            ParsedKey::Null => {
-                self.0.push(b'\0');
-                None
-            }
-            ParsedKey::Zero => {
-                self.0.push(INT_ZERO_POINT);
-                None
-            }
-            ParsedKey::Positive { int_part, dec_part } => {
-                self.0.push(INT_ZERO_POINT + int_part.len() as u8);
-                self.0.extend(int_part);
-                self.0.extend(dec_part);
-                None
-            }
-            ParsedKey::Negative { int_part, dec_part } => {
-                self.0.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
-                //TODO figure out how this complement is supposed to work.
-                self.0.extend(int_part);
-                self.0.extend(dec_part);
-                Some(255)
-            }
-            ParsedKey::String(contents) => {
-                self.0.push(STRING_FLAG);
-                self.0.extend(contents);
-                None
-            }
-        };
-        //Adding end markers
-        //NOTE Negatives use 255 as an end mark for some reason.
-        //at some point when I understand 9's complement better I should see if I can remove this
-        self.0.push(end_mark.unwrap_or(b'\0'));
-        if self.len() > MAX_KEY_SIZE as usize {
-            Err(Error::KeyToLarge)
+        if self.has_trailing_null() {
+            Err(Error::SubKeyIsNull)
         } else {
-            Ok(self)
+            let internal_key = ParsedKey::new(src)?;
+            let end_mark = match internal_key {
+                ParsedKey::Null => {
+                    self.0.push(b'\0');
+                    None
+                }
+                ParsedKey::Zero => {
+                    self.0.push(INT_ZERO_POINT);
+                    None
+                }
+                ParsedKey::Positive { int_part, dec_part } => {
+                    self.0.push(INT_ZERO_POINT + int_part.len() as u8);
+                    self.0.extend(int_part);
+                    self.0.extend(dec_part);
+                    None
+                }
+                ParsedKey::Negative { int_part, dec_part } => {
+                    self.0.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
+                    //TODO figure out how this complement is supposed to work.
+                    self.0.extend(int_part);
+                    self.0.extend(dec_part);
+                    Some(255)
+                }
+                ParsedKey::String(contents) => {
+                    self.0.push(STRING_FLAG);
+                    self.0.extend(contents);
+                    None
+                }
+            };
+            //Adding end markers
+            //NOTE Negatives use 255 as an end mark for some reason.
+            //at some point when I understand 9's complement better I should see if I can remove this
+            self.0.push(end_mark.unwrap_or(b'\0'));
+            if self.len() > MAX_KEY_SIZE as usize {
+                Err(Error::KeyToLarge)
+            } else {
+                Ok(self)
+            }
         }
     }
 
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
         self.0[..key.len()] == key.0
+    }
+
+    fn has_trailing_null(&self) -> bool {
+        self.len() >= 2 && self.0[self.0.len() - 2..] == [0, 0]
     }
 
     /// a trailing null is considered both the smallish and larges subkey value
@@ -264,7 +272,7 @@ impl Key {
     /// This should only be used to create a bound
     #[must_use]
     pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
-        if self.len() >= 2 && self.0[self.0.len() - 2..] == [0, 0] {
+        if self.has_trailing_null() {
             let mut modified_key = self.clone();
             modified_key.0[self.len() - 2] = 255;
             std::borrow::Cow::Owned(modified_key)
