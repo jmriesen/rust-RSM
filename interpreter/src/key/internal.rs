@@ -28,158 +28,34 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::{key::Segment, value::Value};
-use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
+use ffi::MAX_KEY_SIZE;
 
-/// Keys are stored in a special format to facilitate sorting.
-/// They start with a discriminant.
-/// [0,0] -> null
-/// [64,0] -> zero
-/// [`INT_ZERO_POINT`+x, ..x bytes.., ..., 0] -> positive number; x is # of integer digits (base 10)
-/// the digits of a negative number are stored as nines complement.
-/// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] -> negative number; x is # of integer digits (base 10)
-/// [`STRING_FLAG`,..., 0] -> string (if numbers are to large they are stored as strings.
-
-const STRING_FLAG: u8 = 0b1000_0000;
-const INT_ZERO_POINT: u8 = 0b100_0000;
-
-/// Only 7 bytes are allocated to store the size of the int portion of a number.
-/// any number that takes more integer digits will be stored as a string.
-pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
-
-use super::{Error, Iter, NullableKey};
+use super::{format, Error, Iter, NullableKey};
 
 use super::IntermediateRepresentation;
 
 impl<'a> IntermediateRepresentation<'a> {
-    pub fn from_key_ref(key: Segment<'a>) -> Self {
-        let flag = key.0[0];
-        let data = &key.0[1..key.0.len() - 1]; //don't include flag or end marker
-        match flag {
-            0 if data.is_empty() => Self::Null,
-            x if x & STRING_FLAG != 0 => Self::String(data),
-            x => {
-                let non_negative = x & INT_ZERO_POINT != 0;
-                let int_len = if non_negative {
-                    (INT_ZERO_POINT - 1) & x
-                } else {
-                    INT_ZERO_POINT - 1 - x
-                };
-
-                let int_part = &data[0..int_len as usize];
-                let dec_part = &data[int_len as usize..];
-
-                if int_part.is_empty() && dec_part.is_empty() {
-                    Self::Zero
-                } else if non_negative {
-                    Self::Positive { int_part, dec_part }
-                } else {
-                    Self::Negative {
-                        int_part: Box::new(int_part.iter().copied()),
-                        dec_part: Box::new(dec_part.iter().copied()),
-                    }
-                }
-            }
-        }
-    }
-
-    //TODO consider removing allocation.
-    //There is nothing inherent to this method that requires allocation.
     pub fn external_fmt(self, quote_strings: bool) -> Vec<u8> {
-        match self {
-            IntermediateRepresentation::Null => {
-                if quote_strings {
-                    vec![b'"', b'"']
-                } else {
-                    vec![]
-                }
-            }
-            IntermediateRepresentation::Zero => vec![b'0'],
-            IntermediateRepresentation::Positive { int_part, dec_part } => {
-                let mut key = Vec::from(int_part);
-                if !dec_part.is_empty() {
-                    key.push(b'.');
-                    key.extend(dec_part);
-                }
-                key
-            }
-            IntermediateRepresentation::Negative { int_part, dec_part } => {
-                let mut key = vec![b'-'];
-                key.extend(int_part.map(|x| b'9' + b'0' - x));
-                let mut dec_part = dec_part.peekable();
-                if dec_part.peek().is_some() {
-                    key.push(b'.');
-                    key.extend(dec_part.map(|x| b'9' + b'0' - x));
-                }
-                key
-            }
-            IntermediateRepresentation::String(string) => {
-                if quote_strings {
-                    let mut output = vec![b'"'];
-                    let ends_with_quote =
-                        *string.last().expect("empty strings are handle as null") == b'"';
-                    //strings are escaped by adding a second " so "\"" = """"
-                    let segments = string.split_inclusive(|x| *x == b'"');
-                    for segment in segments {
-                        output.extend(segment);
-                        output.push(b'"');
-                    }
-
-                    //if the last segment ends in a quote we need to
-                    //add an extra one due to how split_inclusive works.
-                    if ends_with_quote {
-                        output.push(b'"');
-                    }
-                    output
-                } else {
-                    Vec::from(string)
-                }
-            }
-        }
+        let mut tmp = Vec::new();
+        self.push_external_fmt(&mut tmp, quote_strings);
+        tmp
     }
 }
 
 impl NullableKey {
-    pub fn push(mut self, src: &Value) -> Result<Self, Error> {
+    pub fn push(self, src: &Value) -> Result<Self, Error> {
         if self.has_trailing_null() {
             Err(Error::SubKeyIsNull)
         } else {
-            let internal_key = IntermediateRepresentation::try_from(src)?;
-            let end_mark = match internal_key {
-                IntermediateRepresentation::Null => {
-                    self.0.push(b'\0');
-                    None
-                }
-                IntermediateRepresentation::Zero => {
-                    self.0.push(INT_ZERO_POINT);
-                    None
-                }
-                IntermediateRepresentation::Positive { int_part, dec_part } => {
-                    self.0.push(INT_ZERO_POINT + int_part.len() as u8);
-                    self.0.extend(int_part);
-                    self.0.extend(dec_part);
-                    None
-                }
-                IntermediateRepresentation::Negative { int_part, dec_part } => {
-                    self.0.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
-                    //TODO figure out how this complement is supposed to work.
-                    self.0.extend(int_part);
-                    self.0.extend(dec_part);
-                    Some(255)
-                }
-                IntermediateRepresentation::String(contents) => {
-                    self.0.push(STRING_FLAG);
-                    self.0.extend(contents);
-                    None
-                }
-            };
-            //Adding end markers
-            //NOTE Negatives use 255 as an end mark for some reason.
-            //at some point when I understand 9's complement better I should see if I can remove this
-            self.0.push(end_mark.unwrap_or(b'\0'));
-            if self.len() > MAX_KEY_SIZE as usize {
+            //Pulling Vec out of Self since I may break NullableKey invariants.
+            let mut data = self.0;
+            let sub_key = IntermediateRepresentation::try_from(src)?;
+            sub_key.push_internal_fmt(&mut data);
+
+            if data.len() > MAX_KEY_SIZE as usize {
                 Err(Error::KeyToLarge)
             } else {
-                Ok(self)
+                Ok(Self(data))
             }
         }
     }
@@ -196,7 +72,8 @@ impl NullableKey {
     }
 
     fn has_trailing_null(&self) -> bool {
-        self.len() >= 2 && self.0[self.0.len() - 2..] == [0, 0]
+        let null_len = format::NULL.len();
+        self.len() >= null_len && self.0[self.0.len() - null_len..] == format::NULL
     }
 
     /// a trailing null is considered both the smallish and larges subkey value
@@ -210,9 +87,12 @@ impl NullableKey {
     #[must_use]
     pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
         if self.has_trailing_null() {
-            let mut modified_key = self.clone();
-            modified_key.0[self.len() - 2] = 255;
-            std::borrow::Cow::Owned(modified_key)
+            let mut modified_key = self.0.clone();
+            for _ in 0..format::NULL.len() {
+                modified_key.pop();
+            }
+            modified_key.extend(format::MAX_SUB_KEY);
+            std::borrow::Cow::Owned(Self(modified_key))
         } else {
             std::borrow::Cow::Borrowed(self)
         }
@@ -224,8 +104,7 @@ impl NullableKey {
     #[must_use]
     pub fn upper_subscript_bound(&self) -> NullableKey {
         let mut modified_key = self.0.clone();
-        modified_key.push(255);
-        modified_key.push(0);
+        modified_key.extend(format::MAX_SUB_KEY);
         NullableKey(modified_key)
     }
 }
@@ -234,37 +113,10 @@ impl<'a> std::iter::Iterator for Iter<'a> {
     type Item = Segment<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let key_end_index = match self.tail.first() {
-            //special handling for null.
-            //since the flagged value == the end mark value
-            //we need to manually split the string.
-            Some(b'\0') => Some(2),
-            Some(x) => {
-                let end_mark = match *x {
-                    x if x & STRING_FLAG != 0 => b'\0',
-                    x if x & INT_ZERO_POINT != 0 => b'\0',
-                    //negative numbers
-                    _ => 255,
-                };
-                let index = self
-                    .tail
-                    .iter()
-                    .enumerate()
-                    //Find the index of the end mark
-                    .find_map(|(i, x)| (*x == end_mark).then_some(i))
-                    .expect("all keys must contain an endmark");
-                Some(index + 1)
-            }
-            None => None,
-        };
-
-        if let Some(key_end) = key_end_index {
-            let (key, tail) = self.tail.split_at(key_end);
-            self.tail = tail;
-            Some(Segment(&key[..key.len()]))
-        } else {
-            None
-        }
+        let key_end = IntermediateRepresentation::seek_key_end(self.tail)?;
+        let (key, tail) = self.tail.split_at(key_end);
+        self.tail = tail;
+        Some(Segment(&key[..key.len()]))
     }
 }
 

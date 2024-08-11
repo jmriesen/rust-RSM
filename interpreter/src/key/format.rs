@@ -1,7 +1,3 @@
-use crate::value::Value;
-
-use super::Error;
-
 /*
  * Package: Rust Reference Standard M
  *
@@ -31,6 +27,7 @@ use super::Error;
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 /// This modual is repsocible for understading how SubKeys are represented
 /// and translate between the internal and external formats.
 /// represents a key parsed out into its individual parts.
@@ -44,6 +41,8 @@ use super::Error;
 /// the digits of a negative number are stored as nines complement.
 /// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] = negative number; x is # of integer digits (base 10)
 /// [`STRING_FLAG`,..., 0] = string (if numbers are to large they are stored as strings.
+use super::{Error, Segment};
+use crate::value::Value;
 
 const MAX_SUB_LEN: usize = 127;
 const MAX_KEY_SIZE: usize = 255;
@@ -54,6 +53,9 @@ const INT_ZERO_POINT: u8 = 0b100_0000;
 /// Only 7 bytes are allocated to store the size of the int portion of a number.
 /// any number that takes more integer digits will be stored as a string.
 pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
+
+pub const NULL: [u8; 2] = [0, 0];
+pub const MAX_SUB_KEY: [u8; 2] = [255, 0];
 
 /// An intermediate representation
 /// There is one variant per schema used in this encoding scheme.
@@ -128,5 +130,149 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
                 Ok(Self::Positive { int_part, dec_part })
             }
         }
+    }
+}
+
+impl<'a> From<Segment<'a>> for IntermediateRepresentation<'a> {
+    fn from(value: Segment<'a>) -> Self {
+        let flag = value.0[0];
+        let data = &value.0[1..value.0.len() - 1]; //don't include flag or end marker
+        match flag {
+            0 if data.is_empty() => Self::Null,
+            x if x & STRING_FLAG != 0 => Self::String(data),
+            x => {
+                let non_negative = x & INT_ZERO_POINT != 0;
+                let int_len = if non_negative {
+                    (INT_ZERO_POINT - 1) & x
+                } else {
+                    INT_ZERO_POINT - 1 - x
+                };
+
+                let int_part = &data[0..int_len as usize];
+                let dec_part = &data[int_len as usize..];
+
+                if int_part.is_empty() && dec_part.is_empty() {
+                    Self::Zero
+                } else if non_negative {
+                    Self::Positive { int_part, dec_part }
+                } else {
+                    Self::Negative {
+                        int_part: Box::new(int_part.iter().copied()),
+                        dec_part: Box::new(dec_part.iter().copied()),
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a> IntermediateRepresentation<'a> {
+    pub fn push_external_fmt(self, output: &mut Vec<u8>, quote_strings: bool) {
+        match self {
+            IntermediateRepresentation::Null => {
+                if quote_strings {
+                    output.push(b'"');
+                    output.push(b'"');
+                } else {
+                    //Don't output anything for null
+                }
+            }
+            IntermediateRepresentation::Zero => output.push(b'0'),
+            IntermediateRepresentation::Positive { int_part, dec_part } => {
+                output.extend(int_part);
+                if !dec_part.is_empty() {
+                    output.push(b'.');
+                    output.extend(dec_part);
+                }
+            }
+            IntermediateRepresentation::Negative { int_part, dec_part } => {
+                output.push(b'-');
+                output.extend(int_part.map(|x| b'9' + b'0' - x));
+                let mut dec_part = dec_part.peekable();
+                if dec_part.peek().is_some() {
+                    output.push(b'.');
+                    output.extend(dec_part.map(|x| b'9' + b'0' - x));
+                }
+            }
+            IntermediateRepresentation::String(string) => {
+                if quote_strings {
+                    output.push(b'"');
+                    let ends_with_quote =
+                        *string.last().expect("empty strings are handle as null") == b'"';
+                    //strings are escaped by adding a second " so "\"" = """"
+                    let segments = string.split_inclusive(|x| *x == b'"');
+                    for segment in segments {
+                        output.extend(segment);
+                        output.push(b'"');
+                    }
+
+                    //if the last segment ends in a quote we need to
+                    //add an extra one due to how split_inclusive works.
+                    if ends_with_quote {
+                        output.push(b'"');
+                    }
+                } else {
+                    output.extend(string)
+                }
+            }
+        }
+    }
+    pub fn push_internal_fmt(self, output: &mut Vec<u8>) {
+        let end_mark = match self {
+            IntermediateRepresentation::Null => {
+                output.push(b'\0');
+                None
+            }
+            IntermediateRepresentation::Zero => {
+                output.push(INT_ZERO_POINT);
+                None
+            }
+            IntermediateRepresentation::Positive { int_part, dec_part } => {
+                output.push(INT_ZERO_POINT + int_part.len() as u8);
+                output.extend(int_part);
+                output.extend(dec_part);
+                None
+            }
+            IntermediateRepresentation::Negative { int_part, dec_part } => {
+                output.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
+                output.extend(int_part);
+                output.extend(dec_part);
+                Some(255)
+            }
+            IntermediateRepresentation::String(contents) => {
+                output.push(STRING_FLAG);
+                output.extend(contents);
+                None
+            }
+        };
+        //Adding end markers
+        //NOTE Negatives use 255 as an end mark so that cmp -x.yz < -x.y
+        output.push(end_mark.unwrap_or(b'\0'));
+    }
+
+    ///This function assumes that key_data[0] is the start of a valid subkey
+    ///Returns the index where the sub key ends.
+    pub fn seek_key_end(key_data: &[u8]) -> Option<usize> {
+        Some(match key_data.first()? {
+            //special handling for null.
+            //since the flagged value == the end mark value
+            //we need to manually split the string.
+            b'\0' => 2,
+            x => {
+                let end_mark = match *x {
+                    x if x & STRING_FLAG != 0 => b'\0',
+                    x if x & INT_ZERO_POINT != 0 => b'\0',
+                    //negative numbers
+                    _ => 255,
+                };
+                let index = key_data
+                    .iter()
+                    .enumerate()
+                    //Find the index of the end mark
+                    .find_map(|(i, x)| (*x == end_mark).then_some(i))
+                    .expect("all keys must contain an endmark");
+                index + 1
+            }
+        })
     }
 }

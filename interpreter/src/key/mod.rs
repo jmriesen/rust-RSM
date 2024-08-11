@@ -54,7 +54,7 @@ impl NullableKey {
         let mut out_put = vec![b'('];
         let mut keys = self
             .iter()
-            .map(|x| IntermediateRepresentation::from_key_ref(x).external_fmt(true))
+            .map(|x| IntermediateRepresentation::from(x).external_fmt(true))
             .peekable();
         let non_empty = keys.peek().is_some();
 
@@ -85,8 +85,7 @@ impl NullableKey {
     //It currently assumes there is at least one key in storage.
     #[must_use]
     pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        IntermediateRepresentation::from_key_ref(self.iter().next().unwrap())
-            .external_fmt(quote_strings)
+        IntermediateRepresentation::from(self.iter().next().unwrap()).external_fmt(quote_strings)
     }
 
     #[must_use]
@@ -117,7 +116,7 @@ pub struct Iter<'a> {
 
 impl<'a> From<Segment<'a>> for Value {
     fn from(value: Segment<'a>) -> Self {
-        Value::try_from(&IntermediateRepresentation::from_key_ref(value).external_fmt(false)[..])
+        Value::try_from(&IntermediateRepresentation::from(value).external_fmt(false)[..])
             .expect("max key len is < max Value len")
     }
 }
@@ -150,7 +149,7 @@ pub mod a_b_testing;
 mod tests {
     use super::*;
     use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
-    use internal::MAX_INT_SEGMENT_SIZE;
+    use format::MAX_INT_SEGMENT_SIZE;
 
     fn generate_value(pattern: &str, count: u32) -> Value {
         pattern.repeat(count as usize).as_str().try_into().unwrap()
@@ -211,7 +210,7 @@ mod tests {
             .unwrap()])
         .unwrap();
         assert!(matches!(
-            IntermediateRepresentation::from_key_ref(key.iter().next().unwrap()),
+            key.iter().next().unwrap().into(),
             IntermediateRepresentation::String(_)
         ));
     }
