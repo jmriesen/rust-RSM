@@ -48,78 +48,9 @@ pub const MAX_INT_SEGMENT_SIZE: usize = INT_ZERO_POINT as usize - 1;
 
 use super::{Error, Iter, NullableKey};
 
-/// represents a key parsed out into its individual parts.
-pub enum ParsedKey<'a> {
-    Null,
-    Zero,
-    Positive {
-        int_part: &'a [u8],
-        dec_part: &'a [u8],
-    },
-    Negative {
-        //lastly converting to nines complement
-        //dyn so I can provide a no op if the source bytes are already in nine's complement
-        int_part: Box<dyn ExactSizeIterator<Item = u8> + 'a>,
-        dec_part: Box<dyn ExactSizeIterator<Item = u8> + 'a>,
-    },
-    ///NOTE if a number is to large it is encoded as a string
-    String(&'a [u8]),
-}
+use super::IntermediateRepresentation;
 
-impl<'a> ParsedKey<'a> {
-    pub fn new(src: &'a Value) -> Result<Self, Error> {
-        let contents = src.content();
-        if contents.len() > MAX_SUB_LEN as usize {
-            //TODO consider reevaluating where this should be enforced.
-            //If the goal of this is to prevent a buffer overflow then it should really be owned by
-            //KeyList
-            Err(Error::SubscriptToLarge)
-        } else if contents.is_empty() {
-            Ok(Self::Null)
-        } else if contents == [b'0'] {
-            Ok(Self::Zero)
-        } else if contents.contains(&b'\0') {
-            Err(Error::SubKeyContainsNull)
-        } else {
-            //attempt to parse as a number
-            let negative = contents.starts_with(&[b'-']);
-            let mut parts = if negative { &contents[1..] } else { contents }.split(|x| *x == b'.');
-
-            let int_part = parts
-                .next()
-                .expect("empty string case should have already been handled");
-            let dec_part = parts.next();
-
-            let multiple_decimal_points = parts.next().is_some();
-            let trailing_dot = dec_part == Some(&[]);
-            let dec_part = dec_part.unwrap_or_default();
-
-            let leading_trailing_zeros =
-                int_part.starts_with(&[b'0']) || dec_part.ends_with(&[b'0']);
-
-            let is_numeric = |x: &[u8]| x.iter().all(u8::is_ascii_digit);
-            let numeric = is_numeric(int_part) && is_numeric(dec_part);
-            let contains_no_digits = int_part.is_empty() && dec_part.is_empty();
-
-            if !numeric
-                || trailing_dot
-                || leading_trailing_zeros
-                || multiple_decimal_points
-                || contains_no_digits
-                || int_part.len() > MAX_INT_SEGMENT_SIZE
-            {
-                Ok(Self::String(contents))
-            } else if negative {
-                Ok(Self::Negative {
-                    int_part: Box::new(int_part.iter().map(|x| b'9' - x + b'0')),
-                    dec_part: Box::new(dec_part.iter().map(|x| b'9' - x + b'0')),
-                })
-            } else {
-                Ok(Self::Positive { int_part, dec_part })
-            }
-        }
-    }
-
+impl<'a> IntermediateRepresentation<'a> {
     pub fn from_key_ref(key: Segment<'a>) -> Self {
         let flag = key.0[0];
         let data = &key.0[1..key.0.len() - 1]; //don't include flag or end marker
@@ -155,15 +86,15 @@ impl<'a> ParsedKey<'a> {
     //There is nothing inherent to this method that requires allocation.
     pub fn external_fmt(self, quote_strings: bool) -> Vec<u8> {
         match self {
-            ParsedKey::Null => {
+            IntermediateRepresentation::Null => {
                 if quote_strings {
                     vec![b'"', b'"']
                 } else {
                     vec![]
                 }
             }
-            ParsedKey::Zero => vec![b'0'],
-            ParsedKey::Positive { int_part, dec_part } => {
+            IntermediateRepresentation::Zero => vec![b'0'],
+            IntermediateRepresentation::Positive { int_part, dec_part } => {
                 let mut key = Vec::from(int_part);
                 if !dec_part.is_empty() {
                     key.push(b'.');
@@ -171,7 +102,7 @@ impl<'a> ParsedKey<'a> {
                 }
                 key
             }
-            ParsedKey::Negative { int_part, dec_part } => {
+            IntermediateRepresentation::Negative { int_part, dec_part } => {
                 let mut key = vec![b'-'];
                 key.extend(int_part.map(|x| b'9' + b'0' - x));
                 let mut dec_part = dec_part.peekable();
@@ -181,7 +112,7 @@ impl<'a> ParsedKey<'a> {
                 }
                 key
             }
-            ParsedKey::String(string) => {
+            IntermediateRepresentation::String(string) => {
                 if quote_strings {
                     let mut output = vec![b'"'];
                     let ends_with_quote =
@@ -212,30 +143,30 @@ impl NullableKey {
         if self.has_trailing_null() {
             Err(Error::SubKeyIsNull)
         } else {
-            let internal_key = ParsedKey::new(src)?;
+            let internal_key = IntermediateRepresentation::try_from(src)?;
             let end_mark = match internal_key {
-                ParsedKey::Null => {
+                IntermediateRepresentation::Null => {
                     self.0.push(b'\0');
                     None
                 }
-                ParsedKey::Zero => {
+                IntermediateRepresentation::Zero => {
                     self.0.push(INT_ZERO_POINT);
                     None
                 }
-                ParsedKey::Positive { int_part, dec_part } => {
+                IntermediateRepresentation::Positive { int_part, dec_part } => {
                     self.0.push(INT_ZERO_POINT + int_part.len() as u8);
                     self.0.extend(int_part);
                     self.0.extend(dec_part);
                     None
                 }
-                ParsedKey::Negative { int_part, dec_part } => {
+                IntermediateRepresentation::Negative { int_part, dec_part } => {
                     self.0.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
                     //TODO figure out how this complement is supposed to work.
                     self.0.extend(int_part);
                     self.0.extend(dec_part);
                     Some(255)
                 }
-                ParsedKey::String(contents) => {
+                IntermediateRepresentation::String(contents) => {
                     self.0.push(STRING_FLAG);
                     self.0.extend(contents);
                     None
