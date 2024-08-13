@@ -52,22 +52,19 @@ impl NullableKey {
     #[must_use]
     pub fn string_key(&self) -> Vec<u8> {
         let mut out_put = vec![b'('];
-        let mut keys = self
-            .iter()
-            .map(|x| IntermediateRepresentation::from(x).external_fmt(true))
-            .peekable();
-        let non_empty = keys.peek().is_some();
+        let mut iter = self.iter().map(IntermediateRepresentation::from);
 
-        for key in keys {
-            out_put.extend(key);
+        if let Some(sub_key) = iter.next() {
+            sub_key.push_external_fmt(&mut out_put, true)
+        }
+
+        for sub_key in iter {
             out_put.push(b',');
+            sub_key.push_external_fmt(&mut out_put, true)
         }
-        if non_empty {
-            //change the last ',' to a ')'.
-            *out_put.last_mut().unwrap() = b')';
-        } else {
-            out_put.push(b')');
-        }
+
+        out_put.push(b')');
+
         out_put
     }
 
@@ -98,7 +95,7 @@ impl NullableKey {
 #[allow(clippy::into_iter_without_iter)]
 impl<'a> IntoIterator for &'a NullableKey {
     type IntoIter = Iter<'a>;
-    type Item = Segment<'a>;
+    type Item = SubKey<'a>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -107,17 +104,17 @@ impl<'a> IntoIterator for &'a NullableKey {
 //represents one segment of a key
 //If we have the Mvar x("a","b")
 //"a" is one segment of the key ("a","b").
-//TODO consider making this private.
 #[derive(PartialEq, Eq, Copy, Clone)]
-pub struct Segment<'a>(&'a [u8]);
+pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
     tail: &'a [u8],
 }
 
-impl<'a> From<Segment<'a>> for Value {
-    fn from(value: Segment<'a>) -> Self {
-        Value::try_from(&IntermediateRepresentation::from(value).external_fmt(false)[..])
-            .expect("max key len is < max Value len")
+impl<'a> From<SubKey<'a>> for Value {
+    fn from(value: SubKey<'a>) -> Self {
+        let mut data = Vec::new();
+        IntermediateRepresentation::from(value).push_external_fmt(&mut data, false);
+        Value::try_from(&data[..]).expect("max key len is < max Value len")
     }
 }
 

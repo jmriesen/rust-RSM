@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::{key::Segment, value::Value};
+use crate::{key::SubKey, value::Value};
 use ffi::MAX_KEY_SIZE;
 
 use super::{format, Error, Iter, NullableKey};
@@ -110,13 +110,13 @@ impl NullableKey {
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {
-    type Item = Segment<'a>;
+    type Item = SubKey<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let key_end = IntermediateRepresentation::seek_key_end(self.tail)?;
         let (key, tail) = self.tail.split_at(key_end);
         self.tail = tail;
-        Some(Segment(&key[..key.len()]))
+        Some(SubKey(&key[..key.len()]))
     }
 }
 
