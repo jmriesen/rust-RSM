@@ -35,16 +35,21 @@ mod internal;
 use crate::value::Value;
 use format::IntermediateRepresentation;
 
-pub trait Key: std::borrow::Borrow<NullableKey> + Clone {}
+pub trait Key: std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> {}
 impl Key for NullableKey {}
 impl Key for NonNullableKey {}
 
-#[derive(Clone)]
+#[derive(Eq, PartialEq, Clone)]
 pub struct NonNullableKey(NullableKey);
 
 impl std::borrow::Borrow<NullableKey> for NonNullableKey {
     fn borrow(&self) -> &NullableKey {
         &self.0
+    }
+}
+impl From<NonNullableKey> for NullableKey {
+    fn from(value: NonNullableKey) -> Self {
+        value.0
     }
 }
 

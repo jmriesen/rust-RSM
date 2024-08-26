@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::{self, NullableKey};
+use crate::key::{self, NonNullableKey, NullableKey};
 use ffi::u_char;
 
 #[derive(Clone)]
@@ -54,9 +54,9 @@ impl std::fmt::Debug for MVar {
     }
 }
 
-impl std::fmt::Display for MVar {
+impl<Key: key::Key> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.key.is_empty() {
+        if self.key.borrow().is_empty() {
             write!(f, "{}", self.name.0)
         } else {
             write!(
@@ -64,8 +64,19 @@ impl std::fmt::Display for MVar {
                 "{}{}",
                 self.name.0,
                 //TODO handle non Ascii case
-                String::from_utf8(self.key.string_key()).unwrap()
+                String::from_utf8(self.key.borrow().string_key()).unwrap()
             )
+        }
+    }
+}
+
+impl<Key: key::Key> MVar<Key> {
+    pub fn to_nullable(self) -> MVar<NullableKey> {
+        MVar::<NullableKey> {
+            name: self.name,
+            volset: self.volset,
+            uci: self.uci,
+            key: self.key.into(),
         }
     }
 }
@@ -95,7 +106,11 @@ mod tests {
 pub mod helpers {
 
     use super::{MVar, VarU};
-    use crate::{key::NullableKey, symbol_table::var_u::helpers::var_u, value::Value};
+    use crate::{
+        key::{NonNullableKey, NullableKey},
+        symbol_table::var_u::helpers::var_u,
+        value::Value,
+    };
     use arbitrary::Arbitrary;
     use ffi::{UCI_IS_LOCALVAR, VAR_U};
 
@@ -106,6 +121,22 @@ pub mod helpers {
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
         let key = NullableKey::new(&values).unwrap();
+
+        //TODO All M vars are currently assumed to be local  have a vol set of 0;
+        MVar {
+            name: var_u(name),
+            volset: Default::default(),
+            uci: UCI_IS_LOCALVAR as u8,
+            key,
+        }
+    }
+    #[must_use]
+    pub fn var_m_non_null(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
+        let values = values
+            .iter()
+            .map(|x| Value::try_from(*x).unwrap())
+            .collect::<Vec<_>>();
+        let key = NonNullableKey::new(&values).unwrap();
 
         //TODO All M vars are currently assumed to be local  have a vol set of 0;
         MVar {

@@ -29,7 +29,10 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
-use crate::{key::NullableKey, value::Value};
+use crate::{
+    key::{Key, NonNullableKey, NullableKey},
+    value::Value,
+};
 
 #[derive(Clone, Copy)]
 pub enum Direction {
@@ -78,7 +81,8 @@ pub struct VarData {
 }
 
 impl VarData {
-    pub fn value(&self, key: &NullableKey) -> Option<&Value> {
+    pub fn value(&self, key: &NonNullableKey) -> Option<&Value> {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             self.value.as_ref()
         } else {
@@ -92,7 +96,8 @@ impl VarData {
         }
     }
 
-    pub fn set_value(&mut self, key: &NullableKey, data: &Value) {
+    pub fn set_value(&mut self, key: &NonNullableKey, data: &Value) {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             self.value = Some(data.clone());
         } else {
@@ -100,7 +105,8 @@ impl VarData {
         }
     }
 
-    pub fn kill(&mut self, key: &NullableKey) {
+    pub fn kill(&mut self, key: &NonNullableKey) {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             //Clear values
             self.sub_values = BTreeMap::default();
@@ -120,7 +126,8 @@ impl VarData {
         }
     }
 
-    pub fn data(&self, key: &NullableKey) -> DataResult {
+    pub fn data(&self, key: &NonNullableKey) -> DataResult {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             DataResult {
                 has_value: self.value.is_some(),

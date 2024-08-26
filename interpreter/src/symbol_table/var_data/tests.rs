@@ -3,14 +3,14 @@ use crate::{
     value::Value,
 };
 mod data {
-    use crate::symbol_table::var_data::DataResult;
+    use crate::symbol_table::{m_var::helpers::var_m_non_null, var_data::DataResult};
 
     use super::*;
 
     #[test]
     fn root_data() {
         let mut table = Table::new();
-        let var = var_m("var", &[]);
+        let var = var_m_non_null("var", &[]);
         assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&var, &data);
@@ -19,8 +19,8 @@ mod data {
     #[test]
     fn root_descendants() {
         let mut table = Table::new();
-        let root = var_m("var", &[]);
-        let sub = var_m("var", &["sub"]);
+        let root = var_m_non_null("var", &[]);
+        let sub = var_m_non_null("var", &["sub"]);
         assert!(!table.data(&root).has_descendants);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&sub, &data);
@@ -29,7 +29,7 @@ mod data {
     #[test]
     fn sub_key_data() {
         let mut table = Table::new();
-        let var = var_m("var", &["sub"]);
+        let var = var_m_non_null("var", &["sub"]);
         assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
         let _ = table.set(&var, &data);
@@ -40,8 +40,8 @@ mod data {
     fn sub_key_descendants() {
         let mut table = Table::new();
         let data: Value = "data".try_into().unwrap();
-        let var = var_m("var", &["sub"]);
-        let descendant = var_m("var", &["sub", "sub"]);
+        let var = var_m_non_null("var", &["sub"]);
+        let descendant = var_m_non_null("var", &["sub", "sub"]);
         assert!(!table.data(&var).has_descendants);
         let _ = table.set(&descendant, &data);
         assert!(table.data(&var).has_descendants);
@@ -52,9 +52,9 @@ mod data {
     fn adjacent_keys_are_not_sub_keys() {
         let mut table = Table::new();
         let data: Value = "data".try_into().unwrap();
-        let a = var_m("var", &["a"]);
-        let b = var_m("var", &["b"]);
-        let c = var_m("var", &["c"]);
+        let a = var_m_non_null("var", &["a"]);
+        let b = var_m_non_null("var", &["b"]);
+        let c = var_m_non_null("var", &["c"]);
         let _ = table.set(&a, &data);
         let _ = table.set(&b, &data);
         let _ = table.set(&c, &data);
@@ -96,14 +96,14 @@ mod data {
 
 mod query {
 
-    use crate::symbol_table::var_data::Direction;
+    use crate::symbol_table::{m_var::helpers::var_m_non_null, var_data::Direction};
 
     use super::*;
 
     #[test]
     fn forward_and_backward() {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
-        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+        let m_vars: Vec<_> = keys.map(|x| var_m_non_null("foo", x)).to_vec();
 
         let mut table = Table::new();
         for var in &m_vars {
@@ -142,7 +142,10 @@ mod query {
     #[test]
     fn value_with_no_subscripts() {
         let mut table = super::Table::new();
-        let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+        let _ = table.set(
+            &var_m_non_null("foo", &[]),
+            &Value::try_from("Value").unwrap(),
+        );
         assert_eq!(table.query(&var_m("foo", &[""]), Direction::Forward), "");
         assert_eq!(table.query(&var_m("foo", &["bar"]), Direction::Forward), "");
         assert_eq!(table.query(&var_m("foo", &[""]), Direction::Backward), "");
@@ -157,7 +160,7 @@ mod query {
     #[test]
     fn moving_backwards_null_subscript() {
         let keys: [&[&str]; 5] = [&["-1"], &["0"], &["0", "-1"], &["0", "1"], &["1"]];
-        let m_vars = keys.map(|x| var_m("foo", x));
+        let m_vars = keys.map(|x| var_m_non_null("foo", x));
 
         let mut table = Table::new();
         for var in &m_vars {
@@ -177,7 +180,7 @@ mod query {
 
 mod order {
 
-    use crate::symbol_table::var_data::Direction;
+    use crate::symbol_table::{m_var::helpers::var_m_non_null, var_data::Direction};
 
     use super::*;
 
@@ -185,10 +188,14 @@ mod order {
     fn forward_and_backward() {
         let mut table = Table::new();
         let data = Value::try_from("data").unwrap();
-        table.set(&var_m("foo", &["0"]), &data).unwrap();
-        table.set(&var_m("foo", &["1", "a"]), &data).unwrap();
-        table.set(&var_m("foo", &["1", "b"]), &data).unwrap();
-        table.set(&var_m("foo", &["2"]), &data).unwrap();
+        table.set(&var_m_non_null("foo", &["0"]), &data).unwrap();
+        table
+            .set(&var_m_non_null("foo", &["1", "a"]), &data)
+            .unwrap();
+        table
+            .set(&var_m_non_null("foo", &["1", "b"]), &data)
+            .unwrap();
+        table.set(&var_m_non_null("foo", &["2"]), &data).unwrap();
 
         //Top level forward
         assert_eq!(
@@ -258,8 +265,8 @@ mod order {
     #[test]
     fn value_with_no_subscripts() {
         let mut table = Table::new();
-        let foo = var_m("foo", &[]);
-        let bar = var_m("bar", &["subscript"]);
+        let foo = var_m_non_null("foo", &[]);
+        let bar = var_m_non_null("bar", &["subscript"]);
         table.set(&foo, &Value::try_from("Value").unwrap()).unwrap();
         table.set(&bar, &Value::try_from("Value").unwrap()).unwrap();
         let null = Value::empty();

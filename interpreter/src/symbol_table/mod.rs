@@ -34,7 +34,12 @@ mod hash;
 mod m_var;
 mod var_data;
 mod var_u;
-use crate::value::Value;
+use std::borrow::Borrow;
+
+use crate::{
+    key::{self, NonNullableKey},
+    value::Value,
+};
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
 pub use m_var::MVar;
@@ -58,17 +63,17 @@ impl Table {
 
     ///Gets a value that was stored in the symbol table.
     #[must_use]
-    pub fn get(&self, var: &MVar) -> Option<&Value> {
+    pub fn get(&self, var: &MVar<NonNullableKey>) -> Option<&Value> {
         self.0.locate(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the symbol table
-    pub fn set(&mut self, var: &MVar, value: &Value) -> Result<(), CreationError> {
+    pub fn set(&mut self, var: &MVar<NonNullableKey>, value: &Value) -> Result<(), CreationError> {
         self.0.create(var.name.clone())?.set_value(&var.key, value);
         Ok(())
     }
 
-    pub fn kill(&mut self, var: &MVar) {
+    pub fn kill(&mut self, var: &MVar<NonNullableKey>) {
         if let Some(data) = self.0.locate_mut(&var.name) {
             data.kill(&var.key);
             if !data.contains_data() {
@@ -92,7 +97,7 @@ impl Table {
     }
 
     #[must_use]
-    pub fn data(&self, var: &MVar) -> DataResult {
+    pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
         self.0
             .locate(&var.name)
             .map(|x| x.data(&var.key))
@@ -104,12 +109,12 @@ impl Table {
 
     //Returns a string representation of Key in the given MVar.
     #[must_use]
-    pub fn query(&self, var: &MVar, direction: Direction) -> String {
+    pub fn query<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> String {
         self.0
             .locate(&var.name)
-            .and_then(|data| data.query(&var.key, direction))
+            .and_then(|data| data.query(&var.key.borrow(), direction))
             .map(|key| {
-                let mut next_var = var.clone();
+                let mut next_var = var.clone().to_nullable();
                 next_var.key = key.clone();
                 format!("{next_var}")
             })
@@ -118,10 +123,10 @@ impl Table {
 
     ///Returns the next sub_key for a given variable.
     #[must_use]
-    pub fn order(&self, var: &MVar, direction: Direction) -> Value {
+    pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
         self.0
             .locate(&var.name)
-            .and_then(|data| data.order(&var.key, direction))
+            .and_then(|data| data.order(&var.key.borrow(), direction))
             .map(|x| x.into())
             .unwrap_or_default()
     }
