@@ -35,15 +35,20 @@ mod internal;
 use crate::value::Value;
 use format::IntermediateRepresentation;
 
-pub struct Key(NullableKey);
+pub trait Key: std::borrow::Borrow<NullableKey> + Clone {}
+impl Key for NullableKey {}
+impl Key for NonNullableKey {}
 
-impl std::borrow::Borrow<NullableKey> for Key {
+#[derive(Clone)]
+pub struct NonNullableKey(NullableKey);
+
+impl std::borrow::Borrow<NullableKey> for NonNullableKey {
     fn borrow(&self) -> &NullableKey {
         &self.0
     }
 }
 
-impl Key {
+impl NonNullableKey {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
             Err(Error::SubKeyContainsNull)

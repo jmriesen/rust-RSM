@@ -28,15 +28,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::NullableKey;
+use crate::key::{self, NullableKey};
 use ffi::u_char;
 
 #[derive(Clone)]
-pub struct MVar {
+pub struct MVar<Key: key::Key = NullableKey> {
     pub name: VarU,
     volset: u_char,
     uci: u_char,
-    pub key: NullableKey,
+    pub key: Key,
 }
 
 #[cfg_attr(test, mutants::skip)]
