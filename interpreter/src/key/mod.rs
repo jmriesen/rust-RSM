@@ -31,10 +31,35 @@
 
 mod format;
 mod internal;
-use format::IntermediateRepresentation;
 
 use crate::value::Value;
+use format::IntermediateRepresentation;
 
+pub struct Key(NullableKey);
+
+impl std::borrow::Borrow<NullableKey> for Key {
+    fn borrow(&self) -> &NullableKey {
+        &self.0
+    }
+}
+
+impl Key {
+    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
+        if values.clone().into_iter().any(|x| x == &Value::empty()) {
+            Err(Error::SubKeyContainsNull)
+        } else {
+            Ok(Self(NullableKey::new(values)?))
+        }
+    }
+
+    pub fn push(self, value: &Value) -> Result<Self, Error> {
+        if value == &Value::empty() {
+            Err(Error::SubKeyContainsNull)
+        } else {
+            Ok(Self(self.0.push(value)?))
+        }
+    }
+}
 /// Stores a list of keys.
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
 #[derive(Eq, PartialEq, Clone)]
@@ -64,7 +89,6 @@ impl NullableKey {
         }
 
         out_put.push(b')');
-
         out_put
     }
 
