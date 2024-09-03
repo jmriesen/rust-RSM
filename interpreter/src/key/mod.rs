@@ -89,12 +89,12 @@ impl NullableKey {
         let mut iter = self.iter().map(IntermediateRepresentation::from);
 
         if let Some(sub_key) = iter.next() {
-            sub_key.push_external_fmt(&mut out_put, true)
+            sub_key.push_external_fmt(&mut out_put, true);
         }
 
         for sub_key in iter {
             out_put.push(b',');
-            sub_key.push_external_fmt(&mut out_put, true)
+            sub_key.push_external_fmt(&mut out_put, true);
         }
 
         out_put.push(b')');

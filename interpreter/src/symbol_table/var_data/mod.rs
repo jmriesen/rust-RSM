@@ -30,7 +30,7 @@
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use crate::{
-    key::{Key, NonNullableKey, NullableKey},
+    key::{NonNullableKey, NullableKey},
     value::Value,
 };
 
@@ -138,7 +138,7 @@ impl VarData {
                 has_value: self.sub_values.contains_key(key),
                 has_descendants: self
                     .sub_values
-                    .lower_bound(Bound::Excluded(&key))
+                    .lower_bound(Bound::Excluded(key))
                     .next()
                     .is_some_and(|(x, _)| x.is_sub_key_of(key)),
             }

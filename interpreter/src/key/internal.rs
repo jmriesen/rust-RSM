@@ -60,7 +60,7 @@ impl NullableKey {
         }
     }
 
-    pub fn into_ckey(self) -> (u8, [u8; 256]) {
+    #[must_use] pub fn into_ckey(self) -> (u8, [u8; 256]) {
         let mut key = [0; 256];
         key[..self.len()].copy_from_slice(&self.0);
         (self.len() as u8, key)

@@ -99,11 +99,10 @@ impl Table {
     pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
         self.0
             .locate(&var.name)
-            .map(|x| x.data(&var.key))
-            .unwrap_or(DataResult {
+            .map_or(DataResult {
                 has_value: false,
                 has_descendants: false,
-            })
+            }, |x| x.data(&var.key))
     }
 
     //Returns a string representation of Key in the given MVar.
@@ -111,7 +110,7 @@ impl Table {
     pub fn query<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> String {
         self.0
             .locate(&var.name)
-            .and_then(|data| data.query(&var.key.borrow(), direction))
+            .and_then(|data| data.query(var.key.borrow(), direction))
             .map(|key| {
                 let mut next_var = var.clone().to_nullable();
                 next_var.key = key.clone();
@@ -120,13 +119,13 @@ impl Table {
             .unwrap_or_default()
     }
 
-    ///Returns the next sub_key for a given variable.
+    ///Returns the next `sub_key` for a given variable.
     #[must_use]
     pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
         self.0
             .locate(&var.name)
-            .and_then(|data| data.order(&var.key.borrow(), direction))
-            .map(|x| x.into())
+            .and_then(|data| data.order(var.key.borrow(), direction))
+            .map(std::convert::Into::into)
             .unwrap_or_default()
     }
 }

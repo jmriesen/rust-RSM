@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/// This modual is repsocible for understading how SubKeys are represented
+/// This modual is repsocible for understading how `SubKeys` are represented
 /// and translate between the internal and external formats.
 /// represents a key parsed out into its individual parts.
 ///
@@ -212,7 +212,7 @@ impl<'a> IntermediateRepresentation<'a> {
                         output.push(b'"');
                     }
                 } else {
-                    output.extend(string)
+                    output.extend(string);
                 }
             }
         }
@@ -250,7 +250,7 @@ impl<'a> IntermediateRepresentation<'a> {
         output.push(end_mark.unwrap_or(b'\0'));
     }
 
-    ///This function assumes that key_data[0] is the start of a valid subkey
+    ///This function assumes that `key_data`[0] is the start of a valid subkey
     ///Returns the index where the sub key ends.
     pub fn seek_key_end(key_data: &[u8]) -> Option<usize> {
         Some(match key_data.first()? {

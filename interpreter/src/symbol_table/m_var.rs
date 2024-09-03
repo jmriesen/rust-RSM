@@ -93,14 +93,14 @@ mod tests {
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
-    use super::{MVar, VarU};
+    use super::MVar;
     use crate::{
         key::{NonNullableKey, NullableKey},
         symbol_table::var_u::helpers::var_u,
         value::Value,
     };
     use arbitrary::Arbitrary;
-    use ffi::{UCI_IS_LOCALVAR, VAR_U};
+    use ffi::UCI_IS_LOCALVAR;
 
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {

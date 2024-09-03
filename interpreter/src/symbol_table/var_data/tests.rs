@@ -116,8 +116,8 @@ mod query {
         );
         for [current, expected] in m_vars.array_windows() {
             assert_eq!(
-                table.query(&current, Direction::Forward),
-                format!("{}", expected)
+                table.query(current, Direction::Forward),
+                format!("{expected}")
             );
         }
         assert_eq!(table.query(m_vars.last().unwrap(), Direction::Forward), "");
@@ -129,8 +129,8 @@ mod query {
         );
         for [expected, current] in m_vars.array_windows().rev() {
             assert_eq!(
-                table.query(&current, Direction::Backward),
-                format!("{}", expected)
+                table.query(current, Direction::Backward),
+                format!("{expected}")
             );
         }
         assert_eq!(
