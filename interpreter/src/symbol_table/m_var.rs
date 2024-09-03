@@ -70,20 +70,23 @@ impl<Key: key::Key> MVar<Key> {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use super::helpers::var_m;
+    use super::helpers::var_m_nullable;
     #[test]
     fn no_subscripts() {
-        assert_eq!(format!("{}", var_m("foo", &[])), "foo");
+        assert_eq!(format!("{}", var_m_nullable("foo", &[])), "foo");
     }
 
     #[test]
     fn subscripts() {
-        assert_eq!(format!("{}", var_m("foo", &["sub1"])), "foo(\"sub1\")");
         assert_eq!(
-            format!("{}", var_m("foo", &["sub1", "sub2"])),
+            format!("{}", var_m_nullable("foo", &["sub1"])),
+            "foo(\"sub1\")"
+        );
+        assert_eq!(
+            format!("{}", var_m_nullable("foo", &["sub1", "sub2"])),
             "foo(\"sub1\",\"sub2\")"
         );
-        assert_eq!(format!("{}", var_m("foo", &["3"])), "foo(3)");
+        assert_eq!(format!("{}", var_m_nullable("foo", &["3"])), "foo(3)");
     }
 }
 
@@ -100,7 +103,7 @@ pub mod helpers {
     use ffi::{UCI_IS_LOCALVAR, VAR_U};
 
     #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVar<NullableKey> {
+    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
@@ -116,7 +119,7 @@ pub mod helpers {
         }
     }
     #[must_use]
-    pub fn var_m_non_null(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
+    pub fn var_m(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
