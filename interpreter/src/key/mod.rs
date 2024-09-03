@@ -39,7 +39,7 @@ pub trait Key: std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> {}
 impl Key for NullableKey {}
 impl Key for NonNullableKey {}
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct NonNullableKey(NullableKey);
 
 impl std::borrow::Borrow<NullableKey> for NonNullableKey {

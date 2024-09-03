@@ -1,10 +1,25 @@
 use crate::value::Value;
+use arbitrary::Arbitrary;
 use ffi::{
     symbol_table::{build_key, extract_key, string_key},
     ERRMLAST, ERRZ1, ERRZ5,
 };
 
-use super::{Error, NullableKey};
+impl<'a> Arbitrary<'a> for NonNullableKey {
+    //TODO replace with a real implementation
+    fn arbitrary(_u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::new(&[]).expect("Empty key creattion will never fail"))
+    }
+}
+
+impl<'a> Arbitrary<'a> for NullableKey {
+    //TODO replace with a real implementation
+    fn arbitrary(_u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::new(&[]).expect("Empty key creattion will never fail"))
+    }
+}
+
+use super::{Error, NonNullableKey, NullableKey};
 
 //TODO all of these should be revamped to work on arrays of keys.
 #[cfg_attr(test, mutants::skip)]

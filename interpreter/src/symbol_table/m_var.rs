@@ -28,30 +28,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::{self, NonNullableKey, NullableKey};
+use crate::key::{self, NullableKey};
 use ffi::u_char;
 
-#[derive(Clone)]
-pub struct MVar<Key: key::Key = NullableKey> {
+#[derive(Clone, Debug)]
+pub struct MVar<Key: key::Key> {
     pub name: VarU,
     volset: u_char,
     uci: u_char,
     pub key: Key,
-}
-
-#[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for MVar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
-
-        let mut builder = f.debug_struct("MVar");
-        builder
-            .field("name", &name)
-            .field("key", &self.key)
-            .field("volume set", &self.volset)
-            .field("uci", &self.uci)
-            .finish()
-    }
 }
 
 impl<Key: key::Key> std::fmt::Display for MVar<Key> {
@@ -115,7 +100,7 @@ pub mod helpers {
     use ffi::{UCI_IS_LOCALVAR, VAR_U};
 
     #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVar {
+    pub fn var_m(name: &str, values: &[&str]) -> MVar<NullableKey> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
@@ -148,7 +133,10 @@ pub mod helpers {
     }
 
     #[cfg_attr(test, mutants::skip)]
-    impl<'a> Arbitrary<'a> for MVar {
+    impl<'a, Key> Arbitrary<'a> for MVar<Key>
+    where
+        Key: Arbitrary<'a> + crate::key::Key,
+    {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let name: [u8; 32] = u.arbitrary()?;
             if name.is_ascii() && name.contains(&0) {
@@ -156,8 +144,7 @@ pub mod helpers {
                     name: VarU(VAR_U { var_cu: name }),
                     volset: 0,
                     uci: 0,
-                    //TODO implement arbitrary for key.
-                    key: NullableKey::new(&[]).expect("Empty key creattion will never fail"),
+                    key: u.arbitrary()?,
                 })
             } else {
                 Err(arbitrary::Error::IncorrectFormat)
@@ -165,10 +152,10 @@ pub mod helpers {
         }
     }
 
-    impl MVar {
+    impl<Key: crate::key::Key> MVar<Key> {
         #[must_use]
         pub fn into_cmvar(self) -> ffi::MVAR {
-            let (slen, key) = self.key.into_ckey();
+            let (slen, key) = self.key.borrow().clone().into_ckey();
             ffi::MVAR {
                 name: self.name.0,
                 volset: self.volset,
