@@ -141,17 +141,13 @@ pub mod helpers {
         Key: Arbitrary<'a> + crate::key::Key,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name: [u8; 32] = u.arbitrary()?;
-            if name.is_ascii() && name.contains(&0) {
-                Ok(MVar {
-                    name: VarU(VAR_U { var_cu: name }),
-                    volset: 0,
-                    uci: 0,
-                    key: u.arbitrary()?,
-                })
-            } else {
-                Err(arbitrary::Error::IncorrectFormat)
-            }
+            //TODO All M vars are currently assumed to be local  have a vol set of 0;
+            Ok(MVar {
+                name: u.arbitrary()?,
+                volset: 0,
+                uci: 0,
+                key: u.arbitrary()?,
+            })
         }
     }
 

@@ -81,9 +81,6 @@ impl NullableKey {
     /// If the key contains a trailing "" this function will return a new key
     /// with the last sub keys value maximized.
     /// otherwise this is a no op.
-    ///
-    /// The YOU CAN NOT ASSUME THE RETURNED KEY IS VALID for SET or GET operations.
-    /// This should only be used to create a bound
     #[must_use]
     pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
         if self.has_trailing_null() {

@@ -32,6 +32,7 @@
 use std::hash::Hash;
 #[derive(Clone, Debug)]
 pub struct VarU(pub ffi::VAR_U);
+
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {
         unsafe { self.0.var_cu[0] == b'$' }
@@ -44,6 +45,7 @@ impl Hash for VarU {
         unsafe { self.0.var_cu }.hash(state);
     }
 }
+
 impl Eq for VarU {}
 impl PartialEq for VarU {
     fn eq(&self, other: &Self) -> bool {
@@ -53,10 +55,23 @@ impl PartialEq for VarU {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
+    use arbitrary::Arbitrary;
+
     use super::VarU;
 
     #[must_use]
     pub fn var_u(var: &str) -> VarU {
         VarU(var.try_into().unwrap())
+    }
+
+    impl<'a> Arbitrary<'a> for VarU {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let name: [u8; 32] = u.arbitrary()?;
+            if name.is_ascii() && name.contains(&0) {
+                Ok(Self(ffi::VAR_U { var_cu: name }))
+            } else {
+                Err(arbitrary::Error::IncorrectFormat)
+            }
+        }
     }
 }

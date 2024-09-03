@@ -34,7 +34,6 @@ mod hash;
 mod m_var;
 mod var_data;
 mod var_u;
-use std::borrow::Borrow;
 
 use crate::{
     key::{self, NonNullableKey},

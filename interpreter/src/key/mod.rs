@@ -27,8 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-#![allow(dead_code)]
-
 mod format;
 mod internal;
 
@@ -70,6 +68,7 @@ impl NonNullableKey {
         }
     }
 }
+
 /// Stores a list of keys.
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
 #[derive(Eq, PartialEq, Clone)]
@@ -125,6 +124,18 @@ impl NullableKey {
     }
 }
 
+impl std::fmt::Debug for NullableKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("key");
+        let value = String::from_utf8(self.string_key());
+        match value {
+            Ok(string) => builder.field("utf8", &string),
+            Err(_) => builder.field("raw", &self.0),
+        };
+        builder.finish()
+    }
+}
+
 //This lint seems to be a false positive.
 #[allow(clippy::into_iter_without_iter)]
 impl<'a> IntoIterator for &'a NullableKey {
@@ -158,19 +169,6 @@ pub enum Error {
     SubKeyContainsNull,
     KeyToLarge,
     SubKeyIsNull,
-}
-
-#[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for NullableKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("key");
-        let value = String::from_utf8(self.string_key());
-        match value {
-            Ok(string) => builder.field("utf8", &string),
-            Err(_) => builder.field("raw", &self.0),
-        };
-        builder.finish()
-    }
 }
 
 #[cfg(any(test, feature = "fuzzing"))]

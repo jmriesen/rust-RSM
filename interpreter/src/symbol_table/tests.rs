@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use super::Table;
-use crate::symbol_table::m_var::helpers::{var_m, var_m_nullable};
+use crate::symbol_table::m_var::helpers::var_m;
 use ffi::UCI_IS_LOCALVAR;
 use pretty_assertions::assert_eq;
 
