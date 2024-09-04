@@ -8,26 +8,24 @@ edition = "2021"
 fuzzing = []
 
 [dependencies]
-clap = { version = "4.5.16", features = ["derive"] }
-libc = "0.2.158"
+clap = { version = "4.0.8", features = ["derive"] }
+libc = "0.2.139"
 uname = "0.1.1"
-thiserror = "1.0.63"
+thiserror = "1.0.56"
 ffi = { path = "../ffi"}
-ref-cast = "1.0.23"
-# Note I am currently enabling all the derive more features for conveniences.
-# If compile times become an issue strip this back to just what is needed.
-derive_more = { version = "1", features = ["full"] }
+ref-cast = "1.0.22"
+derive_more = "0.99.17"
 arbitrary = "1.3.2"
 
 [dev-dependencies]
-uuid = { version = "1.10.0", features = ["v4"] }
-rstest = "0.22.0"
+uuid = { version = "1.7.0", features = ["v4"] }
+rstest = "0.18.2"
 pretty_assertions = "1.4.0"
 rand = "0.8.5"
 mutants = "0.0.3"
 
 [build-dependencies]
-bindgen = "0.70.1"
-cc = "1.1.16"
-cbindgen = "0.27.0"
+bindgen = "0.66.1"
+cc = "1.0.83"
+cbindgen = "0.26.0"
 glob = "0.3.1"
