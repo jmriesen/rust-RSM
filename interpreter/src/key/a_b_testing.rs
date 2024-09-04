@@ -45,10 +45,7 @@ pub fn extract(string: &Value) -> Result<(), Error> {
 #[cfg_attr(test, mutants::skip)]
 pub fn string(keys: &[Value]) -> Result<(), Error> {
     let key_list = NullableKey::new(keys)?;
-    assert_eq!(
-        key_list.string_key(),
-        string_key(&key_list.0[..], i32::max_value())
-    );
+    assert_eq!(key_list.string_key(), string_key(&key_list.0[..], i32::MAX));
     Ok(())
 }
 

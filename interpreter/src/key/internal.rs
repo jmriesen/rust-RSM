@@ -28,7 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::{key::SubKey, value::Value};
-use ffi::MAX_KEY_SIZE;
+
+const MAX_KEY_SIZE: usize = 255;
 
 use super::{format, Error, Iter, NullableKey};
 
@@ -52,7 +53,7 @@ impl NullableKey {
             let sub_key = IntermediateRepresentation::try_from(src)?;
             sub_key.push_internal_fmt(&mut data);
 
-            if data.len() > MAX_KEY_SIZE as usize {
+            if data.len() > MAX_KEY_SIZE {
                 Err(Error::KeyToLarge)
             } else {
                 Ok(Self(data))
@@ -60,7 +61,8 @@ impl NullableKey {
         }
     }
 
-    #[must_use] pub fn into_ckey(self) -> (u8, [u8; 256]) {
+    #[must_use]
+    pub fn into_ckey(self) -> (u8, [u8; 256]) {
         let mut key = [0; 256];
         key[..self.len()].copy_from_slice(&self.0);
         (self.len() as u8, key)

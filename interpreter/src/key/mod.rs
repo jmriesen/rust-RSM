@@ -27,6 +27,8 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
+#![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
 

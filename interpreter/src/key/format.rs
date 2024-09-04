@@ -45,7 +45,6 @@ use super::{Error, SubKey};
 use crate::value::Value;
 
 const MAX_SUB_LEN: usize = 127;
-const MAX_KEY_SIZE: usize = 255;
 
 const STRING_FLAG: u8 = 0b1000_0000;
 const INT_ZERO_POINT: u8 = 0b100_0000;
