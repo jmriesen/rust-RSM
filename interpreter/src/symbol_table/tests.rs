@@ -15,7 +15,7 @@ fn get_unset_variable() {
 fn get_unset_key() {
     let mut table = Table::new();
     let m_var = var_m("foo", &[]);
-    let mut data = "Data".try_into().unwrap();
+    let data = "Data".try_into().unwrap();
     table.set(m_var.borrow(), &data).unwrap();
 
     let m_var = var_m("foo", &["bar"]);
@@ -26,7 +26,7 @@ fn get_unset_key() {
 fn set_root_value() {
     let mut table = Table::new();
     let m_var = var_m("foo", &[]);
-    let mut data = "Data".try_into().unwrap();
+    let data = "Data".try_into().unwrap();
 
     table.set(&m_var, &data).unwrap();
     assert_eq!(table.get(&m_var), Some(&data));
@@ -36,7 +36,7 @@ fn set_root_value() {
 fn set_index_value() {
     let mut table = Table::new();
     let m_var = var_m("foo", &["keys"]);
-    let mut data = "Data".try_into().unwrap();
+    let data = "Data".try_into().unwrap();
     table.set(&m_var, &data).unwrap();
     assert_eq!(Some(&data), table.get(&m_var));
 }
