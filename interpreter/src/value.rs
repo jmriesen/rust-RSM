@@ -98,6 +98,8 @@ impl std::fmt::Debug for Value {
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod utility {
+    use std::str::FromStr;
+
     use arbitrary::Arbitrary;
     use ffi::MAX_STR_LEN;
 
@@ -108,6 +110,14 @@ pub mod utility {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let len: usize = u.int_in_range(0..=MAX_STR_LEN as usize)?;
             Ok(Self(Vec::from(u.bytes(len)?)))
+        }
+    }
+
+    impl FromStr for Value {
+        type Err = ();
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Self::try_from(s)
         }
     }
 

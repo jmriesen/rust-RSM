@@ -28,35 +28,20 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::Key;
+use crate::key::{self, NullableKey};
 use ffi::u_char;
 
-#[derive(Clone)]
-pub struct MVar {
+#[derive(Clone, Debug)]
+pub struct MVar<Key: key::Key> {
     pub name: VarU,
     volset: u_char,
     uci: u_char,
     pub key: Key,
 }
 
-#[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for MVar {
+impl<Key: key::Key> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = String::from_utf8(self.name.0.as_array().into()).unwrap();
-
-        let mut builder = f.debug_struct("MVar");
-        builder
-            .field("name", &name)
-            .field("key", &self.key)
-            .field("volume set", &self.volset)
-            .field("uci", &self.uci)
-            .finish()
-    }
-}
-
-impl std::fmt::Display for MVar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.key.is_empty() {
+        if self.key.borrow().is_empty() {
             write!(f, "{}", self.name.0)
         } else {
             write!(
@@ -64,8 +49,19 @@ impl std::fmt::Display for MVar {
                 "{}{}",
                 self.name.0,
                 //TODO handle non Ascii case
-                String::from_utf8(self.key.string_key()).unwrap()
+                String::from_utf8(self.key.borrow().string_key()).unwrap()
             )
+        }
+    }
+}
+
+impl<Key: key::Key> MVar<Key> {
+    pub fn to_nullable(self) -> MVar<NullableKey> {
+        MVar::<NullableKey> {
+            name: self.name,
+            volset: self.volset,
+            uci: self.uci,
+            key: self.key.into(),
         }
     }
 }
@@ -74,38 +70,61 @@ impl std::fmt::Display for MVar {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use super::helpers::var_m;
+    use super::helpers::var_m_nullable;
     #[test]
     fn no_subscripts() {
-        assert_eq!(format!("{}", var_m("foo", &[])), "foo");
+        assert_eq!(format!("{}", var_m_nullable("foo", &[])), "foo");
     }
 
     #[test]
     fn subscripts() {
-        assert_eq!(format!("{}", var_m("foo", &["sub1"])), "foo(\"sub1\")");
         assert_eq!(
-            format!("{}", var_m("foo", &["sub1", "sub2"])),
+            format!("{}", var_m_nullable("foo", &["sub1"])),
+            "foo(\"sub1\")"
+        );
+        assert_eq!(
+            format!("{}", var_m_nullable("foo", &["sub1", "sub2"])),
             "foo(\"sub1\",\"sub2\")"
         );
-        assert_eq!(format!("{}", var_m("foo", &["3"])), "foo(3)");
+        assert_eq!(format!("{}", var_m_nullable("foo", &["3"])), "foo(3)");
     }
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
-    use super::{MVar, VarU};
-    use crate::{key::Key, symbol_table::var_u::helpers::var_u, value::Value};
+    use super::MVar;
+    use crate::{
+        key::{NonNullableKey, NullableKey},
+        symbol_table::var_u::helpers::var_u,
+        value::Value,
+    };
     use arbitrary::Arbitrary;
-    use ffi::{UCI_IS_LOCALVAR, VAR_U};
+    use ffi::UCI_IS_LOCALVAR;
 
     #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVar {
+    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = Key::new(&values).unwrap();
+        let key = NullableKey::new(&values).unwrap();
+
+        //TODO All M vars are currently assumed to be local  have a vol set of 0;
+        MVar {
+            name: var_u(name),
+            volset: Default::default(),
+            uci: UCI_IS_LOCALVAR as u8,
+            key,
+        }
+    }
+    #[must_use]
+    pub fn var_m(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
+        let values = values
+            .iter()
+            .map(|x| Value::try_from(*x).unwrap())
+            .collect::<Vec<_>>();
+        let key = NonNullableKey::new(&values).unwrap();
 
         //TODO All M vars are currently assumed to be local  have a vol set of 0;
         MVar {
@@ -117,33 +136,30 @@ pub mod helpers {
     }
 
     #[cfg_attr(test, mutants::skip)]
-    impl<'a> Arbitrary<'a> for MVar {
+    impl<'a, Key> Arbitrary<'a> for MVar<Key>
+    where
+        Key: Arbitrary<'a> + crate::key::Key,
+    {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name: [u8; 32] = u.arbitrary()?;
-            if name.is_ascii() && name.contains(&0) {
-                Ok(MVar {
-                    name: VarU(VAR_U { var_cu: name }),
-                    volset: 0,
-                    uci: 0,
-                    //TODO implement arbitrary for key.
-                    key: Key::empty(),
-                })
-            } else {
-                Err(arbitrary::Error::IncorrectFormat)
-            }
+            //TODO All M vars are currently assumed to be local  have a vol set of 0;
+            Ok(MVar {
+                name: u.arbitrary()?,
+                volset: 0,
+                uci: 0,
+                key: u.arbitrary()?,
+            })
         }
     }
 
-    impl MVar {
+    impl<Key: crate::key::Key> MVar<Key> {
         #[must_use]
         pub fn into_cmvar(self) -> ffi::MVAR {
-            let mut key = [0; 256];
-            key[..self.key.len()].copy_from_slice(self.key.raw_keys());
+            let (slen, key) = self.key.borrow().clone().into_ckey();
             ffi::MVAR {
                 name: self.name.0,
                 volset: self.volset,
                 uci: self.uci,
-                slen: self.key.len() as u8,
+                slen,
                 key,
             }
         }

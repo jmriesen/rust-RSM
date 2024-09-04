@@ -51,6 +51,7 @@ u_short prompt_len = 8;                                                         
 
 */
 
+#[allow(clippy::too_many_lines)] //TODO remove when fixing this
 fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
     use std::os::fd::AsRawFd;
     unsafe {

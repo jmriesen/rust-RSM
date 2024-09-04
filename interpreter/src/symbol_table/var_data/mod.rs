@@ -27,9 +27,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::{collections::BTreeMap, ops::Bound};
+use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
-use crate::{key::Key, value::Value};
+use crate::{
+    key::{NonNullableKey, NullableKey},
+    value::Value,
+};
 
 #[derive(Clone, Copy)]
 pub enum Direction {
@@ -71,14 +74,15 @@ impl From<DataResult> for Value {
 ///Data associated for a specific variable
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct VarData {
-    sub_values: BTreeMap<Key, Value>,
+    sub_values: BTreeMap<NullableKey, Value>,
     //TODO consider removing I am currently not using attach
     attach: ::std::os::raw::c_short,
     value: Option<Value>,
 }
 
 impl VarData {
-    pub fn value(&self, key: &Key) -> Option<&Value> {
+    pub fn value(&self, key: &NonNullableKey) -> Option<&Value> {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             self.value.as_ref()
         } else {
@@ -92,7 +96,8 @@ impl VarData {
         }
     }
 
-    pub fn set_value(&mut self, key: &Key, data: &Value) {
+    pub fn set_value(&mut self, key: &NonNullableKey, data: &Value) {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             self.value = Some(data.clone());
         } else {
@@ -100,7 +105,8 @@ impl VarData {
         }
     }
 
-    pub fn kill(&mut self, key: &Key) {
+    pub fn kill(&mut self, key: &NonNullableKey) {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             //Clear values
             self.sub_values = BTreeMap::default();
@@ -120,7 +126,8 @@ impl VarData {
         }
     }
 
-    pub fn data(&self, key: &Key) -> DataResult {
+    pub fn data(&self, key: &NonNullableKey) -> DataResult {
+        let key: &NullableKey = key.borrow();
         if key.is_empty() {
             DataResult {
                 has_value: self.value.is_some(),
@@ -138,7 +145,7 @@ impl VarData {
         }
     }
 
-    pub fn query(&self, key: &Key, direction: Direction) -> Option<&Key> {
+    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<&NullableKey> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
@@ -149,7 +156,7 @@ impl VarData {
         .map(|x| x.0)
     }
 
-    pub fn order(&self, key: &Key, direction: Direction) -> Option<crate::key::Segment> {
+    pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
         let sub_len = key.iter().count();
         match direction {
             Direction::Forward => self

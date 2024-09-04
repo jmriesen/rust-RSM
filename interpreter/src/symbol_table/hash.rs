@@ -289,13 +289,13 @@ mod tests {
 
     #[test]
     fn equality() {
+        use rand::seq::SliceRandom;
         let mut keys = [var_u("a"), var_u("b"), var_u("c"), var_u("d"), var_u("e")];
         let mut first = Map::new();
         for key in keys.clone() {
             let _ = first.create(key);
         }
 
-        use rand::seq::SliceRandom;
         keys.shuffle(&mut rand::thread_rng());
         let mut second = Map::new();
         for key in keys.clone() {
