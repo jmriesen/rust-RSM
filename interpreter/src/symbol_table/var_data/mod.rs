@@ -29,12 +29,14 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
+use arbitrary::Arbitrary;
+
 use crate::{
     key::{NonNullableKey, NullableKey},
     value::Value,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Arbitrary)]
 pub enum Direction {
     Forward,
     Backward,

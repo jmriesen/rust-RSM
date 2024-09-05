@@ -42,7 +42,8 @@ use crate::{
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
 pub use m_var::MVar;
-use var_data::{DataResult, Direction, VarData};
+pub use var_data::Direction;
+use var_data::{DataResult, VarData};
 use var_u::VarU;
 
 impl hash::Key for VarU {
@@ -97,12 +98,13 @@ impl Table {
 
     #[must_use]
     pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
-        self.0
-            .locate(&var.name)
-            .map_or(DataResult {
+        self.0.locate(&var.name).map_or(
+            DataResult {
                 has_value: false,
                 has_descendants: false,
-            }, |x| x.data(&var.key))
+            },
+            |x| x.data(&var.key),
+        )
     }
 
     //Returns a string representation of Key in the given MVar.

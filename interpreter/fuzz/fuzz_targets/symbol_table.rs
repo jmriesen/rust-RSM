@@ -31,8 +31,8 @@
 
 use arbitrary::Arbitrary;
 use interpreter::{
-    key::NonNullableKey,
-    symbol_table::{MVar, Table},
+    key::{NonNullableKey, NullableKey},
+    symbol_table::{Direction, MVar, Table},
     value::Value,
 };
 use libfuzzer_sys::fuzz_target;
@@ -43,6 +43,7 @@ enum TableCommands {
     Get(MVar<NonNullableKey>),
     Kill(MVar<NonNullableKey>),
     Data(MVar<NonNullableKey>),
+    Query(MVar<NullableKey>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
@@ -68,6 +69,11 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let (decedents, data) = c_table.data(&var.clone().into_cmvar());
                 assert_eq!(decedents, table.data(&var).has_descendants);
                 assert_eq!(data, table.data(&var).has_value);
+            }
+            TableCommands::Query(var, direction) => {
+                let rust_val = table.query(&var, direction);
+                let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
+                assert_eq!(rust_val.as_bytes(), c_val);
             }
         }
     }
