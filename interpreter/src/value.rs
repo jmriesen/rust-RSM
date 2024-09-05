@@ -28,6 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+use clap::builder;
 use ffi::{CSTRING, MAX_STR_LEN};
 
 ///This type represents the contents of an M Value.
@@ -86,13 +87,14 @@ impl TryFrom<&[u8]> for Value {
 #[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Value")
-            .field("content", &self.content())
-            .field(
-                "content_as_utf8",
-                &String::from_utf8(self.0.clone()).unwrap(),
-            )
-            .finish()
+        let mut builder = f.debug_struct("Value");
+        if let Ok(contents) = String::from_utf8(self.0.clone()) {
+            builder.field("content_as_utf8", &contents);
+        } else {
+            builder.field("content", &self.content());
+        }
+
+        builder.finish()
     }
 }
 

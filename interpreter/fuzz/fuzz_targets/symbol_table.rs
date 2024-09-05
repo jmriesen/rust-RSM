@@ -42,6 +42,7 @@ enum TableCommands {
     Set(MVar<NonNullableKey>, Value),
     Get(MVar<NonNullableKey>),
     Kill(MVar<NonNullableKey>),
+    Data(MVar<NonNullableKey>),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
@@ -49,20 +50,24 @@ fuzz_target!(|commands: Vec<TableCommands>| {
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
 
     for command in commands.into_iter().skip(4).take(100) {
-        match dbg!(command) {
+        match command {
             TableCommands::Set(var, val) => {
-                let _ = table.set(&var, &val);
+                table.set(&var, &val).unwrap();
                 c_table.set(&var.into_cmvar(), &val.into_cstring()).unwrap();
             }
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
                 let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
-                //assert_eq!(rust_val, c_val.as_ref())
-                assert_eq!(Err(8), c_val);
+                assert_eq!(rust_val.ok_or(&-6), c_val.as_ref());
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
                 c_table.kill(&var.into_cmvar());
+            }
+            TableCommands::Data(var) => {
+                let (decedents, data) = c_table.data(&var.clone().into_cmvar());
+                assert_eq!(decedents, table.data(&var).has_descendants);
+                assert_eq!(data, table.data(&var).has_value);
             }
         }
     }

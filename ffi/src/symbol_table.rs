@@ -54,10 +54,10 @@ impl Table {
 
     pub fn set(&mut self, var: &MVAR, data: &CSTRING) -> Result<(), i32> {
         let result = unsafe { ST_Set(from_ref(var).cast_mut(), from_ref(data).cast_mut()) };
-        if result == 0 {
-            Ok(())
-        } else {
+        if result.is_negative() {
             Err(result)
+        } else {
+            Ok(())
         }
     }
 
