@@ -70,7 +70,7 @@ impl NullableKey {
 
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
-        self.len() > key.len() && self.0[..key.len()] == key.0
+        self.len() >= key.len() && self.0[..key.len()] == key.0
     }
 
     fn has_trailing_null(&self) -> bool {
