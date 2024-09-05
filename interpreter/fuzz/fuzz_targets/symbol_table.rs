@@ -44,13 +44,14 @@ enum TableCommands {
     Kill(MVar<NonNullableKey>),
     Data(MVar<NonNullableKey>),
     Query(MVar<NullableKey>, Direction),
+    Order(MVar<NullableKey>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
 
-    for command in commands.into_iter().skip(4).take(100) {
+    for command in commands.into_iter().take(100) {
         match command {
             TableCommands::Set(var, val) => {
                 table.set(&var, &val).unwrap();
@@ -74,6 +75,11 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(rust_val.as_bytes(), c_val);
+            }
+            TableCommands::Order(var, direction) => {
+                let rust_val = table.order(&var, direction);
+                let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
+                assert_eq!(rust_val, Value::try_from(&c_val[..]).unwrap());
             }
         }
     }
