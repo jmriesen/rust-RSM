@@ -31,6 +31,7 @@
 
 use arbitrary::Arbitrary;
 use interpreter::{
+    key::NonNullableKey,
     symbol_table::{MVar, Table},
     value::Value,
 };
@@ -38,9 +39,9 @@ use libfuzzer_sys::fuzz_target;
 
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
-    Set(MVar, Value),
-    Get(MVar),
-    Kill(MVar),
+    Set(MVar<NonNullableKey>, Value),
+    Get(MVar<NonNullableKey>),
+    Kill(MVar<NonNullableKey>),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {

@@ -32,6 +32,7 @@
 use std::hash::Hash;
 #[derive(Clone, Debug)]
 pub struct VarU(pub ffi::VAR_U);
+
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {
         unsafe { self.0.var_cu[0] == b'$' }
@@ -44,6 +45,7 @@ impl Hash for VarU {
         unsafe { self.0.var_cu }.hash(state);
     }
 }
+
 impl Eq for VarU {}
 impl PartialEq for VarU {
     fn eq(&self, other: &Self) -> bool {

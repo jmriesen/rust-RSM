@@ -102,7 +102,7 @@ fn main() {
         .header("C/include/symbol.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         //NOTE the -fsigned-char flag does not seem working.
         //However after digging into they typedefs my char are signed.
         //for portability sake we might want to take another look at this but I am not going to worry about it right now.
@@ -121,7 +121,7 @@ fn main() {
         // The input header we would like to generate bindings for.
         // note order matters so I cant just pull all .h files from that folder.
         .header("C/include/opcode.h")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .parse_callbacks(Box::new(OpCodeParser))
         //.clang_arg("-fsigned-char")
         .generate()
@@ -130,7 +130,7 @@ fn main() {
         .write_to_file(out_path.join("opcodes.rs"))
         .expect("Couldn't write bindings!");
 
-     //the C needs to link to these libraries.
+    //the C needs to link to these libraries.
     if cfg!(target_os = "linux") {
         //TODO based on the make file the crypt lib will probably be needed at some point.
         //However it builds/the tests run right now so I am delaying figuring out why this option
