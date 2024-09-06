@@ -106,6 +106,21 @@ impl NullableKey {
         modified_key.extend(format::MAX_SUB_KEY);
         NullableKey(modified_key)
     }
+    pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<SubKey<'a>> {
+        //NOTE This was not written to be preferment, just correct.
+        //This should totally be possible to do without any additional allocations.
+        let mut keys: Vec<_> = self.iter().collect();
+        keys.pop();
+        let parent = keys;
+        let other: Vec<_> = other.iter().collect();
+
+        //Only Extract if the parents are the same
+        if other.len() > parent.len() && parent[..] == other[..parent.len()] {
+            Some(other[parent.len()])
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> std::iter::Iterator for Iter<'a> {

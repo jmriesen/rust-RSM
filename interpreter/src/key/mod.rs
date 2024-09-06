@@ -33,6 +33,7 @@ mod format;
 mod internal;
 
 use crate::value::Value;
+use clap::builder;
 use format::IntermediateRepresentation;
 
 pub trait Key: std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> {}

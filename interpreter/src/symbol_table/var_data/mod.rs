@@ -29,6 +29,7 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
+#[cfg(any(test, feature = "fuzzing"))]
 use arbitrary::Arbitrary;
 
 use crate::{
@@ -36,7 +37,8 @@ use crate::{
     value::Value,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Arbitrary)]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction {
     Forward,
     Backward,
@@ -159,7 +161,6 @@ impl VarData {
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
-        let sub_len = key.iter().count();
         match direction {
             Direction::Forward => self
                 .sub_values
@@ -171,7 +172,7 @@ impl VarData {
                 .prev(),
         }
         .map(|x| x.0)
-        .and_then(|key| key.iter().nth(sub_len - 1))
+        .and_then(|x| key.extract_sibling_sub_key(x))
     }
 
     //todo
