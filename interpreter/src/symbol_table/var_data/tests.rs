@@ -103,39 +103,43 @@ mod query {
     #[test]
     fn forward_and_backward() {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
-        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+        let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
         let mut table = Table::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
+        //The variable root is always included in the map.
+        m_vars.insert(0, var_m("foo", &[]));
 
+        //Pull out into separate test
+        /*
+                        assert_eq!(
+                            table
+                                .query(&var_m_nullable("foo", &[""]), Direction::Forward)
+                                .as_ref(),
+                            m_vars.first()
+                        );
         assert_eq!(
-            table.query(&var_m_nullable("foo", &[""]), Direction::Forward),
-            format!("{}", m_vars.first().unwrap())
-        );
-        for [current, expected] in m_vars.array_windows() {
-            assert_eq!(
-                table.query(current, Direction::Forward),
-                format!("{expected}")
-            );
-        }
-        assert_eq!(table.query(m_vars.last().unwrap(), Direction::Forward), "");
+                    table
+                        .query(&var_m_nullable("foo", &[""]), Direction::Backward)
+                        .as_ref(),
+                    m_vars.last()
+                );
+                */
 
-        //Backwards
-        assert_eq!(
-            table.query(&var_m_nullable("foo", &[""]), Direction::Backward),
-            format!("{}", m_vars.last().unwrap())
-        );
-        for [expected, current] in m_vars.array_windows().rev() {
-            assert_eq!(
-                table.query(current, Direction::Backward),
-                format!("{expected}")
-            );
-        }
         assert_eq!(
             table.query(m_vars.first().unwrap(), Direction::Backward),
-            ""
+            None
+        );
+        for [a, b] in m_vars.array_windows() {
+            assert_eq!(table.query(a, Direction::Forward).as_ref(), Some(b));
+            assert_eq!(table.query(b, Direction::Backward).as_ref(), Some(a));
+        }
+
+        assert_eq!(
+            table.query(m_vars.last().unwrap(), Direction::Forward),
+            None
         );
     }
 
@@ -143,21 +147,22 @@ mod query {
     fn value_with_no_subscripts() {
         let mut table = super::Table::new();
         let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+
         assert_eq!(
             table.query(&var_m_nullable("foo", &[""]), Direction::Forward),
-            ""
+            None
         );
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Forward),
-            ""
+            None
         );
         assert_eq!(
             table.query(&var_m_nullable("foo", &[""]), Direction::Backward),
-            ""
+            None
         );
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
-            ""
+            None
         );
     }
 
@@ -174,12 +179,12 @@ mod query {
         }
         let null_last_key = var_m_nullable("foo", &["0", ""]);
         assert_eq!(
-            table.query(&null_last_key, Direction::Forward),
-            format!("{}", m_vars[2])
+            table.query(&null_last_key, Direction::Forward).as_ref(),
+            Some(&m_vars[2])
         );
         assert_eq!(
-            table.query(&null_last_key, Direction::Backward),
-            format!("{}", m_vars[3])
+            table.query(&null_last_key, Direction::Backward).as_ref(),
+            Some(&m_vars[3])
         );
     }
 }

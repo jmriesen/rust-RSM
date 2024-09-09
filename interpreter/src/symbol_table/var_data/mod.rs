@@ -149,7 +149,7 @@ impl VarData {
         }
     }
 
-    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<&NullableKey> {
+    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<NonNullableKey> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
@@ -157,7 +157,11 @@ impl VarData {
                 .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
                 .prev(),
         }
-        .map(|x| x.0)
+        .map(|x| {
+            x.0.clone()
+                .try_into()
+                .expect("sub_values should only store NonNullableKeys")
+        })
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {

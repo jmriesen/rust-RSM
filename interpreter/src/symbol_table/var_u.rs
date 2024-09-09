@@ -35,7 +35,15 @@ pub struct VarU(pub ffi::VAR_U);
 
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {
-        unsafe { self.0.var_cu[0] == b'$' }
+        self.contents()[0] == b'$'
+    }
+
+    pub fn contents(&self) -> &[u8] {
+        let internals = unsafe { &self.0.var_cu[..] };
+        internals
+            .split_once(|x| *x == 0)
+            .map(|x| x.0)
+            .unwrap_or(&[])
     }
 }
 

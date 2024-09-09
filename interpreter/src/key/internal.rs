@@ -31,7 +31,7 @@ use crate::{key::SubKey, value::Value};
 
 const MAX_KEY_SIZE: usize = 255;
 
-use super::{format, Error, Iter, NullableKey};
+use super::{format, Error, Iter, NonNullableKey, NullableKey};
 
 use super::IntermediateRepresentation;
 
@@ -40,6 +40,18 @@ impl<'a> IntermediateRepresentation<'a> {
         let mut tmp = Vec::new();
         self.push_external_fmt(&mut tmp, quote_strings);
         tmp
+    }
+}
+
+impl TryFrom<NullableKey> for NonNullableKey {
+    type Error = ();
+
+    fn try_from(value: NullableKey) -> Result<Self, Self::Error> {
+        if value.has_trailing_null() {
+            Err(())
+        } else {
+            Ok(NonNullableKey(value))
+        }
     }
 }
 

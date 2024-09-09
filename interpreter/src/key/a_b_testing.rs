@@ -6,7 +6,6 @@ use ffi::{
 };
 
 impl<'a> Arbitrary<'a> for NonNullableKey {
-    //TODO replace with a real implementation
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let keys: Vec<_> = u.arbitrary()?;
         match Self::new(&keys) {
@@ -17,7 +16,6 @@ impl<'a> Arbitrary<'a> for NonNullableKey {
 }
 
 impl<'a> Arbitrary<'a> for NullableKey {
-    //TODO replace with a real implementation
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let keys: Vec<_> = u.arbitrary()?;
         match Self::new(&keys) {

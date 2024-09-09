@@ -32,7 +32,7 @@
 use arbitrary::Arbitrary;
 use interpreter::{
     key::{NonNullableKey, NullableKey},
-    symbol_table::{Direction, MVar, Table},
+    symbol_table::{m_var::helpers::var_m, Direction, MVar, Table},
     value::Value,
 };
 use libfuzzer_sys::fuzz_target;
@@ -74,7 +74,10 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Query(var, direction) => {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
-                assert_eq!(rust_val.as_bytes(), c_val);
+                assert_eq!(
+                    rust_val.map(|x| x.util_string_m_var()).unwrap_or(vec![]),
+                    c_val
+                );
             }
             TableCommands::Order(var, direction) => {
                 let rust_val = table.order(&var, direction);
