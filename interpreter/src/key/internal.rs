@@ -96,7 +96,7 @@ impl NullableKey {
     /// with the last sub keys value maximized.
     /// otherwise this is a no op.
     #[must_use]
-    pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
+    pub fn wrap_if_null_tail(&self) -> std::borrow::Cow<Self> {
         if self.has_trailing_null() {
             let mut modified_key = self.0.clone();
             for _ in 0..format::NULL.len() {

@@ -154,7 +154,7 @@ impl VarData {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
+                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
                 .prev(),
         }
         .map(|x| {
@@ -162,6 +162,11 @@ impl VarData {
                 .try_into()
                 .expect("sub_values should only store NonNullableKeys")
         })
+        //This is probably a bug but I am matching C's behavior
+        .or((direction == Direction::Backward
+            && !self.sub_values.is_empty()
+            && !key.is_empty())
+        .then(|| NonNullableKey::new(&[]).expect("an Empty Key can allways be constructed")))
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
@@ -172,7 +177,7 @@ impl VarData {
                 .next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
+                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
                 .prev(),
         }
         .map(|x| x.0)

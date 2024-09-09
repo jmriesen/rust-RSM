@@ -109,24 +109,8 @@ mod query {
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
-        //The variable root is always included in the map.
+        //The variable root is always included in the map. (TODO this might be a bug)
         m_vars.insert(0, var_m("foo", &[]));
-
-        //Pull out into separate test
-        /*
-                        assert_eq!(
-                            table
-                                .query(&var_m_nullable("foo", &[""]), Direction::Forward)
-                                .as_ref(),
-                            m_vars.first()
-                        );
-        assert_eq!(
-                    table
-                        .query(&var_m_nullable("foo", &[""]), Direction::Backward)
-                        .as_ref(),
-                    m_vars.last()
-                );
-                */
 
         assert_eq!(
             table.query(m_vars.first().unwrap(), Direction::Backward),
@@ -140,6 +124,26 @@ mod query {
         assert_eq!(
             table.query(m_vars.last().unwrap(), Direction::Forward),
             None
+        );
+    }
+
+    #[test]
+    fn nullable_subscripts_can_be_used() {
+        let keys: [&[&str]; 4] = [&["-1"], &["0", "-1"], &["0", "1"], &["a"]];
+        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+
+        let mut table = Table::new();
+        for var in &m_vars {
+            table.set(var, &Value::try_from("Value").unwrap()).unwrap();
+        }
+        let boundary = var_m_nullable("foo", &["0", ""]);
+        assert_eq!(
+            table.query(&boundary, Direction::Forward).as_ref(),
+            m_vars.get(1)
+        );
+        assert_eq!(
+            table.query(&boundary, Direction::Backward).as_ref(),
+            m_vars.get(2)
         );
     }
 
@@ -166,6 +170,22 @@ mod query {
         );
     }
 
+    ///TODO Potential Bug
+    #[test]
+    fn the_presents_of_subscripts_affects_query() {
+        let mut table = super::Table::new();
+        let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+        assert_eq!(
+            table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
+            None
+        );
+        //Setting a variable that will come *after* Bar
+        let _ = table.set(&var_m("foo", &["zbar"]), &Value::try_from("Value").unwrap());
+        assert_eq!(
+            table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
+            Some(var_m("foo", &[]))
+        );
+    }
     ///A trailing null is treated as the fist key while moving forward and the last key when moving
     ///backwards.
     #[test]
