@@ -64,14 +64,6 @@ impl NonNullableKey {
             Ok(Self(NullableKey::new(values)?))
         }
     }
-
-    pub fn push(self, value: &Value) -> Result<Self, Error> {
-        if value == &Value::empty() {
-            Err(Error::SubKeyContainsNull)
-        } else {
-            Ok(Self(self.0.push(value)?))
-        }
-    }
 }
 
 /// Stores a list of keys.
@@ -151,7 +143,7 @@ impl<'a> IntoIterator for &'a NullableKey {
 //represents one segment of a key
 //If we have the Mvar x("a","b")
 //"a" is one segment of the key ("a","b").
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
     tail: &'a [u8],

@@ -165,9 +165,27 @@ impl PartialOrd for NullableKey {
 }
 #[cfg(test)]
 mod tests {
-    use crate::key::NullableKey;
+    use std::str::FromStr;
 
+    use crate::{key::NullableKey, value::Value};
+
+    #[test]
     fn extract_sibling_key() {
-        NullableKey::new(&["foo", "bar"]).unwrap() oaa
+        let to_key = |keys: &[&'static str]| {
+            let keys: Vec<_> = keys.iter().map(|x| Value::from_str(x).unwrap()).collect();
+            NullableKey::new(&keys).unwrap()
+        };
+        let foo_bar = to_key(&["foo", "bar"]);
+        let foo_zar = to_key(&["foo", "zar"]);
+        assert_eq!(
+            foo_bar.extract_sibling_sub_key(&foo_zar),
+            foo_zar.iter().nth(1)
+        );
+        let foo_car_bar = to_key(&["foo", "car", "bar"]);
+        assert_eq!(
+            foo_bar.extract_sibling_sub_key(&foo_car_bar),
+            foo_car_bar.iter().nth(1)
+        );
+        assert_eq!(foo_bar.extract_sibling_sub_key(&to_key(&["foo"])), None);
     }
 }
