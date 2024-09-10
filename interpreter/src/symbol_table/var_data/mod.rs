@@ -29,15 +29,12 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
-#[cfg(any(test, feature = "fuzzing"))]
-use arbitrary::Arbitrary;
-
 use crate::{
     key::{NonNullableKey, NullableKey},
     value::Value,
 };
 
-#[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction {
     Forward,

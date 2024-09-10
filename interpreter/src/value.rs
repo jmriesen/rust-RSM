@@ -28,7 +28,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use clap::builder;
 use ffi::{CSTRING, MAX_STR_LEN};
 
 ///This type represents the contents of an M Value.

@@ -32,7 +32,7 @@
 use arbitrary::Arbitrary;
 use interpreter::{
     key::{NonNullableKey, NullableKey},
-    symbol_table::{m_var::helpers::var_m, Direction, MVar, Table},
+    symbol_table::{Direction, MVar, Table},
     value::Value,
 };
 use libfuzzer_sys::fuzz_target;
@@ -54,13 +54,18 @@ fuzz_target!(|commands: Vec<TableCommands>| {
     for command in commands.into_iter().take(100) {
         match command {
             TableCommands::Set(var, val) => {
-                table.set(&var, &val).unwrap();
-                c_table.set(&var.into_cmvar(), &val.into_cstring()).unwrap();
+                assert_eq!(
+                    table.set(&var, &val).map_err(|err| err.error_code() as i32),
+                    c_table.set(&var.into_cmvar(), &val.into_cstring())
+                );
             }
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
                 let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
-                assert_eq!(rust_val.ok_or(&-6), c_val.as_ref());
+                assert_eq!(
+                    rust_val.ok_or(&-(interpreter::bindings::ERRM6 as i32)),
+                    c_val.as_ref()
+                );
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
@@ -82,7 +87,11 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Order(var, direction) => {
                 let rust_val = table.order(&var, direction);
                 let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
-                assert_eq!(rust_val, Value::try_from(&c_val[..]).unwrap());
+                assert_eq!(
+                    rust_val,
+                    Value::try_from(&c_val[..])
+                        .expect("The buffer comming from C should always fit")
+                );
             }
         }
     }

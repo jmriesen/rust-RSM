@@ -109,7 +109,8 @@ mod query {
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
-        //The variable root is always included in the map. (TODO this might be a bug)
+        //The variable root is always included in the map.
+        //(TODO this might be a c bug see the_presents_of_subscripts_affects_query() )
         m_vars.insert(0, var_m("foo", &[]));
 
         assert_eq!(
@@ -170,7 +171,12 @@ mod query {
         );
     }
 
-    ///TODO Potential Bug
+    ///Potential C bug.
+    ///The behavior documented below is counter intuitive and was discovered during fuzz/AB
+    ///testing
+    ///$Q(var("subscript")) is being affected by presents or absents of *ANY* var subscript.
+    ///This seems like a bug
+    ///TODO File an issue with the upstream repo
     #[test]
     fn the_presents_of_subscripts_affects_query() {
         let mut table = super::Table::new();

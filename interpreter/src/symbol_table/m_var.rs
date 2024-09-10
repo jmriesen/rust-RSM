@@ -57,7 +57,7 @@ impl<Key: key::Key> std::fmt::Display for MVar<Key> {
 
 impl<Key: key::Key> MVar<Key> {
     pub fn new(name: VarU, key: Key) -> Self {
-        //TODO All M vars are currently assumed to be local  have a vol set of 0;
+        //TODO All M vars are currently assumed to be local and have a vol set of 0;
         Self {
             name,
             key,

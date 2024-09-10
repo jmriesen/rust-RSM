@@ -31,7 +31,7 @@
 #![allow(dead_code)]
 
 mod hash;
-pub mod m_var;
+mod m_var;
 mod var_data;
 mod var_u;
 
