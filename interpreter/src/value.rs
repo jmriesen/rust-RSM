@@ -115,6 +115,8 @@ pub mod utility {
         }
     }
 
+    // skip mutation testing since this is just used by rstest
+    #[cfg_attr(test, mutants::skip)]
     impl FromStr for Value {
         type Err = ();
 

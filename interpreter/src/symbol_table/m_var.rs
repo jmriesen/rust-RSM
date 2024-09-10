@@ -83,6 +83,7 @@ impl<Key: key::Key> MVar<Key> {
         }
     }
 
+    #[cfg_attr(test, mutants::skip)]
     pub fn util_string_m_var(&self) -> Vec<u8> {
         assert_eq!(self.uci, UCI_IS_LOCALVAR as u8, "Unimplemented");
         assert_eq!(self.volset, 0, "Unimplemented");

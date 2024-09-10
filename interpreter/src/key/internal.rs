@@ -73,6 +73,7 @@ impl NullableKey {
         }
     }
 
+    #[cfg_attr(test, mutants::skip)]
     #[must_use]
     pub fn into_ckey(self) -> (u8, [u8; 256]) {
         let mut key = [0; 256];
@@ -160,5 +161,13 @@ impl Ord for NullableKey {
 impl PartialOrd for NullableKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::key::NullableKey;
+
+    fn extract_sibling_key() {
+        NullableKey::new(&["foo", "bar"]).unwrap() oaa
     }
 }

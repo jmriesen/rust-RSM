@@ -68,6 +68,7 @@ pub mod helpers {
 
     use super::VarU;
 
+    #[cfg_attr(test, mutants::skip)]
     impl<'a> Arbitrary<'a> for VarU {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let mut var_cu: [u8; 32] = u.arbitrary()?;
