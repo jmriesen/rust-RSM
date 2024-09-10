@@ -25,7 +25,16 @@ jobs:
        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: install tree-sitter
       run: cargo install tree-sitter-cli --version 0.22.6  --locked
+    - name: install cargo-mutants
+      run: cargo install cargo-mutants  --version 24.5.0 --locked
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Generate diff
+      run: |
+            git branch -av
+            git diff origin/${{ github.base_ref }}.. | tee git.diff
+    - name: Mutants
+      run: |
+            cargo mutants --no-shuffle -vV --in-diff git.diff
