@@ -45,7 +45,7 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 pub struct CreationError;
 
 impl CreationError {
-    fn error_code() -> i16 {
+    pub fn error_code(&self) -> i16 {
         -256
     }
 }
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn error_code() {
-        assert_eq!(CreationError::error_code(), -256);
+        assert_eq!(CreationError {}.error_code(), -256);
     }
 
     #[test]

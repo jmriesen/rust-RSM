@@ -35,7 +35,10 @@ mod internal;
 use crate::value::Value;
 use format::IntermediateRepresentation;
 
-pub trait Key: std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> {}
+pub trait Key:
+    std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> + PartialEq + Eq
+{
+}
 impl Key for NullableKey {}
 impl Key for NonNullableKey {}
 
@@ -59,14 +62,6 @@ impl NonNullableKey {
             Err(Error::SubKeyContainsNull)
         } else {
             Ok(Self(NullableKey::new(values)?))
-        }
-    }
-
-    pub fn push(self, value: &Value) -> Result<Self, Error> {
-        if value == &Value::empty() {
-            Err(Error::SubKeyContainsNull)
-        } else {
-            Ok(Self(self.0.push(value)?))
         }
     }
 }
@@ -126,15 +121,12 @@ impl NullableKey {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for NullableKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut builder = f.debug_struct("key");
-        let value = String::from_utf8(self.string_key());
-        match value {
-            Ok(string) => builder.field("utf8", &string),
-            Err(_) => builder.field("raw", &self.0),
-        };
-        builder.finish()
+        f.debug_list()
+            .entries(self.iter().map(Value::from))
+            .finish()
     }
 }
 
@@ -151,7 +143,7 @@ impl<'a> IntoIterator for &'a NullableKey {
 //represents one segment of a key
 //If we have the Mvar x("a","b")
 //"a" is one segment of the key ("a","b").
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
     tail: &'a [u8],

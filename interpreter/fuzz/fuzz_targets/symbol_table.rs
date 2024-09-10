@@ -31,8 +31,8 @@
 
 use arbitrary::Arbitrary;
 use interpreter::{
-    key::NonNullableKey,
-    symbol_table::{MVar, Table},
+    key::{NonNullableKey, NullableKey},
+    symbol_table::{Direction, MVar, Table},
     value::Value,
 };
 use libfuzzer_sys::fuzz_target;
@@ -42,6 +42,9 @@ enum TableCommands {
     Set(MVar<NonNullableKey>, Value),
     Get(MVar<NonNullableKey>),
     Kill(MVar<NonNullableKey>),
+    Data(MVar<NonNullableKey>),
+    Query(MVar<NullableKey>, Direction),
+    Order(MVar<NullableKey>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
@@ -51,17 +54,44 @@ fuzz_target!(|commands: Vec<TableCommands>| {
     for command in commands.into_iter().take(100) {
         match command {
             TableCommands::Set(var, val) => {
-                let _ = table.set(&var, &val);
-                c_table.set(&var.into_cmvar(), &val.into_cstring())
+                assert_eq!(
+                    table.set(&var, &val).map_err(|err| err.error_code() as i32),
+                    c_table.set(&var.into_cmvar(), &val.into_cstring())
+                );
             }
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
-                let c_val = c_table.get(&var.into_cmvar()).map(|x| (&x).into());
-                assert_eq!(rust_val, c_val.as_ref())
+                let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
+                assert_eq!(
+                    rust_val.ok_or(&-(interpreter::bindings::ERRM6 as i32)),
+                    c_val.as_ref()
+                );
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
                 c_table.kill(&var.into_cmvar());
+            }
+            TableCommands::Data(var) => {
+                let (decedents, data) = c_table.data(&var.clone().into_cmvar());
+                assert_eq!(decedents, table.data(&var).has_descendants);
+                assert_eq!(data, table.data(&var).has_value);
+            }
+            TableCommands::Query(var, direction) => {
+                let rust_val = table.query(&var, direction);
+                let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
+                assert_eq!(
+                    rust_val.map(|x| x.util_string_m_var()).unwrap_or(vec![]),
+                    c_val
+                );
+            }
+            TableCommands::Order(var, direction) => {
+                let rust_val = table.order(&var, direction);
+                let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
+                assert_eq!(
+                    rust_val,
+                    Value::try_from(&c_val[..])
+                        .expect("The buffer comming from C should always fit")
+                );
             }
         }
     }

@@ -42,7 +42,8 @@ use crate::{
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
 pub use m_var::MVar;
-use var_data::{DataResult, Direction, VarData};
+pub use var_data::Direction;
+use var_data::{DataResult, VarData};
 use var_u::VarU;
 
 impl hash::Key for VarU {
@@ -97,26 +98,26 @@ impl Table {
 
     #[must_use]
     pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
-        self.0
-            .locate(&var.name)
-            .map_or(DataResult {
+        self.0.locate(&var.name).map_or(
+            DataResult {
                 has_value: false,
                 has_descendants: false,
-            }, |x| x.data(&var.key))
+            },
+            |x| x.data(&var.key),
+        )
     }
 
     //Returns a string representation of Key in the given MVar.
     #[must_use]
-    pub fn query<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> String {
+    pub fn query<Key: key::Key>(
+        &self,
+        var: &MVar<Key>,
+        direction: Direction,
+    ) -> Option<MVar<NonNullableKey>> {
         self.0
             .locate(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
-            .map(|key| {
-                let mut next_var = var.clone().to_nullable();
-                next_var.key = key.clone();
-                format!("{next_var}")
-            })
-            .unwrap_or_default()
+            .map(|key| var.copy_new_key(key))
     }
 
     ///Returns the next `sub_key` for a given variable.

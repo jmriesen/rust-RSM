@@ -35,7 +35,15 @@ pub struct VarU(pub ffi::VAR_U);
 
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {
-        unsafe { self.0.var_cu[0] == b'$' }
+        self.contents()[0] == b'$'
+    }
+
+    pub fn contents(&self) -> &[u8] {
+        let internals = unsafe { &self.0.var_cu[..] };
+        internals
+            .split_once(|x| *x == 0)
+            .map(|x| x.0)
+            .unwrap_or(&[])
     }
 }
 
@@ -56,22 +64,27 @@ impl PartialEq for VarU {
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
     use arbitrary::Arbitrary;
+    use ffi::VAR_U;
 
     use super::VarU;
 
-    #[must_use]
-    pub fn var_u(var: &str) -> VarU {
-        VarU(var.try_into().unwrap())
-    }
-
+    #[cfg_attr(test, mutants::skip)]
     impl<'a> Arbitrary<'a> for VarU {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let name: [u8; 32] = u.arbitrary()?;
-            if name.is_ascii() && name.contains(&0) {
-                Ok(Self(ffi::VAR_U { var_cu: name }))
+            let mut var_cu: [u8; 32] = u.arbitrary()?;
+            if var_cu.is_ascii() && var_cu.contains(&0) {
+                for x in var_cu.iter_mut().skip_while(|x| **x != 0) {
+                    *x = 0;
+                }
+                Ok(Self(VAR_U { var_cu }))
             } else {
                 Err(arbitrary::Error::IncorrectFormat)
             }
         }
+    }
+
+    #[must_use]
+    pub fn var_u(var: &str) -> VarU {
+        VarU(var.try_into().unwrap())
     }
 }

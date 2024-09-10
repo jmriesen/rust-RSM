@@ -34,7 +34,8 @@ use crate::{
     value::Value,
 };
 
-#[derive(Clone, Copy)]
+#[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction {
     Forward,
     Backward,
@@ -145,19 +146,27 @@ impl VarData {
         }
     }
 
-    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<&NullableKey> {
+    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<NonNullableKey> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
+                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
                 .prev(),
         }
-        .map(|x| x.0)
+        .map(|x| {
+            x.0.clone()
+                .try_into()
+                .expect("sub_values should only store NonNullableKeys")
+        })
+        //This is probably a bug but I am matching C's behavior
+        .or((direction == Direction::Backward
+            && !self.sub_values.is_empty()
+            && !key.is_empty())
+        .then(|| NonNullableKey::new(&[]).expect("an Empty Key can allways be constructed")))
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
-        let sub_len = key.iter().count();
         match direction {
             Direction::Forward => self
                 .sub_values
@@ -165,11 +174,11 @@ impl VarData {
                 .next(),
             Direction::Backward => self
                 .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_null_tail()))
+                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
                 .prev(),
         }
         .map(|x| x.0)
-        .and_then(|key| key.iter().nth(sub_len - 1))
+        .and_then(|x| key.extract_sibling_sub_key(x))
     }
 
     //todo

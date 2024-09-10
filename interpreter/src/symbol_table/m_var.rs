@@ -29,9 +29,9 @@
  */
 use super::var_u::VarU;
 use crate::key::{self, NullableKey};
-use ffi::u_char;
+use ffi::{u_char, UCI_IS_LOCALVAR};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MVar<Key: key::Key> {
     pub name: VarU,
     volset: u_char,
@@ -48,14 +48,23 @@ impl<Key: key::Key> std::fmt::Display for MVar<Key> {
                 f,
                 "{}{}",
                 self.name.0,
-                //TODO handle non Ascii case
-                String::from_utf8(self.key.borrow().string_key()).unwrap()
+                //TODO Consider how this would work with page files
+                String::from_utf8_lossy(&self.key.borrow().string_key())
             )
         }
     }
 }
 
 impl<Key: key::Key> MVar<Key> {
+    pub fn new(name: VarU, key: Key) -> Self {
+        //TODO All M vars are currently assumed to be local and have a vol set of 0;
+        Self {
+            name,
+            key,
+            uci: UCI_IS_LOCALVAR as u8,
+            volset: 0,
+        }
+    }
     pub fn to_nullable(self) -> MVar<NullableKey> {
         MVar::<NullableKey> {
             name: self.name,
@@ -63,6 +72,29 @@ impl<Key: key::Key> MVar<Key> {
             uci: self.uci,
             key: self.key.into(),
         }
+    }
+
+    pub fn copy_new_key<NewKey: key::Key>(&self, key: NewKey) -> MVar<NewKey> {
+        MVar::<NewKey> {
+            name: self.name.clone(),
+            volset: self.volset,
+            uci: self.uci,
+            key,
+        }
+    }
+
+    #[cfg_attr(test, mutants::skip)]
+    pub fn util_string_m_var(&self) -> Vec<u8> {
+        assert_eq!(self.uci, UCI_IS_LOCALVAR as u8, "Unimplemented");
+        assert_eq!(self.volset, 0, "Unimplemented");
+
+        let mut string = vec![];
+        string.extend(self.name.contents());
+        let key = self.key.borrow();
+        if !key.is_empty() {
+            string.extend(key.string_key());
+        }
+        string
     }
 }
 
@@ -93,7 +125,7 @@ mod tests {
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
-    use super::MVar;
+    use super::*;
     use crate::{
         key::{NonNullableKey, NullableKey},
         symbol_table::var_u::helpers::var_u,
@@ -110,13 +142,7 @@ pub mod helpers {
             .collect::<Vec<_>>();
         let key = NullableKey::new(&values).unwrap();
 
-        //TODO All M vars are currently assumed to be local  have a vol set of 0;
-        MVar {
-            name: var_u(name),
-            volset: Default::default(),
-            uci: UCI_IS_LOCALVAR as u8,
-            key,
-        }
+        MVar::new(var_u(name), key)
     }
     #[must_use]
     pub fn var_m(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
@@ -126,13 +152,7 @@ pub mod helpers {
             .collect::<Vec<_>>();
         let key = NonNullableKey::new(&values).unwrap();
 
-        //TODO All M vars are currently assumed to be local  have a vol set of 0;
-        MVar {
-            name: var_u(name),
-            volset: Default::default(),
-            uci: UCI_IS_LOCALVAR as u8,
-            key,
-        }
+        MVar::new(var_u(name), key)
     }
 
     #[cfg_attr(test, mutants::skip)]
@@ -141,13 +161,7 @@ pub mod helpers {
         Key: Arbitrary<'a> + crate::key::Key,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            //TODO All M vars are currently assumed to be local  have a vol set of 0;
-            Ok(MVar {
-                name: u.arbitrary()?,
-                volset: 0,
-                uci: 0,
-                key: u.arbitrary()?,
-            })
+            Ok(MVar::new(VarU::arbitrary(u)?, Key::arbitrary(u)?))
         }
     }
 

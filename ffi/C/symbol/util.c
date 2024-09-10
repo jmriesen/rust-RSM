@@ -44,6 +44,10 @@
 short         st_hash[ST_HASH + 1];                                             // allocate hashing table
 symtab_struct symtab[ST_MAX + 1];                                               // and symbol table
 
+
+short is_prefix(u_char* prefix_key,short prefix_key_len,u_char *key,short key_len){
+    return key_len >=prefix_key_len &&memcmp(prefix_key,key,prefix_key_len) ==0;
+}
 /*
  * Function: ST_Hash - Create a hash from a variable name
  * returns hash number
@@ -202,6 +206,7 @@ short ST_Create(var_u var)                                                      
  */
 short ST_Kill(mvar *var)                                                        // var name in a quad
 {
+
     short     ptr;                                                              // for the pointer
     ST_data   *data;                                                            // and ptr to data block
     ST_depend *check = ST_DEPEND_NULL;                                          // working dependent pointer
@@ -237,6 +242,7 @@ short ST_Kill(mvar *var)                                                        
 
                 // start search at last used key, rather than at the beginning (var after lastkey)
                 if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
+
                     check = lastkey;
                 }
 
@@ -245,8 +251,7 @@ short ST_Kill(mvar *var)                                                        
                     checkprev = check;                                          // save current to previous
                     check = check->deplnk;                                      // go to next
                 }                                                               // end if we go past it, or end
-
-                if ((check != ST_DEPEND_NULL) && (memcmp(check->bytes, var->key, var->slen) == 0)) { // valid remove
+                if ((check != ST_DEPEND_NULL) &&  is_prefix(var->key, var->slen, check->bytes, check->keylen) ) { // valid remove
                     ST_RemDp(data, checkprev, check, var);                      // get rid of it
                 }                                                               // end if valid remove found
 
@@ -275,11 +280,11 @@ void ST_RemDp(ST_data *dblk, ST_depend *prev, ST_depend *dp, mvar *mvardr)
 {
     if (dp == ST_DEPEND_NULL) return;                                           // no dependents to check
 
-    if ((dp->deplnk != ST_DEPEND_NULL) && (memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0)) { // next dep, has part match key
+    if ((dp->deplnk != ST_DEPEND_NULL) && is_prefix(mvardr->key, mvardr->slen, dp->bytes, dp->keylen)) { // next dep, has part match key
         ST_RemDp(dblk, dp, dp->deplnk, mvardr);                                 // try to get rid of next one
     }                                                                           // end if keys part match
 
-    if (memcmp(dp->bytes, mvardr->key, mvardr->slen) == 0) {                    // keys match to slen
+    if (is_prefix(mvardr->key, mvardr->slen, dp->bytes, dp->keylen)) {                    // keys match to slen
         if (prev != ST_DEPEND_NULL) {                                           // if not removing first dep
             prev->deplnk = dp->deplnk;                                          // bypass a dep killee
         } else {                                                                // end if !removing first dep - removing first dep
@@ -692,13 +697,14 @@ short ST_Order(mvar *var, u_char *buf, int dir)
         crud[0] = UTIL_Key_Chars_In_Subs((char *) current->bytes, (int) current->keylen, pieces - 1, &subs, (char *) &crud[1]);
 
         if ((crud[0] != 0) && (upOneLev[0] != 0)) {
+            //bounds check
             if (crud[0] != upOneLev[0]) return 0;
             if (memcmp(&crud[1], &upOneLev[1], upOneLev[0]) != 0) return 0;
             // Ensure higher level subscripts (if any) are equal
         }
     } else {                                                                    // end if reverse order - forward order
         // while we have dependents and key cmp fails
-        while ((current != ST_DEPEND_NULL) && (memcmp(current->bytes, var->key, var->slen) == 0)) {
+        while ((current != ST_DEPEND_NULL) && is_prefix(var->key,var->slen,current->bytes,current->keylen) ) {
             current = current->deplnk;                                          // go to next dependent
         }                                                                       // end while
 
@@ -708,6 +714,7 @@ short ST_Order(mvar *var, u_char *buf, int dir)
         if (UTIL_Key_KeyCmp(var->key, current->bytes, var->slen, current->keylen) != 0) {
             crud[0] = UTIL_Key_Chars_In_Subs((char *) current->bytes, (int) current->keylen, pieces - 1, &subs, (char *) &crud[1]);
 
+            //bounds check
             if ((crud[0] != 0) && (upOneLev[0] != 0)) {                         // if lengths aren't 0
                 if (memcmp(&crud[1], &upOneLev[1], upOneLev[0]) != 0) return 0; // & cmp fails then return a length of zero
             }                                                                   // end if slen's non zero

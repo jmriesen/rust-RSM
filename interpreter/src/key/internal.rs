@@ -31,7 +31,7 @@ use crate::{key::SubKey, value::Value};
 
 const MAX_KEY_SIZE: usize = 255;
 
-use super::{format, Error, Iter, NullableKey};
+use super::{format, Error, Iter, NonNullableKey, NullableKey};
 
 use super::IntermediateRepresentation;
 
@@ -40,6 +40,18 @@ impl<'a> IntermediateRepresentation<'a> {
         let mut tmp = Vec::new();
         self.push_external_fmt(&mut tmp, quote_strings);
         tmp
+    }
+}
+
+impl TryFrom<NullableKey> for NonNullableKey {
+    type Error = ();
+
+    fn try_from(value: NullableKey) -> Result<Self, Self::Error> {
+        if value.has_trailing_null() {
+            Err(())
+        } else {
+            Ok(NonNullableKey(value))
+        }
     }
 }
 
@@ -61,6 +73,7 @@ impl NullableKey {
         }
     }
 
+    #[cfg_attr(test, mutants::skip)]
     #[must_use]
     pub fn into_ckey(self) -> (u8, [u8; 256]) {
         let mut key = [0; 256];
@@ -70,7 +83,7 @@ impl NullableKey {
 
     #[must_use]
     pub fn is_sub_key_of(&self, key: &Self) -> bool {
-        self.0[..key.len()] == key.0
+        self.len() >= key.len() && self.0[..key.len()] == key.0
     }
 
     fn has_trailing_null(&self) -> bool {
@@ -84,7 +97,7 @@ impl NullableKey {
     /// with the last sub keys value maximized.
     /// otherwise this is a no op.
     #[must_use]
-    pub fn wrap_null_tail(&self) -> std::borrow::Cow<Self> {
+    pub fn wrap_if_null_tail(&self) -> std::borrow::Cow<Self> {
         if self.has_trailing_null() {
             let mut modified_key = self.0.clone();
             for _ in 0..format::NULL.len() {
@@ -105,6 +118,21 @@ impl NullableKey {
         let mut modified_key = self.0.clone();
         modified_key.extend(format::MAX_SUB_KEY);
         NullableKey(modified_key)
+    }
+    pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<SubKey<'a>> {
+        //NOTE This was not written to be preferment, just correct.
+        //This should totally be possible to do without any additional allocations.
+        let mut keys: Vec<_> = self.iter().collect();
+        keys.pop();
+        let parent = keys;
+        let other: Vec<_> = other.iter().collect();
+
+        //Only Extract if the parents are the same
+        if other.len() > parent.len() && parent[..] == other[..parent.len()] {
+            Some(other[parent.len()])
+        } else {
+            None
+        }
     }
 }
 
@@ -133,5 +161,31 @@ impl Ord for NullableKey {
 impl PartialOrd for NullableKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::{key::NullableKey, value::Value};
+
+    #[test]
+    fn extract_sibling_key() {
+        let to_key = |keys: &[&'static str]| {
+            let keys: Vec<_> = keys.iter().map(|x| Value::from_str(x).unwrap()).collect();
+            NullableKey::new(&keys).unwrap()
+        };
+        let foo_bar = to_key(&["foo", "bar"]);
+        let foo_zar = to_key(&["foo", "zar"]);
+        assert_eq!(
+            foo_bar.extract_sibling_sub_key(&foo_zar),
+            foo_zar.iter().nth(1)
+        );
+        let foo_car_bar = to_key(&["foo", "car", "bar"]);
+        assert_eq!(
+            foo_bar.extract_sibling_sub_key(&foo_car_bar),
+            foo_car_bar.iter().nth(1)
+        );
+        assert_eq!(foo_bar.extract_sibling_sub_key(&to_key(&["foo"])), None);
     }
 }
