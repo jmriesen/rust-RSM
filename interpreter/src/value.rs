@@ -29,6 +29,7 @@
  */
 
 use ffi::{CSTRING, MAX_STR_LEN};
+pub static EMPTY: Value = Value::empty();
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.

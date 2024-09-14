@@ -66,6 +66,7 @@ impl NonNullableKey {
     }
 }
 
+pub static EMPTY: NullableKey = NullableKey(Vec::new());
 /// Stores a list of keys.
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
 #[derive(Eq, PartialEq, Clone)]
