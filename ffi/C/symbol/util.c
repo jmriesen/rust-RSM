@@ -538,14 +538,15 @@ short ST_Data(mvar *var, u_char *buf)                                           
         lastkey = symtab[ptr1].data->last_key;                                  // pointer to last used key
         depPtr = symtab[ptr1].data->deplnk;                                     // get first dependent
 
-        if (depPtr != ST_DEPEND_NULL) {                                         // only if we should go on
-            if (depPtr->keylen < i) i = depPtr->keylen;                         // adjust length if needed
-        }                                                                       // end if
 
         // start search at last used key, rather than at the beginning (var after lastkey)
         if ((lastkey != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, lastkey->bytes, var->slen, lastkey->keylen) > 0)) {
             depPtr = lastkey;
         }
+
+        if (depPtr != ST_DEPEND_NULL) {                                         // only if we should go on
+            if (depPtr->keylen < i) i = depPtr->keylen;                         // adjust length if needed
+        }                                                                       // end if
 
         while ((depPtr != ST_DEPEND_NULL) && (memcmp(depPtr->bytes, var->key, i) < 0)) { // while not yet found or past
             prevPtr = depPtr;                                                   // save previous
