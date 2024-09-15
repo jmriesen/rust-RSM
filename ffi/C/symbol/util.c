@@ -758,7 +758,6 @@ short ST_Query(mvar *var, u_char *buf, int dir)
     if (ptr1 < 0) return 0;
     if (symtab[ptr1].data == ST_DATA_NULL) return 0;                            // no data block, err
     current = symtab[ptr1].data->deplnk;                                        // first dependent pointed at
-    if (current == ST_DEPEND_NULL) return 0;                                    // not found
     lastkey = symtab[ptr1].data->last_key;                                      // pointer to last used key
 
     // start search at last used key, rather than at the beginning (var after lastkey)
@@ -774,27 +773,34 @@ short ST_Query(mvar *var, u_char *buf, int dir)
 
     symtab[ptr1].data->last_key = prev;                                         // add last used key
 
-    if (var->slen > 0) {                                                        // looking in dependents
-        if (dir == -1) {                                                        // reverse order
-            if (prev != ST_DEPEND_NULL) current = prev;                         // only if previous ptr defined, go back one
-        } else {                                                                // end if reverse order - start forward order
-            // not going past non exist last and keys are equal (var equal current)
-            if ((current != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, current->bytes, var->slen, current->keylen) == 0)) {
-                current = current->deplnk;                                      // go to next
-            }                                                                   // end if exact match
-        }                                                                       // end else-forward
-    }                                                                           // finished looking
 
-    if (current == ST_DEPEND_NULL) return 0;                                    // if we have gone past end, return length of zero
-    if ((dir == -1) && (var->slen == 0)) return 0;                              // reverse dir and data block, return length of zero
-    outputVar.slen = current->keylen;                                           // key and length of set
-    memcpy(outputVar.key, current->bytes, (int) current->keylen);               // setup mvar
+    // Adjusting current pointer
+    if (dir==1){
+        //If the key is included in the subscript list move to the next subscript
+        if ((current != ST_DEPEND_NULL) && (UTIL_Key_KeyCmp(var->key, current->bytes, var->slen, current->keylen) == 0)){
+            current = current->deplnk;
+        }else{
+            //current is already in the correct spot
+        }
+    }else{
+        //we are moving backwards.
+        current = prev;
+    }
 
-    if ((current == symtab[ptr1].data->deplnk) && (prev != current) && (dir == -1) && (var->slen > 0)) { // previous is a data block
-        outputVar.slen = 0;                                                     // flag is as such
-    }                                                                           // end if back to a data block
-
-    return UTIL_String_Mvar(&outputVar, buf, MAX_NUM_SUBS);                     // convert mvar and return length of key
+    if (current==ST_DEPEND_NULL){
+        //If we are moving backwards, queried with a subscript, and have date in the variable root
+        if (dir==-1 && var->slen!=0 && symtab[ptr1].data->dbc!=VAR_UNDEFINED ){
+            outputVar.slen=0;
+            return UTIL_String_Mvar(&outputVar, buf, MAX_NUM_SUBS);
+        }else{
+            //We ran off one of the ends.
+            return 0;
+        }
+    }else{
+        outputVar.slen = current->keylen;
+        memcpy(outputVar.key, current->bytes, (int) current->keylen);
+        return UTIL_String_Mvar(&outputVar, buf, MAX_NUM_SUBS);
+    }
 }                                                                               // end ST_Query
 
 int ST_GetAdd(mvar *var, cstring **add)                                         // get local data address
