@@ -29,9 +29,11 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
+use arbitrary::size_hint::or;
+
 use crate::{
-    key::{NonNullableKey, NullableKey},
-    value::Value,
+    key::{self, NonNullableKey, NullableKey},
+    value::{self, Value},
 };
 
 #[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
@@ -149,21 +151,20 @@ impl VarData {
     pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<NonNullableKey> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
-            Direction::Backward => self
-                .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
-                .prev(),
+            Direction::Backward => {
+                self.sub_values
+                    .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
+                    .prev()
+                    //If going backwards we also have to check the root
+                    .or((!key.is_empty() && self.value.is_some())
+                        .then(|| (&key::EMPTY, &value::EMPTY)))
+            }
         }
         .map(|x| {
             x.0.clone()
                 .try_into()
                 .expect("sub_values should only store NonNullableKeys")
         })
-        //This is probably a bug but I am matching C's behavior
-        .or((direction == Direction::Backward
-            && !self.sub_values.is_empty()
-            && !key.is_empty())
-        .then(|| NonNullableKey::new(&[]).expect("an Empty Key can allways be constructed")))
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {

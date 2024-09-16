@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 
-use super::Table;
-use crate::symbol_table::m_var::helpers::var_m;
+use super::{Direction, Table};
+pub use crate::symbol_table::m_var::helpers::var_m;
+use crate::{symbol_table::m_var::helpers::var_m_nullable, value::Value};
 use ffi::UCI_IS_LOCALVAR;
 use pretty_assertions::assert_eq;
 
@@ -212,4 +213,16 @@ fn keep_vars() {
     for var in &[dolor, retain_a, retain_b] {
         assert_eq!(table.get(var), Some(&data));
     }
+}
+#[test]
+fn replicate_c_bug_found_while_fuzzing() {
+    let mut table = ffi::symbol_table::Table::new();
+    table
+        .set(
+            &var_m("OOOOO//", &[]).into_cmvar(),
+            &Value::empty().into_cstring(),
+        )
+        .unwrap();
+    let query_result = table.query(&var_m_nullable("OOOOO//", &[""]).into_cmvar(), true);
+    assert_eq!(query_result, var_m("OOOOO//", &[]).util_string_m_var());
 }
