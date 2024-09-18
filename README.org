@@ -88,6 +88,31 @@
    - Lint for unused and assumed variables
    - Extract Method 
    - Introduce package scoping
+
+* Running the project
+  This project dose not currently produce a working executable.
+  If you need a working M interpreter please see [[https://gitlab.com/Reference-Standard-M/rsm][[Reference-Standard-M]].
+  Any bugs that I find during the course of creating this clone will be reported back up stream to RSM.
+** Development env setup.
+   NOTE check the [[./.github/workflows/rust.yml][github actions]] for the version of the cli tools
+   - cargo install tree-sitter-cli --version <version>  --locked
+   - cargo install cargo-mutants  --version <version> --locked
+   - You will need clang installed (requirement of bindgen) see bindgens [[https://rust-lang.github.io/rust-bindgen/requirements.html][documentation]] for more details.
+
+** Running the unit tests 
+   - cargo test
+** Running the fuss tests
+   NOTE: currently fuzzing is only done in the interpreter create. 
+
+   - cargo fuzz list
+   - cargo fuzz run <fuzzing target>
+   [[https://rust-fuzz.github.io/book/cargo-fuzz.html][cargo fuzz book]]
+
+** Running mutation testing.
+   NOTE this can take a while.
+   - cd <crate name>
+   - cargo mutants
+
 * Techniques/Concepts 
 ** Unit testing
     The more unit tests I write the more useful I realize unit tests are, and the less they seem to be about double checking my work.
