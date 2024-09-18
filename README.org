@@ -28,7 +28,6 @@
 
 **** Type considerations
      There are of course all the normal C vs Rust type considerations.
-
      However in addition to that the C code makes heavy use of un-sized types and quasi self references types.
 
 ****** Dynamically sized types
@@ -43,27 +42,28 @@
        Fortunately the C types are only kind of self referential.
        They frequently assume that type A will be immediately followed by type B.
        So we end up with the logical composite type AB, which is impotent for understanding the C code.
-       Fortunately this is mostly just a logical construction, and as long as you are aware that this is happening it is fairly easy to spot in the C code, and deal with in the Rust rewrite.
+       Fortunately this is mostly just a logical construction, and is fairly easy to spot in the C code, and deal with in the Rust rewrite.
 
 ** [[./tree-sitter-M][tree-sitter-m]]
    For this project I have chosen to use a [[https://tree-sitter.github.io/tree-sitter/][tree-sitter]] parser.
-   - Uses JavaScript to specify the Grammar.
-   - Uses an External Scanner to deal with indentation.
-   - Runs the tree-sitter cli
+   - Uses JavaScript to specify the grammar.
+   - Uses an [[https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners][external scanner]] to deal with indentation.
+   - Runs the tree-sitter-cli during from the build.rs
    - Generates
-     - A C library that contains the parser
+     - A C library that contains the parser.
      - A Rust crate that wraps that C library.
      - A [[./tree-sitter-M/src/node-types.json][node-types.json]] file that describes the Grammars structure.
 ** [[./lang-model/][language model]]
-   This crate stores the rust types wrappers for each of the notes in the M grammar.
+   This crate stores the rust types wrappers for each of the nodes in the M grammar.
    The [[./lang-model/src/models.rs]] file is generated from the [[./tree-sitter-M/src/node-types.json][node-types.json]] using a separate personal project.
 ** [[./compiler/][Compiler]]
    This crate takes the AST provided by the lang-model and converts it into byte code.
 
-   This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here. As such there are still a number lingering artifacts, type defs/impls that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
+   This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
+   As a result there are still a number lingering artifacts, type defs/impls that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
 
    Additionally I did not yet understand how the shared memory segment worked when writing most of this crate.
-   So most of it just pretends that the global in the shared memory segment don't exist.
+   So for the most part it just pretends that the globals in the shared memory segment don't exist.
 ** [[./interpreter/][Interpreter]]
    This create is going to store the actual interpreter binary.
    Currently the crate is responsible for 
@@ -71,8 +71,7 @@
    - setting up the shared memory segment
    - symbol table
 
-     In the future I will probably end up splitting out the shared memory segment out into its own crate.
-     The compiler will eventually need access to the shared memory segment. 
+     In the future I will probably end up splitting out the shared memory segment out into its own crate since the compiler will eventually need access to the shared memory segment. 
 
 ** [[./lang-server][Language Server]]
    This is a language server for M.
