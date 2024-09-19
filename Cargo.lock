@@ -1118,6 +1118,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "symbol_table"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
+ "bindgen",
+ "cbindgen",
+ "cc",
+ "clap",
+ "derive_more",
+ "ffi",
+ "glob",
+ "libc",
+ "mutants",
+ "pretty_assertions",
+ "rand",
+ "ref-cast",
+ "rstest",
+ "thiserror",
+ "uname",
+ "uuid",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"

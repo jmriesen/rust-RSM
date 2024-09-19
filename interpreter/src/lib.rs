@@ -51,7 +51,6 @@ pub mod create;
 pub mod run;
 mod shared_seg;
 pub mod start;
-pub mod symbol_table;
 pub mod units;
 pub mod util;
 pub mod var_u;
@@ -59,5 +58,3 @@ pub use bindings::*;
 #[cfg(test)]
 pub mod test_helper;
 pub mod value;
-
-pub mod key;

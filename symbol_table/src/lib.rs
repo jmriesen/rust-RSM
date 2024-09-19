@@ -31,16 +31,15 @@
 #![allow(dead_code)]
 
 mod hash;
+mod key;
 mod m_var;
 mod var_data;
 mod var_u;
 
-use crate::{
-    key::{self, NonNullableKey},
-    value::Value,
-};
+use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
+use key::{self, NonNullableKey};
 pub use m_var::MVar;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
