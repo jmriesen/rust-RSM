@@ -32,7 +32,7 @@ use std::process::Command;
 fn main() {
     //generate the grammer if the grammer.js file changes.
     //Note requires cli installed.
-    println!("cargo:rerun-if-changed=grammer.js");
+    println!("cargo:rerun-if-changed=grammar.js");
     let status_code = Command::new("tree-sitter")
         .arg("generate")
         .status()
