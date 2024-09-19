@@ -28,18 +28,24 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 //TODO remove once this module is actually being used.
+#![feature(btree_cursors)]
+#![feature(let_chains)]
+#![feature(hash_extract_if)]
+#![feature(slice_split_once)]
+#![feature(array_windows)]
 #![allow(dead_code)]
 
 mod hash;
 mod key;
 mod m_var;
+mod value;
 mod var_data;
 mod var_u;
 
 use crate::value::Value;
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
-use key::{self, NonNullableKey};
+use key::NonNullableKey;
 pub use m_var::MVar;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
