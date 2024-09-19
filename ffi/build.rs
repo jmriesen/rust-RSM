@@ -87,7 +87,7 @@ fn main() {
     println!("cargo:rerun-if-changed=C/include",);
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate bindings for.
-        // note order matters so I cant just pull all .h files from that folder.
+        // Note order matters so I cant just pull all .h files from that folder.
         .clang_arg("-funsigned-char")
         .header("sys/types.h")
         .header("C/include/rsm.h")
@@ -102,7 +102,6 @@ fn main() {
         .header("C/include/symbol.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         //NOTE the -fsigned-char flag does not seem working.
         //However after digging into they typedefs my char are signed.
         //for portability sake we might want to take another look at this but I am not going to worry about it right now.
@@ -121,7 +120,6 @@ fn main() {
         // The input header we would like to generate bindings for.
         // note order matters so I cant just pull all .h files from that folder.
         .header("C/include/opcode.h")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .parse_callbacks(Box::new(OpCodeParser))
         //.clang_arg("-fsigned-char")
         .generate()
