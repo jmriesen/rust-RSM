@@ -1,9 +1,6 @@
-use crate::{
-    symbol_table::{m_var::helpers::var_m_nullable, Table},
-    value::Value,
-};
+use crate::{m_var::helpers::var_m_nullable, value::Value, Table};
 mod data {
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::DataResult};
+    use crate::{m_var::helpers::var_m, var_data::DataResult};
 
     use super::*;
 
@@ -96,7 +93,7 @@ mod data {
 
 mod query {
 
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::Direction};
+    use crate::{m_var::helpers::var_m, var_data::Direction};
 
     use super::*;
 
@@ -217,7 +214,7 @@ mod query {
 
 mod order {
 
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::Direction};
+    use crate::{m_var::helpers::var_m, var_data::Direction};
 
     use super::*;
 

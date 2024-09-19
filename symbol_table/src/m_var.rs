@@ -128,8 +128,8 @@ pub mod helpers {
     use super::*;
     use crate::{
         key::{NonNullableKey, NullableKey},
-        symbol_table::var_u::helpers::var_u,
         value::Value,
+        var_u::helpers::var_u,
     };
     use arbitrary::Arbitrary;
     use ffi::UCI_IS_LOCALVAR;
