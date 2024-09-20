@@ -952,8 +952,9 @@ name = "rsm-fuzz"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
- "interpreter",
+ "ffi",
  "libfuzzer-sys",
+ "symbol_table",
 ]
 
 [[package]]

@@ -35,10 +35,11 @@
 #![feature(array_windows)]
 #![allow(dead_code)]
 
+//TODO go over and see what can be made private
 mod hash;
-mod key;
+pub mod key;
 mod m_var;
-mod value;
+pub mod value;
 mod var_data;
 mod var_u;
 

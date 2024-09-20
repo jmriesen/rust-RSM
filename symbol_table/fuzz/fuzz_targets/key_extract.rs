@@ -29,12 +29,19 @@
  */
 #![no_main]
 
-use interpreter::{key::a_b_testing::string, value::Value};
 use libfuzzer_sys::fuzz_target;
+use symbol_table::{
+    key::{a_b_testing, NullableKey},
+    value::Value,
+};
 
-fuzz_target!(|keys: Vec<Value>| {
-    if keys.is_empty() {
-    } else {
-        let _ = string(&keys);
+fuzz_target!(|string: Value| {
+    let _ = a_b_testing::extract(&string.clone());
+
+    //Verify that what goes in == what comes out.
+    if let Ok(key) = NullableKey::new([&string]) {
+        let extracted = key.key_extract(false);
+        let contents = string.content();
+        assert_eq!(contents, &extracted[..])
     }
 });

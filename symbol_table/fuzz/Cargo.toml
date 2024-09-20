@@ -11,9 +11,12 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 
-[dependencies.interpreter]
+[dependencies.symbol_table]
 path = ".."
 features = ["fuzzing"]
+
+[dependencies.ffi]
+path = "../../ffi"
 
 [[bin]]
 name = "key_build"

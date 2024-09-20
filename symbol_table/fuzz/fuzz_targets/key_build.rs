@@ -29,8 +29,8 @@
  */
 #![no_main]
 
-use interpreter::{key::a_b_testing::build, value::Value};
 use libfuzzer_sys::fuzz_target;
+use symbol_table::{key::a_b_testing::build, value::Value};
 
 fuzz_target!(|string: Value| {
     build(&string);
