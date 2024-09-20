@@ -27,11 +27,15 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-//New type wrapper so I can implement methods on VAR_U
-//TODO decouple from ffi
+
+//NOTE I am specificity not using an ArraryString since it could contain non utf-8 data.
+const MAX_VAR_NAME_SIZE: usize = 32;
+use core::fmt;
 use std::hash::Hash;
-#[derive(Clone, Debug)]
-pub struct VarU(pub ffi::VAR_U);
+
+use arrayvec::ArrayVec;
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct VarU(arrayvec::ArrayVec<std::os::raw::c_uchar, MAX_VAR_NAME_SIZE>);
 
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {
@@ -39,52 +43,64 @@ impl VarU {
     }
 
     pub fn contents(&self) -> &[u8] {
-        let internals = unsafe { &self.0.var_cu[..] };
-        internals
-            .split_once(|x| *x == 0)
-            .map(|x| x.0)
-            .unwrap_or(&[])
+        &self.0[..]
+    }
+    //NOTE I am not 100% sold on this API.
+    //Be prepared for it to change
+    pub fn new(bytes: &[u8]) -> Result<Self, ()> {
+        if !bytes.contains(&0) && bytes.len() <= MAX_VAR_NAME_SIZE {
+            let mut array = ArrayVec::new();
+            array.extend(bytes.iter().cloned());
+            Ok(Self(array))
+        } else {
+            Err(())
+        }
     }
 }
 
-impl Hash for VarU {
-    #[cfg_attr(test, mutants::skip)]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        unsafe { self.0.var_cu }.hash(state);
-    }
-}
-
-impl Eq for VarU {}
-impl PartialEq for VarU {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { self.0.var_cu == other.0.var_cu }
+impl fmt::Display for VarU {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        //TODO handle error case
+        write!(f, "{}", std::str::from_utf8(&self.0[..]).unwrap(),)
     }
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
     use arbitrary::Arbitrary;
-    use ffi::VAR_U;
 
-    use super::VarU;
+    use super::{VarU, MAX_VAR_NAME_SIZE};
 
     #[cfg_attr(test, mutants::skip)]
     impl<'a> Arbitrary<'a> for VarU {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let mut var_cu: [u8; 32] = u.arbitrary()?;
-            if var_cu.is_ascii() && var_cu.contains(&0) {
-                for x in var_cu.iter_mut().skip_while(|x| **x != 0) {
-                    *x = 0;
-                }
-                Ok(Self(VAR_U { var_cu }))
-            } else {
-                Err(arbitrary::Error::IncorrectFormat)
-            }
+            let len = u.int_in_range(1..=MAX_VAR_NAME_SIZE)?;
+            Ok(VarU(
+                u.arbitrary_iter()?
+                    //TODO figure out if these constraints are accurate
+                    .filter(|x| x.is_ok_and(|x: u8| x.is_ascii()))
+                    .filter(|x| x.is_ok_and(|x: u8| x != 0))
+                    .take(len)
+                    .collect::<Result<_, _>>()?,
+            ))
         }
     }
 
     #[must_use]
     pub fn var_u(var: &str) -> VarU {
-        VarU(var.try_into().unwrap())
+        VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
+    }
+
+    impl VarU {
+        pub fn into_c(&self) -> ffi::VAR_U {
+            use std::iter::repeat_n;
+            let mut array = self.0.clone();
+            array.extend(repeat_n(0, array.remaining_capacity()));
+            ffi::VAR_U {
+                var_cu: array
+                    .into_inner()
+                    .expect("we have allready fill the capasity with zeros"),
+            }
+        }
     }
 }

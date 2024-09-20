@@ -33,6 +33,7 @@
 #![feature(hash_extract_if)]
 #![feature(slice_split_once)]
 #![feature(array_windows)]
+#![feature(iter_repeat_n)]
 #![allow(dead_code)]
 
 //TODO go over and see what can be made private
@@ -54,7 +55,7 @@ use var_u::VarU;
 
 impl hash::Key for VarU {
     fn error() -> Self {
-        Self("$ECODE".try_into().expect("the error key is a valid VarU"))
+        VarU::new(b"$ECODE").expect("the error key is a valid VarU")
     }
 }
 

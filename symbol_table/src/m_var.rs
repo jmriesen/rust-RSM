@@ -42,12 +42,12 @@ pub struct MVar<Key: key::Key> {
 impl<Key: key::Key> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.borrow().is_empty() {
-            write!(f, "{}", self.name.0)
+            write!(f, "{}", self.name)
         } else {
             write!(
                 f,
                 "{}{}",
-                self.name.0,
+                self.name,
                 //TODO Consider how this would work with page files
                 String::from_utf8_lossy(&self.key.borrow().string_key())
             )
@@ -132,7 +132,6 @@ pub mod helpers {
         var_u::helpers::var_u,
     };
     use arbitrary::Arbitrary;
-    use ffi::UCI_IS_LOCALVAR;
 
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {
@@ -170,7 +169,7 @@ pub mod helpers {
         pub fn into_cmvar(self) -> ffi::MVAR {
             let (slen, key) = self.key.borrow().clone().into_ckey();
             ffi::MVAR {
-                name: self.name.0,
+                name: self.name.into_c(),
                 volset: self.volset,
                 uci: self.uci,
                 slen,
