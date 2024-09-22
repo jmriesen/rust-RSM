@@ -1133,6 +1133,7 @@ dependencies = [
  "ffi",
  "mutants",
  "pretty_assertions",
+ "rand",
  "rstest",
 ]
 
