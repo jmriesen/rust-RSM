@@ -29,13 +29,14 @@
  */
 use super::var_u::VarU;
 use crate::key::{self, NullableKey};
-use ffi::{u_char, UCI_IS_LOCALVAR};
+const UCI_IS_LOCALVAR: u8 = 255;
+use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MVar<Key: key::Key> {
     pub name: VarU,
-    volset: u_char,
-    uci: u_char,
+    volset: c_uchar,
+    uci: c_uchar,
     pub key: Key,
 }
 
@@ -122,6 +123,21 @@ mod tests {
     }
 }
 
+#[cfg(feature = "ffi")]
+impl<Key: crate::key::Key> MVar<Key> {
+    #[must_use]
+    pub fn into_cmvar(self) -> ffi::MVAR {
+        let (slen, key) = self.key.borrow().clone().into_ckey();
+        ffi::MVAR {
+            name: self.name.into_c(),
+            volset: self.volset,
+            uci: self.uci,
+            slen,
+            key,
+        }
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
@@ -161,20 +177,6 @@ pub mod helpers {
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             Ok(MVar::new(VarU::arbitrary(u)?, Key::arbitrary(u)?))
-        }
-    }
-
-    impl<Key: crate::key::Key> MVar<Key> {
-        #[must_use]
-        pub fn into_cmvar(self) -> ffi::MVAR {
-            let (slen, key) = self.key.borrow().clone().into_ckey();
-            ffi::MVAR {
-                name: self.name.into_c(),
-                volset: self.volset,
-                uci: self.uci,
-                slen,
-                key,
-            }
         }
     }
 }

@@ -45,7 +45,6 @@ mod var_data;
 mod var_u;
 
 use crate::value::Value;
-use ffi::{PARTAB, UCI_IS_LOCALVAR};
 use hash::CreationError;
 use key::NonNullableKey;
 pub use m_var::MVar;
@@ -90,14 +89,7 @@ impl Table {
     }
 
     //NOTE not yet mutation tested
-    fn keep(&mut self, vars: &[VarU], tab: &mut PARTAB) {
-        //NOTE I am not sure how src_var is used, but this was done in the C code.
-        tab.src_var = ffi::MVAR {
-            uci: UCI_IS_LOCALVAR as u8,
-            slen: 0,
-            volset: 0,
-            ..tab.src_var
-        };
+    pub fn keep(&mut self, vars: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
         self.0
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
