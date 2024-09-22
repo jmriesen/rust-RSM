@@ -1130,22 +1130,10 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "arrayvec",
- "bindgen",
- "cbindgen",
- "cc",
- "clap",
- "derive_more",
  "ffi",
- "glob",
- "libc",
  "mutants",
  "pretty_assertions",
- "rand",
- "ref-cast",
  "rstest",
- "thiserror",
- "uname",
- "uuid",
 ]
 
 [[package]]

@@ -13,7 +13,7 @@ arbitrary = { version = "1", features = ["derive"] }
 
 [dependencies.symbol_table]
 path = ".."
-features = ["fuzzing"]
+features = ["fuzzing","ffi"]
 
 [dependencies.ffi]
 path = "../../ffi"
