@@ -67,7 +67,7 @@ impl NonNullableKey {
 }
 
 /// Stores a list of keys.
-//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
+//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
 #[derive(Eq, PartialEq, Clone)]
 pub struct NullableKey(Vec<u8>);
 impl NullableKey {
@@ -140,9 +140,8 @@ impl<'a> IntoIterator for &'a NullableKey {
     }
 }
 
-//represents one segment of a key
-//If we have the Mvar x("a","b")
-//"a" is one segment of the key ("a","b").
+//Represents one segment of a key
+//If we have the Mvar x("a","b") "a" is one segment of the key ("a","b").
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
@@ -165,17 +164,17 @@ pub enum Error {
     SubKeyIsNull,
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
+#[cfg(all(feature = "ffi", any(test, feature = "fuzzing")))]
 pub mod a_b_testing;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
-    use format::MAX_INT_SEGMENT_SIZE;
+    use format::{MAX_INT_SEGMENT_SIZE, MAX_SUB_LEN};
+    use internal::MAX_KEY_SIZE;
 
-    fn generate_value(pattern: &str, count: u32) -> Value {
-        pattern.repeat(count as usize).as_str().try_into().unwrap()
+    fn generate_value(pattern: &str, count: usize) -> Value {
+        pattern.repeat(count).as_str().try_into().unwrap()
     }
 
     #[test]

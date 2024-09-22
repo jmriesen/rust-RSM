@@ -58,6 +58,7 @@ impl Default for Value {
 #[cfg(feature = "ffi")]
 mod ffi {
 
+    use super::{Value, MAX_STR_LEN};
     use ffi::CSTRING;
     impl Value {
         #[must_use]
@@ -108,8 +109,8 @@ impl std::fmt::Debug for Value {
 pub mod utility {
     use std::str::FromStr;
 
+    use super::MAX_STR_LEN;
     use arbitrary::Arbitrary;
-    use ffi::MAX_STR_LEN;
 
     use super::Value;
 

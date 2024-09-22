@@ -65,6 +65,20 @@ impl fmt::Display for VarU {
     }
 }
 
+#[cfg(feature = "ffi")]
+impl VarU {
+    pub fn into_c(&self) -> ffi::VAR_U {
+        use std::iter::repeat_n;
+        let mut array = self.0.clone();
+        array.extend(repeat_n(0, array.remaining_capacity()));
+        ffi::VAR_U {
+            var_cu: array
+                .into_inner()
+                .expect("we have allready fill the capasity with zeros"),
+        }
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
     use arbitrary::Arbitrary;
@@ -89,18 +103,5 @@ pub mod helpers {
     #[must_use]
     pub fn var_u(var: &str) -> VarU {
         VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
-    }
-
-    impl VarU {
-        pub fn into_c(&self) -> ffi::VAR_U {
-            use std::iter::repeat_n;
-            let mut array = self.0.clone();
-            array.extend(repeat_n(0, array.remaining_capacity()));
-            ffi::VAR_U {
-                var_cu: array
-                    .into_inner()
-                    .expect("we have allready fill the capasity with zeros"),
-            }
-        }
     }
 }
