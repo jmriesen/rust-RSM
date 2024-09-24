@@ -143,9 +143,11 @@ pub struct Iter<'a> {
 
 impl<'a> From<SubKey<'a>> for Value {
     fn from(value: SubKey<'a>) -> Self {
-        let mut data = Vec::new();
-        IntermediateRepresentation::from(value).push_external_fmt(&mut data, false);
-        Value::try_from(&data[..]).expect("max key len is < max Value len")
+        IntermediateRepresentation::from(value)
+            .external_fmt(false)
+            .as_slice()
+            .try_into()
+            .expect("max key len is < max Value len")
     }
 }
 
