@@ -65,6 +65,7 @@ impl fmt::Display for VarU {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "ffi")]
 impl VarU {
     pub fn into_c(&self) -> ffi::VAR_U {
