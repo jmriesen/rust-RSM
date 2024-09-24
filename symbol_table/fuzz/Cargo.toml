@@ -19,27 +19,6 @@ features = ["fuzzing","ffi"]
 path = "../../ffi"
 
 [[bin]]
-name = "key_build"
-path = "fuzz_targets/key_build.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "key_extract"
-path = "fuzz_targets/key_extract.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "key_string"
-path = "fuzz_targets/key_string.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "symbol_table"
 path = "fuzz_targets/symbol_table.rs"
 test = false

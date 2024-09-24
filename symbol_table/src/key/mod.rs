@@ -164,10 +164,32 @@ pub enum Error {
     SubKeyIsNull,
 }
 
-#[cfg(all(feature = "ffi", any(test, feature = "fuzzing")))]
 #[cfg_attr(test, mutants::skip)]
-pub mod a_b_testing;
+#[cfg(feature = "fuzzing")]
+mod fuzzing{
+use arbitrary::Arbitrary;
+    use super::*;
+    impl<'a> Arbitrary<'a> for NonNullableKey {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let keys: Vec<_> = u.arbitrary()?;
+            match Self::new(&keys) {
+                Ok(key) => Ok(key),
+                Err(_) => Err(arbitrary::Error::IncorrectFormat),
+            }
+        }
+    }
 
+    impl<'a> Arbitrary<'a> for NullableKey {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let keys: Vec<_> = u.arbitrary()?;
+            match Self::new(&keys) {
+                Ok(key) => Ok(key),
+                Err(_) => Err(arbitrary::Error::IncorrectFormat),
+            }
+        }
+    }
+
+}
 #[cfg(test)]
 mod tests {
     use super::*;
