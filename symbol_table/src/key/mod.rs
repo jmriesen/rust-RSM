@@ -255,7 +255,7 @@ mod tests {
     fn trailing_slash_leading_dots_and_zeros() {
         //Things that should be strings
         let strings = NullableKey::new(
-            [".", "-.", "1.", ".10", "01", "0.1"]
+            [".", "-.", "1.", ".10", "01", "0.1","1.1.1","string"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
         )
@@ -269,7 +269,7 @@ mod tests {
 
         //Things that should *Not* be strings
         let non_strings = NullableKey::new(
-            [".1", "10", ".01"]
+            [".1", "10", ".01",]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
         )
