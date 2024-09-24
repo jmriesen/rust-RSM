@@ -195,6 +195,7 @@ mod tests {
     use super::*;
     use format::{MAX_INT_SEGMENT_SIZE, MAX_SUB_LEN};
     use internal::MAX_KEY_SIZE;
+    use pretty_assertions::assert_eq;
 
     fn generate_value(pattern: &str, count: usize) -> Value {
         pattern.repeat(count).as_str().try_into().unwrap()
@@ -311,5 +312,15 @@ mod tests {
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
+    }
+
+    #[test]
+    fn value_in_is_value_out(){
+        let values :Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string",""].map(|x| x.try_into().unwrap()).to_vec();
+        let key = NullableKey::new(&values).unwrap();
+        for (expected,actual) in values.iter().zip(key.iter()){
+            assert_eq!(expected,&actual.into())
+        }
+
     }
 }
