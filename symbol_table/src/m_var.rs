@@ -123,6 +123,7 @@ mod tests {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "ffi")]
 impl<Key: crate::key::Key> MVar<Key> {
     #[must_use]

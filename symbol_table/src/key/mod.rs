@@ -165,6 +165,7 @@ pub enum Error {
 }
 
 #[cfg(all(feature = "ffi", any(test, feature = "fuzzing")))]
+#[cfg_attr(test, mutants::skip)]
 pub mod a_b_testing;
 
 #[cfg(test)]

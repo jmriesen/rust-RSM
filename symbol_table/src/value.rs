@@ -55,6 +55,7 @@ impl Default for Value {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "ffi")]
 mod ffi {
 
