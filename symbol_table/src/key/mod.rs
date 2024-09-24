@@ -238,6 +238,37 @@ mod tests {
     }
 
     #[test]
+    fn trailing_slash_leading_dots_and_zeros() {
+        //Things that should be strings
+        let strings = NullableKey::new(
+            [".", "-.", "1.", ".10", "01", "0.1"]
+                .map(|x| Value::try_from(x).unwrap())
+                .iter(),
+        )
+        .unwrap();
+        for string_sub_script in &strings {
+            assert!(matches!(
+                string_sub_script.into(),
+                IntermediateRepresentation::String(_)
+            ));
+        }
+
+        //Things that should *Not* be strings
+        let non_strings = NullableKey::new(
+            [".1", "10", ".01"]
+                .map(|x| Value::try_from(x).unwrap())
+                .iter(),
+        )
+        .unwrap();
+        for non_string_sub_script in &non_strings {
+            assert!(!matches!(
+                non_string_sub_script.into(),
+                IntermediateRepresentation::String(_)
+            ));
+        }
+    }
+
+    #[test]
     fn key_cmp() {
         let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
             .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
