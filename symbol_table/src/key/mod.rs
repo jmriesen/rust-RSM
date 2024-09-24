@@ -108,13 +108,6 @@ impl NullableKey {
         self.0.is_empty()
     }
 
-    //Note I should probably remove this at some point.
-    //It currently assumes there is at least one key in storage.
-    #[must_use]
-    pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        IntermediateRepresentation::from(self.iter().next().unwrap()).external_fmt(quote_strings)
-    }
-
     #[must_use]
     pub fn iter(&self) -> Iter {
         Iter { tail: &self.0[..] }
