@@ -29,25 +29,26 @@
  */
 use super::var_u::VarU;
 use crate::key::{self, NullableKey};
-use ffi::{u_char, UCI_IS_LOCALVAR};
+const UCI_IS_LOCALVAR: u8 = 255;
+use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MVar<Key: key::Key> {
     pub name: VarU,
-    volset: u_char,
-    uci: u_char,
+    volset: c_uchar,
+    uci: c_uchar,
     pub key: Key,
 }
 
 impl<Key: key::Key> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.borrow().is_empty() {
-            write!(f, "{}", self.name.0)
+            write!(f, "{}", self.name)
         } else {
             write!(
                 f,
                 "{}{}",
-                self.name.0,
+                self.name,
                 //TODO Consider how this would work with page files
                 String::from_utf8_lossy(&self.key.borrow().string_key())
             )
@@ -122,17 +123,32 @@ mod tests {
     }
 }
 
+#[cfg_attr(test, mutants::skip)]
+#[cfg(feature = "ffi")]
+impl<Key: crate::key::Key> MVar<Key> {
+    #[must_use]
+    pub fn into_cmvar(self) -> ffi::MVAR {
+        let (slen, key) = self.key.borrow().clone().into_ckey();
+        ffi::MVAR {
+            name: self.name.into_c(),
+            volset: self.volset,
+            uci: self.uci,
+            slen,
+            key,
+        }
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
     use super::*;
     use crate::{
         key::{NonNullableKey, NullableKey},
-        symbol_table::var_u::helpers::var_u,
         value::Value,
+        var_u::helpers::var_u,
     };
     use arbitrary::Arbitrary;
-    use ffi::UCI_IS_LOCALVAR;
 
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {
@@ -162,20 +178,6 @@ pub mod helpers {
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             Ok(MVar::new(VarU::arbitrary(u)?, Key::arbitrary(u)?))
-        }
-    }
-
-    impl<Key: crate::key::Key> MVar<Key> {
-        #[must_use]
-        pub fn into_cmvar(self) -> ffi::MVAR {
-            let (slen, key) = self.key.borrow().clone().into_ckey();
-            ffi::MVAR {
-                name: self.name.0,
-                volset: self.volset,
-                uci: self.uci,
-                slen,
-                key,
-            }
         }
     }
 }

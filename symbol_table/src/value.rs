@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use ffi::{CSTRING, MAX_STR_LEN};
+const MAX_STR_LEN: usize = 65534;
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
@@ -44,15 +44,6 @@ impl Value {
     }
 
     #[must_use]
-    pub fn into_cstring(self) -> CSTRING {
-        let mut buf = [0; MAX_STR_LEN as usize + 1];
-        buf[..self.0.len()].copy_from_slice(&self.0[..]);
-        CSTRING {
-            len: self.0.len() as u16,
-            buf,
-        }
-    }
-    #[must_use]
     pub const fn empty() -> Self {
         Self(Vec::new())
     }
@@ -64,11 +55,29 @@ impl Default for Value {
     }
 }
 
-impl From<&CSTRING> for Value {
-    #[cfg_attr(test, mutants::skip)]
-    fn from(value: &CSTRING) -> Self {
-        let data = &value.buf[..value.len as usize];
-        Self(Vec::from(data))
+#[cfg_attr(test, mutants::skip)]
+#[cfg(feature = "ffi")]
+mod ffi {
+
+    use super::{Value, MAX_STR_LEN};
+    use ffi::CSTRING;
+    impl Value {
+        #[must_use]
+        pub fn into_cstring(self) -> CSTRING {
+            let mut buf = [0; MAX_STR_LEN as usize + 1];
+            buf[..self.0.len()].copy_from_slice(&self.0[..]);
+            CSTRING {
+                len: self.0.len() as u16,
+                buf,
+            }
+        }
+    }
+    impl From<&CSTRING> for Value {
+        #[cfg_attr(test, mutants::skip)]
+        fn from(value: &CSTRING) -> Self {
+            let data = &value.buf[..value.len as usize];
+            Self(Vec::from(data))
+        }
     }
 }
 
@@ -101,8 +110,8 @@ impl std::fmt::Debug for Value {
 pub mod utility {
     use std::str::FromStr;
 
+    use super::MAX_STR_LEN;
     use arbitrary::Arbitrary;
-    use ffi::MAX_STR_LEN;
 
     use super::Value;
 

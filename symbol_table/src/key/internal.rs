@@ -29,7 +29,7 @@
  */
 use crate::{key::SubKey, value::Value};
 
-const MAX_KEY_SIZE: usize = 255;
+pub const MAX_KEY_SIZE: usize = 255;
 
 use super::{format, Error, Iter, NonNullableKey, NullableKey};
 

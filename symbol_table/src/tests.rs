@@ -1,8 +1,7 @@
 use std::borrow::Borrow;
 
 use super::Table;
-use crate::symbol_table::m_var::helpers::var_m;
-use ffi::UCI_IS_LOCALVAR;
+use crate::m_var::helpers::var_m;
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -129,7 +128,7 @@ fn do_a_bunch_of_sets() {
 #[test]
 fn kill_uninitialized_var() {
     let mut table = Table::new();
-    //These should be noops.
+    //These should be no ops.
     table.kill(&var_m("foo", &[]));
     table.kill(&var_m("foo", &["arg"]));
 }
@@ -149,7 +148,7 @@ fn kill_initialized_root() {
     assert_eq!(table.get(&var_i), None);
     assert_eq!(table.get(&var_i), None);
 
-    //hash table should have freed the entire.
+    //Hash table should have freed the entire.
     assert_eq!(table.0.locate(&var.name), None);
 }
 
@@ -198,15 +197,8 @@ fn keep_vars() {
     table.set(&normal, &data).unwrap();
     table.set(&retain_a, &data).unwrap();
     table.set(&retain_b, &data).unwrap();
-    let mut part_tab = Default::default();
 
-    table.keep(
-        &[retain_a.name.clone(), retain_b.name.clone()],
-        &mut part_tab,
-    );
-    assert_eq!(part_tab.src_var.uci, UCI_IS_LOCALVAR as u8);
-    assert_eq!(part_tab.src_var.slen, 0);
-    assert_eq!(part_tab.src_var.volset, 0);
+    table.keep(&[retain_a.name.clone(), retain_b.name.clone()]);
 
     assert_eq!(table.get(&normal), None);
     for var in &[dolor, retain_a, retain_b] {

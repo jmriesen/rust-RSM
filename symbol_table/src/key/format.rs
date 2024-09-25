@@ -44,7 +44,7 @@
 use super::{Error, SubKey};
 use crate::value::Value;
 
-const MAX_SUB_LEN: usize = 127;
+pub const MAX_SUB_LEN: usize = 127;
 
 const STRING_FLAG: u8 = 0b1000_0000;
 const INT_ZERO_POINT: u8 = 0b100_0000;
@@ -92,7 +92,7 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
         } else if contents.contains(&b'\0') {
             Err(Error::SubKeyContainsNull)
         } else {
-            //attempt to parse as a number
+            //Attempt to parse as a number
             let negative = contents.starts_with(&[b'-']);
             let mut parts = if negative { &contents[1..] } else { contents }.split(|x| *x == b'.');
 
@@ -101,33 +101,42 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
                 .expect("empty string case should have already been handled");
             let dec_part = parts.next();
 
-            let multiple_decimal_points = parts.next().is_some();
-            let trailing_dot = dec_part == Some(&[]);
-            let dec_part = dec_part.unwrap_or_default();
+            Ok(
+                //Check if there were multiple dots.
+                if parts.next().is_some() {
+                    Self::String(contents)
+                //Check for trailing dot.
+                } else if dec_part == Some(&[]) {
+                    Self::String(contents)
+                } else {
+                    let dec_part = dec_part.unwrap_or_default();
+                    let is_numeric = |x: &[u8]| x.iter().all(u8::is_ascii_digit);
 
-            let leading_trailing_zeros =
-                int_part.starts_with(&[b'0']) || dec_part.ends_with(&[b'0']);
+                    let numeric = is_numeric(int_part) && is_numeric(dec_part);
+                    let contains_some_digits = !int_part.is_empty() || !dec_part.is_empty();
+                    let can_represent_int_part = int_part.len() <= MAX_INT_SEGMENT_SIZE;
+                    let leading_zeros = int_part.starts_with(&[b'0']);
+                    let trailing_zeros = dec_part.ends_with(&[b'0']);
 
-            let is_numeric = |x: &[u8]| x.iter().all(u8::is_ascii_digit);
-            let numeric = is_numeric(int_part) && is_numeric(dec_part);
-            let contains_no_digits = int_part.is_empty() && dec_part.is_empty();
-
-            if !numeric
-                || trailing_dot
-                || leading_trailing_zeros
-                || multiple_decimal_points
-                || contains_no_digits
-                || int_part.len() > MAX_INT_SEGMENT_SIZE
-            {
-                Ok(Self::String(contents))
-            } else if negative {
-                Ok(Self::Negative {
-                    int_part: Box::new(int_part.iter().map(|x| b'9' - x + b'0')),
-                    dec_part: Box::new(dec_part.iter().map(|x| b'9' - x + b'0')),
-                })
-            } else {
-                Ok(Self::Positive { int_part, dec_part })
-            }
+                    if numeric
+                        && contains_some_digits
+                        && can_represent_int_part
+                        && !leading_zeros
+                        && !trailing_zeros
+                    {
+                        if negative {
+                            Self::Negative {
+                                int_part: Box::new(int_part.iter().map(|x| b'9' - x + b'0')),
+                                dec_part: Box::new(dec_part.iter().map(|x| b'9' - x + b'0')),
+                            }
+                        } else {
+                            Self::Positive { int_part, dec_part }
+                        }
+                    } else {
+                        Self::String(contents)
+                    }
+                },
+            )
         }
     }
 }

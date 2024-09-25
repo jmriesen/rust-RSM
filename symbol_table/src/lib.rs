@@ -28,19 +28,25 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 //TODO remove once this module is actually being used.
+#![feature(btree_cursors)]
+#![feature(let_chains)]
+#![feature(hash_extract_if)]
+#![feature(slice_split_once)]
+#![feature(array_windows)]
+#![feature(iter_repeat_n)]
 #![allow(dead_code)]
 
+//TODO go over and see what can be made private
 mod hash;
+pub mod key;
 mod m_var;
+pub mod value;
 mod var_data;
 mod var_u;
 
-use crate::{
-    key::{self, NonNullableKey},
-    value::Value,
-};
-use ffi::{PARTAB, UCI_IS_LOCALVAR};
+use crate::value::Value;
 use hash::CreationError;
+use key::NonNullableKey;
 pub use m_var::MVar;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
@@ -48,7 +54,7 @@ use var_u::VarU;
 
 impl hash::Key for VarU {
     fn error() -> Self {
-        Self("$ECODE".try_into().expect("the error key is a valid VarU"))
+        VarU::new(b"$ECODE").expect("the error key is a valid VarU")
     }
 }
 
@@ -83,14 +89,7 @@ impl Table {
     }
 
     //NOTE not yet mutation tested
-    fn keep(&mut self, vars: &[VarU], tab: &mut PARTAB) {
-        //NOTE I am not sure how src_var is used, but this was done in the C code.
-        tab.src_var = ffi::MVAR {
-            uci: UCI_IS_LOCALVAR as u8,
-            slen: 0,
-            volset: 0,
-            ..tab.src_var
-        };
+    pub fn keep(&mut self, vars: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
         self.0
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));

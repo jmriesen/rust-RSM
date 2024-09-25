@@ -59,7 +59,7 @@ impl From<NonNullableKey> for NullableKey {
 impl NonNullableKey {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
-            Err(Error::SubKeyContainsNull)
+            Err(Error::SubKeyIsNull)
         } else {
             Ok(Self(NullableKey::new(values)?))
         }
@@ -67,7 +67,7 @@ impl NonNullableKey {
 }
 
 /// Stores a list of keys.
-//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
+//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
 #[derive(Eq, PartialEq, Clone)]
 pub struct NullableKey(Vec<u8>);
 impl NullableKey {
@@ -108,13 +108,6 @@ impl NullableKey {
         self.0.is_empty()
     }
 
-    //Note I should probably remove this at some point.
-    //It currently assumes there is at least one key in storage.
-    #[must_use]
-    pub fn key_extract(&self, quote_strings: bool) -> Vec<u8> {
-        IntermediateRepresentation::from(self.iter().next().unwrap()).external_fmt(quote_strings)
-    }
-
     #[must_use]
     pub fn iter(&self) -> Iter {
         Iter { tail: &self.0[..] }
@@ -140,9 +133,8 @@ impl<'a> IntoIterator for &'a NullableKey {
     }
 }
 
-//represents one segment of a key
-//If we have the Mvar x("a","b")
-//"a" is one segment of the key ("a","b").
+//Represents one segment of a key
+//If we have the Mvar x("a","b") "a" is one segment of the key ("a","b").
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
@@ -151,9 +143,11 @@ pub struct Iter<'a> {
 
 impl<'a> From<SubKey<'a>> for Value {
     fn from(value: SubKey<'a>) -> Self {
-        let mut data = Vec::new();
-        IntermediateRepresentation::from(value).push_external_fmt(&mut data, false);
-        Value::try_from(&data[..]).expect("max key len is < max Value len")
+        IntermediateRepresentation::from(value)
+            .external_fmt(false)
+            .as_slice()
+            .try_into()
+            .expect("max key len is < max Value len")
     }
 }
 
@@ -165,60 +159,97 @@ pub enum Error {
     SubKeyIsNull,
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
-pub mod a_b_testing;
+#[cfg_attr(test, mutants::skip)]
+#[cfg(feature = "fuzzing")]
+mod fuzzing{
+use arbitrary::Arbitrary;
+    use super::*;
+    impl<'a> Arbitrary<'a> for NonNullableKey {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let keys: Vec<_> = u.arbitrary()?;
+            match Self::new(&keys) {
+                Ok(key) => Ok(key),
+                Err(_) => Err(arbitrary::Error::IncorrectFormat),
+            }
+        }
+    }
 
+    impl<'a> Arbitrary<'a> for NullableKey {
+        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+            let keys: Vec<_> = u.arbitrary()?;
+            match Self::new(&keys) {
+                Ok(key) => Ok(key),
+                Err(_) => Err(arbitrary::Error::IncorrectFormat),
+            }
+        }
+    }
+
+}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ffi::{MAX_KEY_SIZE, MAX_SUB_LEN};
-    use format::MAX_INT_SEGMENT_SIZE;
+    use format::{MAX_INT_SEGMENT_SIZE, MAX_SUB_LEN};
+    use internal::MAX_KEY_SIZE;
+    use pretty_assertions::assert_eq;
 
-    fn generate_value(pattern: &str, count: u32) -> Value {
-        pattern.repeat(count as usize).as_str().try_into().unwrap()
+    fn generate_value(pattern: &str, count: usize) -> Value {
+        pattern.repeat(count).as_str().try_into().unwrap()
     }
 
     #[test]
-    fn subscript_max_size() {
-        let result = NullableKey::new([&generate_value("a", MAX_SUB_LEN)]);
-        assert!(result.is_ok());
-    }
-    #[test]
-    fn subscript_that_is_to_large() {
-        let result = NullableKey::new([&generate_value("a", MAX_SUB_LEN + 1)]);
-        assert_eq!(result, Err(Error::SubscriptToLarge));
+    fn subscripts_have_a_max_size() {
+        assert!(NullableKey::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
+        assert_eq!(
+            NullableKey::new([&generate_value("a", MAX_SUB_LEN + 1)]),
+            Err(Error::SubscriptToLarge)
+        );
     }
 
     #[test]
-    fn key_max_size() {
-        let result = NullableKey::new([
+    fn keys_have_a_max_size() {
+        //End marker and internal type marker each take one byte.
+        const SUBSCRIPT_STORAGE_OVERHEAD: usize = 2;
+
+        //NOTE I have to use multiple subscripts due to limit on subscript length.
+        assert!(NullableKey::new([
             &generate_value("a", MAX_SUB_LEN),
-            //NOTE -4 to account for the 2 null terminators + 2 type markers
-            &generate_value("a", MAX_KEY_SIZE - MAX_SUB_LEN - 4),
-        ]);
-        assert!(result.is_ok());
+            &generate_value(
+                "a",
+                MAX_KEY_SIZE 
+                    - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                    - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+            ),
+        ])
+        .is_ok());
+
+        assert_eq!(NullableKey::new([
+            &generate_value("a", MAX_SUB_LEN),
+            &generate_value(
+                "a",
+                MAX_KEY_SIZE 
+                - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+                +1 // Pushing us over the limit.
+            ),
+        ]),
+            Err(Error::KeyToLarge));
     }
 
-    #[test]
-    fn key_that_is_to_large() {
-        let result = NullableKey::new([
-            &generate_value("a", MAX_SUB_LEN),
-            &generate_value("a", MAX_SUB_LEN),
-        ]);
-        assert_eq!(result, Err(Error::KeyToLarge));
-    }
 
     #[test]
-    fn error_if_string_contains_null() {
+    fn subscript_values_canot_contain_null_byte() {
         let result = NullableKey::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::SubKeyContainsNull));
     }
 
     #[test]
-    fn non_terminal_null() {
-        let key = NullableKey::new(&[Value::empty()]).expect("trailing null is fine");
-        let result = key.push(&"a".try_into().unwrap());
-        assert_eq!(result, Err(Error::SubKeyIsNull));
+    fn null_subscripts_can_only_be_the_last_subscript_of_a_nullable_key() {
+        let non_null_value = generate_value("a", 1);
+        assert!(NullableKey::new(&[Value::empty()]).is_ok());
+        assert!(NullableKey::new(&[non_null_value.clone(),Value::empty(),]).is_ok());
+        assert_eq!(NullableKey::new(&[Value::empty(),non_null_value]),Err(Error::SubKeyIsNull));
+
+        assert_eq!(NonNullableKey::new(&[Value::empty()]),Err(Error::SubKeyIsNull));
     }
 
     #[test]
@@ -239,11 +270,52 @@ mod tests {
     }
 
     #[test]
-    fn key_cmp() {
+    fn trailing_slash_leading_dots_and_zeros() {
+        //Things that should be strings
+        let strings = NullableKey::new(
+            [".", "-.", "1.", ".10", "01", "0.1","1.1.1","string"]
+                .map(|x| Value::try_from(x).unwrap())
+                .iter(),
+        )
+        .unwrap();
+        for string_sub_script in &strings {
+            assert!(matches!(
+                string_sub_script.into(),
+                IntermediateRepresentation::String(_)
+            ));
+        }
+
+        //Things that should *Not* be strings
+        let non_strings = NullableKey::new(
+            [".1", "10", ".01",]
+                .map(|x| Value::try_from(x).unwrap())
+                .iter(),
+        )
+        .unwrap();
+        for non_string_sub_script in &non_strings {
+            assert!(!matches!(
+                non_string_sub_script.into(),
+                IntermediateRepresentation::String(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn sorting_order_negative_positive_strings() {
         let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
             .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
+    }
+
+    #[test]
+    fn value_in_is_value_out(){
+        let values :Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string",""].map(|x| x.try_into().unwrap()).to_vec();
+        let key = NullableKey::new(&values).unwrap();
+        for (expected,actual) in values.iter().zip(key.iter()){
+            assert_eq!(expected,&actual.into())
+        }
+
     }
 }

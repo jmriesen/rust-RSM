@@ -30,12 +30,12 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use interpreter::{
-    key::{NonNullableKey, NullableKey},
-    symbol_table::{Direction, MVar, Table},
-    value::Value,
-};
 use libfuzzer_sys::fuzz_target;
+use symbol_table::{
+    key::{NonNullableKey, NullableKey},
+    value::Value,
+    Direction, MVar, Table,
+};
 
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
@@ -49,7 +49,7 @@ enum TableCommands {
 
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
-    let mut c_table = interpreter::bindings::symbol_table::Table::new();
+    let mut c_table = ffi::symbol_table::Table::new();
 
     for command in commands.into_iter().take(100) {
         match command {
@@ -62,10 +62,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
                 let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
-                assert_eq!(
-                    rust_val.ok_or(&-(interpreter::bindings::ERRM6 as i32)),
-                    c_val.as_ref()
-                );
+                assert_eq!(rust_val.ok_or(&-(ffi::ERRM6 as i32)), c_val.as_ref());
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
