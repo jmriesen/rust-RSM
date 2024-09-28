@@ -77,7 +77,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val.map(|x| x.util_string_m_var()).unwrap_or(vec![]),
+                    rust_val.map(|x| x.util_string_m_var()).unwrap_or_default(),
                     c_val
                 );
             }

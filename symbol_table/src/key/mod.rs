@@ -65,7 +65,7 @@ impl NonNullableKey {
         }
     }
 
-    pub const fn empty()->Self{
+    pub const fn empty() -> Self {
         Self(NullableKey::empty())
     }
 }
@@ -117,7 +117,7 @@ impl NullableKey {
         Iter { tail: &self.0[..] }
     }
 
-    pub const fn empty() ->Self{
+    pub const fn empty() -> Self {
         Self(Vec::new())
     }
 }
@@ -169,9 +169,9 @@ pub enum Error {
 
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "fuzzing")]
-mod fuzzing{
-use arbitrary::Arbitrary;
+mod fuzzing {
     use super::*;
+    use arbitrary::Arbitrary;
     impl<'a> Arbitrary<'a> for NonNullableKey {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
@@ -191,7 +191,6 @@ use arbitrary::Arbitrary;
             }
         }
     }
-
 }
 #[cfg(test)]
 mod tests {
@@ -230,19 +229,20 @@ mod tests {
         ])
         .is_ok());
 
-        assert_eq!(NullableKey::new([
-            &generate_value("a", MAX_SUB_LEN),
-            &generate_value(
-                "a",
-                MAX_KEY_SIZE 
+        assert_eq!(
+            NullableKey::new([
+                &generate_value("a", MAX_SUB_LEN),
+                &generate_value(
+                    "a",
+                    MAX_KEY_SIZE 
                 - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
                 - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
                 +1 // Pushing us over the limit.
-            ),
-        ]),
-            Err(Error::KeyToLarge));
+                ),
+            ]),
+            Err(Error::KeyToLarge)
+        );
     }
-
 
     #[test]
     fn subscript_values_canot_contain_null_byte() {
@@ -254,10 +254,16 @@ mod tests {
     fn null_subscripts_can_only_be_the_last_subscript_of_a_nullable_key() {
         let non_null_value = generate_value("a", 1);
         assert!(NullableKey::new(&[Value::empty()]).is_ok());
-        assert!(NullableKey::new(&[non_null_value.clone(),Value::empty(),]).is_ok());
-        assert_eq!(NullableKey::new(&[Value::empty(),non_null_value]),Err(Error::SubKeyIsNull));
+        assert!(NullableKey::new(&[non_null_value.clone(), Value::empty(),]).is_ok());
+        assert_eq!(
+            NullableKey::new(&[Value::empty(), non_null_value]),
+            Err(Error::SubKeyIsNull)
+        );
 
-        assert_eq!(NonNullableKey::new(&[Value::empty()]),Err(Error::SubKeyIsNull));
+        assert_eq!(
+            NonNullableKey::new(&[Value::empty()]),
+            Err(Error::SubKeyIsNull)
+        );
     }
 
     #[test]
@@ -281,7 +287,7 @@ mod tests {
     fn trailing_slash_leading_dots_and_zeros() {
         //Things that should be strings
         let strings = NullableKey::new(
-            [".", "-.", "1.", ".10", "01", "0.1","1.1.1","string"]
+            [".", "-.", "1.", ".10", "01", "0.1", "1.1.1", "string"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
         )
@@ -295,7 +301,7 @@ mod tests {
 
         //Things that should *Not* be strings
         let non_strings = NullableKey::new(
-            [".1", "10", ".01",]
+            [".1", "10", ".01"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
         )
@@ -318,12 +324,13 @@ mod tests {
     }
 
     #[test]
-    fn value_in_is_value_out(){
-        let values :Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string",""].map(|x| x.try_into().unwrap()).to_vec();
+    fn value_in_is_value_out() {
+        let values: Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string", ""]
+            .map(|x| x.try_into().unwrap())
+            .to_vec();
         let key = NullableKey::new(&values).unwrap();
-        for (expected,actual) in values.iter().zip(key.iter()){
-            assert_eq!(expected,&actual.into())
+        for (expected, actual) in values.iter().zip(key.iter()) {
+            assert_eq!(expected, &actual.into())
         }
-
     }
 }

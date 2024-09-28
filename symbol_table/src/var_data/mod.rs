@@ -161,7 +161,7 @@ impl VarData {
         .or((direction == Direction::Backward
             && !self.sub_values.is_empty()
             && !key.is_empty())
-        .then(|| NonNullableKey::empty()))
+        .then(NonNullableKey::empty))
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
