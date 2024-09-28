@@ -277,3 +277,25 @@ fn non_newed_variables_are_still_accessible() {
     assert_eq!(table.get(&assumed_var), Some(&assumed_value));
     assert_eq!(table.get(&newed_var), None);
 }
+
+#[test]
+fn test_new_all() {
+    {
+        let mut table = Table::new();
+        let intrinsic = var_m("$var", &[]);
+        let included = var_m("included", &[]);
+        let excluded = var_m("excluded", &[]);
+        let value = "value".try_into().unwrap();
+
+        table.set(&intrinsic, &value).unwrap();
+        table.set(&included, &value).unwrap();
+        table.set(&excluded, &value).unwrap();
+
+        table.new_all_but(&[&excluded.name]);
+        //New-ed value
+        assert_eq!(table.get(&included), None);
+        //Not new-ed
+        assert_ne!(table.get(&excluded), None);
+        assert_ne!(table.get(&intrinsic), None);
+    }
+}

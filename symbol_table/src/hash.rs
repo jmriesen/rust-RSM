@@ -145,9 +145,10 @@ where
         }
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.map
-            .iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        let mut iter: Vec<_> = self.map.iter().collect();
+        iter.sort_by_key(|(_, index)| **index);
+        iter.into_iter()
             .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap()))
     }
 }

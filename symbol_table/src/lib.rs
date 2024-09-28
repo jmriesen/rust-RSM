@@ -167,6 +167,20 @@ impl Table {
         }
     }
 
+    fn new_all_but(&mut self, exclude: &[&VarU]) {
+        let vars_to_new: Vec<_> = self
+            .table
+            .iter()
+            .map(|(var, _value)| var)
+            .filter(|x| !(x.is_intrinsic() || exclude.contains(x)))
+            //NOTE I need to clone to avoid double borrowing
+            .cloned()
+            .collect();
+        let vars_to_new: Vec<_> = vars_to_new.iter().collect();
+        self.stack.push(NewFrame::with_capacity(vars_to_new.len()));
+        self.new_var(&vars_to_new);
+    }
+
     fn attached(&self, var: &VarU) -> bool {
         self.stack
             .iter()
