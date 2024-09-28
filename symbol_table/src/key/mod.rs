@@ -31,50 +31,61 @@
 #![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
-
 use crate::value::Value;
 use format::IntermediateRepresentation;
 
-pub trait Key:
-    std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> + PartialEq + Eq
+//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
+
+/// Keys represent a sequence of subscript that can be used to **store a value** withing a variable.
+/// In the variable foo(1,"subscript","bar"), (1,"subscript","bar") is the Key.
+///
+/// There internal format has been optimized for sorting.
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct Key(KeyBound);
+
+/// Keys represent a sequence of subscript that can be used to **specify a bound** withing a variable.
+/// If the final subscript in a KeyBound is "", the key will be treated as a lower bound when going
+/// forwards, and an upper bound while going backwards.
+#[derive(Eq, PartialEq, Clone)]
+pub struct KeyBound(Vec<u8>);
+
+
+
+
+pub trait KeyType:
+    std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
 {
 }
-impl Key for NullableKey {}
-impl Key for NonNullableKey {}
+impl KeyType for KeyBound {}
+impl KeyType for Key {}
 
-#[derive(Eq, PartialEq, Clone, Debug)]
-pub struct NonNullableKey(NullableKey);
 
-impl std::borrow::Borrow<NullableKey> for NonNullableKey {
-    fn borrow(&self) -> &NullableKey {
+impl std::borrow::Borrow<KeyBound> for Key {
+    fn borrow(&self) -> &KeyBound {
         &self.0
     }
 }
-impl From<NonNullableKey> for NullableKey {
-    fn from(value: NonNullableKey) -> Self {
+impl From<Key> for KeyBound {
+    fn from(value: Key) -> Self {
         value.0
     }
 }
 
-impl NonNullableKey {
+impl Key {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
             Err(Error::SubKeyIsNull)
         } else {
-            Ok(Self(NullableKey::new(values)?))
+            Ok(Self(KeyBound::new(values)?))
         }
     }
 
     pub const fn empty() -> Self {
-        Self(NullableKey::empty())
+        Self(KeyBound::empty())
     }
 }
 
-/// Stores a list of keys.
-//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
-#[derive(Eq, PartialEq, Clone)]
-pub struct NullableKey(Vec<u8>);
-impl NullableKey {
+impl KeyBound {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
         let mut key = Self(Vec::new());
         for value in values {
@@ -123,7 +134,7 @@ impl NullableKey {
 }
 
 #[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for NullableKey {
+impl std::fmt::Debug for KeyBound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list()
             .entries(self.iter().map(Value::from))
@@ -133,7 +144,7 @@ impl std::fmt::Debug for NullableKey {
 
 //This lint seems to be a false positive.
 #[allow(clippy::into_iter_without_iter)]
-impl<'a> IntoIterator for &'a NullableKey {
+impl<'a> IntoIterator for &'a KeyBound {
     type IntoIter = Iter<'a>;
     type Item = SubKey<'a>;
     fn into_iter(self) -> Self::IntoIter {
@@ -172,7 +183,7 @@ pub enum Error {
 mod fuzzing {
     use super::*;
     use arbitrary::Arbitrary;
-    impl<'a> Arbitrary<'a> for NonNullableKey {
+    impl<'a> Arbitrary<'a> for Key {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -182,7 +193,7 @@ mod fuzzing {
         }
     }
 
-    impl<'a> Arbitrary<'a> for NullableKey {
+    impl<'a> Arbitrary<'a> for KeyBound {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -205,9 +216,9 @@ mod tests {
 
     #[test]
     fn subscripts_have_a_max_size() {
-        assert!(NullableKey::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
+        assert!(KeyBound::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
         assert_eq!(
-            NullableKey::new([&generate_value("a", MAX_SUB_LEN + 1)]),
+            KeyBound::new([&generate_value("a", MAX_SUB_LEN + 1)]),
             Err(Error::SubscriptToLarge)
         );
     }
@@ -218,7 +229,7 @@ mod tests {
         const SUBSCRIPT_STORAGE_OVERHEAD: usize = 2;
 
         //NOTE I have to use multiple subscripts due to limit on subscript length.
-        assert!(NullableKey::new([
+        assert!(KeyBound::new([
             &generate_value("a", MAX_SUB_LEN),
             &generate_value(
                 "a",
@@ -230,7 +241,7 @@ mod tests {
         .is_ok());
 
         assert_eq!(
-            NullableKey::new([
+            KeyBound::new([
                 &generate_value("a", MAX_SUB_LEN),
                 &generate_value(
                     "a",
@@ -246,22 +257,22 @@ mod tests {
 
     #[test]
     fn subscript_values_canot_contain_null_byte() {
-        let result = NullableKey::new([&"a\0b".try_into().unwrap()]);
+        let result = KeyBound::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::SubKeyContainsNull));
     }
 
     #[test]
     fn null_subscripts_can_only_be_the_last_subscript_of_a_nullable_key() {
         let non_null_value = generate_value("a", 1);
-        assert!(NullableKey::new(&[Value::empty()]).is_ok());
-        assert!(NullableKey::new(&[non_null_value.clone(), Value::empty(),]).is_ok());
+        assert!(KeyBound::new(&[Value::empty()]).is_ok());
+        assert!(KeyBound::new(&[non_null_value.clone(), Value::empty(),]).is_ok());
         assert_eq!(
-            NullableKey::new(&[Value::empty(), non_null_value]),
+            KeyBound::new(&[Value::empty(), non_null_value]),
             Err(Error::SubKeyIsNull)
         );
 
         assert_eq!(
-            NonNullableKey::new(&[Value::empty()]),
+            Key::new(&[Value::empty()]),
             Err(Error::SubKeyIsNull)
         );
     }
@@ -271,7 +282,7 @@ mod tests {
         //NOTE I tried to put the mutants::skip attribute on 'MAX_INT_SEGMENT_SIZE'
         //but mutants were still being generated
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
-        let key = NullableKey::new([&"1"
+        let key = KeyBound::new([&"1"
             .repeat(MAX_INT_SEGMENT_SIZE + 1)
             .as_str()
             .try_into()
@@ -286,7 +297,7 @@ mod tests {
     #[test]
     fn trailing_slash_leading_dots_and_zeros() {
         //Things that should be strings
-        let strings = NullableKey::new(
+        let strings = KeyBound::new(
             [".", "-.", "1.", ".10", "01", "0.1", "1.1.1", "string"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -300,7 +311,7 @@ mod tests {
         }
 
         //Things that should *Not* be strings
-        let non_strings = NullableKey::new(
+        let non_strings = KeyBound::new(
             [".1", "10", ".01"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -316,8 +327,8 @@ mod tests {
 
     #[test]
     fn sorting_order_negative_positive_strings() {
-        let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
-            .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
+        let keys: [KeyBound; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
+            .map(|x| KeyBound::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
@@ -328,7 +339,7 @@ mod tests {
         let values: Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string", ""]
             .map(|x| x.try_into().unwrap())
             .to_vec();
-        let key = NullableKey::new(&values).unwrap();
+        let key = KeyBound::new(&values).unwrap();
         for (expected, actual) in values.iter().zip(key.iter()) {
             assert_eq!(expected, &actual.into())
         }

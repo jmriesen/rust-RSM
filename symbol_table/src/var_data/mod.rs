@@ -30,7 +30,7 @@
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use crate::{
-    key::{NonNullableKey, NullableKey},
+    key::{Key, KeyBound},
     value::Value,
 };
 
@@ -75,13 +75,13 @@ impl From<DataResult> for Value {
 ///Data associated for a specific variable
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct VarData {
-    sub_values: BTreeMap<NullableKey, Value>,
+    sub_values: BTreeMap<KeyBound, Value>,
     value: Option<Value>,
 }
 
 impl VarData {
-    pub fn value(&self, key: &NonNullableKey) -> Option<&Value> {
-        let key: &NullableKey = key.borrow();
+    pub fn value(&self, key: &Key) -> Option<&Value> {
+        let key: &KeyBound = key.borrow();
         if key.is_empty() {
             self.value.as_ref()
         } else {
@@ -95,8 +95,8 @@ impl VarData {
         }
     }
 
-    pub fn set_value(&mut self, key: &NonNullableKey, data: &Value) {
-        let key: &NullableKey = key.borrow();
+    pub fn set_value(&mut self, key: &Key, data: &Value) {
+        let key: &KeyBound = key.borrow();
         if key.is_empty() {
             self.value = Some(data.clone());
         } else {
@@ -104,8 +104,8 @@ impl VarData {
         }
     }
 
-    pub fn kill(&mut self, key: &NonNullableKey) {
-        let key: &NullableKey = key.borrow();
+    pub fn kill(&mut self, key: &Key) {
+        let key: &KeyBound = key.borrow();
         if key.is_empty() {
             //Clear values
             self.sub_values = BTreeMap::default();
@@ -125,8 +125,8 @@ impl VarData {
         }
     }
 
-    pub fn data(&self, key: &NonNullableKey) -> DataResult {
-        let key: &NullableKey = key.borrow();
+    pub fn data(&self, key: &Key) -> DataResult {
+        let key: &KeyBound = key.borrow();
         if key.is_empty() {
             DataResult {
                 has_value: self.value.is_some(),
@@ -144,7 +144,7 @@ impl VarData {
         }
     }
 
-    pub fn query(&self, key: &NullableKey, direction: Direction) -> Option<NonNullableKey> {
+    pub fn query(&self, key: &KeyBound, direction: Direction) -> Option<Key> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => self
@@ -161,10 +161,10 @@ impl VarData {
         .or((direction == Direction::Backward
             && !self.sub_values.is_empty()
             && !key.is_empty())
-        .then(NonNullableKey::empty))
+        .then(Key::empty))
     }
 
-    pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
+    pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey> {
         match direction {
             Direction::Forward => self
                 .sub_values
@@ -180,7 +180,7 @@ impl VarData {
     }
 
     pub fn has_data(&self) -> bool {
-        self.data(&NonNullableKey::empty())
+        self.data(&Key::empty())
             != DataResult {
                 has_value: false,
                 has_descendants: false,

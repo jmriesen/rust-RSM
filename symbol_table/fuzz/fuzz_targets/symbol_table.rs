@@ -32,19 +32,19 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use symbol_table::{
-    key::{NonNullableKey, NullableKey},
+    key::{Key, KeyBound},
     value::Value,
     Direction, MVar, Table,
 };
 
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
-    Set(MVar<NonNullableKey>, Value),
-    Get(MVar<NonNullableKey>),
-    Kill(MVar<NonNullableKey>),
-    Data(MVar<NonNullableKey>),
-    Query(MVar<NullableKey>, Direction),
-    Order(MVar<NullableKey>, Direction),
+    Set(MVar<Key>, Value),
+    Get(MVar<Key>),
+    Kill(MVar<Key>),
+    Data(MVar<Key>),
+    Query(MVar<KeyBound>, Direction),
+    Order(MVar<KeyBound>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {

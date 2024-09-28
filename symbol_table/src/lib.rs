@@ -46,7 +46,7 @@ mod var_u;
 
 use crate::value::Value;
 use hash::CreationError;
-use key::NonNullableKey;
+use key::Key;
 pub use m_var::MVar;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
@@ -76,19 +76,19 @@ impl Table {
 
     ///Gets a value that was stored in the symbol table.
     #[must_use]
-    pub fn get(&self, var: &MVar<NonNullableKey>) -> Option<&Value> {
+    pub fn get(&self, var: &MVar<Key>) -> Option<&Value> {
         self.table.locate(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the symbol table
-    pub fn set(&mut self, var: &MVar<NonNullableKey>, value: &Value) -> Result<(), CreationError> {
+    pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
         self.table
             .create(var.name.clone())?
             .set_value(&var.key, value);
         Ok(())
     }
 
-    pub fn kill(&mut self, var: &MVar<NonNullableKey>) {
+    pub fn kill(&mut self, var: &MVar<Key>) {
         if let Some(data) = self.table.locate_mut(&var.name) {
             data.kill(&var.key);
             if !(data.has_data() || self.attached(&var.name)) {
@@ -105,7 +105,7 @@ impl Table {
     }
 
     #[must_use]
-    pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
+    pub fn data(&self, var: &MVar<Key>) -> DataResult {
         self.table.locate(&var.name).map_or(
             DataResult {
                 has_value: false,
@@ -117,11 +117,7 @@ impl Table {
 
     /// Returns the next record in the variable.
     #[must_use]
-    pub fn query<Key: key::Key>(
-        &self,
-        var: &MVar<Key>,
-        direction: Direction,
-    ) -> Option<MVar<NonNullableKey>> {
+    pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
         self.table
             .locate(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
@@ -130,7 +126,7 @@ impl Table {
 
     /// Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
     #[must_use]
-    pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
+    pub fn order<Key: key::KeyType>(&self, var: &MVar<Key>, direction: Direction) -> Value {
         self.table
             .locate(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))

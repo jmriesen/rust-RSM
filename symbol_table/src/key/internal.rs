@@ -31,7 +31,7 @@ use crate::{key::SubKey, value::Value};
 
 pub const MAX_KEY_SIZE: usize = 255;
 
-use super::{format, Error, Iter, NonNullableKey, NullableKey};
+use super::{format, Error, Iter, Key, KeyBound};
 
 use super::IntermediateRepresentation;
 
@@ -43,19 +43,19 @@ impl<'a> IntermediateRepresentation<'a> {
     }
 }
 
-impl TryFrom<NullableKey> for NonNullableKey {
+impl TryFrom<KeyBound> for Key {
     type Error = ();
 
-    fn try_from(value: NullableKey) -> Result<Self, Self::Error> {
+    fn try_from(value: KeyBound) -> Result<Self, Self::Error> {
         if value.has_trailing_null() {
             Err(())
         } else {
-            Ok(NonNullableKey(value))
+            Ok(Key(value))
         }
     }
 }
 
-impl NullableKey {
+impl KeyBound {
     pub fn push(self, src: &Value) -> Result<Self, Error> {
         if self.has_trailing_null() {
             Err(Error::SubKeyIsNull)
@@ -114,10 +114,10 @@ impl NullableKey {
     /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
     /// This should only be used to create a bound
     #[must_use]
-    pub fn upper_subscript_bound(&self) -> NullableKey {
+    pub fn upper_subscript_bound(&self) -> KeyBound {
         let mut modified_key = self.0.clone();
         modified_key.extend(format::MAX_SUB_KEY);
-        NullableKey(modified_key)
+        KeyBound(modified_key)
     }
     pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<SubKey<'a>> {
         //NOTE This was not written to be preferment, just correct.
@@ -147,7 +147,7 @@ impl<'a> std::iter::Iterator for Iter<'a> {
     }
 }
 
-impl Ord for NullableKey {
+impl Ord for KeyBound {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let min_len = self.0.len().min(other.0.len());
         match self.0[..min_len].cmp(&other.0[..min_len]) {
@@ -158,7 +158,7 @@ impl Ord for NullableKey {
     }
 }
 
-impl PartialOrd for NullableKey {
+impl PartialOrd for KeyBound {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -167,13 +167,13 @@ impl PartialOrd for NullableKey {
 mod tests {
     use std::str::FromStr;
 
-    use crate::{key::NullableKey, value::Value};
+    use crate::{key::KeyBound, value::Value};
 
     #[test]
     fn extract_sibling_key() {
         let to_key = |keys: &[&'static str]| {
             let keys: Vec<_> = keys.iter().map(|x| Value::from_str(x).unwrap()).collect();
-            NullableKey::new(&keys).unwrap()
+            KeyBound::new(&keys).unwrap()
         };
         let foo_bar = to_key(&["foo", "bar"]);
         let foo_zar = to_key(&["foo", "zar"]);
