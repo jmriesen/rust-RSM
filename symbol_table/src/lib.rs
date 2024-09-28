@@ -45,7 +45,7 @@ mod var_data;
 mod var_u;
 
 use crate::value::Value;
-use hash::CreationError;
+use hash::{CreationError, Key};
 use key::NonNullableKey;
 pub use m_var::MVar;
 pub use var_data::Direction;
@@ -58,8 +58,13 @@ impl hash::Key for VarU {
     }
 }
 
+type NewFrame = Vec<(VarU, Option<VarData>)>;
+
 #[derive(Default, Debug)]
-pub struct Table(hash::HashTable<VarU, VarData>);
+pub struct Table {
+    table: hash::HashTable<VarU, VarData>,
+    stack: Vec<NewFrame>,
+}
 
 impl Table {
     #[must_use]
@@ -70,20 +75,22 @@ impl Table {
     ///Gets a value that was stored in the symbol table.
     #[must_use]
     pub fn get(&self, var: &MVar<NonNullableKey>) -> Option<&Value> {
-        self.0.locate(&var.name)?.value(&var.key)
+        self.table.locate(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the symbol table
     pub fn set(&mut self, var: &MVar<NonNullableKey>, value: &Value) -> Result<(), CreationError> {
-        self.0.create(var.name.clone())?.set_value(&var.key, value);
+        self.table
+            .create(var.name.clone())?
+            .set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVar<NonNullableKey>) {
-        if let Some(data) = self.0.locate_mut(&var.name) {
+        if let Some(data) = self.table.locate_mut(&var.name) {
             data.kill(&var.key);
-            if !data.contains_data() {
-                self.0.free(&var.name);
+            if !(data.has_data() || self.attached(&var.name)) {
+                self.table.free(&var.name);
             }
         }
     }
@@ -91,13 +98,13 @@ impl Table {
     //NOTE not yet mutation tested
     pub fn keep(&mut self, vars: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
-        self.0
+        self.table
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
 
     #[must_use]
     pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
-        self.0.locate(&var.name).map_or(
+        self.table.locate(&var.name).map_or(
             DataResult {
                 has_value: false,
                 has_descendants: false,
@@ -113,7 +120,7 @@ impl Table {
         var: &MVar<Key>,
         direction: Direction,
     ) -> Option<MVar<NonNullableKey>> {
-        self.0
+        self.table
             .locate(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
             .map(|key| var.copy_new_key(key))
@@ -122,11 +129,46 @@ impl Table {
     ///Returns the next `sub_key` for a given variable.
     #[must_use]
     pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
-        self.0
+        self.table
             .locate(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
             .map(std::convert::Into::into)
             .unwrap_or_default()
+    }
+
+    fn push_new_frame(&mut self) {
+        self.stack.push(NewFrame::default());
+    }
+
+    fn pop_new_frame(&mut self) {
+        let frame = self.stack.pop();
+        if let Some(frame) = frame {
+            for (var, data) in frame.into_iter() {
+                if let Some(data) = data {
+                    let slot = self
+                        .table
+                        .create(var)
+                        .expect("The slot should already exists");
+                    *slot = data;
+                } else {
+                    self.table.free(&var);
+                }
+            }
+        }
+    }
+
+    fn new_var(&mut self, vars: &[&VarU]) {
+        // Will panic if there is no current new_frame
+        let current_frame = self.stack.last_mut().unwrap();
+        for &var in vars {
+            current_frame.push((var.clone(), self.table.free(var)));
+        }
+    }
+
+    fn attached(&self, var: &VarU) -> bool {
+        self.stack
+            .iter()
+            .any(|x| x.iter().any(|(newed_var, _)| var == newed_var))
     }
 }
 

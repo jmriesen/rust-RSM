@@ -10,6 +10,7 @@ fn get_unset_variable() {
     let m_var = var_m("foo", &[]);
     assert_eq!(table.get(&m_var), None);
 }
+
 #[test]
 fn get_unset_key() {
     let mut table = Table::new();
@@ -149,7 +150,7 @@ fn kill_initialized_root() {
     assert_eq!(table.get(&var_i), None);
 
     //Hash table should have freed the entire.
-    assert_eq!(table.0.locate(&var.name), None);
+    assert_eq!(table.table.locate(&var.name), None);
 }
 
 #[test]
@@ -204,4 +205,57 @@ fn keep_vars() {
     for var in &[dolor, retain_a, retain_b] {
         assert_eq!(table.get(var), Some(&data));
     }
+}
+
+#[test]
+fn newing_stores_a_copy() {
+    let mut table = Table::new();
+    let var = var_m("var", &[]);
+
+    let level_zero = "zero".try_into().unwrap();
+    table.set(&var, &level_zero).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]);
+    let level_one = "one".try_into().unwrap();
+    table.set(&var, &level_one).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]);
+    let level_two = "two".try_into().unwrap();
+    table.set(&var, &level_two).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]);
+    assert_eq!(table.get(&var), None);
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_two));
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_one));
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_zero));
+}
+
+#[test]
+fn non_newed_variables_are_still_accessible() {
+    let mut table = Table::new();
+    let newed_var = var_m("var", &[]);
+    let assumed_var = var_m("assumed", &[]);
+
+    let assumed_value = "newed".try_into().unwrap();
+    table.set(&assumed_var, &assumed_value).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&newed_var.name]);
+    let newed_value = "newed".try_into().unwrap();
+    table.set(&newed_var, &assumed_value).unwrap();
+
+    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
+    assert_eq!(table.get(&newed_var), Some(&newed_value));
+    table.pop_new_frame();
+    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
+    assert_eq!(table.get(&newed_var), None);
 }

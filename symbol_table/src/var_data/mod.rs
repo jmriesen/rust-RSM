@@ -30,7 +30,7 @@
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use crate::{
-    key::{NonNullableKey, NullableKey},
+    key::{self, NonNullableKey, NullableKey},
     value::Value,
 };
 
@@ -76,8 +76,6 @@ impl From<DataResult> for Value {
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct VarData {
     sub_values: BTreeMap<NullableKey, Value>,
-    //TODO consider removing I am currently not using attach
-    attach: ::std::os::raw::c_short,
     value: Option<Value>,
 }
 
@@ -181,16 +179,16 @@ impl VarData {
         .and_then(|x| key.extract_sibling_sub_key(x))
     }
 
+    pub fn has_data(&self) -> bool {
+        self.data(&NonNullableKey::new(&[]).expect("Empty key is always fine"))
+            != DataResult {
+                has_value: false,
+                has_descendants: false,
+            }
+    }
+
     //todo
     //Dump
-
-    //checks self contains any data, if not it can be freed
-    //TODO I don't really understand how attached is supposed to work so am skipping mutation testing
-    //on this for the moment
-    #[cfg_attr(test, mutants::skip)]
-    pub fn contains_data(&self) -> bool {
-        !(self.sub_values.is_empty() && self.attach <= 1 && self.value.is_none())
-    }
 }
 
 #[cfg(test)]
