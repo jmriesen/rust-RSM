@@ -58,6 +58,8 @@ impl hash::Key for VarU {
     }
 }
 
+/// Stores the information required to restore new-ed variables to there previous state.
+/// This Vec should be treated as a Stack, i.e. FILO.
 type NewFrame = Vec<(VarU, VarData)>;
 
 #[derive(Default, Debug)]
@@ -113,7 +115,7 @@ impl Table {
         )
     }
 
-    //Returns the next record in the variable.
+    /// Returns the next record in the variable.
     #[must_use]
     pub fn query<Key: key::Key>(
         &self,
@@ -126,7 +128,7 @@ impl Table {
             .map(|key| var.copy_new_key(key))
     }
 
-    //Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
+    /// Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
     #[must_use]
     pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
         self.table
@@ -150,7 +152,7 @@ impl Table {
         let frame = self.stack.pop();
         if let Some(frame) = frame {
             //NOTE we are reversing the order so that we restore the variables in the opposite order in
-            //which they were new-ed. This is matters in the case where a variable was new-ed
+            //which they were new-ed. This matters in the case where a variable was new-ed
             //multiple times.
             for (var, data) in frame.into_iter().rev() {
                 //If there is data to restore OR the variable was new-ed before.
@@ -169,12 +171,12 @@ impl Table {
 
     /// News a set of variables.
     /// The current state of the new-ed variables will be stored in the current NewFrame.
-    /// When the current NewFrame is dropped of the stack any new-ed variables will return to there
+    /// When the current NewFrame is popped from the stack, any new-ed variables will return to there
     /// pre new-ed state.
     ///
     /// PANICS this method will panic if the `SymbolTables` `NewFrame` stack is empty.
     ///
-    /// NOTE if you new the same variable multiple times during the same NewFrame pop-ing the frame will
+    /// NOTE if you new the same variable multiple times during the same NewFrame popping the frame will
     /// reset the variable state to what the state before the first call to new_var on the current
     /// NewFrame.
     ///
@@ -193,8 +195,8 @@ impl Table {
         Ok(())
     }
 
-    /// News all the variables that exist in the symbol table except for intrinsic and those
-    /// specified in the exclude parameter.
+    /// News all the variables that exist in the symbol table except for intrinsic variables and
+    /// variables specified in the exclude parameter.
     fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
         let vars_to_new: Vec<_> = self
             .table
