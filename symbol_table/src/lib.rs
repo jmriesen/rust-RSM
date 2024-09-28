@@ -180,18 +180,22 @@ impl Table {
     ///
     /// NOTE A new-ed variable will take up space in the `SymbolTable` table even if the variables
     /// value is never set.
-    fn new_var(&mut self, vars: &[&VarU]) {
+    fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
         // Will panic if there is no current new_frame
-        let current_frame = self.stack.last_mut().unwrap();
+        let current_frame = self
+            .stack
+            .last_mut()
+            .expect("There must be a NewFrame in the stack before you can call new");
         for &var in vars {
-            let slot = self.table.create(var.clone()).unwrap();
+            let slot = self.table.create(var.clone())?;
             current_frame.push((var.clone(), std::mem::take(slot)));
         }
+        Ok(())
     }
 
     /// News all the variables that exist in the symbol table except for intrinsic and those
     /// specified in the exclude parameter.
-    fn new_all_but(&mut self, exclude: &[&VarU]) {
+    fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
         let vars_to_new: Vec<_> = self
             .table
             .iter()
@@ -202,7 +206,7 @@ impl Table {
             .collect();
         let vars_to_new: Vec<_> = vars_to_new.iter().collect();
         self.stack.push(NewFrame::with_capacity(vars_to_new.len()));
-        self.new_var(&vars_to_new);
+        self.new_var(&vars_to_new)
     }
 
     /// Checks if this variables exists anywhere in the NewFrame Stack.
