@@ -64,7 +64,7 @@ mod ffi {
     impl Value {
         #[must_use]
         pub fn into_cstring(self) -> CSTRING {
-            let mut buf = [0; MAX_STR_LEN as usize + 1];
+            let mut buf = [0; MAX_STR_LEN + 1];
             buf[..self.0.len()].copy_from_slice(&self.0[..]);
             CSTRING {
                 len: self.0.len() as u16,
@@ -84,7 +84,7 @@ mod ffi {
 impl TryFrom<&[u8]> for Value {
     type Error = ();
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN as usize {
+        if value.len() <= MAX_STR_LEN {
             Ok(Self(Vec::from(value)))
         } else {
             Err(())
@@ -118,7 +118,7 @@ pub mod utility {
     impl<'a> Arbitrary<'a> for Value {
         #[cfg_attr(test, mutants::skip)]
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let len: usize = u.int_in_range(0..=MAX_STR_LEN as usize)?;
+            let len: usize = u.int_in_range(0..=MAX_STR_LEN)?;
             Ok(Self(Vec::from(u.bytes(len)?)))
         }
     }
@@ -137,7 +137,7 @@ pub mod utility {
         type Error = ();
 
         fn try_from(value: &str) -> Result<Self, Self::Error> {
-            if value.len() <= MAX_STR_LEN as usize {
+            if value.len() <= MAX_STR_LEN {
                 Ok(Self(Vec::from(value.as_bytes())))
             } else {
                 Err(())

@@ -58,8 +58,15 @@ impl hash::Key for VarU {
     }
 }
 
+/// Stores the information required to restore new-ed variables to there previous state.
+/// This Vec should be treated as a Stack, i.e. FILO.
+type NewFrame = Vec<(VarU, VarData)>;
+
 #[derive(Default, Debug)]
-pub struct Table(hash::HashTable<VarU, VarData>);
+pub struct Table {
+    table: hash::HashTable<VarU, VarData>,
+    stack: Vec<NewFrame>,
+}
 
 impl Table {
     #[must_use]
@@ -70,20 +77,22 @@ impl Table {
     ///Gets a value that was stored in the symbol table.
     #[must_use]
     pub fn get(&self, var: &MVar<NonNullableKey>) -> Option<&Value> {
-        self.0.locate(&var.name)?.value(&var.key)
+        self.table.locate(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the symbol table
     pub fn set(&mut self, var: &MVar<NonNullableKey>, value: &Value) -> Result<(), CreationError> {
-        self.0.create(var.name.clone())?.set_value(&var.key, value);
+        self.table
+            .create(var.name.clone())?
+            .set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVar<NonNullableKey>) {
-        if let Some(data) = self.0.locate_mut(&var.name) {
+        if let Some(data) = self.table.locate_mut(&var.name) {
             data.kill(&var.key);
-            if !data.contains_data() {
-                self.0.free(&var.name);
+            if !(data.has_data() || self.attached(&var.name)) {
+                self.table.free(&var.name);
             }
         }
     }
@@ -91,13 +100,13 @@ impl Table {
     //NOTE not yet mutation tested
     pub fn keep(&mut self, vars: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
-        self.0
+        self.table
             .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
     }
 
     #[must_use]
     pub fn data(&self, var: &MVar<NonNullableKey>) -> DataResult {
-        self.0.locate(&var.name).map_or(
+        self.table.locate(&var.name).map_or(
             DataResult {
                 has_value: false,
                 has_descendants: false,
@@ -106,27 +115,107 @@ impl Table {
         )
     }
 
-    //Returns a string representation of Key in the given MVar.
+    /// Returns the next record in the variable.
     #[must_use]
     pub fn query<Key: key::Key>(
         &self,
         var: &MVar<Key>,
         direction: Direction,
     ) -> Option<MVar<NonNullableKey>> {
-        self.0
+        self.table
             .locate(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
             .map(|key| var.copy_new_key(key))
     }
 
-    ///Returns the next `sub_key` for a given variable.
+    /// Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
     #[must_use]
     pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
-        self.0
+        self.table
             .locate(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
             .map(std::convert::Into::into)
             .unwrap_or_default()
+    }
+
+    /// Adds a NewFrame to the variable stack.
+    /// All subsequent calls to new_var will make use of this stack until another one has been
+    /// pushed.
+    fn push_new_frame(&mut self) {
+        self.stack.push(NewFrame::default());
+    }
+
+    /// Pops a NewFrame off the stack.
+    /// This will restore the values of all variables that were new-ed while that NewFrame was in
+    /// use.
+    fn pop_new_frame(&mut self) {
+        let frame = self.stack.pop();
+        if let Some(frame) = frame {
+            //NOTE we are reversing the order so that we restore the variables in the opposite order in
+            //which they were new-ed. This matters in the case where a variable was new-ed
+            //multiple times.
+            for (var, data) in frame.into_iter().rev() {
+                //If there is data to restore OR the variable was new-ed before.
+                if data.has_data() || self.attached(&var) {
+                    let slot = self
+                        .table
+                        .locate_mut(&var)
+                        .expect("The slot should already exists");
+                    *slot = data;
+                } else {
+                    self.table.free(&var);
+                }
+            }
+        }
+    }
+
+    /// News a set of variables.
+    /// The current state of the new-ed variables will be stored in the current NewFrame.
+    /// When the current NewFrame is popped from the stack, any new-ed variables will return to there
+    /// pre new-ed state.
+    ///
+    /// PANICS this method will panic if the `SymbolTables` `NewFrame` stack is empty.
+    ///
+    /// NOTE if you new the same variable multiple times during the same NewFrame popping the frame will
+    /// reset the variable state to what the state before the first call to new_var on the current
+    /// NewFrame.
+    ///
+    /// NOTE A new-ed variable will take up space in the `SymbolTable` table even if the variables
+    /// value is never set.
+    fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
+        // Will panic if there is no current new_frame
+        let current_frame = self
+            .stack
+            .last_mut()
+            .expect("There must be a NewFrame in the stack before you can call new");
+        for &var in vars {
+            let slot = self.table.create(var.clone())?;
+            current_frame.push((var.clone(), std::mem::take(slot)));
+        }
+        Ok(())
+    }
+
+    /// News all the variables that exist in the symbol table except for intrinsic variables and
+    /// variables specified in the exclude parameter.
+    fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
+        let vars_to_new: Vec<_> = self
+            .table
+            .iter()
+            .map(|(var, _value)| var)
+            .filter(|x| !(x.is_intrinsic() || exclude.contains(x)))
+            //NOTE I need to clone to avoid double borrowing
+            .cloned()
+            .collect();
+        let vars_to_new: Vec<_> = vars_to_new.iter().collect();
+        self.stack.push(NewFrame::with_capacity(vars_to_new.len()));
+        self.new_var(&vars_to_new)
+    }
+
+    /// Checks if this variables exists anywhere in the NewFrame Stack.
+    fn attached(&self, var: &VarU) -> bool {
+        self.stack
+            .iter()
+            .any(|new_frame| new_frame.iter().any(|(new_ed_var, _)| var == new_ed_var))
     }
 }
 
