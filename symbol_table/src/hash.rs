@@ -120,15 +120,12 @@ where
         self.map.get(key).map(|x| self.slots[*x].as_mut().unwrap())
     }
 
-    pub fn free(&mut self, key: &K) -> Option<V> {
+    pub fn free(&mut self, key: &K) {
         if let Some(index) = self.map.remove(key) {
-            let old_value = self.slots[index].take();
+            self.slots[index] = None;
             if index != ERROR_SLOT_INDEX {
                 self.open_slots.push(index);
             }
-            old_value
-        } else {
-            None
         }
     }
 

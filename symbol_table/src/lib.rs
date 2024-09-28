@@ -58,7 +58,7 @@ impl hash::Key for VarU {
     }
 }
 
-type NewFrame = Vec<(VarU, Option<VarData>)>;
+type NewFrame = Vec<(VarU, VarData)>;
 
 #[derive(Default, Debug)]
 pub struct Table {
@@ -144,10 +144,11 @@ impl Table {
         let frame = self.stack.pop();
         if let Some(frame) = frame {
             for (var, data) in frame.into_iter() {
-                if let Some(data) = data {
+                //If there is data to restore OR the variable was new-ed before.
+                if data.has_data() || self.attached(&var) {
                     let slot = self
                         .table
-                        .create(var)
+                        .locate_mut(&var)
                         .expect("The slot should already exists");
                     *slot = data;
                 } else {
@@ -161,7 +162,8 @@ impl Table {
         // Will panic if there is no current new_frame
         let current_frame = self.stack.last_mut().unwrap();
         for &var in vars {
-            current_frame.push((var.clone(), self.table.free(var)));
+            let slot = self.table.create(var.clone()).unwrap();
+            current_frame.push((var.clone(), std::mem::take(slot)));
         }
     }
 

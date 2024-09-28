@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use super::Table;
 use crate::m_var::helpers::var_m;
-use pretty_assertions::assert_eq;
+use pretty_assertions::{assert_eq, assert_ne};
 
 #[test]
 fn get_unset_variable() {
@@ -150,6 +150,24 @@ fn kill_initialized_root() {
     assert_eq!(table.get(&var_i), None);
 
     //Hash table should have freed the entire.
+    assert_eq!(table.table.locate(&var.name), None);
+}
+
+#[test]
+fn slot_keep_open_if_variable_was_newed() {
+    let mut table = Table::new();
+    let var = var_m("foo", &[]);
+    table.push_new_frame();
+    table.new_var(&[&var.name]);
+    dbg!(&table);
+    table.kill(&var);
+    dbg!(&table);
+
+    //Hash table still have the slot reserved
+    assert_ne!(table.table.locate(&var.name), None);
+    table.pop_new_frame();
+    //Hash table should freed the entire since it was not new-ed
+    //by something else And the slot holds no data.
     assert_eq!(table.table.locate(&var.name), None);
 }
 
