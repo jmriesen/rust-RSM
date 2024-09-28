@@ -113,7 +113,7 @@ impl Table {
         )
     }
 
-    //Returns a string representation of Key in the given MVar.
+    //Returns the next record in the variable.
     #[must_use]
     pub fn query<Key: key::Key>(
         &self,
@@ -126,7 +126,7 @@ impl Table {
             .map(|key| var.copy_new_key(key))
     }
 
-    ///Returns the next `sub_key` for a given variable.
+    //Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
     #[must_use]
     pub fn order<Key: key::Key>(&self, var: &MVar<Key>, direction: Direction) -> Value {
         self.table
