@@ -45,7 +45,7 @@ mod var_data;
 mod var_u;
 
 use crate::value::Value;
-use hash::{CreationError, Key};
+use hash::CreationError;
 use key::NonNullableKey;
 pub use m_var::MVar;
 pub use var_data::Direction;

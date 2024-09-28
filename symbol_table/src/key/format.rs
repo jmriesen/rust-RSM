@@ -102,11 +102,8 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
             let dec_part = parts.next();
 
             Ok(
-                //Check if there were multiple dots.
-                if parts.next().is_some() {
-                    Self::String(contents)
-                //Check for trailing dot.
-                } else if dec_part == Some(&[]) {
+                //Check if there were multiple dots or a trailing dot
+                if parts.next().is_some() || dec_part == Some(&[]) {
                     Self::String(contents)
                 } else {
                     let dec_part = dec_part.unwrap_or_default();

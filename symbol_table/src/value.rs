@@ -84,7 +84,7 @@ mod ffi {
 impl TryFrom<&[u8]> for Value {
     type Error = ();
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN as usize {
+        if value.len() <= MAX_STR_LEN {
             Ok(Self(Vec::from(value)))
         } else {
             Err(())

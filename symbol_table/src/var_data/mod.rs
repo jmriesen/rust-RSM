@@ -30,7 +30,7 @@
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use crate::{
-    key::{self, NonNullableKey, NullableKey},
+    key::{NonNullableKey, NullableKey},
     value::Value,
 };
 
