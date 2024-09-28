@@ -277,6 +277,30 @@ fn assumed_variables_are_accessible() {
 }
 
 #[test]
+fn calling_new_on_the_same_variable_multiple_times() {
+    let mut table = Table::new();
+    let var = var_m("var", &[]);
+
+    let initial_value = "inital".try_into().unwrap();
+    let second_value = "second".try_into().unwrap();
+    let third_value = "thired".try_into().unwrap();
+    table.set(&var, &initial_value).unwrap();
+
+    table.push_new_frame();
+
+    table.new_var(&[&var.name]);
+    assert_eq!(table.get(&var), None);
+    table.set(&var, &second_value).unwrap();
+
+    table.new_var(&[&var.name]);
+    assert_eq!(table.get(&var), None);
+    table.set(&var, &third_value).unwrap();
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&initial_value));
+}
+
+#[test]
 fn new_all_does_not_new_excluded_or_intrinsic_vars() {
     let mut table = Table::new();
     let intrinsic = var_m("$var", &[]);
