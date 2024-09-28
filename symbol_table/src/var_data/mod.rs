@@ -113,9 +113,9 @@ impl VarData {
         } else {
             //NOTE Removing a range of keys seems like something the std BTree map should support,
             //However it looks like there is still some design swirl going on, and the design has
-            //not been touched in a while
+            //not been touched in a while.
             //https://github.com/rust-lang/rust/issues/81074
-            //So I just chose to use the cursor api for now.
+            //So I just chose to use the cursor API for now.
             let mut cursor = self.sub_values.lower_bound_mut(Bound::Included(key));
             while let Some((current_key, _)) = cursor.peek_next()
                 && current_key.is_sub_key_of(key)
@@ -161,7 +161,7 @@ impl VarData {
         .or((direction == Direction::Backward
             && !self.sub_values.is_empty()
             && !key.is_empty())
-        .then(|| NonNullableKey::new(&[]).expect("an Empty Key can allways be constructed")))
+        .then(|| NonNullableKey::empty()))
     }
 
     pub fn order(&self, key: &NullableKey, direction: Direction) -> Option<crate::key::SubKey> {
@@ -180,15 +180,12 @@ impl VarData {
     }
 
     pub fn has_data(&self) -> bool {
-        self.data(&NonNullableKey::new(&[]).expect("Empty key is always fine"))
+        self.data(&NonNullableKey::empty())
             != DataResult {
                 has_value: false,
                 has_descendants: false,
             }
     }
-
-    //todo
-    //Dump
 }
 
 #[cfg(test)]

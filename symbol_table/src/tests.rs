@@ -154,20 +154,18 @@ fn kill_initialized_root() {
 }
 
 #[test]
-fn slot_keep_open_if_variable_was_newed() {
+fn keep_slot_open_if_variable_was_new_ed() {
     let mut table = Table::new();
     let var = var_m("foo", &[]);
     table.push_new_frame();
     table.new_var(&[&var.name]);
-    dbg!(&table);
     table.kill(&var);
-    dbg!(&table);
 
-    //Hash table still have the slot reserved
+    //Hash table should still have the slot reserved.
     assert_ne!(table.table.locate(&var.name), None);
     table.pop_new_frame();
-    //Hash table should freed the entire since it was not new-ed
-    //by something else And the slot holds no data.
+    //Hash table should have freed the slot since it was not new-ed
+    //by something else and the restored value holds no data.
     assert_eq!(table.table.locate(&var.name), None);
 }
 
@@ -231,16 +229,16 @@ fn newing_stores_a_copy() {
     let var = var_m("var", &[]);
 
     let level_zero = "zero".try_into().unwrap();
+    let level_one = "one".try_into().unwrap();
+    let level_two = "two".try_into().unwrap();
     table.set(&var, &level_zero).unwrap();
 
     table.push_new_frame();
     table.new_var(&[&var.name]);
-    let level_one = "one".try_into().unwrap();
     table.set(&var, &level_one).unwrap();
 
     table.push_new_frame();
     table.new_var(&[&var.name]);
-    let level_two = "two".try_into().unwrap();
     table.set(&var, &level_two).unwrap();
 
     table.push_new_frame();
@@ -258,44 +256,42 @@ fn newing_stores_a_copy() {
 }
 
 #[test]
-fn non_newed_variables_are_still_accessible() {
+fn assumed_variables_are_accessible() {
     let mut table = Table::new();
-    let newed_var = var_m("var", &[]);
+    let new_ed_var = var_m("var", &[]);
     let assumed_var = var_m("assumed", &[]);
 
-    let assumed_value = "newed".try_into().unwrap();
+    let assumed_value = "new-ed".try_into().unwrap();
+    let new_value = "new-ed".try_into().unwrap();
     table.set(&assumed_var, &assumed_value).unwrap();
 
     table.push_new_frame();
-    table.new_var(&[&newed_var.name]);
-    let newed_value = "newed".try_into().unwrap();
-    table.set(&newed_var, &assumed_value).unwrap();
+    table.new_var(&[&new_ed_var.name]);
+    table.set(&new_ed_var, &assumed_value).unwrap();
 
     assert_eq!(table.get(&assumed_var), Some(&assumed_value));
-    assert_eq!(table.get(&newed_var), Some(&newed_value));
+    assert_eq!(table.get(&new_ed_var), Some(&new_value));
     table.pop_new_frame();
     assert_eq!(table.get(&assumed_var), Some(&assumed_value));
-    assert_eq!(table.get(&newed_var), None);
+    assert_eq!(table.get(&new_ed_var), None);
 }
 
 #[test]
-fn test_new_all() {
-    {
-        let mut table = Table::new();
-        let intrinsic = var_m("$var", &[]);
-        let included = var_m("included", &[]);
-        let excluded = var_m("excluded", &[]);
-        let value = "value".try_into().unwrap();
+fn new_all_does_not_new_excluded_or_intrinsic_vars() {
+    let mut table = Table::new();
+    let intrinsic = var_m("$var", &[]);
+    let included = var_m("included", &[]);
+    let excluded = var_m("excluded", &[]);
+    let value = "value".try_into().unwrap();
 
-        table.set(&intrinsic, &value).unwrap();
-        table.set(&included, &value).unwrap();
-        table.set(&excluded, &value).unwrap();
+    table.set(&intrinsic, &value).unwrap();
+    table.set(&included, &value).unwrap();
+    table.set(&excluded, &value).unwrap();
 
-        table.new_all_but(&[&excluded.name]);
-        //New-ed value
-        assert_eq!(table.get(&included), None);
-        //Not new-ed
-        assert_ne!(table.get(&excluded), None);
-        assert_ne!(table.get(&intrinsic), None);
-    }
+    table.new_all_but(&[&excluded.name]);
+    //New-ed value
+    assert_eq!(table.get(&included), None);
+    //Not new-ed
+    assert_ne!(table.get(&excluded), None);
+    assert_ne!(table.get(&intrinsic), None);
 }

@@ -64,6 +64,10 @@ impl NonNullableKey {
             Ok(Self(NullableKey::new(values)?))
         }
     }
+
+    pub const fn empty()->Self{
+        Self(NullableKey::empty())
+    }
 }
 
 /// Stores a list of keys.
@@ -111,6 +115,10 @@ impl NullableKey {
     #[must_use]
     pub fn iter(&self) -> Iter {
         Iter { tail: &self.0[..] }
+    }
+
+    pub const fn empty() ->Self{
+        Self(Vec::new())
     }
 }
 

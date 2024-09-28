@@ -184,7 +184,7 @@ impl Table {
     fn attached(&self, var: &VarU) -> bool {
         self.stack
             .iter()
-            .any(|x| x.iter().any(|(newed_var, _)| var == newed_var))
+            .any(|new_frame| new_frame.iter().any(|(new_ed_var, _)| var == new_ed_var))
     }
 }
 
