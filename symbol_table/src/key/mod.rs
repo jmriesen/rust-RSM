@@ -49,6 +49,22 @@ pub struct Key(KeyBound);
 #[derive(Eq, PartialEq, Clone)]
 pub struct KeyBound(Vec<u8>);
 
+/// Represents one segment of a key.
+/// If we have the MVar foo("a","b") "a" is one segment of the key ("a","b").
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub struct SubKey<'a>(&'a [u8]);
+pub struct Iter<'a> {
+    tail: &'a [u8],
+}
+
+/// Errors that can occur while trying to create a key.
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    SubscriptToLarge,
+    SubKeyContainsNull,
+    KeyToLarge,
+    SubKeyIsNull,
+}
 
 pub mod conversions{
     use super::*;
@@ -78,6 +94,25 @@ pub mod conversions{
         }
     }
 
+    impl<'a> From<SubKey<'a>> for Value {
+        fn from(value: SubKey<'a>) -> Self {
+            IntermediateRepresentation::from(value)
+                .external_fmt(false)
+                .as_slice()
+                .try_into()
+                .expect("max key len is < max Value len")
+        }
+    }
+
+    //This lint seems to be a false positive.
+    #[allow(clippy::into_iter_without_iter)]
+    impl<'a> IntoIterator for &'a KeyBound {
+        type IntoIter = Iter<'a>;
+        type Item = SubKey<'a>;
+        fn into_iter(self) -> Self::IntoIter {
+            self.iter()
+        }
+    }
 }
 
 impl Key {
@@ -151,41 +186,7 @@ impl std::fmt::Debug for KeyBound {
     }
 }
 
-//This lint seems to be a false positive.
-#[allow(clippy::into_iter_without_iter)]
-impl<'a> IntoIterator for &'a KeyBound {
-    type IntoIter = Iter<'a>;
-    type Item = SubKey<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 
-//Represents one segment of a key
-//If we have the Mvar x("a","b") "a" is one segment of the key ("a","b").
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct SubKey<'a>(&'a [u8]);
-pub struct Iter<'a> {
-    tail: &'a [u8],
-}
-
-impl<'a> From<SubKey<'a>> for Value {
-    fn from(value: SubKey<'a>) -> Self {
-        IntermediateRepresentation::from(value)
-            .external_fmt(false)
-            .as_slice()
-            .try_into()
-            .expect("max key len is < max Value len")
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    SubscriptToLarge,
-    SubKeyContainsNull,
-    KeyToLarge,
-    SubKeyIsNull,
-}
 
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "fuzzing")]
