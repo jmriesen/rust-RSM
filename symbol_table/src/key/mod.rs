@@ -219,6 +219,9 @@ mod tests {
     use internal::MAX_KEY_SIZE;
     use pretty_assertions::assert_eq;
 
+    /// Generate a value by repeating the pattern count times.
+    ///
+    /// This was created just to reduce boiler plate.
     fn generate_value(pattern: &str, count: usize) -> Value {
         pattern.repeat(count).as_str().try_into().unwrap()
     }
@@ -265,18 +268,18 @@ mod tests {
     }
 
     #[test]
-    fn subscript_values_canot_contain_null_byte() {
+    fn subscript_values_can_not_contain_null_byte() {
         let result = KeyBound::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::SubKeyContainsNull));
     }
 
     #[test]
-    fn null_subscripts_can_only_be_the_last_subscript_of_a_nullable_key() {
-        let non_null_value = generate_value("a", 1);
+    fn null_subscripts_are_only_valid_as_the_last_subscript_of_a_key_bound() {
+        let value = generate_value("a", 1);
         assert!(KeyBound::new(&[Value::empty()]).is_ok());
-        assert!(KeyBound::new(&[non_null_value.clone(), Value::empty(),]).is_ok());
+        assert!(KeyBound::new(&[value.clone(), Value::empty(),]).is_ok());
         assert_eq!(
-            KeyBound::new(&[Value::empty(), non_null_value]),
+            KeyBound::new(&[Value::empty(), value]),
             Err(Error::SubKeyIsNull)
         );
 
@@ -284,15 +287,11 @@ mod tests {
     }
 
     #[test]
-    fn build_key_int_to_large() {
-        //NOTE I tried to put the mutants::skip attribute on 'MAX_INT_SEGMENT_SIZE'
-        //but mutants were still being generated
+    fn extremely_large_numbers_are_stored_as_strings() {
+        // This assert is just here to stop a mutation testing false positive.
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
-        let key = KeyBound::new([&"1"
-            .repeat(MAX_INT_SEGMENT_SIZE + 1)
-            .as_str()
-            .try_into()
-            .unwrap()])
+
+        let key = KeyBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)])
         .unwrap();
         assert!(matches!(
             key.iter().next().unwrap().into(),
@@ -316,7 +315,7 @@ mod tests {
             ));
         }
 
-        //Things that should *Not* be strings
+        //Things that should **Not** be strings
         let non_strings = KeyBound::new(
             [".1", "10", ".01"]
                 .map(|x| Value::try_from(x).unwrap())
