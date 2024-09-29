@@ -138,23 +138,25 @@ impl KeyBound {
         Ok(key)
     }
 
-    //TODO consider replacing with Display
-    #[must_use]
-    pub fn string_key(&self) -> Vec<u8> {
-        let mut out_put = vec![b'('];
+    /// Appends self to the provided Vec.
+    /// The data is appended in the external format.
+    /// The format is (<subscript1>,<subscript2> ...)
+    ///
+    /// NOTE we are using a Vec<u8> rather then a string since the key could contain non UTF-8
+    /// characters
+    pub fn push_to_vec(&self,destination:&mut Vec<u8>) {
+        destination.push(b'(');
+
         let mut iter = self.iter().map(IntermediateRepresentation::from);
-
         if let Some(sub_key) = iter.next() {
-            sub_key.push_external_fmt(&mut out_put, true);
+            sub_key.push_external_fmt(destination, true);
         }
-
         for sub_key in iter {
-            out_put.push(b',');
-            sub_key.push_external_fmt(&mut out_put, true);
+            destination.push(b',');
+            sub_key.push_external_fmt(destination, true);
         }
 
-        out_put.push(b')');
-        out_put
+        destination.push(b')');
     }
 
     #[must_use]
