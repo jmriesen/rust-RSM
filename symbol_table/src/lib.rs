@@ -46,7 +46,7 @@ mod var_u;
 
 use crate::value::Value;
 use hash::CreationError;
-use key::Key;
+use key::{Key, SubKey};
 pub use m_var::MVar;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
@@ -126,12 +126,14 @@ impl Table {
 
     /// Returns the next sub_key that is in MVar and at the same sub_key depth as the provided MVar.
     #[must_use]
-    pub fn order<Key: key::KeyType>(&self, var: &MVar<Key>, direction: Direction) -> Value {
+    pub fn order<Key: key::KeyType>(
+        &self,
+        var: &MVar<Key>,
+        direction: Direction,
+    ) -> Option<SubKey> {
         self.table
             .locate(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
-            .map(std::convert::Into::into)
-            .unwrap_or_default()
     }
 
     /// Adds a NewFrame to the variable stack.
