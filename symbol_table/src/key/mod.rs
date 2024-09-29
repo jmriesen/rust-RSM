@@ -50,25 +50,34 @@ pub struct Key(KeyBound);
 pub struct KeyBound(Vec<u8>);
 
 
+pub mod conversions{
+    use super::*;
 
-
-pub trait KeyType:
+    /// KeyType represents is used to represent either type of Key and is used as a genetic type bound 
+    /// to reduce code duplication.
+    ///
+    /// Mostly this type is used as a way of converting Keys into KeyBounds.
+    /// The BTree API bound API kind of forces me to use store/interact with everything using the
+    /// KeyBound type. 
+    pub trait KeyType:
     std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
-{
-}
-impl KeyType for KeyBound {}
-impl KeyType for Key {}
+    {
+    }
+    impl KeyType for KeyBound {}
+    impl KeyType for Key {}
 
 
-impl std::borrow::Borrow<KeyBound> for Key {
-    fn borrow(&self) -> &KeyBound {
-        &self.0
+    impl std::borrow::Borrow<KeyBound> for Key {
+        fn borrow(&self) -> &KeyBound {
+            &self.0
+        }
     }
-}
-impl From<Key> for KeyBound {
-    fn from(value: Key) -> Self {
-        value.0
+    impl From<Key> for KeyBound {
+        fn from(value: Key) -> Self {
+            value.0
+        }
     }
+
 }
 
 impl Key {
