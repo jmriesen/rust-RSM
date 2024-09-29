@@ -66,22 +66,21 @@ pub enum Error {
     SubKeyIsNull,
 }
 
-pub mod conversions{
+pub mod conversions {
     use super::*;
 
-    /// KeyType represents is used to represent either type of Key and is used as a genetic type bound 
+    /// KeyType represents is used to represent either type of Key and is used as a genetic type bound
     /// to reduce code duplication.
     ///
     /// Mostly this type is used as a way of converting Keys into KeyBounds.
     /// The BTree API bound API kind of forces me to use store/interact with everything using the
-    /// KeyBound type. 
+    /// KeyBound type.
     pub trait KeyType:
-    std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
+        std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
     {
     }
     impl KeyType for KeyBound {}
     impl KeyType for Key {}
-
 
     impl std::borrow::Borrow<KeyBound> for Key {
         fn borrow(&self) -> &KeyBound {
@@ -186,8 +185,6 @@ impl std::fmt::Debug for KeyBound {
     }
 }
 
-
-
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "fuzzing")]
 mod fuzzing {
@@ -213,6 +210,7 @@ mod fuzzing {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,8 +242,8 @@ mod tests {
             &generate_value(
                 "a",
                 MAX_KEY_SIZE 
-                    - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
-                    - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+                - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
             ),
         ])
         .is_ok());
@@ -256,9 +254,9 @@ mod tests {
                 &generate_value(
                     "a",
                     MAX_KEY_SIZE 
-                - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
-                - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
-                +1 // Pushing us over the limit.
+                    - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                    - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+                    +1 // Pushing us over the limit.
                 ),
             ]),
             Err(Error::KeyToLarge)
@@ -281,10 +279,7 @@ mod tests {
             Err(Error::SubKeyIsNull)
         );
 
-        assert_eq!(
-            Key::new(&[Value::empty()]),
-            Err(Error::SubKeyIsNull)
-        );
+        assert_eq!(Key::new(&[Value::empty()]), Err(Error::SubKeyIsNull));
     }
 
     #[test]
