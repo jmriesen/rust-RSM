@@ -158,7 +158,7 @@ fn keep_slot_open_if_variable_was_new_ed() {
     let mut table = Table::new();
     let var = var_m("foo", &[]);
     table.push_new_frame();
-    table.new_var(&[&var.name]);
+    table.new_var(&[&var.name]).unwrap();
     table.kill(&var);
 
     //Hash table should still have the slot reserved.

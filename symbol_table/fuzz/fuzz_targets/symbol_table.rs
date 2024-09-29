@@ -32,19 +32,19 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use symbol_table::{
-    key::{NonNullableKey, NullableKey},
+    key::{Key, KeyBound},
     value::Value,
     Direction, MVar, Table,
 };
 
 #[derive(Arbitrary, Debug)]
 enum TableCommands {
-    Set(MVar<NonNullableKey>, Value),
-    Get(MVar<NonNullableKey>),
-    Kill(MVar<NonNullableKey>),
-    Data(MVar<NonNullableKey>),
-    Query(MVar<NullableKey>, Direction),
-    Order(MVar<NullableKey>, Direction),
+    Set(MVar<Key>, Value),
+    Get(MVar<Key>),
+    Kill(MVar<Key>),
+    Data(MVar<Key>),
+    Query(MVar<KeyBound>, Direction),
+    Order(MVar<KeyBound>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
@@ -77,15 +77,16 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val.map(|x| x.util_string_m_var()).unwrap_or_default(),
-                    c_val
+                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
+                    Value::try_from(&c_val[..])
+                        .expect("The buffer comming from C should always fit")
                 );
             }
             TableCommands::Order(var, direction) => {
                 let rust_val = table.order(&var, direction);
                 let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val,
+                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
                     Value::try_from(&c_val[..])
                         .expect("The buffer comming from C should always fit")
                 );

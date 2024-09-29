@@ -28,35 +28,47 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
-use crate::key::{self, NullableKey};
+use crate::{
+    key::{self, KeyBound},
+    value::Value,
+};
 const UCI_IS_LOCALVAR: u8 = 255;
 use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MVar<Key: key::Key> {
+pub struct MVar<Key: key::KeyType> {
     pub name: VarU,
     volset: c_uchar,
     uci: c_uchar,
     pub key: Key,
 }
 
-impl<Key: key::Key> std::fmt::Display for MVar<Key> {
+impl<Key: key::KeyType> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.key.borrow().is_empty() {
-            write!(f, "{}", self.name)
-        } else {
-            write!(
-                f,
-                "{}{}",
-                self.name,
-                //TODO Consider how this would work with page files
-                String::from_utf8_lossy(&self.key.borrow().string_key())
-            )
-        }
+        let value = Value::from(self.clone());
+        write!(f, "{}", String::from_utf8_lossy(value.content()))
     }
 }
 
-impl<Key: key::Key> MVar<Key> {
+impl<Key: key::KeyType> From<MVar<Key>> for Value {
+    fn from(var: MVar<Key>) -> Self {
+        assert_eq!(var.uci, UCI_IS_LOCALVAR, "Unimplemented");
+        assert_eq!(var.volset, 0, "Unimplemented");
+
+        let mut value = vec![];
+        value.extend(var.name.contents());
+        let key = var.key.borrow();
+        if !key.is_empty() {
+            key.push_to_vec(&mut value);
+        }
+        value
+            .as_slice()
+            .try_into()
+            .expect("The longest variable + longest subscript should still fit in a value")
+    }
+}
+
+impl<Key: key::KeyType> MVar<Key> {
     pub fn new(name: VarU, key: Key) -> Self {
         //TODO All M vars are currently assumed to be local and have a vol set of 0;
         Self {
@@ -66,8 +78,8 @@ impl<Key: key::Key> MVar<Key> {
             volset: 0,
         }
     }
-    pub fn to_nullable(self) -> MVar<NullableKey> {
-        MVar::<NullableKey> {
+    pub fn to_nullable(self) -> MVar<KeyBound> {
+        MVar::<KeyBound> {
             name: self.name,
             volset: self.volset,
             uci: self.uci,
@@ -75,27 +87,13 @@ impl<Key: key::Key> MVar<Key> {
         }
     }
 
-    pub fn copy_new_key<NewKey: key::Key>(&self, key: NewKey) -> MVar<NewKey> {
+    pub fn copy_new_key<NewKey: key::KeyType>(&self, key: NewKey) -> MVar<NewKey> {
         MVar::<NewKey> {
             name: self.name.clone(),
             volset: self.volset,
             uci: self.uci,
             key,
         }
-    }
-
-    #[cfg_attr(test, mutants::skip)]
-    pub fn util_string_m_var(&self) -> Vec<u8> {
-        assert_eq!(self.uci, UCI_IS_LOCALVAR, "Unimplemented");
-        assert_eq!(self.volset, 0, "Unimplemented");
-
-        let mut string = vec![];
-        string.extend(self.name.contents());
-        let key = self.key.borrow();
-        if !key.is_empty() {
-            string.extend(key.string_key());
-        }
-        string
     }
 }
 
@@ -125,7 +123,7 @@ mod tests {
 
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "ffi")]
-impl<Key: crate::key::Key> MVar<Key> {
+impl<Key: crate::key::KeyType> MVar<Key> {
     #[must_use]
     pub fn into_cmvar(self) -> ffi::MVAR {
         let (slen, key) = self.key.borrow().clone().into_ckey();
@@ -144,29 +142,29 @@ pub mod helpers {
 
     use super::*;
     use crate::{
-        key::{NonNullableKey, NullableKey},
+        key::{Key, KeyBound},
         value::Value,
         var_u::helpers::var_u,
     };
     use arbitrary::Arbitrary;
 
     #[must_use]
-    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<NullableKey> {
+    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<KeyBound> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = NullableKey::new(&values).unwrap();
+        let key = KeyBound::new(&values).unwrap();
 
         MVar::new(var_u(name), key)
     }
     #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVar<NonNullableKey> {
+    pub fn var_m(name: &str, values: &[&str]) -> MVar<Key> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = NonNullableKey::new(&values).unwrap();
+        let key = Key::new(&values).unwrap();
 
         MVar::new(var_u(name), key)
     }
@@ -174,7 +172,7 @@ pub mod helpers {
     #[cfg_attr(test, mutants::skip)]
     impl<'a, Key> Arbitrary<'a> for MVar<Key>
     where
-        Key: Arbitrary<'a> + crate::key::Key,
+        Key: Arbitrary<'a> + crate::key::KeyType,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             Ok(MVar::new(VarU::arbitrary(u)?, Key::arbitrary(u)?))

@@ -31,50 +31,105 @@
 #![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
-
 use crate::value::Value;
 use format::IntermediateRepresentation;
 
-pub trait Key:
-    std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> + PartialEq + Eq
-{
-}
-impl Key for NullableKey {}
-impl Key for NonNullableKey {}
+//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
 
+/// Keys represent a sequence of subscript that can be used to **store a value** withing a variable.
+/// In the variable foo(1,"subscript","bar"), (1,"subscript","bar") is the Key.
+///
+/// There internal format has been optimized for sorting.
 #[derive(Eq, PartialEq, Clone, Debug)]
-pub struct NonNullableKey(NullableKey);
+pub struct Key(KeyBound);
 
-impl std::borrow::Borrow<NullableKey> for NonNullableKey {
-    fn borrow(&self) -> &NullableKey {
-        &self.0
+/// Keys represent a sequence of subscript that can be used to **specify a bound** withing a variable.
+/// If the final subscript in a KeyBound is "", the key will be treated as a lower bound when going
+/// forwards, and an upper bound while going backwards.
+#[derive(Eq, PartialEq, Clone)]
+pub struct KeyBound(Vec<u8>);
+
+/// Represents one segment of a key.
+/// If we have the MVar foo("a","b") "a" is one segment of the key ("a","b").
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub struct SubKey<'a>(&'a [u8]);
+pub struct Iter<'a> {
+    tail: &'a [u8],
+}
+
+/// Errors that can occur while trying to create a key.
+#[derive(Debug, PartialEq)]
+pub enum Error {
+    SubscriptToLarge,
+    SubKeyContainsNull,
+    KeyToLarge,
+    SubKeyIsNull,
+}
+
+pub mod conversions {
+    use super::*;
+
+    /// KeyType is used to represent either type of Key and is used as a genetic type bound
+    /// to reduce code duplication.
+    ///
+    /// Mostly this type is used as a way of converting Keys into KeyBounds.
+    /// The BTree API bound API kind of forces me to store/interact with everything using the
+    /// KeyBound type.
+    pub trait KeyType:
+        std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
+    {
+    }
+    impl KeyType for KeyBound {}
+    impl KeyType for Key {}
+
+    impl std::borrow::Borrow<KeyBound> for Key {
+        fn borrow(&self) -> &KeyBound {
+            &self.0
+        }
+    }
+    impl From<Key> for KeyBound {
+        fn from(value: Key) -> Self {
+            value.0
+        }
+    }
+
+    impl<'a> From<SubKey<'a>> for Value {
+        fn from(value: SubKey<'a>) -> Self {
+            IntermediateRepresentation::from(value)
+                .external_fmt(false)
+                .as_slice()
+                .try_into()
+                .expect("max key len is < max Value len")
+        }
+    }
+
+    //This lint seems to be a false positive.
+    #[allow(clippy::into_iter_without_iter)]
+    impl<'a> IntoIterator for &'a KeyBound {
+        type IntoIter = Iter<'a>;
+        type Item = SubKey<'a>;
+        fn into_iter(self) -> Self::IntoIter {
+            self.iter()
+        }
     }
 }
-impl From<NonNullableKey> for NullableKey {
-    fn from(value: NonNullableKey) -> Self {
-        value.0
-    }
-}
+pub use conversions::KeyType;
 
-impl NonNullableKey {
+impl Key {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
             Err(Error::SubKeyIsNull)
         } else {
-            Ok(Self(NullableKey::new(values)?))
+            Ok(Self(KeyBound::new(values)?))
         }
     }
 
     pub const fn empty() -> Self {
-        Self(NullableKey::empty())
+        Self(KeyBound::empty())
     }
 }
 
-/// Stores a list of keys.
-//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
-#[derive(Eq, PartialEq, Clone)]
-pub struct NullableKey(Vec<u8>);
-impl NullableKey {
+impl KeyBound {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
         let mut key = Self(Vec::new());
         for value in values {
@@ -83,23 +138,25 @@ impl NullableKey {
         Ok(key)
     }
 
-    //TODO consider replacing with Display
-    #[must_use]
-    pub fn string_key(&self) -> Vec<u8> {
-        let mut out_put = vec![b'('];
+    /// Appends self to the provided Vec.
+    /// The data is appended in the external format.
+    /// The format is (<subscript1>,<subscript2> ...)
+    ///
+    /// NOTE we are using a Vec<u8> rather then a string since the key could contain non UTF-8
+    /// characters
+    pub fn push_to_vec(&self,destination:&mut Vec<u8>) {
+        destination.push(b'(');
+
         let mut iter = self.iter().map(IntermediateRepresentation::from);
-
         if let Some(sub_key) = iter.next() {
-            sub_key.push_external_fmt(&mut out_put, true);
+            sub_key.push_external_fmt(destination, true);
         }
-
         for sub_key in iter {
-            out_put.push(b',');
-            sub_key.push_external_fmt(&mut out_put, true);
+            destination.push(b',');
+            sub_key.push_external_fmt(destination, true);
         }
 
-        out_put.push(b')');
-        out_put
+        destination.push(b')');
     }
 
     #[must_use]
@@ -123,7 +180,7 @@ impl NullableKey {
 }
 
 #[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for NullableKey {
+impl std::fmt::Debug for KeyBound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list()
             .entries(self.iter().map(Value::from))
@@ -131,48 +188,12 @@ impl std::fmt::Debug for NullableKey {
     }
 }
 
-//This lint seems to be a false positive.
-#[allow(clippy::into_iter_without_iter)]
-impl<'a> IntoIterator for &'a NullableKey {
-    type IntoIter = Iter<'a>;
-    type Item = SubKey<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
-//Represents one segment of a key
-//If we have the Mvar x("a","b") "a" is one segment of the key ("a","b").
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct SubKey<'a>(&'a [u8]);
-pub struct Iter<'a> {
-    tail: &'a [u8],
-}
-
-impl<'a> From<SubKey<'a>> for Value {
-    fn from(value: SubKey<'a>) -> Self {
-        IntermediateRepresentation::from(value)
-            .external_fmt(false)
-            .as_slice()
-            .try_into()
-            .expect("max key len is < max Value len")
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    SubscriptToLarge,
-    SubKeyContainsNull,
-    KeyToLarge,
-    SubKeyIsNull,
-}
-
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "fuzzing")]
 mod fuzzing {
     use super::*;
     use arbitrary::Arbitrary;
-    impl<'a> Arbitrary<'a> for NonNullableKey {
+    impl<'a> Arbitrary<'a> for Key {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -182,7 +203,7 @@ mod fuzzing {
         }
     }
 
-    impl<'a> Arbitrary<'a> for NullableKey {
+    impl<'a> Arbitrary<'a> for KeyBound {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -192,6 +213,7 @@ mod fuzzing {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,15 +221,18 @@ mod tests {
     use internal::MAX_KEY_SIZE;
     use pretty_assertions::assert_eq;
 
+    /// Generate a value by repeating the pattern count times.
+    ///
+    /// This was created just to reduce boiler plate.
     fn generate_value(pattern: &str, count: usize) -> Value {
         pattern.repeat(count).as_str().try_into().unwrap()
     }
 
     #[test]
     fn subscripts_have_a_max_size() {
-        assert!(NullableKey::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
+        assert!(KeyBound::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
         assert_eq!(
-            NullableKey::new([&generate_value("a", MAX_SUB_LEN + 1)]),
+            KeyBound::new([&generate_value("a", MAX_SUB_LEN + 1)]),
             Err(Error::SubscriptToLarge)
         );
     }
@@ -218,26 +243,26 @@ mod tests {
         const SUBSCRIPT_STORAGE_OVERHEAD: usize = 2;
 
         //NOTE I have to use multiple subscripts due to limit on subscript length.
-        assert!(NullableKey::new([
+        assert!(KeyBound::new([
             &generate_value("a", MAX_SUB_LEN),
             &generate_value(
                 "a",
                 MAX_KEY_SIZE 
-                    - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
-                    - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+                - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
             ),
         ])
         .is_ok());
 
         assert_eq!(
-            NullableKey::new([
+            KeyBound::new([
                 &generate_value("a", MAX_SUB_LEN),
                 &generate_value(
                     "a",
                     MAX_KEY_SIZE 
-                - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
-                - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
-                +1 // Pushing us over the limit.
+                    - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
+                    - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
+                    +1 // Pushing us over the limit.
                 ),
             ]),
             Err(Error::KeyToLarge)
@@ -245,37 +270,30 @@ mod tests {
     }
 
     #[test]
-    fn subscript_values_canot_contain_null_byte() {
-        let result = NullableKey::new([&"a\0b".try_into().unwrap()]);
+    fn subscript_values_can_not_contain_null_byte() {
+        let result = KeyBound::new([&"a\0b".try_into().unwrap()]);
         assert_eq!(result, Err(Error::SubKeyContainsNull));
     }
 
     #[test]
-    fn null_subscripts_can_only_be_the_last_subscript_of_a_nullable_key() {
-        let non_null_value = generate_value("a", 1);
-        assert!(NullableKey::new(&[Value::empty()]).is_ok());
-        assert!(NullableKey::new(&[non_null_value.clone(), Value::empty(),]).is_ok());
+    fn null_subscripts_are_only_valid_as_the_last_subscript_of_a_key_bound() {
+        let value = generate_value("a", 1);
+        assert!(KeyBound::new(&[Value::empty()]).is_ok());
+        assert!(KeyBound::new(&[value.clone(), Value::empty(),]).is_ok());
         assert_eq!(
-            NullableKey::new(&[Value::empty(), non_null_value]),
+            KeyBound::new(&[Value::empty(), value]),
             Err(Error::SubKeyIsNull)
         );
 
-        assert_eq!(
-            NonNullableKey::new(&[Value::empty()]),
-            Err(Error::SubKeyIsNull)
-        );
+        assert_eq!(Key::new(&[Value::empty()]), Err(Error::SubKeyIsNull));
     }
 
     #[test]
-    fn build_key_int_to_large() {
-        //NOTE I tried to put the mutants::skip attribute on 'MAX_INT_SEGMENT_SIZE'
-        //but mutants were still being generated
+    fn extremely_large_numbers_are_stored_as_strings() {
+        // This assert is just here to stop a mutation testing false positive.
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
-        let key = NullableKey::new([&"1"
-            .repeat(MAX_INT_SEGMENT_SIZE + 1)
-            .as_str()
-            .try_into()
-            .unwrap()])
+
+        let key = KeyBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)])
         .unwrap();
         assert!(matches!(
             key.iter().next().unwrap().into(),
@@ -286,7 +304,7 @@ mod tests {
     #[test]
     fn trailing_slash_leading_dots_and_zeros() {
         //Things that should be strings
-        let strings = NullableKey::new(
+        let strings = KeyBound::new(
             [".", "-.", "1.", ".10", "01", "0.1", "1.1.1", "string"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -299,8 +317,8 @@ mod tests {
             ));
         }
 
-        //Things that should *Not* be strings
-        let non_strings = NullableKey::new(
+        //Things that should **Not** be strings
+        let non_strings = KeyBound::new(
             [".1", "10", ".01"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -316,8 +334,8 @@ mod tests {
 
     #[test]
     fn sorting_order_negative_positive_strings() {
-        let keys: [NullableKey; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
-            .map(|x| NullableKey::new([&x.try_into().unwrap()]).unwrap());
+        let keys: [KeyBound; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
+            .map(|x| KeyBound::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
@@ -328,7 +346,7 @@ mod tests {
         let values: Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string", ""]
             .map(|x| x.try_into().unwrap())
             .to_vec();
-        let key = NullableKey::new(&values).unwrap();
+        let key = KeyBound::new(&values).unwrap();
         for (expected, actual) in values.iter().zip(key.iter()) {
             assert_eq!(expected, &actual.into())
         }
