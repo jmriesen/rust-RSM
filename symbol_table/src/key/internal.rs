@@ -111,8 +111,6 @@ impl KeyBound {
     }
 
     ///Returns a new key that corresponds to the maximum subscript of the input key.
-    /// THE RETURNED KEY IS NOT A VALID KEY FOR GET/SET OPERATIONS
-    /// This should only be used to create a bound
     #[must_use]
     pub fn upper_subscript_bound(&self) -> KeyBound {
         let mut modified_key = self.0.clone();

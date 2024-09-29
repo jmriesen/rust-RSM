@@ -69,11 +69,11 @@ pub enum Error {
 pub mod conversions {
     use super::*;
 
-    /// KeyType represents is used to represent either type of Key and is used as a genetic type bound
+    /// KeyType is used to represent either type of Key and is used as a genetic type bound
     /// to reduce code duplication.
     ///
     /// Mostly this type is used as a way of converting Keys into KeyBounds.
-    /// The BTree API bound API kind of forces me to use store/interact with everything using the
+    /// The BTree API bound API kind of forces me to store/interact with everything using the
     /// KeyBound type.
     pub trait KeyType:
         std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
