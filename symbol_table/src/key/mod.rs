@@ -113,6 +113,7 @@ pub mod conversions {
         }
     }
 }
+pub use conversions::KeyType;
 
 impl Key {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
