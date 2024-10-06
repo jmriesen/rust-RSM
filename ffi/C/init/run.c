@@ -129,6 +129,90 @@ jobtab * find_open_slot(jobtab* job_table,uint table_len, int pid,u_char start_t
     }
     return NULL;
 }
+
+struct PosibleError{
+    //If the call returned an error.
+    int is_error;
+    //The actual error value.
+    int error_value;
+};
+
+/// Initializes the job_tab's priv flag.
+/// The privileged flag should be set if:
+///     1. The job's user also started the database.(db_starter)
+///     2. The job's user is root.
+///     3. The job's user is in the privileged group. (`PRVGRP`)
+///
+/// Errors if:
+///     1. The current process is in more than `MAX_GROUPS` groups.
+///     2. The job_pool_size is 1 and the job's user is not root or db_starter.
+/// Inputs:
+/// job_tab_ref_pointer:
+///     A pointer to the job tab pointer.
+///     Note: I need to use a pointer to a pointer since 
+///     this method may set the job_tab pointer to null.
+///     (why it needs to set it to null I am not sure, 
+///     but I am trying to avoid logical changes.)
+/// db_starter:
+///     The user who started the database.
+///     Should be systab->start_user.
+///     (I am specifically not reading from the global to decrease coupling.)
+/// job_pool_size:
+///     The max number of jobs.
+///     Should be systab->maxjob.
+///     (I am specifically not reading from the global to decrease coupling.)
+struct PosibleError set_job_tab_privalige(
+    jobtab **job_tab_ref_pointer,
+    int db_starter,
+    u_int job_pool_size
+){
+    jobtab * job_tab = *job_tab_ref_pointer;
+
+    // Check if user started the DB or if they are root.
+    if ((job_tab->user == db_starter) || (job_tab->user == 0)) { 
+        job_tab->priv = 1;
+    } else {
+        //If there is only one job the only valid users are 
+        //the user who started the DB and root.
+        if (job_pool_size) {
+            // Clear the input pointer
+            // Not sure why this is being done 
+            // But I am not going to change it right now.
+            *job_tab_ref_pointer= NULL;
+            struct PosibleError ret = {
+                1,
+                ENOMEM
+            };
+            return ret;
+        }
+
+        //Get all groups this program is part of.
+        gid_t gidset[MAX_GROUPS];
+        int i = getgroups(MAX_GROUPS, gidset);
+        if (i < 0) {
+            struct PosibleError ret = {
+                1,
+                errno
+            };
+            return ret;
+        }
+        // For each group
+        while (i > 0) {
+            // If it's "wheel" or "admin"
+            if (gidset[i - 1] == PRVGRP) {
+                job_tab->priv = 1;
+                break;
+            }
+
+            i--;
+        }
+    }
+    struct PosibleError ret = {
+        0,
+        0
+    };
+    return ret;
+}
 //-----------------------------
 
 
@@ -155,7 +239,6 @@ int INIT_Run(char *file, char *env, char *cmd)
     cstring     *cptr = NULL;                                                   // a handy pointer
     cstring     *sptr = NULL;                                                   // cstring pointer
     u_char      start_type = TYPE_RUN;                                          // how we started
-    gid_t       gidset[MAX_GROUPS];                                             // for getgroups()
     label_block *vol_label;                                                     // current volume label
 
 start:
@@ -245,31 +328,18 @@ start:
     }
 
     partab.jobtab->user = (int) getuid();                                       // get user number
+    // In Rust creating a reference to unaligned memory is undefined behavior.
+    // I am not sure if that restriction also applies to the C but 
+    // just to be safe am using a temporary value to avoid the issue.
+    // NOTE: `partab` is packed so `partab.jobtab` is unaligned.
+    jobtab * temp = partab.jobtab;
+    struct PosibleError privalige_error =
+        set_job_tab_privalige(&temp, systab->start_user, systab->maxjob);
+    partab.jobtab = temp;
 
-    if ((partab.jobtab->user == systab->start_user) || (partab.jobtab->user == 0)) { // if he started it or is root
-        partab.jobtab->priv = 1;                                                // say yes
-    } else {
-        if (systab->maxjob == 1) {                                              // if single job
-            ret = ENOMEM;                                                       // error message
-            partab.jobtab = NULL;                                               // clear this
-            goto exit;                                                          // and exit
-        }
-
-        i = getgroups(MAX_GROUPS, gidset);                                      // get groups
-
-        if (i < 0) {                                                            // if an error
-            ret = errno;                                                        // get the error
-            goto exit;                                                          // and exit
-        }
-
-        while (i > 0) {                                                         // for each group
-            if (gidset[i - 1] == PRVGRP) {                                      // if it's "wheel" or "admin"
-                partab.jobtab->priv = 1;                                        // say yes
-                break;                                                          // and exit
-            }
-
-            i--;                                                                // decrement i
-        }
+    if (privalige_error.is_error){
+        ret = privalige_error.error_value;
+        goto exit;
     }
 
     partab.jobtab->precision = systab->precision;                               // decimal precision
