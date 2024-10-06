@@ -100,6 +100,38 @@ ENABLE_WARN
     return;                                                                     // exit
 }
 
+//// Split out functions
+//-----------------------------
+// The existing C code was not written with unit testing in mind.
+// In order to get it under test I need to introduces seams into the code.
+// This section contains all the segments where I have 
+// **manually** preformed the Extract Function Refactor. (extracting from INIT_Run).
+// Since this is a manual process it is error prone, Please take extra care when reviewing the 
+// Extract function refactors.
+
+// This function finds an open slot in the provided jobs table.
+//
+// If start_type == TYPE_RUN we need a new slot.
+// If start_type == TYPE_JOB we need the slot that already uses the given pid.
+//
+// If a `Jobtab` slot is found:
+// 1. The slot is zero initialized.
+// 2. The slot's pid will be set
+// 3. A pointer to the slot will be returned.
+jobtab * find_open_slot(jobtab* job_table,uint table_len, int pid,u_char start_type){
+    for (u_int j = 0; j < table_len; j++) {
+        if (((job_table[j].pid == 0) && (start_type == TYPE_RUN)) ||
+            ((job_table[j].pid == pid) && (start_type == TYPE_JOB))) {
+            memset(&job_table[j], 0, sizeof(jobtab));
+            job_table[j].pid = pid;
+            return &job_table[j];
+        }
+    }
+    return NULL;
+}
+//-----------------------------
+
+
 /*****************************************************\
 * Attach to an environment - switches are:            *
 *      database file name   (1 to VAR_LEN)        Req *
@@ -203,15 +235,7 @@ start:
     ret = SemOp(SEM_SYS, SEM_WRITE);                                            // lock systab
     if (ret < 0) goto exit;                                                     // give up on error
 
-    for (u_int j = 0; j < systab->maxjob; j++) {                                // look for a free slot
-        if (((partab.job_table[j].pid == 0) && (start_type == TYPE_RUN)) ||     // this one ?
-          ((partab.job_table[j].pid == pid) && (start_type == TYPE_JOB))) {     // or already done (JOB)
-            memset(&partab.job_table[j], 0, sizeof(jobtab));                    // yes - zot the lot
-            partab.jobtab = &partab.job_table[j];                               // and save our jobtab address
-            partab.jobtab->pid = pid;                                           // copy in our PID
-            break;                                                              // end loop
-        }
-    }
+    partab.jobtab = find_open_slot(partab.job_table, systab->maxjob, pid, start_type);
 
     ret = SemOp(SEM_SYS, -SEM_WRITE);                                           // unlock systab
 

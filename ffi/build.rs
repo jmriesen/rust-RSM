@@ -100,6 +100,7 @@ fn main() {
         .header("C/include/proto.h")
         .header("C/include/seqio.h")
         .header("C/include/symbol.h")
+        .header("C/include/seams.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         //NOTE the -fsigned-char flag does not seem working.
