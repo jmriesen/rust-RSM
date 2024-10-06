@@ -37,6 +37,6 @@
  * so that they can be used in AB testing.
  * This file should not be included in any of the C files,
 */
-
+#include "mocks.h"
 
 jobtab * find_open_slot(jobtab* job_table,uint table_len, int pid,u_char start_type);

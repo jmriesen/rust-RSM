@@ -48,6 +48,7 @@
 #include "compile.h"
 #include "opcode.h"
 #include "database.h"
+#include "mocks.h"
 
 partab_struct  partab;                                                          // setup partab
 systab_struct  *systab;
@@ -137,6 +138,7 @@ struct PosibleError{
     int error_value;
 };
 
+
 /// Initializes the job_tab's priv flag.
 /// The privileged flag should be set if:
 ///     1. The job's user also started the database.(db_starter)
@@ -164,7 +166,8 @@ struct PosibleError{
 struct PosibleError set_job_tab_privalige(
     jobtab **job_tab_ref_pointer,
     int db_starter,
-    u_int job_pool_size
+    u_int job_pool_size,
+    GetGroupsMocks * mocks
 ){
     jobtab * job_tab = *job_tab_ref_pointer;
 
@@ -188,7 +191,7 @@ struct PosibleError set_job_tab_privalige(
 
         //Get all groups this program is part of.
         gid_t gidset[MAX_GROUPS];
-        int i = getgroups(MAX_GROUPS, gidset);
+        int i = getgroups_wrapper(MAX_GROUPS, gidset,mocks);
         if (i < 0) {
             struct PosibleError ret = {
                 1,
@@ -334,7 +337,7 @@ start:
     // NOTE: `partab` is packed so `partab.jobtab` is unaligned.
     jobtab * temp = partab.jobtab;
     struct PosibleError privalige_error =
-        set_job_tab_privalige(&temp, systab->start_user, systab->maxjob);
+        set_job_tab_privalige(&temp, systab->start_user, systab->maxjob,NULL);
     partab.jobtab = temp;
 
     if (privalige_error.is_error){
