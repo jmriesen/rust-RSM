@@ -29,6 +29,7 @@
  */
 mod bindings;
 pub mod interface;
+pub mod job_pool;
 pub use bindings::*;
 pub mod symbol_table;
 use core::ptr::null_mut;
