@@ -252,3 +252,156 @@ fn clean_old_job(pid: i32) {
         }
     }
 }
+
+const ZEROED_JOB_TAB: JOBTAB = JOBTAB {
+    pid: 0,
+    async_error: 0,
+    attention: 0,
+    commands: 0,
+    cur_do: 0,
+    dostk: [DO_FRAME {
+        routine: std::ptr::null_mut(),
+        pc: std::ptr::null_mut(),
+        symbol: std::ptr::null_mut(),
+        newtab: std::ptr::null_mut(),
+        endlin: std::ptr::null_mut(),
+        rounam: VAR_U { var_cu: [0; 32] },
+        vol: 0,
+        uci: 0,
+        line_num: 0,
+        estack: 0,
+        type_: 0,
+        level: 0,
+        flags: 0,
+        savasp: 0,
+        savssp: 0,
+        asp: 0,
+        ssp: 0,
+        isp: 0,
+    }; 128],
+    error_frame: 0,
+    etrap_at: 0,
+    grefs: 0,
+    io: 0,
+    last_block_flags: 0,
+    last_ref: MVAR {
+        key: [0; 256],
+        name: VAR_U { var_cu: [0; 32] },
+        slen: 0,
+        uci: 0,
+        volset: 0,
+    },
+    luci: 0,
+    lvol: 0,
+    precision: 0,
+    priv_: 0,
+    ruci: 0,
+    rvol: 0,
+    seqio: [SQ_CHAN {
+        dkey: [0; 17],
+        dkey_len: 0,
+        dx: 0,
+        dy: 0,
+        fid: 0,
+        in_term: IN_TERM { iterm: 0 },
+        mode: 0,
+        name: [0; 256],
+        namespace: VAR_U { var_cu: [0; 32] },
+        options: 0,
+        out_len: 0,
+        out_term: [0; 6],
+        s: SERVERTAB {
+            slots: 0,
+            taken: 0,
+            cid: 0,
+            name: [0; 256],
+            forked: std::ptr::null_mut(),
+        },
+        type_: 0,
+    }; 64],
+    start_dh: [0; 14],
+    start_len: 0,
+    test: 0,
+    trap: 0,
+    uci: 0,
+    user: 0,
+    view: [std::ptr::null_mut(); 1],
+    vol: 0,
+};
+
+#[test]
+fn no_open_slots() {
+    let mut job_table = [ZEROED_JOB_TAB; 2];
+
+    // Mocking that the job_tabs are already in use.
+    job_table[0].pid = 123;
+    job_table[1].pid = 456;
+
+    let target_pid = 789;
+    let start_type = 1;
+
+    let slot = unsafe {
+        ffi::find_open_slot(
+            job_table.as_mut_ptr(),
+            job_table.len().try_into().unwrap(),
+            target_pid,
+            start_type,
+        )
+        .as_mut()
+    };
+    assert!(slot.is_none());
+}
+
+#[test]
+fn run_jobs_must_use_an_unoccupied_slot() {
+    let mut job_table = [ZEROED_JOB_TAB; 2];
+    let target_pid = 123;
+
+    // Mocking that the job_tabs are already in use.
+    job_table[0].pid = target_pid;
+    job_table[1].pid = 0;
+    // Dirtying some field.
+    job_table[1].grefs = 1000;
+
+    let start_type = 1;
+
+    let slot = unsafe {
+        ffi::find_open_slot(
+            job_table.as_mut_ptr(),
+            job_table.len().try_into().unwrap(),
+            target_pid,
+            start_type,
+        )
+        .as_mut()
+    };
+    assert!(std::ptr::eq(slot.unwrap(), &job_table[1]));
+    //Check that field was cleaned
+    assert_eq!({ job_table[1].grefs }, 0);
+}
+
+#[test]
+fn job_type_jobs_must_use_an_unoccupied_slot() {
+    let mut job_table = [ZEROED_JOB_TAB; 2];
+    let target_pid = 123;
+
+    // Mocking that the job_tabs are already in use.
+    job_table[0].pid = 0;
+    job_table[1].pid = target_pid;
+    // Dirtying some field.
+    job_table[1].grefs = 1;
+
+    let start_type = 2;
+
+    let slot = unsafe {
+        ffi::find_open_slot(
+            job_table.as_mut_ptr(),
+            job_table.len().try_into().unwrap(),
+            target_pid,
+            start_type,
+        )
+        .as_mut()
+    };
+    assert!(std::ptr::eq(slot.unwrap(), &job_table[1]));
+    //Check that field was cleaned
+    assert_eq!({ job_table[1].grefs }, 0);
+}
