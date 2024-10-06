@@ -34,7 +34,82 @@ use ffi::{
 use std::{ffi::CString, fs::OpenOptions};
 
 use crate::shared_seg::sys_tab::SystemTab;
-
+use std::num::NonZero;
+const ZEROED_JOB_TAB: JOBTAB = JOBTAB {
+    pid: 0,
+    async_error: 0,
+    attention: 0,
+    commands: 0,
+    cur_do: 0,
+    dostk: [DO_FRAME {
+        routine: std::ptr::null_mut(),
+        pc: std::ptr::null_mut(),
+        symbol: std::ptr::null_mut(),
+        newtab: std::ptr::null_mut(),
+        endlin: std::ptr::null_mut(),
+        rounam: VAR_U { var_cu: [0; 32] },
+        vol: 0,
+        uci: 0,
+        line_num: 0,
+        estack: 0,
+        type_: 0,
+        level: 0,
+        flags: 0,
+        savasp: 0,
+        savssp: 0,
+        asp: 0,
+        ssp: 0,
+        isp: 0,
+    }; 128],
+    error_frame: 0,
+    etrap_at: 0,
+    grefs: 0,
+    io: 0,
+    last_block_flags: 0,
+    last_ref: MVAR {
+        key: [0; 256],
+        name: VAR_U { var_cu: [0; 32] },
+        slen: 0,
+        uci: 0,
+        volset: 0,
+    },
+    luci: 0,
+    lvol: 0,
+    precision: 0,
+    priv_: 0,
+    ruci: 0,
+    rvol: 0,
+    seqio: [SQ_CHAN {
+        dkey: [0; 17],
+        dkey_len: 0,
+        dx: 0,
+        dy: 0,
+        fid: 0,
+        in_term: IN_TERM { iterm: 0 },
+        mode: 0,
+        name: [0; 256],
+        namespace: VAR_U { var_cu: [0; 32] },
+        options: 0,
+        out_len: 0,
+        out_term: [0; 6],
+        s: SERVERTAB {
+            slots: 0,
+            taken: 0,
+            cid: 0,
+            name: [0; 256],
+            forked: std::ptr::null_mut(),
+        },
+        type_: 0,
+    }; 64],
+    start_dh: [0; 14],
+    start_len: 0,
+    test: 0,
+    trap: 0,
+    uci: 0,
+    user: 0,
+    view: [std::ptr::null_mut(); 1],
+    vol: 0,
+};
 /*
 static mut strstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];
 static mut indstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];
@@ -253,86 +328,51 @@ fn clean_old_job(pid: i32) {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// NOTE: I think process ids should logically be u32's based on
+/// [std::process::id](https://doc.rust-lang.org/std/process/fn.id.html).
+/// However right now playing nicely with the C types takes priority.
+pub struct ProcessID(i32);
+
+/// Copied over form C
+/// TODO: document once I have a better understanding of how this works.
+pub enum StartType {
+    Run,
+    Job,
+}
+/// This function finds an open slot in the provided jobs table.
+///
+/// If StartType::Run we need a new slot.
+/// If StartType::Job we need the slot that already uses the given pid.
+///
+/// If a `Jobtab` slot is found:
+/// 1. The slot is zero initialized.
+/// 2. The slot's pid will be set
+/// 3. An optional reference to the slot.
+fn find_open_slot(
+    job_table: &mut [JOBTAB],
+    pid: ProcessID,
+    start_type: StartType,
+) -> Option<&mut JOBTAB> {
+    // Find a blank spot if starting a new run.
+    // Re use an existing job tab if starting a job.
+    let target = match start_type {
+        //NOTE: I am not sure if I like using zero here.
+        StartType::Run => ProcessID(0),
+        StartType::Job => pid,
+    };
+    let mut slot = job_table.iter_mut().find(|x| ProcessID(x.pid) == target);
+    //Zeroing out the slot + setting the pid.
+    if let Some(ref mut slot) = slot {
+        std::mem::replace(*slot, ZEROED_JOB_TAB);
+        slot.pid = pid.0;
+    }
+    slot
+}
+
 #[cfg(test)]
 mod test_job_pool {
     use super::*;
-    use ffi::job_pool::*;
-
-    const ZEROED_JOB_TAB: JOBTAB = JOBTAB {
-        pid: 0,
-        async_error: 0,
-        attention: 0,
-        commands: 0,
-        cur_do: 0,
-        dostk: [DO_FRAME {
-            routine: std::ptr::null_mut(),
-            pc: std::ptr::null_mut(),
-            symbol: std::ptr::null_mut(),
-            newtab: std::ptr::null_mut(),
-            endlin: std::ptr::null_mut(),
-            rounam: VAR_U { var_cu: [0; 32] },
-            vol: 0,
-            uci: 0,
-            line_num: 0,
-            estack: 0,
-            type_: 0,
-            level: 0,
-            flags: 0,
-            savasp: 0,
-            savssp: 0,
-            asp: 0,
-            ssp: 0,
-            isp: 0,
-        }; 128],
-        error_frame: 0,
-        etrap_at: 0,
-        grefs: 0,
-        io: 0,
-        last_block_flags: 0,
-        last_ref: MVAR {
-            key: [0; 256],
-            name: VAR_U { var_cu: [0; 32] },
-            slen: 0,
-            uci: 0,
-            volset: 0,
-        },
-        luci: 0,
-        lvol: 0,
-        precision: 0,
-        priv_: 0,
-        ruci: 0,
-        rvol: 0,
-        seqio: [SQ_CHAN {
-            dkey: [0; 17],
-            dkey_len: 0,
-            dx: 0,
-            dy: 0,
-            fid: 0,
-            in_term: IN_TERM { iterm: 0 },
-            mode: 0,
-            name: [0; 256],
-            namespace: VAR_U { var_cu: [0; 32] },
-            options: 0,
-            out_len: 0,
-            out_term: [0; 6],
-            s: SERVERTAB {
-                slots: 0,
-                taken: 0,
-                cid: 0,
-                name: [0; 256],
-                forked: std::ptr::null_mut(),
-            },
-            type_: 0,
-        }; 64],
-        start_dh: [0; 14],
-        start_len: 0,
-        test: 0,
-        trap: 0,
-        uci: 0,
-        user: 0,
-        view: [std::ptr::null_mut(); 1],
-        vol: 0,
-    };
 
     #[test]
     fn no_open_slots() {
