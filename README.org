@@ -9,7 +9,7 @@ This project is intended to be a sand box where I can try out various ideas and 
 To learn and explore how best to develop software.
 
 To me best currently means creating software that is correct (has no bugs), I am confident is correct (I can confidently say it has no bugs), and is easy to change. 
-* Project Goals.
+* Project Goals
   - Learn how to efficiently refactor code
   - Lean how to efficiently test my code, and test my tests
       - Meaningful unit tests
@@ -18,21 +18,20 @@ To me best currently means creating software that is correct (has no bugs), I am
       - A/B testing
       - CICD pipeline
   - Live with the code
-     This code is not throw away code 
 
      Some ideas seem really convenient at the start, but become a tangled mess later on.
      Others seem overly verbose initially but pay of in the long run.
      One of the reasons I selected RSM is because I new it would be a large project, and I would have to live with any decisions I made.
-* What is this project
+* What is this Project?
   This project is a port of the [[https://gitlab.com/Reference-Standard-M/rsm][Reference Standard M]] implementation maintained by David Wicksell from C to Rust.
 ** Why RSM? 
    I have always found language design interesting. 
    When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
    I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
    Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
-   On a whim I started trying to convert some of the code to rust, and after a while the project became the main code base I would use to try stuff out.
+   On a whim I started trying to convert some of the code to Rust, and after a while the project became the main code base I would use to try stuff out.
 
-* Project structure
+* Project Structure
 ** [[./ffi/][ffi]] 
    The purpose of this create is to store/manage the ordinal C code from RSM.
 
@@ -41,22 +40,22 @@ To me best currently means creating software that is correct (has no bugs), I am
    - Generating the ffi struct and function definitions
    - Exposing an Unsafe API to the C code.
    - Exposing a Safe API to the C code
-*** Safe API considerations
+*** Safe API Considerations
    Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
-**** Concurrency considerations
+**** Concurrency Considerations
      The original RSM code was a single threaded/multi process application. 
      Because of this there are many references to global variables without any sort of synchronization control.
      Rust by default runs all of its unit test in parallel (multi-threaded) so care has to be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
 
      Additionally C uses a shared memory segment to manage cross process communication.
 
-**** Type considerations
+**** Type Considerations
      There are of course all the normal C vs Rust type considerations.
      However in addition to that the C code makes heavy use of un-sized types and quasi self references types.
 
-****** Dynamically sized types
+****** Dynamically Sized Types
      One fairly common dynamically sized type used in the C code is the CSTRING.
-     The Strut definition claims to hold a [u_char;65535] however in practice that is only the max size for this type.
+     The strut definition claims to hold a [u_char;65535] however in practice that is only the max size for this type.
      If the string is smaller then 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
 
      Rust does have a way of creating dynamically sized types, but I have not explored that yet.
@@ -111,34 +110,34 @@ To me best currently means creating software that is correct (has no bugs), I am
 
    One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
    Dynamic scoping makes it vary difficult to locally reason about renaming variables.
-* Running the project
+* Running the Project
   This project dose not currently produce a working executable.
   If you need a working M interpreter please see [[https://gitlab.com/Reference-Standard-M/rsm][Reference-Standard-M]].
   Any bugs that I find during the course of creating this clone will be reported back up stream to RSM.
-** Development env setup.
+** Development Environment Setup
    NOTE check the [[./.github/workflows/rust.yml][github actions]] for the version of the cli tools
    - cargo install tree-sitter-cli --version <version>  --locked
    - cargo install cargo-mutants  --version <version> --locked
    - You will need clang installed (requirement of bindgen) see bindgens [[https://rust-lang.github.io/rust-bindgen/requirements.html][documentation]] for more details.
 
-** Running the unit tests 
+** Running Unit Tests 
    - cargo test
-** Running the fuzz tests
+** Running Fuzz Tests
    NOTE: currently fuzzing is only done in the symbol table create. 
    - cargo fuzz list
    - cargo fuzz run <fuzzing target>
    [[https://rust-fuzz.github.io/book/cargo-fuzz.html][cargo fuzz book]]
 
-** Running mutation testing
+** Running Mutation Testing
    NOTE this can take a while.
    - cd <crate name>
    - cargo mutants
 
 * Techniques/Concepts 
-** Unit testing
+** Unit Testing
     The more unit tests I write the more useful I realize unit tests are, and the less they seem to be about double checking my work.
 
-*** Concept overview 
+*** Concept Overview 
     Unit tests are code fragments that describes how a "unit" of code is invoked and what behavior is expected from that "unit".
 
     I think unit test should be.
@@ -163,9 +162,9 @@ To me best currently means creating software that is correct (has no bugs), I am
       Therefore I will nearly always want to refactor my code at some point in the future.
       With a robust set of unit tests this is a fairly painless simple process.
       Without them I have to be hyper aware of every change I make, as any change could introduce a bug.
-** Mutation testing
+** Mutation Testing
 
-*** Concept Overview:
+*** Concept Overview
 
    Mutation testing is a technique to check how well a test suite defines the behavior of code base.
    This is accomplished by introducing mutations.
@@ -173,7 +172,7 @@ To me best currently means creating software that is correct (has no bugs), I am
    The main downside to mutation testing is that it takes time to run. 
    For each mutation we may have to run the entire test suite. 
 
-*** How it is used in this project
+*** Use in Rust-RSM
     I am currently using [[https://mutants.rs/][cargo-mutants]] to run mutation testing. 
     Since mutation testing can take quite a while to run, the CICD pipeline is currently only introducing mutations into the edited hunks of code.
     The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
@@ -187,21 +186,21 @@ To me best currently means creating software that is correct (has no bugs), I am
     In this case I am calling C code from Rust and vs versa.
     Calling code that was written in a different language requires some extra care:
     - Parameters must match the target languages memory layout
-    - The C/Rust compilers don't understand the other language and therefor have to assume the foreign code could do anything.
+    - The C/Rust compilers don't understand the other language and therefore have to assume the foreign code could do anything
 
-*** How is it used for this project.
+*** Use in Rust-RSM
     In this project Rust is responsible for matching the C ABI when cross language calls occurs.
     The bindgen and cbindgen tools do most of the heavy lifting by automating the generation of type and function definitions.
     However there are a few project specific things that have to be kept in mind:
     - Don't blindly trust the generated type definitions.
-      The C code uses dynamically sized types, however the header files/generated rust types assume these types occupy their max size.
+      The C code uses dynamically sized types, however the header files/generated Rust types assume these types occupy their max size.
       CSTRING is the most commonly used example.
     - Pay extra attention to pointers/pointer arithmetic.
       The C code sometimes allocates memory for multiple structs of different types at once.
       This is particularly prominent in the shared memory segment.
       This can be problematic since Rust assumes every struct can be moved, however as long as you are aware of this issue it is fairly easy to work around.
     - The C code assumes it is single threaded.
-      The C cade uses a lot of global variables, and since it assumes it is single threaded there are no synchronization guards in place (Atomics, Mutexs, ext).
+      The C code uses a lot of global variables, and since it assumes it is single threaded there are no synchronization guards in place (Atomics, Mutexs, ext).
       However Rust unit tests are multi threaded by default.
 
 *** General Thoughts on FFI
@@ -215,7 +214,7 @@ To me best currently means creating software that is correct (has no bugs), I am
     So we plug in a bunch of random inputs and verify that the invariant holds true. 
 
     A/B testing at its core is testing the invariant, "system A should behave the same as system B".
-*** Use in this project
+*** Use in Rust-RSM
     A lot of my unit tests so far have been A/B tests. 
     Since this is a rewrite it is fairly easy to create A/B tests however I would like to move away from using this as a primary means of testing.
     The fact that I have the original C code that I can A/B test against is fairly artificial, so I think I will learn more by focusing on other forms of unit tests.
