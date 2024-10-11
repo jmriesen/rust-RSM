@@ -94,8 +94,6 @@ To me best currently means creating software that is correct (has no bugs), I am
    Currently the crate is responsible for 
    - creating a database file
    - setting up the shared memory segment
-   - symbol table
-
      In the future I will probably end up splitting out the shared memory segment out into its own crate since the compiler will eventually need access to the shared memory segment. 
 
 ** [[./lang-server][Language Server]]
