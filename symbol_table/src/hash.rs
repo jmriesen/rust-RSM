@@ -145,9 +145,10 @@ where
         }
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.map
-            .iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        let mut iter: Vec<_> = self.map.iter().collect();
+        iter.sort_by_key(|(_, index)| **index);
+        iter.into_iter()
             .map(|(k, v)| (k, self.slots[*v].as_ref().unwrap()))
     }
 }
@@ -199,7 +200,7 @@ where
 mod tests {
 
     use super::{super::VarU, CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
-    use crate::symbol_table::{var_data::VarData, var_u::helpers::var_u};
+    use crate::{var_data::VarData, var_u::helpers::var_u};
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
 
