@@ -184,7 +184,7 @@ To me best currently means creating software that is correct (has no bugs), I am
     The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
 
 *** General thoughts on the Mutation Testing
-    Mutation testing is a low effort way of increasing my confidence in my test suite.
+    Mutation testing is a low effort technique that dramatically increases my confidence in my unit test suite.
     The first time I ran it I ended up finding a bug in my test code that would have been impossible to detect using traditional unit testing.
 ** C Foreign Function Interface 
 ***  Concept Overview
@@ -196,11 +196,11 @@ To me best currently means creating software that is correct (has no bugs), I am
 
 *** How is it used for this project.
     In this project Rust is responsible for matching the C ABI when cross language calls occurs.
-    The bindgen and cbindgen tools do most of the work automating the generation of type and function definitions.
+    The bindgen and cbindgen tools do most of the heavy lifting by automating the generation of type and function definitions.
     However there are a few project specific things that have to be kept in mind:
     - Don't blindly trust the generated type definitions.
       The C code uses dynamically sized types, however the header files/generated rust types assume these types occupy their max size.
-      CSTRING is the most comoly used example.
+      CSTRING is the most commonly used example.
     - Pay extra attention to pointers/ pointer arithmetic.
       The C code sometimes allocates memory for multiple structs of different types at once.
       Pointer arithmetic is then sometimes used to calculate where the struct are.
@@ -217,10 +217,10 @@ To me best currently means creating software that is correct (has no bugs), I am
     There are a lot of invariants that need to be upheld, but it is manageable with the code gen build tools.
     It is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 ** A/B and Fuzz Testing
-   A/B and Fuzz Testing are two separate concepts however in this project I frequently use them together.
+   A/B and Fuzz Testing are two separate concepts, however in this project I frequently use them together.
 *** Concept Overview 
-    The idea behind Fuzz testing we want to verify some invariant is upheld for all inputs.
-    So we plug in a bunch of random inputs until and verify that the invariant holds. 
+    The idea behind Fuzz testing is that we want to verify some invariant is upheld for all inputs. (Normally that invariant is: The program did not crash and no invalid memory access occurred.)
+    So we plug in a bunch of random inputs and verify that the invariant holds true. 
 
     A/B testing at its core is testing the invariant, "system A should behave the same as system B".
 *** Use in this project
