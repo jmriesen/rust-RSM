@@ -125,8 +125,7 @@ To me best currently means creating software that is correct (has no bugs), I am
 ** Running the unit tests 
    - cargo test
 ** Running the fuss tests
-   NOTE: currently fuzzing is only done in the interpreter create. 
-
+   NOTE: currently fuzzing is only done in the symbol table create. 
    - cargo fuzz list
    - cargo fuzz run <fuzzing target>
    [[https://rust-fuzz.github.io/book/cargo-fuzz.html][cargo fuzz book]]
@@ -173,16 +172,16 @@ To me best currently means creating software that is correct (has no bugs), I am
 
 *** Concept Overview:
 
-   Mutation testing is a technique to check how well a test suite defines the behavior of codebase.
+   Mutation testing is a technique to check how well a test suite defines the behavior of code base.
    This is accomplished by introducing mutations.
-   If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.[fn::It is possible for a mutation to not change systems behavior, but I think this should be fairly rare.]
+   If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.[fn::It is possible for a mutation to not change systems behavior, but in this project that should be fairly rare.]
    The main downside to mutation testing is that it takes time to run. 
    For each mutation we may have to run the entire test suite. 
 
 *** How it is used in this project
-    I am currently trying out [[https://mutants.rs/][cargo-mutants]], and plan to run it whenever I have completed a large chunk of code/feature.
-    Using the --file flag allows me to restrict where the mutations are being generated which significantly speeds up testing. 
-
+    I am currently using [[https://mutants.rs/][cargo-mutants]] to run mutation testing. 
+    Since mutation testing can take quite a while to run, the CICD pipeline is currently only introducing mutations into the edited hunks of code.
+    The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
 
 *** General thoughts on the Mutation Testing
     Mutation testing is a low effort way of increasing my confidence in my test suite.
