@@ -1,12 +1,37 @@
+* Project Motivation 
+I think that in order to truly understand an idea or a practice you must actually try it, and live with it for a while.
+
+A while back I realized that I was watching a lot of conference talks and reading a lot of blog posts about varies software development practices.
+This lead to me developing some opinions did not hold up well when theory crashed into reality.
+
+This project is intended to be a sand box where I can try out varies ideas and practice, to figure out what works and doesn't.
+* Mission Statement 
+To learn and explore how best to develop software.
+
+To me best currently means creating software that is correct (has no bugs), I am confident is correct (I can confidingly say it has no bugs), and is easy to change. 
 * Project Goals.
-  The goal of this project is for me (Jacob Riesen) to practice and try out programming techniques on a non-trivial code base.
-  The non-trivial code base I chose is the [[https://gitlab.com/Reference-Standard-M/rsm][Reference Standard M]] implementation maintained by David Wicksell.
+  - Learn how to efficiently refactor code.
+  - Lean how to efficiently test my code, and test my tests.
+      - Meaningful unit tests.
+      - Mutation testing 
+      - TODO code coverage
+      - A/B testing.
+      - CICD pipeline
+  - Live with the code.
+     This code is not throw away code. 
+
+     Some ideas seem really convenient at the start, but become a tangled mess later on.
+     Others seem overly verbose initially but pay of in the long run.
+     One of the reasons I selected RSM is because I new it would be a large project, and I would have to live with any decisions I made.
+* What is this project
+  This project is a port of the [[https://gitlab.com/Reference-Standard-M/rsm][Reference Standard M]] implementation maintained by David Wicksell from C to Rust.
 ** Why RSM? 
    I have always found language design interesting. 
    When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
    I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
    Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
    On a whim I started trying to convert some of the code to rust, and after a while the project became the main code base I would use to try stuff out.
+
 * Project structure
 ** [[./ffi/][ffi]] 
    The purpose of this create is to store/manage the ordinal C code from RSM.
