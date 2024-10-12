@@ -23,7 +23,7 @@ To me best currently means creating software that is correct (has no bugs), I am
      Others seem overly verbose initially but pay of in the long run.
      One of the reasons I selected RSM is because I new it would be a large project, and I would have to live with any decisions I made.
 # What is this Project?
-  This project is a port of the [[https://gitlab.com/Reference-Standard-M/rsm][Reference Standard M]] implementation maintained by David Wicksell from C to Rust.
+  This project is a port of the [Reference Standard M](https://gitlab.com/Reference-Standard-M/rsm) implementation maintained by David Wicksell from C to Rust.
 ## Why RSM? 
    I have always found language design interesting. 
    When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
@@ -32,7 +32,7 @@ To me best currently means creating software that is correct (has no bugs), I am
    On a whim I started trying to convert some of the code to Rust, and after a while the project became the main code base I would use to try stuff out.
 
 # Project Structure
-## [[./ffi/][ffi]] 
+## [ffi](./ffi/) 
    The purpose of this create is to store/manage the ordinal C code from RSM.
 
    This crate is responsible for: 
@@ -67,19 +67,19 @@ They frequently assume that type A will be immediately followed by type B.
 So we end up with the logical composite type AB, which is impotent for understanding the C code.
 Fortunately this is mostly just a logical construction, and is fairly easy to spot in the C code, and deal with in the Rust rewrite.
 
-## [[./tree-sitter-M][tree-sitter-m]]
-   For this project I have chosen to use a [[https://tree-sitter.github.io/tree-sitter/][tree-sitter]] parser.
+## [tree-sitter-m](./tree-sitter-M)
+   For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
    - Uses JavaScript to specify the grammar.
-   - Uses an [[https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners][external scanner]] to deal with indentation.
+   - Uses an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation.
    - Runs the tree-sitter-cli during from the build.rs
    - Generates
      - A C library that contains the parser.
      - A Rust crate that wraps that C library.
-     - A [[./tree-sitter-M/src/node-types.json][node-types.json]] file that describes the Grammars structure.
-## [[./lang-model/][language model]]
+     - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the Grammars structure.
+## [language model](./lang-model/)
    This crate stores the Rust types wrappers for each of the nodes in the M grammar.
-   The [[./lang-model/src/models.rs]] file is generated from the [[./tree-sitter-M/src/node-types.json][node-types.json]] using a separate personal project.
-## [[./compiler/][compiler]]
+   The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
+## [compiler](./compiler/)
    This crate takes the abstract syntax tree (AST) provided by the lang-model and converts it into byte code.
 
    This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
@@ -87,7 +87,7 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
 
    Additionally I did not yet understand how the shared memory segment worked when writing most of this crate.
    So for the most part it just pretends that the globals in the shared memory segment don't exist.
-## [[./interpreter/][interpreter]]
+## [interpreter](./interpreter/)
    This create is going to store the actual interpreter binary.
    Currently the crate is responsible for 
    - Creating a database file
@@ -95,7 +95,7 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
 
    In the future I will probably end up splitting out the shared memory segment out into its own crate since the compiler will eventually need access to it. 
 
-## [[./lang-server][Language Server]]
+## [Language Server](./lang-server)
    This is a language server for M.
    This was a spur of the moment weekend project, and more or less only gives you some basic syntax highlighting/error detection.
    I think there are a lot of neat things you could do with a language server, but I will need a better grip on how the interpreter as a whole works before I can do any of them safely.
@@ -112,13 +112,13 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
    Dynamic scoping makes it vary difficult to locally reason about renaming variables.
 # Running the Project
   This project dose not currently produce a working executable.
-  If you need a working M interpreter please see [[https://gitlab.com/Reference-Standard-M/rsm][Reference-Standard-M]].
+  If you need a working M interpreter please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
   Any bugs that I find during the course of creating this clone will be reported back up stream to RSM.
 ## Development Environment Setup
-   NOTE check the [[./.github/workflows/rust.yml][github actions]] for the version of the cli tools
+   NOTE check the [github actions](./.github/workflows/rust.yml) for the version of the cli tools
    - cargo install tree-sitter-cli --version <version>  --locked
    - cargo install cargo-mutants  --version <version> --locked
-   - You will need clang installed (requirement of bindgen) see bindgens [[https://rust-lang.github.io/rust-bindgen/requirements.html][documentation]] for more details.
+   - You will need clang installed (requirement of bindgen) see bindgens [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
 
 ## Running Unit Tests 
    - cargo test
@@ -126,7 +126,7 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
    NOTE: currently fuzzing is only done in the symbol table create. 
    - cargo fuzz list
    - cargo fuzz run <fuzzing target>
-   [[https://rust-fuzz.github.io/book/cargo-fuzz.html][cargo fuzz book]]
+   [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
 ## Running Mutation Testing
    NOTE this can take a while.
@@ -172,7 +172,7 @@ The main downside to mutation testing is that it takes time to run.
 For each mutation we may have to run the entire test suite. 
 
 ### Use in Rust-RSM
-I am currently using [[https://mutants.rs/][cargo-mutants]] to run mutation testing. 
+I am currently using [cargo-mutants](https://mutants.rs/) to run mutation testing. 
 Since mutation testing can take quite a while to run, the CICD pipeline is currently only introducing mutations into the edited hunks of code.
 The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
 
