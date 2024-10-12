@@ -167,7 +167,8 @@ Without them I have to be hyper aware of every change I make, as any change coul
 ### Concept Overview
 Mutation testing is a technique to check how well a test suite defines the behavior of code base.
 This is accomplished by introducing mutations.
-If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.[fn:: It is possible for a mutation to not change systems behavior, but in this project that should be fairly rare.]
+If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.
+(It is possible for a mutation to not change systems behavior, but in this project that should be fairly rare.)
 The main downside to mutation testing is that it takes time to run. 
 For each mutation we may have to run the entire test suite. 
 
