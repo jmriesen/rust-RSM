@@ -54,13 +54,13 @@ There are of course all the normal C vs Rust type considerations.
 However in addition to that the C code makes heavy use of un-sized types and quasi self references types.
 
 ###### Dynamically Sized Types
-One fairly common dynamically sized type used in the C code is the CSTRING.
-The strut definition claims to hold a [u_char;65535] however in practice that is only the max size for this type.
+One fairly common dynamically sized type used in the C code is the `CSTRING`.
+The strut definition claims to hold a `[u_char;65535]` however in practice that is only the max size for this type.
 If the string is smaller then 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
 
 Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
-###### Quisi Self References 
+###### Quasi Self References 
 Self references in Rust are hard since unless you use the Pin type, Rust assumes that everything can be moved.
 Fortunately the C types are only kind of self referential.
 They frequently assume that type A will be immediately followed by type B.
@@ -71,19 +71,19 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
    For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
    - Uses JavaScript to specify the grammar.
    - Uses an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation.
-   - Runs the tree-sitter-cli during from the build.rs
+   - Runs the `tree-sitter-cli` in the [build script](./tree-sitter-M/bindings/rust/build.rs).
    - Generates
      - A C library that contains the parser.
      - A Rust crate that wraps that C library.
      - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the Grammars structure.
-## [language model](./lang-model/)
-   This crate stores the Rust types wrappers for each of the nodes in the M grammar.
+## [lang-model](./lang-model/)
+   This holds the Rust types wrappers for each of the nodes in the M grammar.
    The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
 ## [compiler](./compiler/)
-   This crate takes the abstract syntax tree (AST) provided by the lang-model and converts it into byte code.
+   This crate takes the abstract syntax tree (AST) provided by the `lang-model` and converts it into byte code.
 
    This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
-   As a result there are still a number lingering artifacts, type defs/impls that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
+   As a result there are still a number lingering artifacts, type definitions and implementation blocks that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
 
    Additionally I did not yet understand how the shared memory segment worked when writing most of this crate.
    So for the most part it just pretends that the globals in the shared memory segment don't exist.
@@ -113,25 +113,25 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
 # Running the Project
   This project dose not currently produce a working executable.
   If you need a working M interpreter please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
-  Any bugs that I find during the course of creating this clone will be reported back up stream to RSM.
+  Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 ## Development Environment Setup
-   NOTE check the [github actions](./.github/workflows/rust.yml) for the version of the cli tools
-   - cargo install tree-sitter-cli --version <version>  --locked
-   - cargo install cargo-mutants  --version <version> --locked
-   - You will need clang installed (requirement of bindgen) see bindgens [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
+   NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the cli tools
+   - `cargo install tree-sitter-cli --version <version> --locked`
+   - `cargo install cargo-mutants   --version <version> --locked`
+   - You will need clang installed (requirement of bindgen) see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
 
 ## Running Unit Tests 
-   - cargo test
+   - `cargo test`
 ## Running Fuzz Tests
    NOTE: currently fuzzing is only done in the symbol table create. 
-   - cargo fuzz list
-   - cargo fuzz run <fuzzing target>
+   - `cargo fuzz list`
+   - `cargo fuzz run <fuzzing target>`
    [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
 ## Running Mutation Testing
    NOTE this can take a while.
-   - cd <crate name>
-   - cargo mutants
+   - `cd <crate name>`
+   - `cargo mutants`
 
 # Techniques/Concepts 
 ## Unit Testing
@@ -144,14 +144,14 @@ I think unit test should be.
 - Descriptive.
 Well written unit test should be able to serve as documentation.
 - Small.
-If you need more then 20 lines of code to write a unit test you are probably violating the single responsibility heuristic. 
+If you need more than 20 lines of code to write a unit test you are probably violating the single responsibility heuristic. 
 - Simple.
 It should take less the 2 minutes for someone to look at a unit test, understand what it is verifying and why that is correct.
 - Fast and deterministic. 
 Unit test should be run frequently.
 At least once every half an hour, often much more frequently.  
 
-When I was first introduced to unit testing in collage, it was primarily presented as a afterthought, a way to verity your code was correct before turning in the assignment.
+When I was first introduced to unit testing in collage, it was primarily presented as an afterthought, a way to verity your code was correct before turning in the assignment.
 However waiting to write/run unit test until after the code is already in a finished state robes unit tests of most of there utility.
 
 As I see it there are two main benefits to writing unit test before writing your code.
@@ -178,7 +178,7 @@ The expectation is that all generated mutants must be killed or timeout before a
 
 ### General thoughts on the Mutation Testing
 Mutation testing is a low effort technique that dramatically increases my confidence in my unit test suite.
-The first time I ran it I ended up finding a bug in my test code that would have been impossible to detect using traditional unit testing.
+The first time I ran `cargo mutants`, I ended up finding a bug in the test code that would have been impossible to detect using traditional unit testing.
 ## C Foreign Function Interface 
 ###  Concept Overview
 A foreign function is simply a function that was written in a different programming language.
@@ -193,7 +193,7 @@ The bindgen and cbindgen tools do most of the heavy lifting by automating the ge
 However there are a few project specific things that have to be kept in mind:
 - Don't blindly trust the generated type definitions.
 The C code uses dynamically sized types, however the header files/generated Rust types assume these types occupy their max size.
-CSTRING is the most commonly used example.
+`CSTRING` is the most commonly used example.
 - Pay extra attention to pointers/pointer arithmetic.
 The C code sometimes allocates memory for multiple structs of different types at once.
 This is particularly prominent in the shared memory segment.
@@ -203,7 +203,7 @@ The C code uses a lot of global variables, and since it assumes it is single thr
 However Rust unit tests are multi threaded by default.
 
 ### General Thoughts on FFI
-Some times you just need functionality that was written in a another programming language.
+Some times you just need functionality that was written in another programming language.
 There are a lot of invariants that need to be upheld, but it is manageable with the code gen build tools.
 It is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 ## A/B and Fuzz Testing
