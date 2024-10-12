@@ -126,6 +126,7 @@ Fortunately this is mostly just a logical construction, and is fairly easy to sp
    NOTE: currently fuzzing is only done in the symbol table create. 
    - `cargo fuzz list`
    - `cargo fuzz run <fuzzing target>`
+
    [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
 ## Running Mutation Testing
