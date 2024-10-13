@@ -48,6 +48,7 @@
 #include "compile.h"
 #include "opcode.h"
 #include "database.h"
+#include "seams.h"
 
 partab_struct  partab;                                                          // setup partab
 systab_struct  *systab;
@@ -67,6 +68,53 @@ u_short hist_curr = 0;                                                          
 short   in_hist = FALSE;                                                        // are we in the history buffer
 u_short prompt_len = 8;                                                         // length of the current direct mode prompt
 
+//START OF SEAMS SECTION
+
+/**
+ * Searches though the label's uci table looking for a matching environment.
+ * env - the environment to find.
+ * vol_label - The label block to search though.
+ *
+ * returns:
+ * If env = null return 1;
+ * If env != null but we can't find a match return an error.
+ * If the env is found at index x this returns x+1
+ */
+NumberResult parse_env(char* env, uci_tab* uci_ptr ){
+    int         i;                                                              // an int
+    int         env_num = 1;                                                    // startup environment number
+    var_u       tmp;                                                            // temp descriptor
+    if (env != NULL) {                                                          // passed in UCI ?
+        env_num = 0;                                                            // clear UCI number
+        VAR_CLEAR(tmp);                                                         // zero entire name
+
+        for (i = 0; i < VAR_LEN; i++) {                                         // copy in name
+            if (env[i] == '\0') break;                                          // done at null
+            tmp.var_cu[i] = env[i];                                             // copy character
+        }
+
+        for (i = 0; i < UCIS; i++) {                                            // scan all UCIs
+            if (var_equal(uci_ptr[i].name, tmp)) {                              // if we have a match
+                env_num = i + 1;                                                // save it
+                break;                                                          // and exit loop
+            }
+        }
+
+        if (env_num == 0) {
+            return (NumberResult){                                                 // and exit
+                .is_error = 1,
+                .error = ENOENT,                                                       // complain on fail
+                .value = env_num
+            };
+        }
+    }
+    return (NumberResult){
+        .is_error = 0,
+        .error = 0,
+        .value = env_num
+    };
+}
+//END OF SEAMS SECTION
 static void ser(int t)                                                          // display errors
 {
     cstring *cptr;                                                              // cstring ptr
@@ -160,28 +208,13 @@ start:
     partab.vol[0] = SOA(systab->vol[0]);                                        // adjusted pointer to main volume
     vol_label = SOA(partab.vol[0]->vollab);                                     // adjusted pointer to main volume label
 
-    if (env != NULL) {                                                          // passed in UCI ?
-        env_num = 0;                                                            // clear UCI number
-        uci_ptr = &vol_label->uci[0];                                           // get pointer to UCI table
-        VAR_CLEAR(tmp);                                                         // zero entire name
-
-        for (i = 0; i < VAR_LEN; i++) {                                         // copy in name
-            if (env[i] == '\0') break;                                          // done at null
-            tmp.var_cu[i] = env[i];                                             // copy character
-        }
-
-        for (i = 0; i < UCIS; i++) {                                            // scan all UCIs
-            if (var_equal(uci_ptr[i].name, tmp)) {                              // if we have a match
-                env_num = i + 1;                                                // save it
-                break;                                                          // and exit loop
-            }
-        }
-
-        if (env_num == 0) {
-            ret = ENOENT;                                                       // complain on fail
-            goto exit;                                                          // and exit
-        }
-    }
+    NumberResult env_result = parse_env(env, &vol_label->uci[0]);
+    if (env_result.is_error){
+        ret = env_result.error;
+        goto exit;
+    }else{
+        env_num = env_result.value;
+    };
 
     pid = (int) getpid();                                                       // get process id
 

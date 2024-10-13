@@ -34,6 +34,7 @@ use ffi::{
 use std::{ffi::CString, fs::OpenOptions};
 
 use crate::shared_seg::sys_tab::SystemTab;
+mod parse_env;
 
 /*
 static mut strstk : [u_char;MAX_SSTK as usize] = [0;MAX_SSTK as usize];
