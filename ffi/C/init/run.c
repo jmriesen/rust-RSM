@@ -114,7 +114,23 @@ NumberResult parse_env(char* env, uci_tab* uci_ptr ){
         .value = env_num
     };
 }
+
+jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int pid){
+    partab.jobtab = (jobtab *) NULL;                                            // clear jobtab pointer
+    for (u_int j = 0; j < systab->maxjob; j++) {                                // look for a free slot
+        if (((partab.job_table[j].pid == 0) && (start_type == TYPE_RUN)) ||     // this one ?
+            ((partab.job_table[j].pid == pid) && (start_type == TYPE_JOB))) {     // or already done (JOB)
+            memset(&partab.job_table[j], 0, sizeof(jobtab));                    // yes - zot the lot
+            partab.jobtab = &partab.job_table[j];                               // and save our jobtab address
+            partab.jobtab->pid = pid;                                           // copy in our PID
+            break;                                                              // end loop
+        }
+    }
+    return partab.jobtab;
+}
+
 //END OF SEAMS SECTION
+
 static void ser(int t)                                                          // display errors
 {
     cstring *cptr;                                                              // cstring ptr
