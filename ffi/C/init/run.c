@@ -71,9 +71,9 @@ u_short prompt_len = 8;                                                         
 //START OF SEAMS SECTION
 
 /**
- * Searches though the label's uci table looking for a matching environment.
+ * Searches though an uci table looking for a matching environment.
  * env - the environment to find.
- * vol_label - The label block to search though.
+ * uci_ptr - pointer to the start of the uci table.
  *
  * returns:
  * If env = null return 1;

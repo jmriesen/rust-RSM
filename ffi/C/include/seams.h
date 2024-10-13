@@ -34,4 +34,4 @@ typedef struct number_result{
 }NumberResult;
 
 
-NumberResult parse_env(char* env, uci_tab* vol_label);
+NumberResult parse_env(char* env, uci_tab* uci_ptr);
