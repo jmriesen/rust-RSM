@@ -27,11 +27,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-typedef struct number_result{
-    int is_error;
-    int error;
-    int value;
-}NumberResult;
+typedef struct number_result {
+  int is_error;
+  int error;
+  int value;
+} NumberResult;
 
+NumberResult parse_env(char *env, uci_tab *uci_ptr);
 
-NumberResult parse_env(char* env, uci_tab* uci_ptr);
+jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int pid);
