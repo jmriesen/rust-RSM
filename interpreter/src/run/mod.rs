@@ -34,6 +34,7 @@ use ffi::{
 use std::{ffi::CString, fs::OpenOptions};
 
 use crate::shared_seg::sys_tab::SystemTab;
+mod find_open_slot;
 mod parse_env;
 
 /*
