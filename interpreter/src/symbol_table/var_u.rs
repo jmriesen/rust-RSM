@@ -30,8 +30,31 @@
 //New type wrapper so I can implement methods on VAR_U
 //TODO decouple from ffi
 use std::hash::Hash;
+
+use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug)]
 pub struct VarU(pub ffi::VAR_U);
+
+impl Serialize for VarU {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        Ok(self.contents().to_vec().serialize(serializer)?)
+    }
+}
+
+impl<'de> Deserialize<'de> for VarU {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let vec = Vec::<u8>::deserialize(deserializer)?;
+        let mut var_cu = [0; 32];
+        var_cu[..vec.len()].copy_from_slice(&vec[..]);
+        Ok(Self(ffi::VAR_U { var_cu }))
+    }
+}
 
 impl VarU {
     pub fn is_intrinsic(&self) -> bool {

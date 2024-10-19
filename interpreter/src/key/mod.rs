@@ -34,6 +34,7 @@ mod internal;
 
 use crate::value::Value;
 use format::IntermediateRepresentation;
+use serde::{Deserialize, Serialize};
 
 pub trait Key:
     std::borrow::Borrow<NullableKey> + Clone + Into<NullableKey> + PartialEq + Eq
@@ -42,7 +43,7 @@ pub trait Key:
 impl Key for NullableKey {}
 impl Key for NonNullableKey {}
 
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct NonNullableKey(NullableKey);
 
 impl std::borrow::Borrow<NullableKey> for NonNullableKey {
@@ -69,7 +70,7 @@ impl NonNullableKey {
 pub static EMPTY: NullableKey = NullableKey(Vec::new());
 /// Stores a list of keys.
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with a array
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct NullableKey(Vec<u8>);
 impl NullableKey {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {

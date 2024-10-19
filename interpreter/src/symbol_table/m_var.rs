@@ -30,8 +30,9 @@
 use super::var_u::VarU;
 use crate::key::{self, NullableKey};
 use ffi::{u_char, UCI_IS_LOCALVAR};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MVar<Key: key::Key> {
     pub name: VarU,
     volset: u_char,

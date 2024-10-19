@@ -29,13 +29,14 @@
  */
 
 use ffi::{CSTRING, MAX_STR_LEN};
+use serde::{Deserialize, Serialize};
 pub static EMPTY: Value = Value::empty();
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
 ///
 ///NOTE There is a `byte_maxs` of 65535 (just like 'CSTRINGS')
-#[derive(Clone, PartialEq, Eq)] //NOTE keep the Manual Debug implementation in sync
+#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)] //NOTE keep the Manual Debug implementation in sync
 pub struct Value(Vec<u8>);
 
 impl Value {

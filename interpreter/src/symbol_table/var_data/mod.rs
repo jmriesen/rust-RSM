@@ -30,6 +30,7 @@
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use arbitrary::size_hint::or;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     key::{self, NonNullableKey, NullableKey},
@@ -37,7 +38,7 @@ use crate::{
 };
 
 #[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Direction {
     Forward,
     Backward,

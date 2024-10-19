@@ -10,6 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
+ron = "0.8"
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.interpreter]
 path = ".."
