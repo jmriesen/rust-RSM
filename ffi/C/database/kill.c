@@ -60,7 +60,6 @@ short Kill_data(void)                                                           
     int     top;                                                                // top in complex kill
     u_char  *p;                                                                 // a handy pointer
     cstring *c;                                                                 // and another
-    u_int   *ui;                                                                // and another
 
     memset(rekey_blk, 0, MAXREKEY * sizeof(u_int));                             // clear that table
     memset(rekey_lvl, 0, MAXREKEY * sizeof(int));                               // and that table
@@ -174,7 +173,7 @@ cont:
             memcpy(&keybuf[chunk->buf[0] + 1], &chunk->buf[2], chunk->buf[1]);  // fix the key
             keybuf[0] = chunk->buf[0] + chunk->buf[1];                          // and the size
 
-            if ((keybuf[0] < db_var.slen) || memcmp(&keybuf[1], &db_var.key, db_var.slen)) { // new key too small OR different
+            if ((keybuf[0] < db_var.slen) || (memcmp(&keybuf[1], &db_var.key, db_var.slen) != 0)) { // new key too small - different
                 break;                                                          // quit loop
             }
 
@@ -226,7 +225,7 @@ cont:
             memcpy(&keybuf[chunk->buf[0] + 1], &chunk->buf[2], chunk->buf[1]);  // update the key
             keybuf[0] = chunk->buf[0] + chunk->buf[1];                          // and the size
 
-            if ((keybuf[0] < db_var.slen) || memcmp(&keybuf[1], &db_var.key, db_var.slen)) { // new key too small or different
+            if ((keybuf[0] < db_var.slen) || (memcmp(&keybuf[1], &db_var.key, db_var.slen) != 0)) { // new key too small - different
                 break;                                                          // quit loop
             }
 
@@ -260,7 +259,7 @@ cont:
             memcpy(&keybuf[chunk->buf[0] + 1], &chunk->buf[2], chunk->buf[1]);  // update the key
             keybuf[0] = chunk->buf[0] + chunk->buf[1];                          // and the size
 
-            if ((keybuf[0] < db_var.slen) || memcmp(&keybuf[1], &db_var.key, db_var.slen)) { // new key too small or different
+            if ((keybuf[0] < db_var.slen) || (memcmp(&keybuf[1], &db_var.key, db_var.slen) != 0)) { // new key too small - different
                 break;                                                          // quit loop
             }
 
@@ -299,8 +298,7 @@ cont:
 DISABLE_WARN(-Warray-bounds)
                 c->len = 4;                                                     // the size
 ENABLE_WARN
-                ui = (u_int *) c->buf;                                          // point the int here
-                *ui = rblk[level + 1]->block;                                   // get the block#
+                memcpy(c->buf, &rblk[level + 1]->block, sizeof(u_int));         // point the int here, get the block#
                 t = Insert(p, c);                                               // insert the node
 
                 if (t == -(ERRZ62 + ERRMLAST)) {
@@ -343,8 +341,7 @@ ENABLE_WARN
 DISABLE_WARN(-Warray-bounds)
             c->len = 4;                                                         // the size
 ENABLE_WARN
-            ui = (u_int *) c->buf;                                              // point the int here
-            *ui = rblk[level + 1]->block;                                       // get the block#
+            memcpy(c->buf, &rblk[level + 1]->block, sizeof(u_int));             // point the int here, get the block#
             t = Insert(p, c);                                                   // insert the node
 
             if (t == -(ERRZ62 + ERRMLAST)) {
