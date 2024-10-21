@@ -36,7 +36,7 @@ mod var_data;
 mod var_u;
 
 use crate::{
-    key::{self, NonNullableKey},
+    key::{self, NonNullableKey, EMPTY},
     value::Value,
 };
 use ffi::{PARTAB, UCI_IS_LOCALVAR};
@@ -114,6 +114,14 @@ impl Table {
         var: &MVar<Key>,
         direction: Direction,
     ) -> Option<MVar<NonNullableKey>> {
+        if var.key.borrow().is_empty() && direction == Direction::Backward {
+            let var: MVar<NonNullableKey> = var.copy_new_key(EMPTY.clone().try_into().unwrap());
+            if self.get(&var).is_some() {
+                return Some(var);
+            } else {
+                return None;
+            }
+        }
         self.0
             .locate(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
