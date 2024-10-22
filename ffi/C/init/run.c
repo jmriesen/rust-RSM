@@ -114,7 +114,23 @@ NumberResult parse_env(char* env, uci_tab* uci_ptr ){
         .value = env_num
     };
 }
+
+jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int pid){
+    jobtab * job_tab = (jobtab *) NULL;                                         // clear jobtab pointer
+    for (u_int j = 0; j < table_size; j++) {                                    // look for a free slot
+        if (((job_table[j].pid == 0) && (start_type == TYPE_RUN)) ||            // this one ?
+            ((job_table[j].pid == pid) && (start_type == TYPE_JOB))) {          // or already done (JOB)
+            memset(&job_table[j], 0, sizeof(jobtab));                           // yes - zot the lot
+            job_tab = &job_table[j];                                            // and save our jobtab address
+            job_tab->pid = pid;                                                 // copy in our PID
+            break;                                                              // end loop
+        }
+    }
+    return job_tab;
+}
+
 //END OF SEAMS SECTION
+
 static void ser(int t)                                                          // display errors
 {
     cstring *cptr;                                                              // cstring ptr
@@ -235,19 +251,8 @@ start:
 
     ret = SemOp(SEM_SYS, SEM_WRITE);                                            // lock systab
     if (ret < 0) goto exit;                                                     // give up on error
-
-    for (u_int j = 0; j < systab->maxjob; j++) {                                // look for a free slot
-        if (((partab.job_table[j].pid == 0) && (start_type == TYPE_RUN)) ||     // this one ?
-          ((partab.job_table[j].pid == pid) && (start_type == TYPE_JOB))) {     // or already done (JOB)
-            memset(&partab.job_table[j], 0, sizeof(jobtab));                    // yes - zot the lot
-            partab.jobtab = &partab.job_table[j];                               // and save our jobtab address
-            partab.jobtab->pid = pid;                                           // copy in our PID
-            break;                                                              // end loop
-        }
-    }
-
+    partab.jobtab = find_open_slot(partab.job_table, systab->maxjob, start_type, pid);
     ret = SemOp(SEM_SYS, -SEM_WRITE);                                           // unlock systab
-
     if (partab.jobtab == NULL) {                                                // if that failed
         ret = ENOMEM;                                                           // error message
         goto exit;                                                              // and exit
