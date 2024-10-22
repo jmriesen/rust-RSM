@@ -1,9 +1,6 @@
-use crate::{
-    symbol_table::{m_var::helpers::var_m_nullable, Table},
-    value::Value,
-};
+use crate::{m_var::helpers::var_m_nullable, value::Value, Table};
 mod data {
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::DataResult};
+    use crate::{m_var::helpers::var_m, var_data::DataResult};
 
     use super::*;
 
@@ -96,7 +93,7 @@ mod data {
 
 mod query {
 
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::Direction};
+    use crate::{m_var::helpers::var_m, var_data::Direction};
 
     use super::*;
 
@@ -215,12 +212,13 @@ mod query {
 
 mod order {
 
-    use crate::symbol_table::{m_var::helpers::var_m, var_data::Direction};
+    use crate::{m_var::helpers::var_m, var_data::Direction};
 
     use super::*;
 
     #[test]
     fn forward_and_backward() {
+        use Direction::{Backward, Forward};
         let mut table = Table::new();
         let data = Value::try_from("data").unwrap();
         table.set(&var_m("foo", &["0"]), &data).unwrap();
@@ -228,69 +226,34 @@ mod order {
         table.set(&var_m("foo", &["1", "b"]), &data).unwrap();
         table.set(&var_m("foo", &["2"]), &data).unwrap();
 
+        let assert = |var, direction, value: Option<&str>| {
+            assert_eq!(
+                table.order(&var, direction).map(Value::from),
+                value.map(|x| x.try_into().unwrap()),
+            );
+        };
+
         //Top level forward
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &[""]), Direction::Forward),
-            "0".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["0"]), Direction::Forward),
-            "1".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1"]), Direction::Forward),
-            "2".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["2"]), Direction::Forward),
-            "".try_into().unwrap(),
-        );
+        assert(var_m_nullable("foo", &[""]), Forward, Some("0"));
+        assert(var_m_nullable("foo", &["0"]), Forward, Some("1"));
+        assert(var_m_nullable("foo", &["1"]), Forward, Some("2"));
+        assert(var_m_nullable("foo", &["2"]), Forward, None);
 
-        //Top level Backwords
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &[""]), Direction::Backward),
-            "2".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["2"]), Direction::Backward),
-            "1".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1"]), Direction::Backward),
-            "0".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["0"]), Direction::Backward),
-            "".try_into().unwrap(),
-        );
+        //Top level Backwards
+        assert(var_m_nullable("foo", &[""]), Backward, Some("2"));
+        assert(var_m_nullable("foo", &["2"]), Backward, Some("1"));
+        assert(var_m_nullable("foo", &["1"]), Backward, Some("0"));
+        assert(var_m_nullable("foo", &["0"]), Backward, None);
 
-        //sub layer Forward
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", ""]), Direction::Forward),
-            "a".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", "a"]), Direction::Forward),
-            "b".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", "b"]), Direction::Forward),
-            "".try_into().unwrap(),
-        );
+        //Sub layer Forward
+        assert(var_m_nullable("foo", &["1", ""]), Forward, Some("a"));
+        assert(var_m_nullable("foo", &["1", "a"]), Forward, Some("b"));
+        assert(var_m_nullable("foo", &["1", "b"]), Forward, None);
 
-        //Top level Backwords
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", ""]), Direction::Backward),
-            "b".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", "b"]), Direction::Backward),
-            "a".try_into().unwrap(),
-        );
-        assert_eq!(
-            table.order(&var_m_nullable("foo", &["1", "a"]), Direction::Backward),
-            "".try_into().unwrap(),
-        );
+        //Top level Backboards
+        assert(var_m_nullable("foo", &["1", ""]), Backward, Some("b"));
+        assert(var_m_nullable("foo", &["1", "b"]), Backward, Some("a"));
+        assert(var_m_nullable("foo", &["1", "a"]), Backward, None);
     }
 
     #[test]
@@ -300,10 +263,9 @@ mod order {
         let bar = var_m("bar", &["subscript"]);
         table.set(&foo, &Value::try_from("Value").unwrap()).unwrap();
         table.set(&bar, &Value::try_from("Value").unwrap()).unwrap();
-        let null = Value::empty();
-        assert_eq!(null, table.order(&foo, Direction::Forward));
-        assert_eq!(null, table.order(&bar, Direction::Forward));
-        assert_eq!(null, table.order(&foo, Direction::Backward));
-        assert_eq!(null, table.order(&bar, Direction::Backward));
+        assert_eq!(None, table.order(&foo, Direction::Forward));
+        assert_eq!(None, table.order(&bar, Direction::Forward));
+        assert_eq!(None, table.order(&foo, Direction::Backward));
+        assert_eq!(None, table.order(&bar, Direction::Backward));
     }
 }

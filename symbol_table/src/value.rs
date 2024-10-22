@@ -28,9 +28,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use ffi::{CSTRING, MAX_STR_LEN};
 use serde::{Deserialize, Serialize};
 pub static EMPTY: Value = Value::empty();
+const MAX_STR_LEN: usize = 65534;
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
@@ -46,15 +46,6 @@ impl Value {
     }
 
     #[must_use]
-    pub fn into_cstring(self) -> CSTRING {
-        let mut buf = [0; MAX_STR_LEN as usize + 1];
-        buf[..self.0.len()].copy_from_slice(&self.0[..]);
-        CSTRING {
-            len: self.0.len() as u16,
-            buf,
-        }
-    }
-    #[must_use]
     pub const fn empty() -> Self {
         Self(Vec::new())
     }
@@ -66,18 +57,36 @@ impl Default for Value {
     }
 }
 
-impl From<&CSTRING> for Value {
-    #[cfg_attr(test, mutants::skip)]
-    fn from(value: &CSTRING) -> Self {
-        let data = &value.buf[..value.len as usize];
-        Self(Vec::from(data))
+#[cfg_attr(test, mutants::skip)]
+#[cfg(feature = "ffi")]
+mod ffi {
+
+    use super::{Value, MAX_STR_LEN};
+    use ffi::CSTRING;
+    impl Value {
+        #[must_use]
+        pub fn into_cstring(self) -> CSTRING {
+            let mut buf = [0; MAX_STR_LEN + 1];
+            buf[..self.0.len()].copy_from_slice(&self.0[..]);
+            CSTRING {
+                len: self.0.len() as u16,
+                buf,
+            }
+        }
+    }
+    impl From<&CSTRING> for Value {
+        #[cfg_attr(test, mutants::skip)]
+        fn from(value: &CSTRING) -> Self {
+            let data = &value.buf[..value.len as usize];
+            Self(Vec::from(data))
+        }
     }
 }
 
 impl TryFrom<&[u8]> for Value {
     type Error = ();
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN as usize {
+        if value.len() <= MAX_STR_LEN {
             Ok(Self(Vec::from(value)))
         } else {
             Err(())
@@ -103,15 +112,15 @@ impl std::fmt::Debug for Value {
 pub mod utility {
     use std::str::FromStr;
 
+    use super::MAX_STR_LEN;
     use arbitrary::Arbitrary;
-    use ffi::MAX_STR_LEN;
 
     use super::Value;
 
     impl<'a> Arbitrary<'a> for Value {
         #[cfg_attr(test, mutants::skip)]
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let len: usize = u.int_in_range(0..=MAX_STR_LEN as usize)?;
+            let len: usize = u.int_in_range(0..=MAX_STR_LEN)?;
             Ok(Self(Vec::from(u.bytes(len)?)))
         }
     }
@@ -130,7 +139,7 @@ pub mod utility {
         type Error = ();
 
         fn try_from(value: &str) -> Result<Self, Self::Error> {
-            if value.len() <= MAX_STR_LEN as usize {
+            if value.len() <= MAX_STR_LEN {
                 Ok(Self(Vec::from(value.as_bytes())))
             } else {
                 Err(())

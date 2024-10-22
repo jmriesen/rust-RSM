@@ -4,6 +4,8 @@
 TODOs.org
 mutants.out*
 /target/
+.vscode/
+tree-sitter-M/src/parser.c
 
 rsm
 **/*.o

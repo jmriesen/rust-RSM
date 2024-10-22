@@ -28,13 +28,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![feature(int_roundings)]
-#![feature(let_chains)]
 #![feature(slice_from_ptr_range)]
 #![warn(clippy::all, clippy::pedantic)]
 #![feature(array_windows)]
-#![feature(slice_split_once)]
-#![feature(btree_cursors)]
-#![feature(hash_extract_if)]
 //TODO remove these allows.
 #![allow(
     clippy::cast_possible_truncation,
@@ -44,6 +40,7 @@
     clippy::missing_errors_doc,
     clippy::missing_safety_doc
 )]
+
 #[allow(clippy::all, unused)]
 pub mod bindings;
 pub mod create;
@@ -51,13 +48,9 @@ pub mod create;
 pub mod run;
 mod shared_seg;
 pub mod start;
-pub mod symbol_table;
 pub mod units;
 pub mod util;
 pub mod var_u;
 pub use bindings::*;
 #[cfg(test)]
 pub mod test_helper;
-pub mod value;
-
-pub mod key;

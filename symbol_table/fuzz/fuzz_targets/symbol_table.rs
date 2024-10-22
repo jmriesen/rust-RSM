@@ -30,27 +30,26 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use interpreter::{
-    key::{NonNullableKey, NullableKey},
-    symbol_table::{Direction, MVar, Table},
-    value::Value,
-};
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
+use symbol_table::{
+    key::{Key, KeyBound},
+    value::Value,
+    Direction, MVar, Table,
+};
 
 #[derive(Arbitrary, Debug, Deserialize, Serialize)]
 enum TableCommands {
-    Set(MVar<NonNullableKey>, Value),
-    Get(MVar<NonNullableKey>),
-    Kill(MVar<NonNullableKey>),
-    Data(MVar<NonNullableKey>),
-    Query(MVar<NullableKey>, Direction),
-    Order(MVar<NullableKey>, Direction),
+    Set(MVar<Key>, Value),
+    Get(MVar<Key>),
+    Kill(MVar<Key>),
+    Data(MVar<Key>),
+    Query(MVar<KeyBound>, Direction),
+    Order(MVar<KeyBound>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
-    let mut c_table = interpreter::bindings::symbol_table::Table::new();
     /*
     let commands: Vec<TableCommands> =
         ron::from_str(&std::fs::read_to_string("test.ron").unwrap()).unwrap();
@@ -59,6 +58,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             ron::ser::to_string_pretty(&commands, ron::ser::PrettyConfig::default()).unwrap(),
         );
     */
+    let mut c_table = ffi::symbol_table::Table::new();
 
     for command in commands.into_iter().take(100) {
         match command {
@@ -71,10 +71,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
                 let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
-                assert_eq!(
-                    rust_val.ok_or(&-(interpreter::bindings::ERRM6 as i32)),
-                    c_val.as_ref()
-                );
+                assert_eq!(rust_val.ok_or(&-(ffi::ERRM6 as i32)), c_val.as_ref());
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
@@ -89,15 +86,16 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val.map(|x| x.util_string_m_var()).unwrap_or(vec![]),
-                    c_val
+                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
+                    Value::try_from(&c_val[..])
+                        .expect("The buffer comming from C should always fit")
                 );
             }
             TableCommands::Order(var, direction) => {
                 let rust_val = table.order(&var, direction);
                 let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val,
+                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
                     Value::try_from(&c_val[..])
                         .expect("The buffer comming from C should always fit")
                 );

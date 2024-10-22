@@ -1,10 +1,8 @@
 use std::borrow::Borrow;
 
-use super::{Direction, Table};
-pub use crate::symbol_table::m_var::helpers::var_m;
-use crate::{symbol_table::m_var::helpers::var_m_nullable, value::Value};
-use ffi::UCI_IS_LOCALVAR;
-use pretty_assertions::assert_eq;
+use super::Table;
+use crate::m_var::helpers::var_m;
+use pretty_assertions::{assert_eq, assert_ne};
 
 #[test]
 fn get_unset_variable() {
@@ -12,6 +10,7 @@ fn get_unset_variable() {
     let m_var = var_m("foo", &[]);
     assert_eq!(table.get(&m_var), None);
 }
+
 #[test]
 fn get_unset_key() {
     let mut table = Table::new();
@@ -130,7 +129,7 @@ fn do_a_bunch_of_sets() {
 #[test]
 fn kill_uninitialized_var() {
     let mut table = Table::new();
-    //These should be noops.
+    //These should be no ops.
     table.kill(&var_m("foo", &[]));
     table.kill(&var_m("foo", &["arg"]));
 }
@@ -150,8 +149,24 @@ fn kill_initialized_root() {
     assert_eq!(table.get(&var_i), None);
     assert_eq!(table.get(&var_i), None);
 
-    //hash table should have freed the entire.
-    assert_eq!(table.0.locate(&var.name), None);
+    //Hash table should have freed the entire.
+    assert_eq!(table.table.locate(&var.name), None);
+}
+
+#[test]
+fn keep_slot_open_if_variable_was_new_ed() {
+    let mut table = Table::new();
+    let var = var_m("foo", &[]);
+    table.push_new_frame();
+    table.new_var(&[&var.name]).unwrap();
+    table.kill(&var);
+
+    //Hash table should still have the slot reserved.
+    assert_ne!(table.table.locate(&var.name), None);
+    table.pop_new_frame();
+    //Hash table should have freed the slot since it was not new-ed
+    //by something else and the restored value holds no data.
+    assert_eq!(table.table.locate(&var.name), None);
 }
 
 #[test]
@@ -199,30 +214,108 @@ fn keep_vars() {
     table.set(&normal, &data).unwrap();
     table.set(&retain_a, &data).unwrap();
     table.set(&retain_b, &data).unwrap();
-    let mut part_tab = Default::default();
 
-    table.keep(
-        &[retain_a.name.clone(), retain_b.name.clone()],
-        &mut part_tab,
-    );
-    assert_eq!(part_tab.src_var.uci, UCI_IS_LOCALVAR as u8);
-    assert_eq!(part_tab.src_var.slen, 0);
-    assert_eq!(part_tab.src_var.volset, 0);
+    table.keep(&[retain_a.name.clone(), retain_b.name.clone()]);
 
     assert_eq!(table.get(&normal), None);
     for var in &[dolor, retain_a, retain_b] {
         assert_eq!(table.get(var), Some(&data));
     }
 }
+
 #[test]
-fn replicate_c_bug_found_while_fuzzing() {
-    let mut table = ffi::symbol_table::Table::new();
-    table
-        .set(
-            &var_m("OOOOO//", &[]).into_cmvar(),
-            &Value::empty().into_cstring(),
-        )
-        .unwrap();
-    let query_result = table.query(&var_m_nullable("OOOOO//", &[""]).into_cmvar(), true);
-    assert_eq!(query_result, var_m("OOOOO//", &[]).util_string_m_var());
+fn newing_stores_a_copy() {
+    let mut table = Table::new();
+    let var = var_m("var", &[]);
+
+    let level_zero = "zero".try_into().unwrap();
+    let level_one = "one".try_into().unwrap();
+    let level_two = "two".try_into().unwrap();
+    table.set(&var, &level_zero).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]).unwrap();
+    table.set(&var, &level_one).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]).unwrap();
+    table.set(&var, &level_two).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&var.name]).unwrap();
+    assert_eq!(table.get(&var), None);
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_two));
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_one));
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&level_zero));
+}
+
+#[test]
+fn assumed_variables_are_accessible() {
+    let mut table = Table::new();
+    let new_ed_var = var_m("var", &[]);
+    let assumed_var = var_m("assumed", &[]);
+
+    let assumed_value = "new-ed".try_into().unwrap();
+    let new_value = "new-ed".try_into().unwrap();
+    table.set(&assumed_var, &assumed_value).unwrap();
+
+    table.push_new_frame();
+    table.new_var(&[&new_ed_var.name]).unwrap();
+    table.set(&new_ed_var, &assumed_value).unwrap();
+
+    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
+    assert_eq!(table.get(&new_ed_var), Some(&new_value));
+    table.pop_new_frame();
+    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
+    assert_eq!(table.get(&new_ed_var), None);
+}
+
+#[test]
+fn calling_new_on_the_same_variable_multiple_times() {
+    let mut table = Table::new();
+    let var = var_m("var", &[]);
+
+    let initial_value = "inital".try_into().unwrap();
+    let second_value = "second".try_into().unwrap();
+    let third_value = "thired".try_into().unwrap();
+    table.set(&var, &initial_value).unwrap();
+
+    table.push_new_frame();
+
+    table.new_var(&[&var.name]).unwrap();
+    assert_eq!(table.get(&var), None);
+    table.set(&var, &second_value).unwrap();
+
+    table.new_var(&[&var.name]).unwrap();
+    assert_eq!(table.get(&var), None);
+    table.set(&var, &third_value).unwrap();
+
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(&initial_value));
+}
+
+#[test]
+fn new_all_does_not_new_excluded_or_intrinsic_vars() {
+    let mut table = Table::new();
+    let intrinsic = var_m("$var", &[]);
+    let included = var_m("included", &[]);
+    let excluded = var_m("excluded", &[]);
+    let value = "value".try_into().unwrap();
+
+    table.set(&intrinsic, &value).unwrap();
+    table.set(&included, &value).unwrap();
+    table.set(&excluded, &value).unwrap();
+
+    table.new_all_but(&[&excluded.name]).unwrap();
+    //New-ed value
+    assert_eq!(table.get(&included), None);
+    //Not new-ed
+    assert_ne!(table.get(&excluded), None);
+    assert_ne!(table.get(&intrinsic), None);
 }

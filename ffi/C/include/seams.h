@@ -27,21 +27,11 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-#![no_main]
+typedef struct number_result{
+    int is_error;
+    int error;
+    int value;
+}NumberResult;
 
-use interpreter::{
-    key::{a_b_testing, NullableKey},
-    value::Value,
-};
-use libfuzzer_sys::fuzz_target;
 
-fuzz_target!(|string: Value| {
-    let _ = a_b_testing::extract(&string.clone());
-
-    //Verify that what goes in == what comes out.
-    if let Ok(key) = NullableKey::new([&string]) {
-        let extracted = key.key_extract(false);
-        let contents = string.content();
-        assert_eq!(contents, &extracted[..])
-    }
-});
+NumberResult parse_env(char* env, uci_tab* uci_ptr);
