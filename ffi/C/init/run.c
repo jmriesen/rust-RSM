@@ -129,6 +129,47 @@ jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int
     return job_tab;
 }
 
+NumberResult set_tab_priv(){
+    int          i;                                                             // an int
+    gid_t        gidset[MAX_GROUPS];                                            // for getgroups()
+    if ((partab.jobtab->user == systab->start_user) || (partab.jobtab->user == 0)) { // if he started it or is root
+        partab.jobtab->priv = 1;                                                // say yes
+    } else {
+        if (systab->maxjob == 1) {                                              // if single job
+            partab.jobtab = NULL;                                               // clear this
+            return (NumberResult){
+                .is_error = 1,
+                .error = ENOMEM,
+                .value = 0,
+            };
+        }
+
+        i = getgroups(MAX_GROUPS, gidset);                                      // get groups
+
+        if (i < 0) {                                                            // if an error
+            return (NumberResult){
+                .is_error = 1,
+                .error = errno,
+                .value = 0,
+            };
+        }
+
+        while (i > 0) {                                                         // for each group
+            if (gidset[i - 1] == PRVGRP) {                                      // if it's "wheel" or "admin"
+                partab.jobtab->priv = 1;                                        // say yes
+                break;                                                          // and exit
+            }
+
+            i--;                                                                // decrement i
+        }
+    }
+    return (NumberResult){
+        .is_error = 0,
+        .value = 0,
+        .error = 0
+    };
+}
+
 //END OF SEAMS SECTION
 
 static void ser(int t)                                                          // display errors
@@ -259,31 +300,11 @@ start:
     }
 
     partab.jobtab->user = (int) getuid();                                       // get user number
+    NumberResult priv_result = set_tab_priv();
 
-    if ((partab.jobtab->user == systab->start_user) || (partab.jobtab->user == 0)) { // if he started it or is root
-        partab.jobtab->priv = 1;                                                // say yes
-    } else {
-        if (systab->maxjob == 1) {                                              // if single job
-            ret = ENOMEM;                                                       // error message
-            partab.jobtab = NULL;                                               // clear this
-            goto exit;                                                          // and exit
-        }
-
-        i = getgroups(MAX_GROUPS, gidset);                                      // get groups
-
-        if (i < 0) {                                                            // if an error
-            ret = errno;                                                        // get the error
-            goto exit;                                                          // and exit
-        }
-
-        while (i > 0) {                                                         // for each group
-            if (gidset[i - 1] == PRVGRP) {                                      // if it's "wheel" or "admin"
-                partab.jobtab->priv = 1;                                        // say yes
-                break;                                                          // and exit
-            }
-
-            i--;                                                                // decrement i
-        }
+    if (priv_result.is_error){
+        ret = priv_result.error;
+        goto exit;
     }
 
     partab.jobtab->precision = systab->precision;                               // decimal precision
