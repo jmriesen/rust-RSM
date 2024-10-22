@@ -1,11 +1,7 @@
 /*
-<<<<<<<< HEAD:ffi/C/util/strerror.c
  * Package: Rust Reference Standard M
-========
- * Package: Reference Standard M
  * File:    rsm/util/error.c
  * Summary: module RSM error - return full name of error
->>>>>>>> original/main:ffi/C/util/error.c
  *
  * Jacob Riesen <jacobriesen@gmail.com>
  * https://github.com/jmriesen/rust-RSM
@@ -32,15 +28,8 @@
  * along with this program. If not, see https://www.gnu.org/licenses/.
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
-<<<<<<<< HEAD:ffi/C/util/strerror.c
- */
-
-
-/*
-========
  *
  *
->>>>>>>> original/main:ffi/C/util/error.c
  * Extended Summary:
  *
  * Errors returned by functions internally are minus one of the following

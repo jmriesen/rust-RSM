@@ -1,11 +1,7 @@
 /*
-<<<<<<<< HEAD:ffi/C/compile/localvar.c
  * Package: Rust Reference Standard M
-========
- * Package: Reference Standard M
  * File:    rsm/compile/var.c
  * Summary: module compile - parse a local variable
->>>>>>>> original/main:ffi/C/compile/var.c
  *
  * Jacob Riesen <jacobriesen@gmail.com>
  * https://github.com/jmriesen/rust-RSM

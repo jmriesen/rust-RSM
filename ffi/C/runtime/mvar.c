@@ -1,11 +1,7 @@
 /*
-<<<<<<<< HEAD:ffi/C/runtime/buildmvar.c
  * Package: Rust Reference Standard M
-========
- * Package: Reference Standard M
  * File:    rsm/runtime/mvar.c
  * Summary: module runtime - build an mvar
->>>>>>>> original/main:ffi/C/runtime/mvar.c
  *
  * Jacob Riesen <jacobriesen@gmail.com>
  * https://github.com/jmriesen/rust-RSM
