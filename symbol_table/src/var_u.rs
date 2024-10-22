@@ -34,7 +34,8 @@ use core::fmt;
 use std::hash::Hash;
 
 use arrayvec::ArrayVec;
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VarU(arrayvec::ArrayVec<std::os::raw::c_uchar, MAX_VAR_NAME_SIZE>);
 
 impl VarU {

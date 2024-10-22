@@ -100,16 +100,12 @@ mod query {
     #[test]
     fn forward_and_backward() {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
-        let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
         let mut table = Table::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
-        //The variable root is always included in the map.
-        //(TODO this might be a c bug see the_presents_of_subscripts_affects_query() )
-        m_vars.insert(0, var_m("foo", &[]));
-
         assert_eq!(
             table.query(m_vars.first().unwrap(), Direction::Backward),
             None
@@ -148,7 +144,8 @@ mod query {
     #[test]
     fn value_with_no_subscripts() {
         let mut table = super::Table::new();
-        let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+        let root = var_m("foo", &[]);
+        let _ = table.set(&root, &Value::try_from("Value").unwrap());
 
         assert_eq!(
             table.query(&var_m_nullable("foo", &[""]), Direction::Forward),
@@ -160,35 +157,36 @@ mod query {
         );
         assert_eq!(
             table.query(&var_m_nullable("foo", &[""]), Direction::Backward),
-            None
+            Some(root.clone())
         );
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
-            None
+            Some(root)
         );
     }
 
-    ///Potential C bug.
     ///The behavior documented below is counter intuitive and was discovered during fuzz/AB
     ///testing
     ///$Q(var("subscript")) is being affected by presents or absents of *ANY* var subscript.
     ///This seems like a bug
     ///TODO File an issue with the upstream repo
     #[test]
-    fn the_presents_of_subscripts_affects_query() {
+    fn root_value_is_handled() {
         let mut table = super::Table::new();
-        let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
+        //Root value is absent
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
             None
         );
-        //Setting a variable that will come *after* Bar
-        let _ = table.set(&var_m("foo", &["zbar"]), &Value::try_from("Value").unwrap());
+
+        //Root value is present
+        let _ = table.set(&var_m("foo", &[]), &Value::try_from("Value").unwrap());
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
             Some(var_m("foo", &[]))
         );
     }
+
     ///A trailing null is treated as the fist key while moving forward and the last key when moving
     ///backwards.
     #[test]

@@ -28,6 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use super::var_u::VarU;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     key::{self, KeyBound},
     value::Value,
@@ -35,7 +37,7 @@ use crate::{
 const UCI_IS_LOCALVAR: u8 = 255;
 use std::ffi::c_uchar;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MVar<Key: key::KeyType> {
     pub name: VarU,
     volset: c_uchar,

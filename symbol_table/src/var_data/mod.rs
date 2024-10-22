@@ -29,13 +29,15 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    key::{Key, KeyBound},
-    value::Value,
+    key::{self, Key, KeyBound},
+    value::{self, Value},
 };
 
 #[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Direction {
     Forward,
     Backward,
@@ -147,21 +149,20 @@ impl VarData {
     pub fn query(&self, key: &KeyBound, direction: Direction) -> Option<Key> {
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
-            Direction::Backward => self
-                .sub_values
-                .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
-                .prev(),
+            Direction::Backward => {
+                self.sub_values
+                    .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
+                    .prev()
+                    //If going backwards we also have to check the root
+                    .or((!key.is_empty() && self.value.is_some())
+                        .then_some((&key::EMPTY_BOUND, &value::EMPTY)))
+            }
         }
         .map(|x| {
             x.0.clone()
                 .try_into()
                 .expect("sub_values should only store NonNullableKeys")
         })
-        //This is probably a bug but I am matching C's behavior
-        .or((direction == Direction::Backward
-            && !self.sub_values.is_empty()
-            && !key.is_empty())
-        .then(Key::empty))
     }
 
     pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey> {

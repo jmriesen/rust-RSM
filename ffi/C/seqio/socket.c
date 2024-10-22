@@ -26,10 +26,8 @@
  * along with this program. If not, see https://www.gnu.org/licenses/.
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
- */
-
-
-/*
+ *
+ *
  * Extended Summary:
  *
  * This module implements the following sequential input/output (i.e., IO)
@@ -237,11 +235,11 @@ int SQ_Socket_Write(int sid, u_char *writebuf, int nbytes)
     SQ_Chan *c = &partab.jobtab->seqio[partab.jobtab->io];
 
     if ((sock_type == SOCK_DGRAM) && (c->mode == NOFORK)) {
-        char    *addrptr;
-        char    *portptr;
-        u_short port;
-        char    xxxx[100];
-        char    *addr = (char *) c->s.name;
+        char       *addrptr;
+        char       *portptr;
+        u_short    port;
+        char       xxxx[100];
+        const char *addr = (char *) c->s.name;
 
         strcpy(xxxx, addr);
         portptr = strpbrk(xxxx, " ");

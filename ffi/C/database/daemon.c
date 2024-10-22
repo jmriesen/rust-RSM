@@ -91,7 +91,7 @@ void do_write(void)                                                             
     gbd   *lastptr = NULL;                                                      // for the GBD
 
     gbdptr = partab.vol[volnum - 1]->wd_tab[myslot].currmsg.gbddata;            // get the gbdptr from daemon table
-    if (!gbdptr) panic("Daemon: write message GBD is NULL");                    // check for null
+    if (!gbdptr) panic("do_write: write message GBD is NULL");                  // check for null
     if (curr_lock == 0) SemOp(SEM_GLOBAL, SEM_READ);                            // if we need a lock then take a read lock
 
     while (TRUE) {                                                              // until we break
@@ -107,14 +107,14 @@ void do_write(void)                                                             
 
             if (file_off < 1) {
                 partab.vol[volnum - 1]->stats.diskerrors++;                     // count an error
-                panic("lseek failed in Write_Chain()!!");                       // die on error
+                panic("lseek failed in do_write()!!");                          // die on error
             }
 
             i = write(dbfd, gbdptr->mem, partab.vol[volnum - 1]->vollab->block_size); // write it
 
             if (i < 0) {
                 partab.vol[volnum - 1]->stats.diskerrors++;                     // count an error
-                panic("write failed in Write_Chain()!!");
+                panic("write failed in do_write()!!");                          // die on error
             }
 
             partab.vol[volnum - 1]->stats.phywt++;                              // count a write
@@ -392,7 +392,7 @@ void do_dismount(void)                                                          
     }                                                                           // end wait for daemons
 
     pid = partab.vol[volnum - 1]->wd_tab[myslot].pid;
-    t = current_time(FALSE);                                                    // for ctime()
+    t = current_time(TRUE);                                                     // for ctime()
 
     fprintf(stderr, "%s [%7d]: Daemon %2d writing out clean flag as clean\n", strtok(ctime(&t), "\n"), pid, myslot); // operation
 
@@ -416,7 +416,7 @@ void do_dismount(void)                                                          
         }
     }
 
-    t = current_time(FALSE);                                                    // for ctime()
+    t = current_time(TRUE);                                                     // for ctime()
 
     fprintf(stderr,"%s [%7d]: Daemon %2d stopped and detached from %s\n",
             strtok(ctime(&t), "\n"), pid, myslot, partab.vol[volnum - 1]->file_name); // stopping
@@ -506,7 +506,7 @@ start:
         if (partab.vol[volnum - 1]->dismount_flag) {                            // dismounting?
             if (myslot) {                                                       // first?
                 partab.vol[volnum - 1]->wd_tab[myslot].pid = 0;                 // say gone
-                t = current_time(FALSE);                                        // for ctime()
+                t = current_time(TRUE);                                         // for ctime()
 
                 fprintf(stderr,"%s [%7d]: Daemon %2d stopped and detached from %s\n",
                         strtok(ctime(&t), "\n"), pid, myslot, partab.vol[volnum - 1]->file_name); // stopping
@@ -589,7 +589,7 @@ int DB_Daemon(int slot, int vol)                                                
     if (freopen(logfile, "a", stderr) == NULL) return errno;                    // stderr to logfile
     pid = partab.vol[volnum - 1]->wd_tab[slot].pid;                             // get current PID
     dbfd = open(partab.vol[volnum - 1]->file_name, O_RDWR);                     // open database RW
-    t = current_time(FALSE);                                                    // for ctime()
+    t = current_time(TRUE);                                                     // for ctime()
 
     if (dbfd < 0) {
         fprintf(stderr, "%s [%7d]: Daemon %2d failed to attach to %s - exiting \n",

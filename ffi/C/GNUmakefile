@@ -28,147 +28,175 @@
 # SPDX-FileCopyrightText:  © 2020 David Wicksell <dlw@linux.com>
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-OS      := $(shell uname)
-CC      := gcc
-PROG    := rsm
-RM      := rm -f
-DEPS    := $(wildcard include/*.h)
-SRC     := $(wildcard */*.c)
-OBJ     := $(SRC:.c=.o)
-CFLAGS  := -Wall -Wextra -fsigned-char -fwrapv -std=gnu99 -Iinclude -D_FILE_OFFSET_BITS=64
-PREFIX  := /usr/local
-GIT_SHA := $(shell git rev-parse --short=10 HEAD 2>/dev/null; true)
-DOCS    := $(wildcard doc/adoc/*.adoc)
-
-ifdef GIT_SHA
-    CFLAGS  += -DGIT_SHA=$(GIT_SHA)
-endif
-
-ifdef dbver
-    CFLAGS  += -DRSM_DBVER=$(dbver)
-endif
-
-ifeq ($(OS),HP-UX)
-    LDLIBS  := -lm
-else
-    LDLIBS  := -lcrypt
-endif
-
-ifneq ($(OS),AIX)
-    ifneq ($(OS),HP-UX)
-        LDLIBS  += -lm
-    endif
-
-    INSTLPR := install -o 0 -g 0 -m 755 -s ${PROG} ${PREFIX}/bin
-    INSTLUT := install -D -o 0 -g 0 -m 644 utils.rsm -t ${PREFIX}/share/rsm
-    INSTLDC := install -D -o 0 -g 0 -m 644 ${DOCS} -t ${PREFIX}/share/doc/rsm
-    INSTLMN := install -D -o 0 -g 0 -m 644 doc/man/rsm.1 -t ${PREFIX}/share/man/man1
-else
-    INSTLPR := install -O 0 -G 0 -M 755 -S -f ${PREFIX}/bin ${PROG}
-    INSTLUT := install -O 0 -G 0 -M 644 -f ${PREFIX}/share/rsm utils.rsm
-    INSTLDC := install -O 0 -G 0 -M 644 -f ${PREFIX}/share/doc/rsm ${DOCS}
-    INSTLMN := install -O 0 -G 0 -M 644 -f ${PREFIX}/share/man/man1 doc/man/rsm.1
-endif
-
-ifeq ($(OS),SunOS)
-    LDLIBS  += -lnsl -lsocket -lrt
-endif
+CC       := gcc
+CFLAGS   += -std=gnu99 -Wall -Wextra -pedantic -fsigned-char -fwrapv
+CPPFLAGS := -Iinclude -D_FILE_OFFSET_BITS=64
+LDLIBS   := -lcrypt -lm
+PROG     := rsm
+SRCS     := $(wildcard */*.c)
+OBJS     := $(SRCS:.c=.o)
+DEPS     := $(wildcard include/*.h)
+UTILS    := utils.rsm
+DOCS     := $(wildcard doc/adoc/*.adoc)
+MAN      := doc/man/rsm.1
+RM       := rm -f
+GZIP     := gzip -f9
+PREFIX   := /usr/local
+OS       := $(shell uname)
+GIT_SHA  := $(shell git rev-parse --short=10 HEAD 2>/dev/null; true)
+INSTALL  := install-default
+INSTDOC  := install-docs-default
 
 ifeq ($(OS),Darwin)
     CFLAGS  += -Wno-deprecated-declarations
-    LDLIBS  := -framework CoreServices -framework DirectoryService -framework Security -lm
+    LDLIBS  := -lm
+    LDFLAGS += -framework CoreServices -framework DirectoryService -framework Security
+endif
+
+ifeq ($(OS),AIX)
+    LDLIBS  := -lcrypt
+    INSTALL := install-aix
+    INSTDOC := install-docs-aix
+endif
+
+ifeq ($(OS),HP-UX)
+    LDLIBS := -lm
+endif
+
+ifeq ($(OS),SunOS)
+    LDLIBS += -lnsl -lsocket -lrt
 endif
 
 ifeq ($(MAKECMDGOALS),debug)
-    CONFIG  := -O0 -g3
+    CFLAGS += -O0 -g3
 
     ifdef options
         ifeq ($(options),profile)
             CFLAGS  += -pg
-            LDLIBS  += -lc -pg
+            LDLIBS  += -lc
+            LDFLAGS += -pg
         else
             ifeq ($(options),sanitize)
-                CFLAGS  += -fsanitize=address,undefined
-                LDLIBS  += -fsanitize=address,undefined
+                ifeq ($(OS),Linux)
+                    CFLAGS  += -fsanitize=address,undefined,leak
+                    LDFLAGS += -fsanitize=address,undefined,leak
+                else
+                    CFLAGS  += -fsanitize=address,undefined
+                    LDFLAGS += -fsanitize=address,undefined
+                endif
             endif
         endif
     endif
 else
-    CONFIG  := -O3
-    CFLAGS  += -DNDEBUG
+    CFLAGS   += -O3
+    CPPFLAGS += -DNDEBUG
 endif
+
+ifdef GIT_SHA
+    CFLAGS += -DGIT_SHA=$(GIT_SHA)
+endif
+
+ifdef dbver
+    CFLAGS += -DRSM_DBVER=$(dbver)
+endif
+
+CFLAGS += $(CPPFLAGS)
+LDLIBS += $(LDFLAGS)
 
 .PHONY: all
-all: ${PROG}
+all: $(PROG)
 
 .PHONY: debug
-debug: ${PROG}
+debug: $(PROG)
 
-${PROG}: ${OBJ}
-	${CC} -o ${PROG} $^ ${LDLIBS}
+$(PROG): $(OBJS)
+	$(CC) -o $(PROG) $^ $(LDLIBS)
 
-%.o: %.c ${DEPS}
-	${CC} ${CONFIG} ${CFLAGS} -o $@ -c $<
+%.o: %.c $(DEPS)
+	$(CC) $(CFLAGS) -o $@ -c $<
 
-<<<<<<< HEAD:ffi/C/GNUmakefile
-all: ${OBJ}
-	${CC} -o ${PROG} $^ ${LDFLAGS}
+.PHONY: clean
+clean:
+	$(RM) $(OBJS) $(PROG) $(wildcard *core)
 
-lib: ${OBJ}
-	ar rcs libmylib.a ${OBJ}
+.PHONY: install
+install: $(INSTALL)
 
-debug: ${OBJ}
-	${CC} -o ${PROG} $^ ${LDFLAGS}
+.PHONY: install-default
+install-default: $(PROG)
+	@echo install -d -m 755 $(PREFIX)/bin; \
+	install -d -m 755 $(PREFIX)/bin; \
+	echo install -m 755 -s $(PROG) $(PREFIX)/bin; \
+	install -m 755 -s $(PROG) $(PREFIX)/bin; \
+	echo install -d -m 755 $(PREFIX)/share/$(PROG); \
+	install -d -m 755 $(PREFIX)/share/$(PROG); \
+	echo install -m 644 $(UTILS) $(PREFIX)/share/$(PROG); \
+	install -m 644 $(UTILS) $(PREFIX)/share/$(PROG)
 
-install: ${PROG}
+.PHONY: install-aix
+install-aix: $(PROG)
+	@echo mkdir -p $(PREFIX)/bin; \
+	mkdir -p $(PREFIX)/bin; \
+	echo install -M 755 -S -f $(PREFIX)/bin $(PROG); \
+	install -M 755 -S -f $(PREFIX)/bin $(PROG); \
+	echo mkdir -p $(PREFIX)/share/$(PROG); \
+	mkdir -p $(PREFIX)/share/$(PROG); \
+	echo install -M 644 -f $(PREFIX)/share/$(PROG) $(UTILS); \
+	install -M 644 -f $(PREFIX)/share/$(PROG) $(UTILS)
 
-	@if [ "$(USER)" != "root" ]; then \
-	    echo "You must install ${PROG} as root"; \
-	    exit 1; \
-	fi
-
-ifeq ($(OS),AIX)
-	@if [ -d ${EXECDIR} ]; then \
-	    echo install -O root -G 0 -M 755 -S -f ${EXECDIR} ${PROG}; \
-	    install -O root -G 0 -M 755 -S -f ${EXECDIR} ${PROG}; \
-	else \
-	    echo "${EXECDIR} does not exist"; \
-	    exit 1; \
-	fi
-else
-	@if [ -d ${EXECDIR} ]; then \
-	    echo install -o root -g 0 -m 755 -s ${PROG} ${EXECDIR}; \
-	    install -o root -g 0 -m 755 -s ${PROG} ${EXECDIR}; \
-	else \
-	    echo "${EXECDIR} does not exist"; \
-	    exit 1; \
-	fi
-endif
-
+.PHONY: uninstall
 uninstall:
+	@echo $(RM) -r $(PREFIX)/share/$(PROG); \
+	$(RM) -r $(PREFIX)/share/$(PROG); \
+	echo $(RM) $(PREFIX)/bin/$(PROG); \
+	$(RM) $(PREFIX)/bin/$(PROG)
 
-	@if [ "$(USER)" != "root" ]; then \
-	    echo "You must uninstall ${PROG} as root"; \
-	    exit 1; \
+.PHONY: install-docs
+install-docs: $(INSTDOC)
+
+.PHONY: install-docs-default
+install-docs-default:
+	@echo install -d -m 755 $(PREFIX)/share/doc/$(PROG); \
+	install -d -m 755 $(PREFIX)/share/doc/$(PROG); \
+	echo install -m 644 $(DOCS) $(PREFIX)/share/doc/$(PROG); \
+	install -m 644 $(DOCS) $(PREFIX)/share/doc/$(PROG); \
+	echo $(GZIP) -r $(PREFIX)/share/doc/$(PROG); \
+	$(GZIP) -r $(PREFIX)/share/doc/$(PROG); \
+	echo install -d -m 755 $(PREFIX)/share/man/man1; \
+	install -d -m 755 $(PREFIX)/share/man/man1; \
+	echo install -m 644 $(MAN) $(PREFIX)/share/man/man1; \
+	install -m 644 $(MAN) $(PREFIX)/share/man/man1; \
+	if [ "$(OS)" != "SunOS" ]; then \
+	    echo $(GZIP) $(PREFIX)/share/man/man1/rsm.1; \
+	    $(GZIP) $(PREFIX)/share/man/man1/rsm.1; \
+	fi; \
+	if command -v mandb >/dev/null; then \
+	    echo mandb -q; \
+	    mandb -q; \
 	fi
 
-	@if [ -f ${EXECDIR}/${PROG} -a -x ${EXECDIR}/${PROG} ]; then \
-	    echo ${RM} ${EXECDIR}/${PROG}; \
-	    ${RM} ${EXECDIR}/${PROG}; \
-	fi
+.PHONY: install-docs-aix
+install-docs-aix:
+	@echo mkdir -p $(PREFIX)/share/doc/$(PROG); \
+	mkdir -p $(PREFIX)/share/doc/$(PROG); \
+	for doc in $(DOCS); do \
+	    echo install -M 644 -f $(PREFIX)/share/doc/$(PROG) $${doc}; \
+	    install -M 644 -f $(PREFIX)/share/doc/$(PROG) $${doc}; \
+	done; \
+	echo $(GZIP) -r $(PREFIX)/share/doc/$(PROG); \
+	$(GZIP) -r $(PREFIX)/share/doc/$(PROG); \
+	echo mkdir -p $(PREFIX)/share/man/man1; \
+	mkdir -p $(PREFIX)/share/man/man1; \
+	echo install -M 644 -f $(PREFIX)/share/man/man1 $(MAN); \
+	install -M 644 -f $(PREFIX)/share/man/man1 $(MAN)
 
 .PHONY: uninstall-docs
 uninstall-docs:
-	@if [ "$(USER)" != "root" ]; then \
-	    echo "You must uninstall documentation as root"; \
-	    exit 1; \
-	elif [ -d ${PREFIX}/share/doc/rsm ]; then \
-	    echo ${RM} -r ${PREFIX}/share/doc/rsm; \
-	    ${RM} -r ${PREFIX}/share/doc/rsm; \
-	    if [ -f ${PREFIX}/share/man/man1/rsm.1.gz ]; then \
-	        echo ${RM} ${PREFIX}/share/man/man1/rsm.1.gz; \
-	        ${RM} ${PREFIX}/share/man/man1/rsm.1.gz; \
-	        echo mandb -q; \
-	        mandb -q; \
-	    fi \
-	fi
+	@echo $(RM) $(PREFIX)/share/man/man1/rsm.1*; \
+	$(RM) $(PREFIX)/share/man/man1/rsm.1*; \
+	if command -v mandb >/dev/null; then \
+	    echo mandb -q; \
+	    mandb -q; \
+	fi; \
+	echo $(RM) -r $(PREFIX)/share/doc/$(PROG); \
+	$(RM) -r $(PREFIX)/share/doc/$(PROG)

@@ -1,0 +1,46 @@
+[package]
+name = "rsm-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+ron = "0.8"
+serde = { version = "1", features = ["derive"] }
+
+[dependencies.interpreter]
+path = ".."
+features = ["fuzzing"]
+
+[[bin]]
+name = "key_build"
+path = "fuzz_targets/key_build.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "key_extract"
+path = "fuzz_targets/key_extract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "key_string"
+path = "fuzz_targets/key_string.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "symbol_table"
+path = "fuzz_targets/symbol_table.rs"
+test = false
+doc = false
+bench = false
