@@ -51,9 +51,9 @@ enum TableCommands {
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
     let mut c_table = interpreter::bindings::symbol_table::Table::new();
+    /*
     let commands: Vec<TableCommands> =
         ron::from_str(&std::fs::read_to_string("test.ron").unwrap()).unwrap();
-    /*
         let _ = std::fs::write(
             "test.ron",
             ron::ser::to_string_pretty(&commands, ron::ser::PrettyConfig::default()).unwrap(),
