@@ -31,13 +31,14 @@
 
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
+use serde::{Deserialize, Serialize};
 use symbol_table::{
     key::{Key, KeyBound},
     value::Value,
     Direction, MVar, Table,
 };
 
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 enum TableCommands {
     Set(MVar<Key>, Value),
     Get(MVar<Key>),
@@ -49,6 +50,14 @@ enum TableCommands {
 
 fuzz_target!(|commands: Vec<TableCommands>| {
     let mut table = Table::new();
+    /*
+    let commands: Vec<TableCommands> =
+        ron::from_str(&std::fs::read_to_string("test.ron").unwrap()).unwrap();
+        let _ = std::fs::write(
+            "test.ron",
+            ron::ser::to_string_pretty(&commands, ron::ser::PrettyConfig::default()).unwrap(),
+        );
+    */
     let mut c_table = ffi::symbol_table::Table::new();
 
     for command in commands.into_iter().take(100) {

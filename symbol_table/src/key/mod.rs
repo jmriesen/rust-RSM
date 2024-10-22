@@ -40,13 +40,13 @@ use format::IntermediateRepresentation;
 /// In the variable foo(1,"subscript","bar"), (1,"subscript","bar") is the Key.
 ///
 /// There internal format has been optimized for sorting.
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Eq, PartialEq, Clone,Debug,Serialize,Deserialize)]
 pub struct Key(KeyBound);
 
 /// Keys represent a sequence of subscript that can be used to **specify a bound** withing a variable.
 /// If the final subscript in a KeyBound is "", the key will be treated as a lower bound when going
 /// forwards, and an upper bound while going backwards.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone,Serialize,Deserialize)]
 pub struct KeyBound(Vec<u8>);
 
 /// Represents one segment of a key.
@@ -66,6 +66,7 @@ pub enum Error {
     SubKeyIsNull,
 }
 
+pub static EMPTY_BOUND:KeyBound = KeyBound::empty();
 pub mod conversions {
     use super::*;
 
@@ -114,6 +115,7 @@ pub mod conversions {
     }
 }
 pub use conversions::KeyType;
+use serde::{Deserialize, Serialize};
 
 impl Key {
     pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {

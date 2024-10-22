@@ -26,10 +26,8 @@
  * along with this program. If not, see https://www.gnu.org/licenses/.
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
- */
-
-
-/*
+ *
+ *
  * Extended Summary:
  *
  * This module implements the following sequential I/O operations for TCP/IP
@@ -56,7 +54,7 @@
  * descriptor. Otherwise, it returns a negative integer to indicate the error
  * that has occurred.
  */
-int SQ_Tcpip_Open_Server(char *bind)
+int SQ_Tcpip_Open_Server(const char *bind)
 {
     int     sid;
     int     ret;
@@ -88,7 +86,7 @@ int SQ_Tcpip_Open_Server(char *bind)
  * descriptor. Otherwise, it returns a negative integer to indicate the error
  * that has occurred.
  */
-int SQ_Tcpip_Open_Client(char *conn)
+int SQ_Tcpip_Open_Client(const char *conn)
 {
     int     sid;
     char    *portptr;
@@ -128,7 +126,7 @@ int SQ_Tcpip_Open_Client(char *conn)
  * the type of socket, a negative integer value is returned to indicate the
  * error that has occurred.
  */
-int SQ_Tcpip_Open(char *bind, int op)
+int SQ_Tcpip_Open(const char *bind, int op)
 {
     switch (op) {
     case SERVER:

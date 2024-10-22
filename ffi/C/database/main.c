@@ -73,7 +73,7 @@ int     hash_start = 0;                                                         
  *
  * Note:     No locks are held at this stage.
  */
-short Copy2local(mvar *var)
+short Copy2local(const mvar *var)
 {
     partab.jobtab->grefs++;                                                     // count global ref
     for (int i = 0; i < MAXTREEDEPTH; blk[i++] = NULL) continue;                // clear blk[]
@@ -114,7 +114,7 @@ short Copy2local(mvar *var)
  *           Pointer to buffer for data
  * Return:   String length -> Ok, negative M error
  */
-int DB_Get(mvar *var, u_char *buf)                                              // get global data
+int DB_Get(const mvar *var, u_char *buf)                                        // get global data
 {
     int t;                                                                      // for returns
 
@@ -155,7 +155,7 @@ int DB_Get(mvar *var, u_char *buf)                                              
  *           Pointer to cstring containing data
  * Return:   String length -> Ok, negative M error
  */
-int DB_Set(mvar *var, cstring *data)                                            // set global data
+int DB_Set(const mvar *var, cstring *data)                                      // set global data
 {
     int t;                                                                      // for returns
     int i;                                                                      // a handy int
@@ -204,7 +204,7 @@ int DB_Set(mvar *var, cstring *data)                                            
  *           Pointer to buffer for return result (0, 1, 10 or 11)
  * Return:   String length -> Ok, negative M error
  */
-short DB_Data(mvar *var, u_char *buf)                                           // get $DATA()
+short DB_Data(const mvar *var, u_char *buf)                                     // get $DATA()
 {
     int t;                                                                      // for returns
     int i;                                                                      // a handy int
@@ -273,7 +273,7 @@ short DB_Data(mvar *var, u_char *buf)                                           
  * Input(s): Pointer to mvar to remove
  * Return:   0 -> Ok, negative M error
  */
-short DB_Kill(mvar *var)                                                        // remove sub-tree
+short DB_Kill(const mvar *var)                                                  // remove sub-tree
 {
     int t;                                                                      // for returns
 
@@ -303,7 +303,7 @@ short DB_Kill(mvar *var)                                                        
 
     if ((t == -ERRM7) && db_var.slen) {                                         // if undefined
         if (Index <= SOA(blk[level]->mem)->last_idx) {                          // and still in block
-            if ((db_var.slen > keybuf[0]) || memcmp(&keybuf[1], db_var.key, db_var.slen)) { // smaller key OR not a descendant?
+            if ((db_var.slen > keybuf[0]) || (memcmp(&keybuf[1], db_var.key, db_var.slen) != 0)) { // smaller key - not descendant?
                 if (curr_lock) SemOp(SEM_GLOBAL, -curr_lock);                   // if locked then release global lock
                 return 0;                                                       // nothing to do
             }
@@ -311,7 +311,7 @@ short DB_Kill(mvar *var)                                                        
             t = Locate_next();                                                  // point at next block
 
             if (!t) {                                                           // found one
-                if ((db_var.slen > keybuf[0]) || memcmp(&keybuf[1], db_var.key, db_var.slen)) { // smaller key OR not a descendant?
+                if ((db_var.slen > keybuf[0]) || (memcmp(&keybuf[1], db_var.key, db_var.slen) != 0)) { // smaller - not descendant?
                     t = -ERRM7;                                                 // flag for later
                 }
             }
@@ -337,7 +337,7 @@ short DB_Kill(mvar *var)                                                        
  *           Direction, 1 = fwd, -1 = bck
  * Return:   String length -> Ok, negative M error
  */
-short DB_Order(mvar *var, u_char *buf, int dir)                                 // get next subscript
+short DB_Order(const mvar *var, u_char *buf, int dir)                           // get next subscript
 {
     int t;                                                                      // for returns
     int cnt;                                                                    // for character count
@@ -364,7 +364,7 @@ short DB_Order(mvar *var, u_char *buf, int dir)                                 
             return (short) t;                                                   // and return the error
         }
 
-        if ((level == 0) && (t == -ERRM7) && memcmp(&db_var.name.var_cu[0], "$GLOBAL\0", 8)) { // if no global AND not ^$GLOBAL
+        if ((level == 0) && (t == -ERRM7) && (memcmp(&db_var.name.var_cu[0], "$GLOBAL\0", 8) != 0)) { // if no global - not ^$GLOBAL
             if (curr_lock) SemOp(SEM_GLOBAL, -curr_lock);                       // if locked then release global lock
             return 0;                                                           // and return
         }
@@ -382,7 +382,7 @@ short DB_Order(mvar *var, u_char *buf, int dir)                                 
             return ((t < 0) ? (short) t : -(ERRZ61 + ERRMLAST));                // and return the error
         }
 
-        if ((level == 0) && memcmp(&db_var.name.var_cu[0], "$GLOBAL\0", 8)) {   // if no such global AND not ^$GLOBAL
+        if ((level == 0) && (memcmp(&db_var.name.var_cu[0], "$GLOBAL\0", 8) != 0)) { // if no such global AND not ^$GLOBAL
             if (curr_lock) SemOp(SEM_GLOBAL, -curr_lock);                       // if locked then release global lock
             return 0;                                                           // and return
         }
@@ -404,7 +404,7 @@ short DB_Order(mvar *var, u_char *buf, int dir)                                 
     }
 
     if (curr_lock) SemOp(SEM_GLOBAL, -curr_lock);                               // if locked then release global lock
-    if ((keybuf[0] < (last_key + 1)) || memcmp(&keybuf[1], db_var.key, last_key)) return 0; // check for past it and done
+    if ((keybuf[0] < (last_key + 1)) || (memcmp(&keybuf[1], db_var.key, last_key) != 0)) return 0; // check for past it and done
     cnt = 0;                                                                    // clear flag
     return UTIL_Key_Extract(&keybuf[last_key + 1], buf, &cnt);                  // extract the key and return
 }
@@ -574,7 +574,7 @@ short DB_QueryD(mvar *var, u_char *buf)                                         
  * Note:     There may be NO intervening calls to other DB modules
  *           when the GBD has been left locked
  */
-int DB_GetLen(mvar *var, int lock, u_char *buf)                                 // length of node
+int DB_GetLen(const mvar *var, int lock, u_char *buf)                           // length of node
 {
     int t;                                                                      // for returns
     int sav;                                                                    // save curr_lock
@@ -732,6 +732,7 @@ void DB_StopJournal(int vol, u_char action)                                     
     jj.slen = 0;
     DoJournal(&jj, NULL);
     SOA(partab.vol[vol - 1]->vollab)->journal_available = 0;
+    SemOp(SEM_GLOBAL, -SEM_WRITE);                                              // release global lock
     return;
 }
 
@@ -741,7 +742,7 @@ void DB_StopJournal(int vol, u_char action)                                     
  * Input(s): Pointer to mvar -> ^$GLOBAL("name")
  * Return:   Flags or negative M error
  */
-int DB_GetFlags(mvar *var)                                                      // Get flags
+int DB_GetFlags(const mvar *var)                                                // get flags
 {
     int t;                                                                      // for returns
     int i;                                                                      // a handy int
@@ -774,7 +775,7 @@ int DB_GetFlags(mvar *var)                                                      
  *           Positive flags to set or negative flags to clear
  * Return:   New flags or negative M error
  */
-int DB_SetFlags(mvar *var, int flags)                                           // Set flags
+int DB_SetFlags(const mvar *var, int flags)                                     // set flags
 {
     int clearit = 0;
     int i;

@@ -63,8 +63,6 @@ void Routine_Init(int vol)                                                      
 int Routine_Hash(var_u routine)                                                 // return hash code
 {
     int hash = 0;                                                               // for the return
-    int i;                                                                      // a handy int
-    int j;                                                                      // another handy int
 
     int p[4][8] = {
         {3, 5, 7, 11, 13, 17, 19, 23},
@@ -73,16 +71,17 @@ int Routine_Hash(var_u routine)                                                 
         {101, 103, 107, 109, 113, 127, 131, 137}
     };                                                                          // odd primes
 
-    for (i = 0; i < (VAR_LEN / 8); i++) {
+    for (int i = 0; i < (VAR_LEN / 8); i++) {
         if (routine.var_qu[i] == 0) break;
-        for (j = 0; j < 8; j++) {                                               // for each character
+
+        for (int j = 0; j < 8; j++) {                                           // for each character
             if (routine.var_qu[i] == 0) break;
-            hash = (((routine.var_qu[i] & 0xFF) * p[i][j]) + hash);             // add that char
-            routine.var_qu[i] = (routine.var_qu[i] >> 8);                       // right shift one byte
+            hash += (routine.var_qu[i] & 0xFF) * p[i][j];                       // add that character
+            routine.var_qu[i] >>= 8;                                            // right shift one byte
         }                                                                       // end hash loop
     }
 
-    return (hash % RBD_HASH);                                                   // return the code
+    return hash % RBD_HASH;                                                     // return the code
 }
 
 void Routine_Combine(rbd *pointer)                                              // combine with following block
@@ -297,7 +296,7 @@ rbd *Routine_Attach(var_u routine)                                              
         if (var_equal(ptr->rnam, routine) && (ptr->uci == uci) && (ptr->vol == vol)) { // if this is the right one
             ptr->attached++;                                                    // count an attach
             SemOp(SEM_ROU, -SEM_WRITE);                                         // release the lock
-            return SBA(ptr);                                                    // and return the pointer
+            return ptr;                                                         // and return the pointer
         }
 
         ptr = SOA(ptr->fwd_link);                                               // point at the next one
@@ -337,7 +336,7 @@ ENABLE_WARN
         if (var_equal(ptr->rnam, routine) && (ptr->uci == uci) && (ptr->vol == vol)) { // if this is the right one
             ptr->attached++;                                                    // count an attach
             SemOp(SEM_ROU, -SEM_WRITE);                                         // release the lock
-            return SBA(ptr);                                                    // and return the pointer
+            return ptr;                                                         // and return the pointer
         }
 
         p = ptr;                                                                // save for ron
@@ -389,7 +388,7 @@ ENABLE_WARN
     }
 
     SemOp(SEM_ROU, -SEM_WRITE);                                                 // release the lock
-    return SBA(ptr);                                                            // success
+    return ptr;                                                                 // success
 }
 
 void Routine_Detach(rbd *pointer)                                               // Detach from routine
@@ -441,17 +440,19 @@ void Dump_rbd(void)                                                             
     s = SemOp(SEM_ROU, SEM_WRITE);                                              // write lock the RBDs
     if (s < 0) return;                                                          // exit on error
     p = (rbd *) SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_head);             // get the start
-    t = current_time(FALSE);
+    t = current_time(TRUE);
     printf("Dump of all Routine Buffer Descriptors on %s [%lld]\r\n\r\n", strtok(ctime(&t), "\n"), (long long) t);
     free = SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_hash[RBD_HASH]);
-    printf("Routine Buffer Space Free at %p\r\n", free);
+    printf("Routine Buffer Space Free at %p\r\n", (void *) free);
 
     while (free != NULL) {
         free_size += free->chunk_size;
         free = SOA(free->fwd_link);
     }
 
-    size = (u_int) (SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_end) - SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_head));
+    size = (u_int) ((u_char *) SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_end) -
+           (u_char *) SOA(partab.vol[partab.jobtab->rvol - 1]->rbd_head));
+
     printf("Using %u of %u bytes of Routine Buffer Space\r\n\r\n", size - free_size, size);
     printf("       Address    Forward Link  Chunk Size      Attach  Last Access  VOL  UCI  Routine Size  Routine Name\r\n");
 
@@ -465,7 +466,7 @@ void Dump_rbd(void)                                                             
 
         tmp[i] = '\0';                                                          // null terminate name
 
-        printf("%14p %15p %11u %11u %12lld %4d %4d %13d  %s\r\n", p, SOA(p->fwd_link), p->chunk_size,
+        printf("%14p %15p %11u %11u %12lld %4d %4d %13d  %s\r\n", (void *) p, (void *) SOA(p->fwd_link), p->chunk_size,
                p->attached, (long long) p->last_access, p->vol, p->uci, p->rou_size, tmp);
 
         p = (rbd *) ((u_char *) p + p->chunk_size);                             // point at next
