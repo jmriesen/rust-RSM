@@ -29,7 +29,6 @@
  */
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
-use arbitrary::size_hint::or;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -156,7 +155,7 @@ impl VarData {
                     .prev()
                     //If going backwards we also have to check the root
                     .or((!key.is_empty() && self.value.is_some())
-                        .then(|| (&key::EMPTY_BOUND, &value::EMPTY)))
+                        .then_some((&key::EMPTY_BOUND, &value::EMPTY)))
             }
         }
         .map(|x| {

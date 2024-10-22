@@ -100,7 +100,7 @@ mod query {
     #[test]
     fn forward_and_backward() {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
-        let mut m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
+        let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
         let mut table = Table::new();
         for var in &m_vars {
