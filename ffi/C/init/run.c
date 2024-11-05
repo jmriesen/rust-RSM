@@ -129,18 +129,25 @@ jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int
     return job_tab;
 }
 
-NumberResult set_tab_priv(){
+NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob){
     int          i;                                                             // an int
     gid_t        gidset[MAX_GROUPS];                                            // for getgroups()
-    if ((partab.jobtab->user == systab->start_user) || (partab.jobtab->user == 0)) { // if he started it or is root
-        partab.jobtab->priv = 1;                                                // say yes
+    if ((current_user == system_start_user) || (current_user == 0)) {           // if he started it or is root
+        return (NumberResult){
+            .is_error =0,
+            .error =0,
+            .value = 1
+        };
     } else {
-        if (systab->maxjob == 1) {                                              // if single job
-            partab.jobtab = NULL;                                               // clear this
+        if (maxjob == 1) {                                                      // if single job
+            // Setting value flag to represent that I clear the jobtab.
+            // NOTE I don't like that this function is responsible for signaling this,
+            // but This refactor is intended preserve behavior at all costs.
+                                                           
             return (NumberResult){
                 .is_error = 1,
                 .error = ENOMEM,
-                .value = 0,
+                .value = 1,                                                     // clear this
             };
         }
 
@@ -156,18 +163,21 @@ NumberResult set_tab_priv(){
 
         while (i > 0) {                                                         // for each group
             if (gidset[i - 1] == PRVGRP) {                                      // if it's "wheel" or "admin"
-                partab.jobtab->priv = 1;                                        // say yes
-                break;                                                          // and exit
+                return (NumberResult){
+                    .is_error =0,
+                    .error =0,
+                    .value = 1
+                };
             }
 
             i--;                                                                // decrement i
         }
+        return (NumberResult){
+            .is_error = 0,
+            .value = 0,
+            .error = 0
+        };
     }
-    return (NumberResult){
-        .is_error = 0,
-        .value = 0,
-        .error = 0
-    };
 }
 
 //END OF SEAMS SECTION
@@ -304,7 +314,12 @@ start:
 
     if (priv_result.is_error){
         ret = priv_result.error;
+        if (priv_result.value == 1){
+            partab.jobtab = NULL;
+        }
         goto exit;
+    }else{
+        partab.jobtab->priv = priv_result.value;
     }
 
     partab.jobtab->precision = systab->precision;                               // decimal precision
