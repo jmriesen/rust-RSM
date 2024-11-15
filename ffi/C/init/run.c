@@ -132,12 +132,13 @@ jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int
 // Wrapper around getgroups that allows injection of mocks.
 // While testing pass mocks into the mock parameters.
 // If not testing this method will behave identity to getgroups.
-int getgroups_wrapper(int size, gid_t* groups,int size_mock, gid_t* groups_mock){
+int getgroups_wrapper(int size, gid_t* groups,int size_mock, const gid_t* groups_mock){
     if (groups_mock ==NULL){
         return getgroups(size, groups);                                      // get groups
     }else{
         if (size< size_mock){
             //Error case
+            errno = 111; //Setting errno arbitrary constant. (should be picked up by the tests)
             return -1;
         }else{
             memcpy(groups, groups_mock, size_mock * sizeof(gid_t));
@@ -156,7 +157,7 @@ int getgroups_wrapper(int size, gid_t* groups,int size_mock, gid_t* groups_mock)
 // Returns:
 // NumberResult NOTE: If the result is an error *and* value is set to 1, set the JobTab to NULL.
 //
-NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob,int size_mock, gid_t* groups_mock){
+NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob,int size_mock, const gid_t* groups_mock){
     int          i;                                                             // an int
     gid_t        gidset[MAX_GROUPS];                                            // for getgroups()
     if ((current_user == system_start_user) || (current_user == 0)) {           // if he started it or is root

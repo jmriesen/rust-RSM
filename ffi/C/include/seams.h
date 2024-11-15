@@ -36,3 +36,5 @@ typedef struct number_result {
 NumberResult parse_env(const char *env, uci_tab *uci_ptr);
 
 jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int pid);
+
+NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob,int size_mock, const gid_t* groups_mock);
