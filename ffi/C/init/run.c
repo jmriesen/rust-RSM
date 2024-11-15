@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-
+#include <assert.h>
 #include <stdio.h>                                                              // always include
 #include <stdlib.h>                                                             // these two
 #include <sys/types.h>                                                          // for u_char def
@@ -80,7 +80,7 @@ u_short prompt_len = 8;                                                         
  * If env != null but we can't find a match return an error.
  * If the env is found at index x this returns x+1
  */
-NumberResult parse_env(char* env, uci_tab* uci_ptr ){
+NumberResult parse_env(const char* env, uci_tab* uci_ptr ){
     int         i;                                                              // an int
     int         env_num = 1;                                                    // startup environment number
     var_u       tmp;                                                            // temp descriptor
@@ -129,7 +129,34 @@ jobtab* find_open_slot(jobtab *job_table, u_int table_size,u_char start_type,int
     return job_tab;
 }
 
-NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob){
+// Wrapper around getgroups that allows injection of mocks.
+// While testing pass mocks into the mock parameters.
+// If not testing this method will behave identity to getgroups.
+int getgroups_wrapper(int size, gid_t* groups,int size_mock, gid_t* groups_mock){
+    if (groups_mock ==NULL){
+        return getgroups(size, groups);                                      // get groups
+    }else{
+        if (size< size_mock){
+            //Error case
+            return -1;
+        }else{
+            memcpy(groups, groups_mock, size_mock * sizeof(gid_t));
+            return size_mock;
+        }
+    }
+}
+
+// Calculate if the jobtab should be initialized in a privatized state.
+//
+// Parameters:
+// Current_user - the user initializing this jobtab
+// System_start_user - the user who initialized the database.
+// maxjob - the max number of jobs in this database.
+//
+// Returns:
+// NumberResult NOTE: If the result is an error *and* value is set to 1, set the JobTab to NULL.
+//
+NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob,int size_mock, gid_t* groups_mock){
     int          i;                                                             // an int
     gid_t        gidset[MAX_GROUPS];                                            // for getgroups()
     if ((current_user == system_start_user) || (current_user == 0)) {           // if he started it or is root
@@ -143,7 +170,6 @@ NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob){
             // Setting value flag to represent that I clear the jobtab.
             // NOTE I don't like that this function is responsible for signaling this,
             // but This refactor is intended preserve behavior at all costs.
-                                                           
             return (NumberResult){
                 .is_error = 1,
                 .error = ENOMEM,
@@ -151,7 +177,7 @@ NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob){
             };
         }
 
-        i = getgroups(MAX_GROUPS, gidset);                                      // get groups
+        i = getgroups_wrapper(MAX_GROUPS, gidset, size_mock, groups_mock);      // get groups
 
         if (i < 0) {                                                            // if an error
             return (NumberResult){
@@ -231,14 +257,12 @@ int INIT_Run(char *file, const char *env, char *cmd)
     int          env_num = 1;                                                   // startup environment number
     int          ssp = 0;                                                       // string stack pointer
     int          asp = 0;                                                       // address stack pointer
-    var_u        tmp;                                                           // temp descriptor
     const u_char *volnam;                                                       // for volume name
     mvar         *var;                                                          // a variable pointer
     uci_tab      *uci_ptr;                                                      // for UCI search
     cstring      *cptr = NULL;                                                  // a handy pointer
     cstring      *sptr = NULL;                                                  // cstring pointer
     u_char       start_type = TYPE_RUN;                                         // how we started
-    gid_t        gidset[MAX_GROUPS];                                            // for getgroups()
     label_block  *vol_label;                                                    // current volume label
 
 start:
@@ -310,7 +334,7 @@ start:
     }
 
     partab.jobtab->user = (int) getuid();                                       // get user number
-    NumberResult priv_result = set_tab_priv();
+    NumberResult priv_result = set_tab_priv(partab.jobtab->user, systab->start_user, systab->maxjob, 0, NULL);
 
     if (priv_result.is_error){
         ret = priv_result.error;
