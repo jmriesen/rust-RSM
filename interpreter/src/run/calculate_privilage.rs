@@ -30,9 +30,24 @@
 #[cfg(test)]
 mod tests {
     use ffi::{run::Error, CSTRING, LABEL_BLOCK, MAX_GROUPS, PRVGRP, UCIS, UCI_TAB, VAR_U};
-    use libc::gid_t;
+    use libc::{gid_t, ENOENT, ENOMEM};
 
     use crate::bindings::run::tab_calculate_privilage;
+
+    //Impotently this value is NOT PRVGRP.
+    //NOTE: PRVGRP can change depending on platform.
+    const DEFAULT_GROUP: gid_t = PRVGRP + 1;
+
+    #[test]
+    fn privilaged_if_we_stated_are_root() {
+        let root = 0;
+        let user = 5;
+        let num_jobs_max = 100;
+        assert_eq!(
+            Ok(true),
+            tab_calculate_privilage(root, user, num_jobs_max, &[])
+        );
+    }
 
     #[test]
     fn privilaged_if_we_stated_the_database() {
@@ -54,7 +69,7 @@ mod tests {
             tab_calculate_privilage(user1, user1, num_jobs_max, &[])
         );
         assert_eq!(
-            Err((12, true)),
+            Err((ENOMEM, true)),
             tab_calculate_privilage(user1, user2, num_jobs_max, &[])
         );
     }
@@ -66,9 +81,9 @@ mod tests {
         let num_jobs_max = 100;
         //By setting the groups size to larger then MAX_GROUPS I can get the mock to throw an
         //error.
-        let groups = [0; MAX_GROUPS as usize + 1];
+        let groups = [DEFAULT_GROUP; MAX_GROUPS as usize + 1];
         assert_eq!(
-            Err((111, false)),
+            Err((ffi::MOCK_ERROR as i32, false)),
             tab_calculate_privilage(user, start_user, num_jobs_max, &groups)
         );
     }
@@ -78,9 +93,7 @@ mod tests {
         let user = 5;
         let start_user = 10;
         let num_jobs_max = 100;
-        //By setting the groups size to larger then MAX_GROUPS I can get the mock to throw an
-        //error.
-        let groups = [0; 10];
+        let groups = [DEFAULT_GROUP; 10];
         assert_eq!(
             Ok(false),
             tab_calculate_privilage(user, start_user, num_jobs_max, &groups)
@@ -92,9 +105,7 @@ mod tests {
         let user = 5;
         let start_user = 10;
         let num_jobs_max = 100;
-        //By setting the groups size to larger then MAX_GROUPS I can get the mock to throw an
-        //error.
-        let mut groups = [0; 10];
+        let mut groups = [DEFAULT_GROUP; 10];
         //NOTE: the value of PRVGRP changes depending on build OS
         groups[4] = PRVGRP;
         assert_eq!(

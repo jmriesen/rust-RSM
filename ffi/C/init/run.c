@@ -28,7 +28,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#include <assert.h>
 #include <stdio.h>                                                              // always include
 #include <stdlib.h>                                                             // these two
 #include <sys/types.h>                                                          // for u_char def
@@ -138,7 +137,7 @@ int getgroups_wrapper(int size, gid_t* groups,int size_mock, const gid_t* groups
     }else{
         if (size< size_mock){
             //Error case
-            errno = 111; //Setting errno arbitrary constant. (should be picked up by the tests)
+            errno = MOCK_ERROR; //Setting errno arbitrary constant. (should be picked up by the tests)
             return -1;
         }else{
             memcpy(groups, groups_mock, size_mock * sizeof(gid_t));
@@ -168,9 +167,9 @@ NumberResult set_tab_priv(int current_user,int system_start_user, u_int maxjob,i
         };
     } else {
         if (maxjob == 1) {                                                      // if single job
-            // Setting value flag to represent that I clear the jobtab.
+            // Setting value flag to represent the caller needs to set the jobtab to null.
             // NOTE I don't like that this function is responsible for signaling this,
-            // but This refactor is intended preserve behavior at all costs.
+            // but this refactor is intended preserve behavior at all costs.
             return (NumberResult){
                 .is_error = 1,
                 .error = ENOMEM,

@@ -45,24 +45,24 @@ pub fn find_open_slot(
 
 /// See set_tab_priv;
 /// The first value in the Error is the error code.
-/// NOTE: If the second value in the error is true the user should set the tab to null. (to mimic
+/// NOTE: If the second value in the error is true the caller should set the tab to null. (to mimic
 /// the C code)
 pub fn tab_calculate_privilage(
     current_user: i32,
     system_start_user: i32,
     maxjob: u32,
-    process_groups: &[gid_t],
+    current_groups: &[gid_t],
 ) -> Result<bool, (i32, bool)> {
     let result = unsafe {
         set_tab_priv(
             current_user,
             system_start_user,
             maxjob,
-            process_groups
+            current_groups
                 .len()
                 .try_into()
                 .expect("You have generated a value outside of what C can handle"),
-            process_groups.as_ptr(),
+            current_groups.as_ptr(),
         )
     };
     if result.is_error == 1 {
