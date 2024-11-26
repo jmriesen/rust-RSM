@@ -81,6 +81,14 @@ impl VarU {
     }
 }
 
+#[cfg(test)]
+pub mod test_helpers {
+    use super::*;
+    pub fn var_u(var: &str) -> VarU {
+        VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
     use arbitrary::Arbitrary;
@@ -100,10 +108,5 @@ pub mod helpers {
                     .collect::<Result<_, _>>()?,
             ))
         }
-    }
-
-    #[must_use]
-    pub fn var_u(var: &str) -> VarU {
-        VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
     }
 }

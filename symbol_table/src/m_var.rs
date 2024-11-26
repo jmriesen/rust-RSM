@@ -103,7 +103,7 @@ impl<Key: key::KeyType> MVar<Key> {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use super::helpers::var_m_nullable;
+    use super::test_helpers::var_m_nullable;
     #[test]
     fn no_subscripts() {
         assert_eq!(format!("{}", var_m_nullable("foo", &[])), "foo");
@@ -139,16 +139,14 @@ impl<Key: crate::key::KeyType> MVar<Key> {
     }
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
-pub mod helpers {
-
+#[cfg(test)]
+pub mod test_helpers {
     use super::*;
     use crate::{
         key::{Key, KeyBound},
         value::Value,
-        var_u::helpers::var_u,
+        var_u::test_helpers::var_u,
     };
-    use arbitrary::Arbitrary;
 
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<KeyBound> {
@@ -170,6 +168,13 @@ pub mod helpers {
 
         MVar::new(var_u(name), key)
     }
+}
+
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod helpers {
+
+    use super::*;
+    use arbitrary::Arbitrary;
 
     #[cfg_attr(test, mutants::skip)]
     impl<'a, Key> Arbitrary<'a> for MVar<Key>

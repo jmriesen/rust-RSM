@@ -34,7 +34,6 @@
 #![feature(slice_split_once)]
 #![feature(array_windows)]
 #![feature(iter_repeat_n)]
-#![allow(dead_code)]
 
 //TODO go over and see what can be made private
 mod hash;
@@ -139,14 +138,14 @@ impl Table {
     /// Adds a NewFrame to the variable stack.
     /// All subsequent calls to new_var will make use of this stack until another one has been
     /// pushed.
-    fn push_new_frame(&mut self) {
+    pub fn push_new_frame(&mut self) {
         self.stack.push(NewFrame::default());
     }
 
     /// Pops a NewFrame off the stack.
     /// This will restore the values of all variables that were new-ed while that NewFrame was in
     /// use.
-    fn pop_new_frame(&mut self) {
+    pub fn pop_new_frame(&mut self) {
         let frame = self.stack.pop();
         if let Some(frame) = frame {
             //NOTE we are reversing the order so that we restore the variables in the opposite order in
@@ -180,7 +179,7 @@ impl Table {
     ///
     /// NOTE A new-ed variable will take up space in the `SymbolTable` table even if the variables
     /// value is never set.
-    fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
         // Will panic if there is no current new_frame
         let current_frame = self
             .stack
@@ -195,7 +194,7 @@ impl Table {
 
     /// News all the variables that exist in the symbol table except for intrinsic variables and
     /// variables specified in the exclude parameter.
-    fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
         let vars_to_new: Vec<_> = self
             .table
             .iter()
