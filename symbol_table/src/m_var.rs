@@ -130,7 +130,7 @@ impl<Key: crate::key::KeyType> MVar<Key> {
     pub fn into_cmvar(self) -> ffi::MVAR {
         let (slen, key) = self.key.borrow().clone().into_ckey();
         ffi::MVAR {
-            name: self.name.into_c(),
+            name: self.name.as_c(),
             volset: self.volset,
             uci: self.uci,
             slen,
