@@ -69,7 +69,7 @@ mod ffi {
             let mut buf = [0; MAX_STR_LEN + 1];
             buf[..self.0.len()].copy_from_slice(&self.0[..]);
             CSTRING {
-                len: self.0.len() as u16,
+                len: self.0.len().try_into().expect("Max var len < u16::max"),
                 buf,
             }
         }

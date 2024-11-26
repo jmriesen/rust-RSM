@@ -78,7 +78,12 @@ impl KeyBound {
     pub fn into_ckey(self) -> (u8, [u8; 256]) {
         let mut key = [0; 256];
         key[..self.len()].copy_from_slice(&self.0);
-        (self.len() as u8, key)
+        (
+            self.len()
+                .try_into()
+                .expect("M Keys have a max lenghth of u8::max"),
+            key,
+        )
     }
 
     #[must_use]
@@ -117,6 +122,7 @@ impl KeyBound {
         modified_key.extend(format::MAX_SUB_KEY);
         KeyBound(modified_key)
     }
+    #[must_use]
     pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<SubKey<'a>> {
         //NOTE This was not written to be preferment, just correct.
         //This should totally be possible to do without any additional allocations.

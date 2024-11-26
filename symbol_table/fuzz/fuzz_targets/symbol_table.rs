@@ -86,7 +86,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.query(&var, direction);
                 let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
+                    rust_val.map(Value::from).unwrap_or_default(),
                     Value::try_from(&c_val[..])
                         .expect("The buffer comming from C should always fit")
                 );
@@ -95,7 +95,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
                 let rust_val = table.order(&var, direction);
                 let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
                 assert_eq!(
-                    rust_val.map(|x| Value::from(x)).unwrap_or_default(),
+                    rust_val.map(Value::from).unwrap_or_default(),
                     Value::try_from(&c_val[..])
                         .expect("The buffer comming from C should always fit")
                 );

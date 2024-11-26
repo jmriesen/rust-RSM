@@ -51,7 +51,7 @@ impl VarU {
     pub fn new(bytes: &[u8]) -> Result<Self, ()> {
         if !bytes.contains(&0) && bytes.len() <= MAX_VAR_NAME_SIZE {
             let mut array = ArrayVec::new();
-            array.extend(bytes.iter().cloned());
+            array.extend(bytes.iter().copied());
             Ok(Self(array))
         } else {
             Err(())
@@ -69,7 +69,7 @@ impl fmt::Display for VarU {
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "ffi")]
 impl VarU {
-    pub fn into_c(&self) -> ffi::VAR_U {
+    pub fn as_c(&self) -> ffi::VAR_U {
         use std::iter::repeat_n;
         let mut array = self.0.clone();
         array.extend(repeat_n(0, array.remaining_capacity()));
@@ -78,6 +78,14 @@ impl VarU {
                 .into_inner()
                 .expect("we have allready fill the capasity with zeros"),
         }
+    }
+}
+
+#[cfg(test)]
+pub mod test_helpers {
+    use super::*;
+    pub fn var_u(var: &str) -> VarU {
+        VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
     }
 }
 
@@ -100,10 +108,5 @@ pub mod helpers {
                     .collect::<Result<_, _>>()?,
             ))
         }
-    }
-
-    #[must_use]
-    pub fn var_u(var: &str) -> VarU {
-        VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
     }
 }
