@@ -45,7 +45,8 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 pub struct CreationError;
 
 impl CreationError {
-    pub fn error_code(&self) -> i16 {
+    #[allow(clippy::unused_self)]
+    pub fn error_code(self) -> i16 {
         -256
     }
 }

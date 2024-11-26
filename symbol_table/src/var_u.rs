@@ -51,7 +51,7 @@ impl VarU {
     pub fn new(bytes: &[u8]) -> Result<Self, ()> {
         if !bytes.contains(&0) && bytes.len() <= MAX_VAR_NAME_SIZE {
             let mut array = ArrayVec::new();
-            array.extend(bytes.iter().cloned());
+            array.extend(bytes.iter().copied());
             Ok(Self(array))
         } else {
             Err(())

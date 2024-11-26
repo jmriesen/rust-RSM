@@ -44,13 +44,13 @@ use format::IntermediateRepresentation;
 pub struct Key(KeyBound);
 
 /// Keys represent a sequence of subscript that can be used to **specify a bound** withing a variable.
-/// If the final subscript in a KeyBound is "", the key will be treated as a lower bound when going
+/// If the final subscript in a `KeyBound` is "", the key will be treated as a lower bound when going
 /// forwards, and an upper bound while going backwards.
 #[derive(Eq, PartialEq, Clone,Serialize,Deserialize)]
 pub struct KeyBound(Vec<u8>);
 
 /// Represents one segment of a key.
-/// If we have the MVar foo("a","b") "a" is one segment of the key ("a","b").
+/// If we have the `MVar` foo("a","b") "a" is one segment of the key ("a","b").
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct SubKey<'a>(&'a [u8]);
 pub struct Iter<'a> {
@@ -60,22 +60,26 @@ pub struct Iter<'a> {
 /// Errors that can occur while trying to create a key.
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Attempting to create a subscript larger then `MAX_SUB_LEN`
     SubscriptToLarge,
+    /// Subscripts are not allowed to contain a null byte.
     SubKeyContainsNull,
+    /// Attempting to create a key with length greater then `MAX_KEY_SIZE`
     KeyToLarge,
+    /// Attempting to push a new subscript into a key that ends in null.
     SubKeyIsNull,
 }
 
 pub static EMPTY_BOUND:KeyBound = KeyBound::empty();
 pub mod conversions {
-    use super::*;
+    use super::{IntermediateRepresentation, Iter, Key, KeyBound, SubKey, Value};
 
-    /// KeyType is used to represent either type of Key and is used as a genetic type bound
+    /// `KeyType` is used to represent either type of Key and is used as a genetic type bound
     /// to reduce code duplication.
     ///
-    /// Mostly this type is used as a way of converting Keys into KeyBounds.
-    /// The BTree API bound API kind of forces me to store/interact with everything using the
-    /// KeyBound type.
+    /// Mostly this type is used as a way of converting Keys into `KeyBounds`.
+    /// The `BTree` API bound API kind of forces me to store/interact with everything using the
+    /// `KeyBound` type.
     pub trait KeyType:
         std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
     {
@@ -126,7 +130,7 @@ impl Key {
         }
     }
 
-    pub const fn empty() -> Self {
+    #[must_use] pub const fn empty() -> Self {
         Self(KeyBound::empty())
     }
 }
@@ -176,7 +180,7 @@ impl KeyBound {
         Iter { tail: &self.0[..] }
     }
 
-    pub const fn empty() -> Self {
+    #[must_use] pub const fn empty() -> Self {
         Self(Vec::new())
     }
 }
@@ -193,7 +197,7 @@ impl std::fmt::Debug for KeyBound {
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "fuzzing")]
 mod fuzzing {
-    use super::*;
+    use super::{Key, KeyBound};
     use arbitrary::Arbitrary;
     impl<'a> Arbitrary<'a> for Key {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -350,7 +354,7 @@ mod tests {
             .to_vec();
         let key = KeyBound::new(&values).unwrap();
         for (expected, actual) in values.iter().zip(key.iter()) {
-            assert_eq!(expected, &actual.into())
+            assert_eq!(expected, &actual.into());
         }
     }
 }

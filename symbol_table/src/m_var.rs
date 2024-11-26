@@ -173,7 +173,7 @@ pub mod test_helpers {
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod helpers {
 
-    use super::*;
+    use super::{MVar, VarU};
     use arbitrary::Arbitrary;
 
     #[cfg_attr(test, mutants::skip)]
