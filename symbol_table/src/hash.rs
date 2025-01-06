@@ -45,7 +45,8 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 pub struct CreationError;
 
 impl CreationError {
-    pub fn error_code(&self) -> i16 {
+    #[allow(clippy::unused_self)]
+    pub fn error_code(self) -> i16 {
         -256
     }
 }
@@ -200,7 +201,7 @@ where
 mod tests {
 
     use super::{super::VarU, CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
-    use crate::{var_data::VarData, var_u::helpers::var_u};
+    use crate::{var_data::VarData, var_u::test_helpers::var_u};
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
 

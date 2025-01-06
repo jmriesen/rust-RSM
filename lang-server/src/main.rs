@@ -28,11 +28,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![feature(array_windows)]
-
+#![warn(clippy::pedantic)]
+use lang_model::{commandChildren, BlockChildren};
+use std::{fs, sync::RwLock};
+#[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-use lang_model::{commandChildren, BlockChildren};
-use std::fs;
+fn to_lsp_int(num: usize) -> u32 {
+    num.try_into().expect("The LSP protical only allows for specifying position using 32 bit integers. If you somehow have overflowed a i32::max, sorry, please restrucutre your program.")
+}
 
 struct ServerState {
     client: Client,
@@ -232,8 +236,8 @@ trait PointExt {
 impl PointExt for tree_sitter::Point {
     fn to_position(&self) -> Position {
         Position {
-            line: self.row as u32,
-            character: self.column as u32,
+            line: to_lsp_int(self.row),
+            character: to_lsp_int(self.column),
         }
     }
 }
@@ -332,9 +336,9 @@ impl LanguageServer for ServerState {
                 SemanticToken {
                     //NOTE Using absolutes position for now
                     //will convert into deltas latter.
-                    delta_line: start.row as u32,
-                    delta_start: start.column as u32,
-                    length: (end.column - start.column) as u32,
+                    delta_line: to_lsp_int(start.row),
+                    delta_start: to_lsp_int(start.column),
+                    length: to_lsp_int(end.column - start.column),
                     token_type: key(node.kind()), //TODO
                     token_modifiers_bitset: 0,
                 }
@@ -379,12 +383,12 @@ impl LanguageServer for ServerState {
                 .query(&query, &mut query_cursor)
                 .map(|x| x.captures[0].node)
                 .map(|block| FoldingRange {
-                    start_line: block.start_position().row as u32,
+                    start_line: to_lsp_int(block.start_position().row),
                     start_character: Some(0),
-                    end_line: block.end_position().row as u32,
+                    end_line: to_lsp_int(block.end_position().row),
                     end_character: Some(0),
                     kind: Some(FoldingRangeKind::Region),
-                    collapsed_text: Some("".into()),
+                    collapsed_text: Some(String::new()),
                 })
                 .collect(),
         ))
@@ -442,7 +446,7 @@ async fn main() {
 
     let (service, socket) = LspService::new(|client| ServerState {
         client,
-        documents: Default::default(),
+        documents: RwLock::default(),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

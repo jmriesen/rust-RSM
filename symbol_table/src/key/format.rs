@@ -233,13 +233,22 @@ impl<'a> IntermediateRepresentation<'a> {
                 None
             }
             IntermediateRepresentation::Positive { int_part, dec_part } => {
-                output.push(INT_ZERO_POINT + int_part.len() as u8);
+                output.push(
+                    INT_ZERO_POINT
+                        + u8::try_from(int_part.len())
+                            .expect("M keys have a max lenghth of u8::max"),
+                );
                 output.extend(int_part);
                 output.extend(dec_part);
                 None
             }
             IntermediateRepresentation::Negative { int_part, dec_part } => {
-                output.push(INT_ZERO_POINT - 1 - int_part.len() as u8);
+                output.push(
+                    INT_ZERO_POINT
+                        - 1
+                        - u8::try_from(int_part.len())
+                            .expect("M keys have a max lenghth of u8::max"),
+                );
                 output.extend(int_part);
                 output.extend(dec_part);
                 Some(255)

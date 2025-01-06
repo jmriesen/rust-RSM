@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use super::Table;
-use crate::m_var::helpers::var_m;
+use crate::m_var::test_helpers::var_m;
 use pretty_assertions::{assert_eq, assert_ne};
 
 #[test]
