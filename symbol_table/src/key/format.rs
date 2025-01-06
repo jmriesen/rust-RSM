@@ -42,7 +42,7 @@
 /// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] = negative number; x is # of integer digits (base 10)
 /// [`STRING_FLAG`,..., 0] = string (if numbers are to large they are stored as strings.
 use super::{Error, SubKey};
-use crate::value::Value;
+use value::Value;
 
 pub const MAX_SUB_LEN: usize = 127;
 

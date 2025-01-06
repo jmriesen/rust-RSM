@@ -30,10 +30,8 @@
 use super::var_u::VarU;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    key::{self, KeyBound},
-    value::Value,
-};
+use crate::key::{self, KeyBound};
+use value::Value;
 const UCI_IS_LOCALVAR: u8 = 255;
 use std::ffi::c_uchar;
 
@@ -144,10 +142,9 @@ pub mod test_helpers {
     use super::*;
     use crate::{
         key::{Key, KeyBound},
-        value::Value,
         var_u::test_helpers::var_u,
     };
-
+    use value::Value;
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<KeyBound> {
         let values = values

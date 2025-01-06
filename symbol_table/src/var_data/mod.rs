@@ -31,10 +31,8 @@ use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    key::{self, Key, KeyBound},
-    value::{self, Value},
-};
+use crate::key::{self, Key, KeyBound};
+use value::{self, Value};
 
 #[cfg_attr(any(test, feature = "fuzzing"), derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]

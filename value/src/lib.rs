@@ -61,7 +61,7 @@ impl Default for Value {
 #[cfg(feature = "ffi")]
 mod ffi {
 
-    use super::{Value, MAX_STR_LEN};
+    use super::{MAX_STR_LEN, Value};
     use ffi::CSTRING;
     impl Value {
         #[must_use]
@@ -108,6 +108,18 @@ impl std::fmt::Debug for Value {
     }
 }
 
+impl TryFrom<&str> for Value {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.len() <= MAX_STR_LEN {
+            Ok(Self(Vec::from(value.as_bytes())))
+        } else {
+            Err(())
+        }
+    }
+}
+
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod utility {
     use std::str::FromStr;
@@ -132,18 +144,6 @@ pub mod utility {
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Self::try_from(s)
-        }
-    }
-
-    impl TryFrom<&str> for Value {
-        type Error = ();
-
-        fn try_from(value: &str) -> Result<Self, Self::Error> {
-            if value.len() <= MAX_STR_LEN {
-                Ok(Self(Vec::from(value.as_bytes())))
-            } else {
-                Err(())
-            }
         }
     }
 }
