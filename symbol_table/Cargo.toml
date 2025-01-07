@@ -11,7 +11,7 @@ fuzzing = []
 arbitrary = { version = "1.3.2", features = ["derive"] }
 arrayvec = {version = "0.7.6",features = ["serde"]}
 ffi = { path = "../ffi", optional=true}
-value = { path = "../value/" ,features= ["fuzzing"]}
+value = { path = "../value/" ,features= ["arbitrary"]}
 ron = "0.8.1"
 serde = { version = "1.0.210", features = ["derive"] }
 

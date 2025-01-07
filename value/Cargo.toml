@@ -4,11 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-fuzzing = []
 
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
-arbitrary = { version = "1.3.2", features = ["derive"] }
+arbitrary = { version = "1.3.2", features = ["derive"], optional=true}
 ffi = { path = "../ffi", optional=true}
 
 [dev-dependencies]

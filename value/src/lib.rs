@@ -32,6 +32,13 @@ use serde::{Deserialize, Serialize};
 pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = 65534;
 
+mod convertions;
+#[cfg(feature = "ffi")]
+mod ffi;
+
+#[cfg(feature = "arbitrary")]
+mod arbitrary;
+
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
 ///
@@ -58,43 +65,6 @@ impl Default for Value {
 }
 
 #[cfg_attr(test, mutants::skip)]
-#[cfg(feature = "ffi")]
-mod ffi {
-
-    use super::{MAX_STR_LEN, Value};
-    use ffi::CSTRING;
-    impl Value {
-        #[must_use]
-        pub fn into_cstring(self) -> CSTRING {
-            let mut buf = [0; MAX_STR_LEN + 1];
-            buf[..self.0.len()].copy_from_slice(&self.0[..]);
-            CSTRING {
-                len: self.0.len().try_into().expect("Max var len < u16::max"),
-                buf,
-            }
-        }
-    }
-    impl From<&CSTRING> for Value {
-        #[cfg_attr(test, mutants::skip)]
-        fn from(value: &CSTRING) -> Self {
-            let data = &value.buf[..value.len as usize];
-            Self(Vec::from(data))
-        }
-    }
-}
-
-impl TryFrom<&[u8]> for Value {
-    type Error = ();
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN {
-            Ok(Self(Vec::from(value)))
-        } else {
-            Err(())
-        }
-    }
-}
-
-#[cfg_attr(test, mutants::skip)]
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut builder = f.debug_struct("Value");
@@ -105,45 +75,5 @@ impl std::fmt::Debug for Value {
         }
 
         builder.finish()
-    }
-}
-
-impl TryFrom<&str> for Value {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN {
-            Ok(Self(Vec::from(value.as_bytes())))
-        } else {
-            Err(())
-        }
-    }
-}
-
-#[cfg(any(test, feature = "fuzzing"))]
-pub mod utility {
-    use std::str::FromStr;
-
-    use super::MAX_STR_LEN;
-    use arbitrary::Arbitrary;
-
-    use super::Value;
-
-    impl<'a> Arbitrary<'a> for Value {
-        #[cfg_attr(test, mutants::skip)]
-        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let len: usize = u.int_in_range(0..=MAX_STR_LEN)?;
-            Ok(Self(Vec::from(u.bytes(len)?)))
-        }
-    }
-
-    // skip mutation testing since this is just used by rstest
-    #[cfg_attr(test, mutants::skip)]
-    impl FromStr for Value {
-        type Err = ();
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Self::try_from(s)
-        }
     }
 }
