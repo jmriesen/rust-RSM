@@ -38,6 +38,7 @@ mod ffi;
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
+mod number;
 
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
