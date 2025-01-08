@@ -28,6 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+use std::{io::Read, iter};
+
 use serde::{Deserialize, Serialize};
 pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = 65534;
@@ -56,6 +58,19 @@ impl Value {
     #[must_use]
     pub const fn empty() -> Self {
         Self(Vec::new())
+    }
+    pub fn as_bytes(&self) -> impl Iterator<Item = u8> {
+        let len: u16 = self
+            .0
+            .len()
+            .try_into()
+            .expect("Max length of Value should fit in a u16");
+
+        //Deconstructing the u16 explicitly to avoid lifetime issues
+        let [first, second] = len.to_le_bytes();
+        iter::once(first)
+            .chain(iter::once(second))
+            .chain(self.content().iter().cloned())
     }
 }
 

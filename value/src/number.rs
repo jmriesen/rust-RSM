@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::Value;
 /// Stores a value that has been converted into the canonical numeric representation
 /// If negative there will be exactly one leading '-'
@@ -61,6 +63,14 @@ impl From<Value> for Number {
 impl From<Number> for Value {
     fn from(value: Number) -> Self {
         value.0
+    }
+}
+impl std::str::FromStr for Number {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = Value::from_str(s)?;
+        Ok(Self::from(value))
     }
 }
 #[cfg(test)]

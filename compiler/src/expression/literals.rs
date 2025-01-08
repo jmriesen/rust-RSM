@@ -1,3 +1,4 @@
+use core::num;
 /*
  * Package: Rust Reference Standard M
  *
@@ -27,22 +28,22 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::ffi::CString;
+use std::str::FromStr;
+use value::{Number, Value};
 
-use crate::test_harness::compile_string;
-
-/// TODO rerwrite this function
+/// TODO rewrite this function
 /// currently function both formats number into canonacl represntation and
 /// compiles to [u8]. It should only do this first part.
 /// Note in the C implemnation +9 is parsed as a unaray exprestion not a number.
 pub fn ncopy(number: &str, comp: &mut Vec<u8>) {
-    use std::str::FromStr;
-    use value::{Number, Value};
-    let value = Value::from_str(number).expect("String was too large");
-    let number = Value::from(Number::from(value));
-    let bytes = Value::from(number).content().to_vec();
-    let str_c = unsafe { CString::from_vec_unchecked(bytes) };
-    comp.extend(compile_string(&str_c))
+    let value = Number::from_str(number).expect("String was too large");
+    insert_value(comp, value.into());
+}
+
+pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
+    comp.push(crate::bindings::OPSTR);
+    comp.extend(value.as_bytes());
+    comp.push(0);
 }
 
 pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
@@ -54,6 +55,6 @@ pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
         //replace "" with " quote.
         .replace("\"\"", "\"");
     //strip off outer quotes.
-    let inner = CString::new(string).unwrap();
-    comp.extend(compile_string(&inner))
+    let value = Value::from_str(&string).expect("String was too large");
+    insert_value(comp, value)
 }
