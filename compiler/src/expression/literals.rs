@@ -36,25 +36,13 @@ use crate::test_harness::compile_string;
 /// compiles to [u8]. It should only do this first part.
 /// Note in the C implemnation +9 is parsed as a unaray exprestion not a number.
 pub fn ncopy(number: &str, comp: &mut Vec<u8>) {
-    //NOTE the C code also does bounds checking to prevent overflow.
-    //This should not be needed since I am using a vector.
-    let sign = if number.chars().filter(|x| *x == '-').count() % 2 == 0 {
-        ""
-    } else {
-        "-"
-    };
-
-    let mut number = number
-        .trim_start_matches(['+', '-'])
-        .trim_start_matches('0');
-    if number.contains('.') {
-        number = number.trim_end_matches('0').trim_end_matches('.');
-    }
-    if number.is_empty() {
-        number = "0";
-    }
-    let num = CString::new(format!("{}{}", sign, number)).unwrap();
-    comp.extend(compile_string(&num))
+    use std::str::FromStr;
+    use value::{Number, Value};
+    let value = Value::from_str(number).expect("String was too large");
+    let number = Value::from(Number::from(value));
+    let bytes = Value::from(number).content().to_vec();
+    let str_c = unsafe { CString::from_vec_unchecked(bytes) };
+    comp.extend(compile_string(&str_c))
 }
 
 pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {

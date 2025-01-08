@@ -10,6 +10,7 @@ tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = "0.20.10"
 lang-model = { path = "../lang-model"}
 ffi = { path = "../ffi"}
+value = { path = "../value"}
 
 [dev-dependencies]
 rstest = "0.22.0"

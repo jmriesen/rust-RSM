@@ -58,6 +58,11 @@ impl From<Value> for Number {
     }
 }
 
+impl From<Number> for Value {
+    fn from(value: Number) -> Self {
+        value.0
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::{Value, number::Number};

@@ -1150,6 +1150,7 @@ dependencies = [
  "rstest",
  "tree-sitter",
  "tree-sitter-mumps",
+ "value",
 ]
 
 [[package]]
