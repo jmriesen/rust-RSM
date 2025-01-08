@@ -29,16 +29,7 @@ use core::num;
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use std::str::FromStr;
-use value::{Number, Value};
-
-/// TODO rewrite this function
-/// currently function both formats number into canonacl represntation and
-/// compiles to [u8]. It should only do this first part.
-/// Note in the C implemnation +9 is parsed as a unaray exprestion not a number.
-pub fn ncopy(number: &str, comp: &mut Vec<u8>) {
-    let value = Number::from_str(number).expect("String was too large");
-    insert_value(comp, value.into());
-}
+use value::Value;
 
 pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
     comp.push(crate::bindings::OPSTR);
@@ -46,15 +37,14 @@ pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
     comp.push(0);
 }
 
-pub fn compile_string_literal(string: &str, comp: &mut Vec<u8>) {
+pub fn parse_string_litteral(string: &str) -> Result<Value, ()> {
     let string = string
+        //Strip off outer quotes.
         .strip_prefix('"')
         .unwrap()
         .strip_suffix('"')
         .unwrap()
-        //replace "" with " quote.
+        //Replace "" with " quote.
         .replace("\"\"", "\"");
-    //strip off outer quotes.
-    let value = Value::from_str(&string).expect("String was too large");
-    insert_value(comp, value)
+    Value::from_str(&string)
 }

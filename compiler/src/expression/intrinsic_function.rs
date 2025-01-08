@@ -28,12 +28,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::{
+    expression::insert_value,
     function::{reserve_jump, write_jump},
     localvar::VarTypes,
 };
 use lang_model::*;
 
-use super::{ncopy, ExpressionContext};
+use super::ExpressionContext;
 
 trait ExpFunctionsExt<'a> {
     fn opcode(&self) -> u8;
@@ -152,7 +153,13 @@ impl<'a> Compileable for IntrinsicFunction<'a> {
                 }
 
                 if matches!(var_fun.children(), VarFunctionsChildren::Next(_)) {
-                    ncopy("2", comp);
+                    use std::str::FromStr;
+                    insert_value(
+                        comp,
+                        value::Number::from_str("2")
+                            .expect("2 can always be parsed")
+                            .into(),
+                    );
                 }
 
                 comp.push(opcode + args.iter().len() as u8 + 1);
