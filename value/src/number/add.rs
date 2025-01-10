@@ -37,7 +37,37 @@ impl ops::Add for Number {
         Number::from_normalized(sum, decimal_position)
     }
 }
+impl ops::Sub for Number {
+    type Output = Number;
 
+    fn sub(self, rhs: Self) -> Self::Output {
+        let NormalizedDigits {
+            lhs,
+            rhs,
+            decimal_position,
+        } = Number::normalize_magnitieds(&self, &rhs);
+
+        let mut difference: Vec<_> = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(x, y)| b'0' + x - y)
+            .collect();
+        // Handle carry over
+        for i in (1..difference.len()).rev() {
+            if difference[i] < b'0' {
+                difference[i] += 10;
+                difference[i - 1] -= 1;
+            }
+        }
+        // Handle carry over of most significant bit
+        if difference[0] < b'0' {
+            dbg!(Value(difference));
+            todo!("handle negitive number result");
+        }
+
+        Number::from_normalized(difference, decimal_position)
+    }
+}
 /// Stores digits in a normalized format.
 /// See `normalize_magnitieds`
 struct NormalizedDigits {
@@ -112,12 +142,18 @@ impl Number {
     fn from_normalized(mut digits: Vec<u8>, decimal_position: Option<usize>) -> Number {
         if let Some(dec_pos) = decimal_position {
             digits.insert(dec_pos, b'.');
+            // Striping trailing zeros
             while digits.last() == Some(&b'0') {
                 digits.pop();
             }
+            // Striping trailing dot
             if digits.last() == Some(&b'.') {
                 digits.pop();
             }
+        }
+        // Striping leading zeros
+        while digits.first() == Some(&b'0') && digits.len() > 1 {
+            digits.remove(0);
         }
         Number(Value(digits))
     }
@@ -142,5 +178,18 @@ mod tests {
     fn add(#[case] a: Number, #[case] b: Number, #[case] sum: Number) {
         assert_eq!(a.clone() + b.clone(), sum);
         assert_eq!(b + a, sum);
+    }
+
+    #[rstest]
+    #[case::one_minus_one("1", "1", "0")]
+    #[case::uint_of_different_length("22", "1", "21")]
+    #[case::decimial_and_int("2.1", "1", "1.1")]
+    #[case::carry("25", "7", "18")]
+    #[case::carry_remove_order_of_maginitued("15", "7", "8")]
+    #[case::carry_multiple_times("100.1", ".2", "99.9")]
+    #[case::remove_trailing_zero("1.1", ".1", "1")]
+    #[case::keep_int_traling_zero("11", "1", "10")]
+    fn sub(#[case] a: Number, #[case] b: Number, #[case] difference: Number) {
+        assert_eq!(a - b, difference);
     }
 }
