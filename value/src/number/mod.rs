@@ -1,10 +1,12 @@
+mod add;
+
 use std::str::FromStr;
 
 use super::Value;
 /// Stores a value that has been converted into the canonical numeric representation
 /// If negative there will be exactly one leading '-'
 /// If positive there will be no leading sign
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Number(Value);
 
 impl From<Value> for Number {
