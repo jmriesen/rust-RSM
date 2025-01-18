@@ -2,6 +2,7 @@ use crate::Value;
 
 use super::Number;
 use std::{
+    i8,
     iter::{self},
     ops, usize,
 };
@@ -16,22 +17,18 @@ impl ops::Add for Number {
             mut int_len,
         } = Number::normalize_magnitieds(&self, &rhs);
 
-        let mut sum: Vec<_> = lhs
-            .iter()
-            .zip(rhs.iter())
-            .map(|(x, y)| x + y - b'0')
-            .collect();
+        let mut sum: Vec<_> = lhs.iter().zip(rhs.iter()).map(|(x, y)| x + y).collect();
         // Handle carry over
         for i in (1..sum.len()).rev() {
-            if sum[i] > b'9' {
+            if sum[i] > 9 {
                 sum[i] -= 10;
                 sum[i - 1] += 1;
             }
         }
         // Handle carry over of most significant bit
-        if sum[0] > b'9' {
+        if sum[0] > 9 {
             sum[0] -= 10;
-            sum.insert(0, b'1');
+            sum.insert(0, 1);
             int_len += 1;
         }
 
@@ -48,21 +45,17 @@ impl ops::Sub for Number {
             int_len: decimal_position,
         } = Number::normalize_magnitieds(&self, &rhs);
 
-        let mut difference: Vec<_> = lhs
-            .iter()
-            .zip(rhs.iter())
-            .map(|(x, y)| b'0' + x - y)
-            .collect();
+        let mut difference: Vec<_> = lhs.iter().zip(rhs.iter()).map(|(x, y)| x - y).collect();
         // Handle carry over
         for i in (1..difference.len()).rev() {
-            if difference[i] < b'0' {
+            if difference[i] < 0 {
                 difference[i] += 10;
                 difference[i - 1] -= 1;
             }
         }
         // Handle carry over of most significant bit
-        if difference[0] < b'0' {
-            dbg!(Value(difference));
+        if difference[0] < 0 {
+            dbg!(Number::from_normalized(difference, decimal_position));
             todo!("handle negitive number result");
         }
 
@@ -73,8 +66,8 @@ impl ops::Sub for Number {
 /// See `normalize_magnitieds`
 #[derive(Debug)]
 struct NormalizedDigits {
-    lhs: Vec<u8>,
-    rhs: Vec<u8>,
+    lhs: Vec<i8>,
+    rhs: Vec<i8>,
     int_len: usize,
 }
 
@@ -90,11 +83,11 @@ impl Number {
         let add_whitespace = |number: &Number, int_len: usize, dec_len: usize| {
             let leading_zeros = (number.int_part().len()..int_len).count();
             let trailing_zeros = (number.dec_part().len()..dec_len).count();
-            iter::repeat(b'0')
+            iter::repeat(0)
                 .take(leading_zeros)
-                .chain(number.int_part().iter().cloned())
-                .chain(number.dec_part().iter().cloned())
-                .chain(iter::repeat(b'0').take(trailing_zeros))
+                .chain(number.int_part().iter().map(|x| (x - b'0') as i8))
+                .chain(number.dec_part().iter().map(|x| (x - b'0') as i8))
+                .chain(iter::repeat(0).take(trailing_zeros))
                 .collect()
         };
         let int_len = *[lhs, rhs].map(|x| x.int_part().len()).iter().max().unwrap();
@@ -104,21 +97,20 @@ impl Number {
 
         NormalizedDigits { lhs, rhs, int_len }
     }
-    fn from_normalized(mut digits: Vec<u8>, int_len: usize) -> Number {
+    fn from_normalized(mut digits: Vec<i8>, mut int_len: usize) -> Number {
+        //Strip trailing zeros
+        while digits.len() > int_len && digits.last() == Some(&0) {
+            digits.pop();
+        }
+        //Strip leading zeros
+        while digits.len() > 1 && digits.first() == Some(&0) {
+            digits.remove(0);
+            int_len -= 1;
+        }
+        let mut digits: Vec<_> = digits.iter().map(|x| (x + b'0' as i8) as u8).collect();
+
         if digits.len() > int_len {
             digits.insert(int_len, b'.');
-            // Striping trailing zeros
-            while digits.last() == Some(&b'0') {
-                digits.pop();
-            }
-            // Striping trailing dot
-            if digits.last() == Some(&b'.') {
-                digits.pop();
-            }
-        }
-        // Striping leading zeros
-        while digits.first() == Some(&b'0') && digits.len() > 1 {
-            digits.remove(0);
         }
         Number(Value(digits))
     }
