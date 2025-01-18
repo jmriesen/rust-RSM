@@ -75,10 +75,46 @@ impl std::str::FromStr for Number {
         Ok(Self::from(value))
     }
 }
+#[derive(PartialEq, Debug)]
+enum Sign {
+    NonNegative,
+    Negative,
+}
+
+impl Number {
+    //Note this dose not work for negative numbers yet
+    fn as_parts(&self) -> (Sign, &[u8], &[u8]) {
+        let (sign, tail) = if self.0.0[0] == b'-' {
+            (Sign::Negative, &self.0.0[1..])
+        } else {
+            (Sign::NonNegative, &self.0.0[..])
+        };
+        let postion = tail.iter().position(|x| *x == b'.').unwrap_or(tail.len());
+        let (int_part, tail) = tail.split_at(postion);
+        let dec_part = if tail.len() != 0 {
+            tail.split_at(1).1
+        } else {
+            &[]
+        };
+        (sign, int_part, dec_part)
+    }
+
+    fn sign(&self) -> Sign {
+        self.as_parts().0
+    }
+    fn int_part(&self) -> &[u8] {
+        self.as_parts().1
+    }
+    fn dec_part(&self) -> &[u8] {
+        self.as_parts().2
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::{Value, number::Number};
     use rstest::rstest;
+
+    use super::Sign;
 
     #[rstest]
     #[case("")]
@@ -141,5 +177,22 @@ mod test {
     #[case("-+-99OO", "99")]
     fn stop_a_non_numaric(#[case] given: Value, #[case] cononical: Value) {
         assert_eq!(Number::from(given).0, cononical)
+    }
+
+    use Sign::*;
+    #[rstest]
+    #[case::one("1", NonNegative, b"1", b"")]
+    #[case::decimal(".1", NonNegative, b"", b"1")]
+    #[case::dec_and_int("1.2", NonNegative, b"1", b"2")]
+    #[case::negative("-1", Negative, b"1", b"")]
+    #[case::neg_decimal("-.1", Negative, b"", b"1")]
+    #[case::neg_dec_and_int("-1.2", Negative, b"1", b"2")]
+    fn splitting_number(
+        #[case] numer: Number,
+        #[case] sign: Sign,
+        #[case] int_part: &[u8],
+        #[case] dec_part: &[u8],
+    ) {
+        assert_eq!(numer.as_parts(), (sign, int_part, dec_part));
     }
 }

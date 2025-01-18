@@ -1,7 +1,10 @@
 use crate::Value;
 
 use super::Number;
-use std::ops;
+use std::{
+    iter::{self},
+    ops, usize,
+};
 
 impl ops::Add for Number {
     type Output = Number;
@@ -10,7 +13,7 @@ impl ops::Add for Number {
         let NormalizedDigits {
             lhs,
             rhs,
-            mut decimal_position,
+            mut int_len,
         } = Number::normalize_magnitieds(&self, &rhs);
 
         let mut sum: Vec<_> = lhs
@@ -29,12 +32,10 @@ impl ops::Add for Number {
         if sum[0] > b'9' {
             sum[0] -= 10;
             sum.insert(0, b'1');
-            if let Some(dec_pos) = &mut decimal_position {
-                *dec_pos += 1;
-            }
+            int_len += 1;
         }
 
-        Number::from_normalized(sum, decimal_position)
+        Number::from_normalized(sum, int_len)
     }
 }
 impl ops::Sub for Number {
@@ -44,7 +45,7 @@ impl ops::Sub for Number {
         let NormalizedDigits {
             lhs,
             rhs,
-            decimal_position,
+            int_len: decimal_position,
         } = Number::normalize_magnitieds(&self, &rhs);
 
         let mut difference: Vec<_> = lhs
@@ -70,10 +71,11 @@ impl ops::Sub for Number {
 }
 /// Stores digits in a normalized format.
 /// See `normalize_magnitieds`
+#[derive(Debug)]
 struct NormalizedDigits {
     lhs: Vec<u8>,
     rhs: Vec<u8>,
-    decimal_position: Option<usize>,
+    int_len: usize,
 }
 
 impl Number {
@@ -85,63 +87,26 @@ impl Number {
     /// 0001
     /// Some(2)
     fn normalize_magnitieds(lhs: &Number, rhs: &Number) -> NormalizedDigits {
-        let mut lhs = lhs.0.0.clone();
-        let mut rhs = rhs.0.0.clone();
-        let lhs_int_len = lhs.iter().position(|x| *x == b'.').unwrap_or(lhs.len());
-        let rhs_int_len = rhs.iter().position(|x| *x == b'.').unwrap_or(rhs.len());
+        let add_whitespace = |number: &Number, int_len: usize, dec_len: usize| {
+            let leading_zeros = (number.int_part().len()..int_len).count();
+            let trailing_zeros = (number.dec_part().len()..dec_len).count();
+            iter::repeat(b'0')
+                .take(leading_zeros)
+                .chain(number.int_part().iter().cloned())
+                .chain(number.dec_part().iter().cloned())
+                .chain(iter::repeat(b'0').take(trailing_zeros))
+                .collect()
+        };
+        let int_len = *[lhs, rhs].map(|x| x.int_part().len()).iter().max().unwrap();
+        let dec_len = *[lhs, rhs].map(|x| x.dec_part().len()).iter().max().unwrap();
+        let lhs = add_whitespace(lhs, int_len, dec_len);
+        let rhs = add_whitespace(rhs, int_len, dec_len);
 
-        //Leading up leading digit
-        for _ in lhs_int_len..rhs_int_len {
-            lhs.insert(0, b'0');
-        }
-        for _ in rhs_int_len..lhs_int_len {
-            rhs.insert(0, b'0');
-        }
-
-        let lhs_dec_pos = lhs.iter().position(|x| *x == b'.');
-        let rhs_dec_pos = rhs.iter().position(|x| *x == b'.');
-        // Set up trailing decimals
-        if let Some(lhs_len) = lhs_dec_pos {
-            if let Some(rhs_len) = rhs_dec_pos {
-                for _ in rhs_len..lhs_len {
-                    rhs.push(b'0');
-                }
-            } else {
-                rhs.push(b'.');
-                for _ in 0..lhs_len {
-                    rhs.push(b'0');
-                }
-            }
-        }
-
-        if let Some(rhs_len) = rhs_dec_pos {
-            if let Some(lhs_len) = lhs_dec_pos {
-                for _ in lhs_len..rhs_len {
-                    lhs.push(b'0');
-                }
-            } else {
-                lhs.push(b'.');
-                for _ in 0..rhs_len {
-                    lhs.push(b'0');
-                }
-            }
-        }
-
-        // Pull out the decimal
-        let decimal_position = lhs_dec_pos.or(rhs_dec_pos);
-        if let Some(dec_pos) = decimal_position {
-            rhs.remove(dec_pos);
-            lhs.remove(dec_pos);
-        }
-        NormalizedDigits {
-            lhs,
-            rhs,
-            decimal_position,
-        }
+        NormalizedDigits { lhs, rhs, int_len }
     }
-    fn from_normalized(mut digits: Vec<u8>, decimal_position: Option<usize>) -> Number {
-        if let Some(dec_pos) = decimal_position {
-            digits.insert(dec_pos, b'.');
+    fn from_normalized(mut digits: Vec<u8>, int_len: usize) -> Number {
+        if digits.len() > int_len {
+            digits.insert(int_len, b'.');
             // Striping trailing zeros
             while digits.last() == Some(&b'0') {
                 digits.pop();
