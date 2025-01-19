@@ -1,13 +1,18 @@
-mod add;
+//mod add;
 
-use std::str::FromStr;
+use std::{iter, str::FromStr};
 
 use super::Value;
-/// Stores a value that has been converted into the canonical numeric representation
-/// If negative there will be exactly one leading '-'
-/// If positive there will be no leading sign
+// Stores the number in scientific notation/9's complement form
+//
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Number(Value);
+pub struct Number {
+    exponent: usize,
+    ///Note due to 9's complement
+    /// positive numbers start with a leading 0
+    /// negative numbers start with a leading 9
+    mantica: Vec<i8>,
+}
 
 impl From<Value> for Number {
     fn from(value: Value) -> Self {
@@ -22,49 +27,67 @@ impl From<Value> for Number {
         //Pulling of integer part
         let integer = tail.clone().take_while(|x| x.is_ascii_digit());
         let mut tail = tail.skip_while(|x| x.is_ascii_digit());
+        let exponent = integer.clone().count();
 
         //Pulling out decimal part.
-        //Note could still have trailing zeros or dot
-        let decimal = if let Some(&b'.') = tail.next() {
-            Some(tail.take_while(|x| x.is_ascii_digit()))
+        //Note could still have trailing zeros
+        let has_decimal_point = tail.next() == Some(&b'.');
+        let decimal = tail.take_while(|x| x.is_ascii_digit() && has_decimal_point);
+
+        let digits = integer.chain(decimal).map(|x| (x - b'0') as i8);
+
+        let non_neg =
+            sign.filter(|x| **x == b'-').count() % 2 == 0 || digits.clone().all(|x| x == 0);
+
+        let mantica: Vec<_> = if non_neg {
+            iter::once(0).chain(digits).collect()
         } else {
-            None
+            todo!("this should map into nines commploment");
+            iter::once(9).chain(digits).collect()
         };
 
-        let mut output = vec![];
-        //Counting the number of negative signs
-        if sign.filter(|x| **x == b'-').count() % 2 == 1 {
-            output.push(b'-');
-        };
-
-        output.extend(integer);
-        if let Some(decimal) = decimal {
-            output.push(b'.');
-            output.extend(decimal);
-            //Striping trailing zeros
-            while let Some(&b'0') = output.last() {
-                output.pop();
-            }
-            //Stringing trailing dot
-            if let Some(&b'.') = output.last() {
-                output.pop();
-            }
-        }
-
-        //Handling edge cases that evaluate to zero
-        if output.is_empty() {
-            Number(Value(vec![b'0']))
-        } else if output.len() == 1 && is_sign(&&output[0]) {
-            Number(Value(vec![b'0']))
-        } else {
-            Number(Value(output))
-        }
+        //If we only have the sign bit the value is zero
+        Number { mantica, exponent }
     }
 }
 
 impl From<Number> for Value {
     fn from(value: Number) -> Self {
-        value.0
+        let Number {
+            mut mantica,
+            mut exponent,
+        } = value;
+        //TODO deal with sign byte
+        let sign = *mantica
+            .first()
+            .expect("sign bit should allways be pressent");
+        //Removing the sign bit
+        mantica.remove(0);
+        //Strip trailing zeros
+        while mantica.len() > exponent && mantica.last() == Some(&0) {
+            mantica.pop();
+        }
+        //Strip leading zeros
+        while mantica.len() > 1 && mantica.first() == Some(&0) {
+            mantica.remove(0);
+            exponent -= 1;
+        }
+        let mut digits: Vec<_> = mantica.iter().map(|x| (x + b'0' as i8) as u8).collect();
+
+        if digits.len() > exponent {
+            digits.insert(exponent, b'.');
+        }
+        if digits.is_empty() {
+            digits.push(b'0');
+        }
+        if sign == 9 {
+            digits.insert(0, b'-');
+        }
+        if digits.is_empty() {
+            Value(vec![b'0'])
+        } else {
+            Value(digits)
+        }
     }
 }
 impl std::str::FromStr for Number {
@@ -81,40 +104,10 @@ enum Sign {
     Negative,
 }
 
-impl Number {
-    //Note this dose not work for negative numbers yet
-    fn as_parts(&self) -> (Sign, &[u8], &[u8]) {
-        let (sign, tail) = if self.0.0[0] == b'-' {
-            (Sign::Negative, &self.0.0[1..])
-        } else {
-            (Sign::NonNegative, &self.0.0[..])
-        };
-        let postion = tail.iter().position(|x| *x == b'.').unwrap_or(tail.len());
-        let (int_part, tail) = tail.split_at(postion);
-        let dec_part = if tail.len() != 0 {
-            tail.split_at(1).1
-        } else {
-            &[]
-        };
-        (sign, int_part, dec_part)
-    }
-
-    fn sign(&self) -> Sign {
-        self.as_parts().0
-    }
-    fn int_part(&self) -> &[u8] {
-        self.as_parts().1
-    }
-    fn dec_part(&self) -> &[u8] {
-        self.as_parts().2
-    }
-}
 #[cfg(test)]
 mod test {
     use crate::{Value, number::Number};
     use rstest::rstest;
-
-    use super::Sign;
 
     #[rstest]
     #[case("")]
@@ -125,7 +118,7 @@ mod test {
     #[case("0.0")]
     #[case(".0")]
     #[case("-0.")]
-    #[case("-0.0")]
+    #[case::bar("-0.0")]
     #[case("-.0")]
     #[case("+0.")]
     #[case("+0.0")]
@@ -133,16 +126,16 @@ mod test {
     #[case("+a")]
     #[case("a")]
     #[case(".a")]
-    fn edge_cases(#[case] given: Value) {
+    fn edge_cases(#[case] given: Number) {
         use std::str::FromStr;
-        assert_eq!(Number::from(given).0, Value::from_str("0").unwrap())
+        assert_eq!(Value::from_str("0").unwrap(), given.into())
     }
 
     #[rstest]
     #[case("12345")]
     #[case(".9")]
     fn no_transformation_needed(#[case] value: Value) {
-        assert_eq!(Number::from(value.clone()).0, value)
+        assert_eq!(value, Number::from(value.clone()).into())
     }
 
     #[rstest]
@@ -152,8 +145,8 @@ mod test {
     #[case("+9", "9")]
     #[case("-+-9", "9")]
     #[case("-+-+-9", "-9")]
-    fn handling_signs(#[case] given: Value, #[case] cononical: Value) {
-        assert_eq!(Number::from(given).0, cononical)
+    fn handling_signs(#[case] given: Number, #[case] cononical: Value) {
+        assert_eq!(cononical, given.into())
     }
 
     #[rstest]
@@ -168,31 +161,14 @@ mod test {
     #[case(".90", ".9")]
     #[case(".9000", ".9")]
     #[case(".900090", ".90009")]
-    fn strip_zeros(#[case] given: Value, #[case] cononical: Value) {
-        assert_eq!(Number::from(given).0, cononical)
+    fn strip_zeros(#[case] given: Number, #[case] cononical: Value) {
+        assert_eq!(cononical, given.into())
     }
 
     #[rstest]
     #[case("9a0", "9")]
     #[case("-+-99OO", "99")]
-    fn stop_a_non_numaric(#[case] given: Value, #[case] cononical: Value) {
-        assert_eq!(Number::from(given).0, cononical)
-    }
-
-    use Sign::*;
-    #[rstest]
-    #[case::one("1", NonNegative, b"1", b"")]
-    #[case::decimal(".1", NonNegative, b"", b"1")]
-    #[case::dec_and_int("1.2", NonNegative, b"1", b"2")]
-    #[case::negative("-1", Negative, b"1", b"")]
-    #[case::neg_decimal("-.1", Negative, b"", b"1")]
-    #[case::neg_dec_and_int("-1.2", Negative, b"1", b"2")]
-    fn splitting_number(
-        #[case] numer: Number,
-        #[case] sign: Sign,
-        #[case] int_part: &[u8],
-        #[case] dec_part: &[u8],
-    ) {
-        assert_eq!(numer.as_parts(), (sign, int_part, dec_part));
+    fn stop_a_non_numaric(#[case] given: Number, #[case] cononical: Value) {
+        assert_eq!(cononical, given.into())
     }
 }
