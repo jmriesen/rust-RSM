@@ -1,17 +1,62 @@
-//mod add;
-
-use std::{iter, str::FromStr};
-
+mod add;
 use super::Value;
+use std::iter;
 // Stores the number in scientific notation/9's complement form
-//
-#[derive(Debug, PartialEq, Eq, Clone)]
+// TODO 9's complement form
+#[derive(Debug, Clone)]
 pub struct Number {
     exponent: usize,
     ///Note due to 9's complement
     /// positive numbers start with a leading 0
     /// negative numbers start with a leading 9
     mantica: Vec<i8>,
+}
+
+impl PartialEq for Number {
+    fn eq(&self, other: &Self) -> bool {
+        // NOTE:
+        // I am currently cloning so I can re use the match_padding function.
+        // Cloning should not be needed, but this is the simplest way I can think of implementing
+        // equality right now.
+        //
+        // If this becomes a performance issue consider rewriting this logic.
+        let mut left = self.clone();
+        let mut right = other.clone();
+        Number::match_padding(&mut [&mut left, &mut right]);
+        left.mantica == right.mantica && left.exponent == right.exponent
+    }
+}
+
+impl Number {
+    /// Adds padding leading and trailing zeros until all numbers are the same level of precision
+    /// and order of magnitude
+    fn match_padding(numbers: &mut [&mut Number]) {
+        if !numbers.is_empty() {
+            //Match order of magnitude
+            let new_exponent = numbers
+                .iter()
+                .map(|x| x.exponent)
+                .max()
+                .expect("non-empty slice");
+            for number in &mut *numbers {
+                for _ in number.exponent..new_exponent {
+                    number.mantica.insert(0, 0);
+                    number.exponent += 1;
+                }
+            }
+            // Match precision
+            let new_mantica_len = numbers
+                .iter()
+                .map(|x| x.mantica.len())
+                .max()
+                .expect("non-empty slice");
+            for number in numbers {
+                for _ in number.mantica.len()..new_mantica_len {
+                    number.mantica.push(0);
+                }
+            }
+        }
+    }
 }
 
 impl From<Value> for Number {
@@ -21,8 +66,6 @@ impl From<Value> for Number {
 
         let sign = value.iter().take_while(is_sign);
         let tail = value.iter().skip_while(is_sign);
-        //Removing leading white space
-        let tail = tail.skip_while(|x| **x == b'0');
 
         //Pulling of integer part
         let integer = tail.clone().take_while(|x| x.is_ascii_digit());
@@ -42,7 +85,6 @@ impl From<Value> for Number {
         let mantica: Vec<_> = if non_neg {
             iter::once(0).chain(digits).collect()
         } else {
-            todo!("this should map into nines commploment");
             iter::once(9).chain(digits).collect()
         };
 
@@ -97,11 +139,6 @@ impl std::str::FromStr for Number {
         let value = Value::from_str(s)?;
         Ok(Self::from(value))
     }
-}
-#[derive(PartialEq, Debug)]
-enum Sign {
-    NonNegative,
-    Negative,
 }
 
 #[cfg(test)]
