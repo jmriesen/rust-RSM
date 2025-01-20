@@ -27,10 +27,21 @@ impl PartialEq for Number {
     }
 }
 
+fn carry_logic(mantica: &mut [i8]) {
+    for i in (1..mantica.len()).rev() {
+        if mantica[i] > 9 {
+            mantica[i] -= 10;
+            mantica[i - 1] += 1;
+        }
+    }
+}
+
 impl Number {
     /// Adds padding leading and trailing zeros until all numbers are the same level of precision
     /// and order of magnitude
     fn match_padding(numbers: &mut [&mut Number]) {
+        let get_padding_digit = |x: &Number| if x.is_negative() { 9 } else { 0 };
+        //NOTE this does not handle negative numbers properly
         if !numbers.is_empty() {
             //Match order of magnitude
             let new_exponent = numbers
@@ -39,8 +50,9 @@ impl Number {
                 .max()
                 .expect("non-empty slice");
             for number in &mut *numbers {
+                let padding_digit = get_padding_digit(&number);
                 for _ in number.exponent..new_exponent {
-                    number.mantica.insert(0, 0);
+                    number.mantica.insert(0, padding_digit);
                     number.exponent += 1;
                 }
             }
@@ -50,12 +62,16 @@ impl Number {
                 .map(|x| x.mantica.len())
                 .max()
                 .expect("non-empty slice");
-            for number in numbers {
+            for number in &mut *numbers {
+                let padding_digit = get_padding_digit(&number);
                 for _ in number.mantica.len()..new_mantica_len {
-                    number.mantica.push(0);
+                    number.mantica.push(padding_digit);
                 }
             }
         }
+    }
+    fn is_negative(&self) -> bool {
+        self.mantica[0] == 9
     }
 }
 
@@ -82,13 +98,15 @@ impl From<Value> for Number {
         let non_neg =
             sign.filter(|x| **x == b'-').count() % 2 == 0 || digits.clone().all(|x| x == 0);
 
-        let mantica: Vec<_> = if non_neg {
+        let mut mantica: Vec<_> = if non_neg {
             iter::once(0).chain(digits).collect()
         } else {
-            iter::once(9).chain(digits).collect()
+            let mut mantica: Vec<_> = iter::once(9).chain(digits.map(|x| 9 - x)).collect();
+            *mantica.last_mut().unwrap() += 1;
+            mantica
         };
+        carry_logic(&mut mantica[..]);
 
-        //If we only have the sign bit the value is zero
         Number { mantica, exponent }
     }
 }
@@ -99,12 +117,24 @@ impl From<Number> for Value {
             mut mantica,
             mut exponent,
         } = value;
-        //TODO deal with sign byte
-        let sign = *mantica
-            .first()
-            .expect("sign bit should allways be pressent");
+
+        let negative = match mantica[0] {
+            0 => {
+                /* Positive or Zero*/
+                false
+            }
+            9 => {
+                /* Negative number*/
+                mantica = mantica.iter().map(|x| 9 - x).collect();
+                *mantica.last_mut().unwrap() += 1;
+                carry_logic(&mut mantica[..]);
+                true
+            }
+            _ => unreachable!("Sign bit should only be 0 or 9"),
+        };
         //Removing the sign bit
         mantica.remove(0);
+
         //Strip trailing zeros
         while mantica.len() > exponent && mantica.last() == Some(&0) {
             mantica.pop();
@@ -122,7 +152,7 @@ impl From<Number> for Value {
         if digits.is_empty() {
             digits.push(b'0');
         }
-        if sign == 9 {
+        if negative {
             digits.insert(0, b'-');
         }
         if digits.is_empty() {
@@ -171,6 +201,7 @@ mod test {
     #[rstest]
     #[case("12345")]
     #[case(".9")]
+    #[case("-10")]
     fn no_transformation_needed(#[case] value: Value) {
         assert_eq!(value, Number::from(value.clone()).into())
     }

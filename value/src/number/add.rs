@@ -1,11 +1,10 @@
-use super::Number;
+use super::{Number, carry_logic};
 
 impl std::ops::Add for Number {
     type Output = Number;
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         Number::match_padding(&mut [&mut self, &mut rhs]);
-
         let mut mantica: Vec<_> = self
             .mantica
             .iter()
@@ -13,51 +12,27 @@ impl std::ops::Add for Number {
             .map(|(x, y)| x + y)
             .collect();
         // Handle carry over
-        for i in (1..mantica.len()).rev() {
-            if mantica[i] > 9 {
-                mantica[i] -= 10;
-                mantica[i - 1] += 1;
-            }
-        }
+        carry_logic(&mut mantica[..]);
         let mut exponent = self.exponent;
-        // If we carried over to a new digit
-        if mantica[0] == 1 {
-            mantica.insert(0, 0);
-            exponent += 1;
+        mantica[0] %= 10;
+        match mantica[0] {
+            8 => {
+                /*Negative add digit*/
+                mantica.insert(0, 9);
+                exponent += 1;
+            }
+            9 => { /* Negative */ }
+            0 => { /*Positive*/ }
+            1 => {
+                /*Positive add digit*/
+                mantica.insert(0, 0);
+                exponent += 1;
+            }
+            _ => unreachable!(),
         }
         Number { mantica, exponent }
     }
 }
-
-/*
-impl ops::Sub for Number {
-    type Output = Number;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        let NormalizedDigits {
-            lhs,
-            rhs,
-            int_len: decimal_position,
-        } = Number::normalize_magnitieds(&self, &rhs);
-
-        let mut difference: Vec<_> = lhs.iter().zip(rhs.iter()).map(|(x, y)| x - y).collect();
-        // Handle carry over
-        for i in (1..difference.len()).rev() {
-            if difference[i] < 0 {
-                difference[i] += 10;
-                difference[i - 1] -= 1;
-            }
-        }
-        // Handle carry over of most significant bit
-        if difference[0] < 0 {
-            dbg!(Number::from_normalized(difference, decimal_position));
-            todo!("handle negitive number result");
-        }
-
-        Number::from_normalized(difference, decimal_position)
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {
@@ -75,6 +50,9 @@ mod tests {
     #[case::remove_trailing_zero(".19", ".01", ".2")]
     #[case::remove_trailing_dot(".9", ".1", "1")]
     #[case::keep_int_traling_zero("9", "1", "10")]
+    #[case::add_negative("5", "-2", "3")]
+    #[case::negative_result("2", "-5", "-3")]
+    #[case::negative_carry_over("-9", "-1", "-10")]
     fn add(#[case] a: Number, #[case] b: Number, #[case] sum: Number) {
         assert_eq!(a.clone() + b.clone(), sum);
         assert_eq!(b + a, sum);
