@@ -13,3 +13,5 @@ ffi = { path = "../ffi", optional=true}
 [dev-dependencies]
 rstest = "0.22.0"
 mutants = "0.0.3"
+quickcheck = "1"
+quickcheck_macros = "1"

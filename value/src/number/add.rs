@@ -36,6 +36,9 @@ impl std::ops::Add for Number {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use quickcheck_macros::quickcheck;
     use rstest::rstest;
 
     use crate::Number;
@@ -54,6 +57,24 @@ mod tests {
     #[case::negative_result("2", "-5", "-3")]
     #[case::negative_carry_over("-9", "-1", "-10")]
     fn add(#[case] a: Number, #[case] b: Number, #[case] sum: Number) {
+        assert_eq!(a.clone() + b.clone(), sum);
+        assert_eq!(b + a, sum);
+    }
+
+    #[quickcheck]
+    fn add_prop_int(a: i32, b: i32) {
+        let sum: i64 = i64::from(a) + i64::from(b);
+        let a = Number::from_str(&a.to_string()).unwrap();
+        let b = Number::from_str(&b.to_string()).unwrap();
+        let sum = Number::from_str(&sum.to_string()).unwrap();
+        assert_eq!(a.clone() + b.clone(), sum);
+        assert_eq!(b + a, sum);
+    }
+    fn add_prop_dec(a: i32, b: i32) {
+        let sum: i64 = i64::from(a) + i64::from(b);
+        let a = Number::from_str(&format!(".{}", a)).unwrap();
+        let b = Number::from_str(&format!(".{}", b)).unwrap();
+        let sum = Number::from_str(&sum.to_string()).unwrap();
         assert_eq!(a.clone() + b.clone(), sum);
         assert_eq!(b + a, sum);
     }
