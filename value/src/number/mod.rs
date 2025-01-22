@@ -4,7 +4,6 @@ use crate::convertions::CreationError;
 use super::Value;
 use std::iter;
 // Stores the number in scientific notation/9's complement form
-// TODO 9's complement form
 #[derive(Debug, Clone)]
 pub struct Number {
     exponent: usize,
@@ -64,7 +63,6 @@ impl Number {
     /// and order of magnitude
     fn match_padding(numbers: &mut [&mut Number]) {
         let get_padding_digit = |x: &Number| if x.is_negative() { 9 } else { 0 };
-        //NOTE this does not handle negative numbers properly
         if !numbers.is_empty() {
             //Match order of magnitude
             let new_exponent = numbers

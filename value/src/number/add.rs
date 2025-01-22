@@ -5,14 +5,14 @@ impl std::ops::Add for Number {
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         Number::match_padding(&mut [&mut self, &mut rhs]);
-        let mantica = self
+        let mantissa = self
             .mantissa
             .iter()
             .zip(rhs.mantissa.iter())
             .map(|(x, y)| x + y)
             .collect();
         // Handle carry over
-        carry_logic(mantica, self.exponent)
+        carry_logic(mantissa, self.exponent)
     }
 }
 
