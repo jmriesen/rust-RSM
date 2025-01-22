@@ -27,13 +27,34 @@ impl PartialEq for Number {
     }
 }
 
-fn carry_logic(mantica: &mut [i8]) {
+// Handles propagating the carry bit.
+// This should be called after any operation that could result in a carry.
+// Note this is specifically NOT a method on Number since since it is invalid
+// to have a "number" that contains digits other then 0-9
+fn carry_logic(mut mantica: Vec<i8>, mut exponent: usize) -> Number {
     for i in (1..mantica.len()).rev() {
         if mantica[i] > 9 {
             mantica[i] -= 10;
             mantica[i - 1] += 1;
         }
     }
+    mantica[0] %= 10;
+    match mantica[0] {
+        8 => {
+            /*Negative add digit*/
+            mantica.insert(0, 9);
+            exponent += 1;
+        }
+        9 => { /* Negative */ }
+        0 => { /*Positive*/ }
+        1 => {
+            /*Positive add digit*/
+            mantica.insert(0, 0);
+            exponent += 1;
+        }
+        _ => unreachable!(),
+    }
+    Number { exponent, mantica }
 }
 
 impl Number {
@@ -70,8 +91,18 @@ impl Number {
             }
         }
     }
+
     fn is_negative(&self) -> bool {
         self.mantica[0] == 9
+    }
+
+    fn negate(&mut self) {
+        self.mantica = self.mantica.iter().map(|x| 9 - x).collect();
+        *self
+            .mantica
+            .last_mut()
+            .expect("mantica is always non Empty") += 1;
+        *self = carry_logic(std::mem::take(&mut self.mantica), self.exponent);
     }
 }
 
@@ -95,43 +126,31 @@ impl From<Value> for Number {
 
         let digits = integer.chain(decimal).map(|x| (x - b'0') as i8);
 
-        let non_neg =
-            sign.filter(|x| **x == b'-').count() % 2 == 0 || digits.clone().all(|x| x == 0);
-
-        let mut mantica: Vec<_> = if non_neg {
-            iter::once(0).chain(digits).collect()
-        } else {
-            let mut mantica: Vec<_> = iter::once(9).chain(digits.map(|x| 9 - x)).collect();
-            *mantica.last_mut().unwrap() += 1;
-            mantica
+        let mut num = Number {
+            mantica: iter::once(0).chain(digits).collect(),
+            exponent,
         };
-        carry_logic(&mut mantica[..]);
 
-        Number { mantica, exponent }
+        let is_negative = sign.filter(|x| **x == b'-').count() % 2 == 1;
+        if is_negative {
+            num.negate();
+        };
+        num
     }
 }
 
 impl From<Number> for Value {
-    fn from(value: Number) -> Self {
+    fn from(mut value: Number) -> Self {
+        let is_negative = value.is_negative();
+        if is_negative {
+            value.negate();
+        }
+
         let Number {
             mut mantica,
             mut exponent,
         } = value;
 
-        let negative = match mantica[0] {
-            0 => {
-                /* Positive or Zero*/
-                false
-            }
-            9 => {
-                /* Negative number*/
-                mantica = mantica.iter().map(|x| 9 - x).collect();
-                *mantica.last_mut().unwrap() += 1;
-                carry_logic(&mut mantica[..]);
-                true
-            }
-            _ => unreachable!("Sign bit should only be 0 or 9"),
-        };
         //Removing the sign bit
         mantica.remove(0);
 
@@ -152,14 +171,10 @@ impl From<Number> for Value {
         if digits.is_empty() {
             digits.push(b'0');
         }
-        if negative {
+        if is_negative {
             digits.insert(0, b'-');
         }
-        if digits.is_empty() {
-            Value(vec![b'0'])
-        } else {
-            Value(digits)
-        }
+        Value(digits)
     }
 }
 impl std::str::FromStr for Number {
@@ -238,5 +253,28 @@ mod test {
     #[case("-+-99OO", "99")]
     fn stop_a_non_numaric(#[case] given: Number, #[case] cononical: Value) {
         assert_eq!(cononical, given.into())
+    }
+
+    #[rstest]
+    #[case("0")]
+    #[case("1")]
+    #[case("9")]
+    #[case("10")]
+    fn negate(#[case] value: &str) {
+        use std::str::FromStr;
+        {
+            let mut negated = Number::from_str(value).unwrap();
+            negated.negate();
+            let original = Number::from_str(&format!("-{value}")).unwrap();
+            assert_eq!(negated, original);
+            assert_eq!(negated, original);
+        }
+        {
+            let mut negated = Number::from_str(&format!("-{value}")).unwrap();
+            negated.negate();
+            let original = Number::from_str(value).unwrap();
+            assert_eq!(negated, original);
+            assert_eq!(negated, original);
+        }
     }
 }

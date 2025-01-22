@@ -5,32 +5,23 @@ impl std::ops::Add for Number {
 
     fn add(mut self, mut rhs: Self) -> Self::Output {
         Number::match_padding(&mut [&mut self, &mut rhs]);
-        let mut mantica: Vec<_> = self
+        let mantica = self
             .mantica
             .iter()
             .zip(rhs.mantica.iter())
             .map(|(x, y)| x + y)
             .collect();
         // Handle carry over
-        carry_logic(&mut mantica[..]);
-        let mut exponent = self.exponent;
-        mantica[0] %= 10;
-        match mantica[0] {
-            8 => {
-                /*Negative add digit*/
-                mantica.insert(0, 9);
-                exponent += 1;
-            }
-            9 => { /* Negative */ }
-            0 => { /*Positive*/ }
-            1 => {
-                /*Positive add digit*/
-                mantica.insert(0, 0);
-                exponent += 1;
-            }
-            _ => unreachable!(),
-        }
-        Number { mantica, exponent }
+        carry_logic(mantica, self.exponent)
+    }
+}
+
+impl std::ops::Sub for Number {
+    type Output = Number;
+
+    fn sub(self, mut rhs: Self) -> Self::Output {
+        rhs.negate();
+        self + rhs
     }
 }
 
@@ -62,35 +53,14 @@ mod tests {
     }
 
     #[quickcheck]
-    fn add_prop_int(a: i32, b: i32) {
+    fn add_inverse_of_sub(a: i32, b: i32) {
         let sum: i64 = i64::from(a) + i64::from(b);
         let a = Number::from_str(&a.to_string()).unwrap();
         let b = Number::from_str(&b.to_string()).unwrap();
         let sum = Number::from_str(&sum.to_string()).unwrap();
-        assert_eq!(a.clone() + b.clone(), sum);
-        assert_eq!(b + a, sum);
+        assert_eq!(a.clone() + b.clone(), sum.clone());
+        assert_eq!(sum.clone() - b.clone(), a.clone());
+        assert_eq!(b.clone() + a.clone(), sum.clone());
+        assert_eq!(sum.clone() - a.clone(), b.clone());
     }
-    fn add_prop_dec(a: i32, b: i32) {
-        let sum: i64 = i64::from(a) + i64::from(b);
-        let a = Number::from_str(&format!(".{}", a)).unwrap();
-        let b = Number::from_str(&format!(".{}", b)).unwrap();
-        let sum = Number::from_str(&sum.to_string()).unwrap();
-        assert_eq!(a.clone() + b.clone(), sum);
-        assert_eq!(b + a, sum);
-    }
-    /*
-    #[rstest]
-    #[case::one_minus_one("1", "1", "0")]
-    #[case::uint_of_different_length("22", "1", "21")]
-    #[case::decimial_and_int("2.1", "1", "1.1")]
-    #[case::carry("25", "7", "18")]
-    #[case::carry_remove_order_of_maginitued("15", "7", "8")]
-    #[case::carry_multiple_times("100.1", ".2", "99.9")]
-    #[case::remove_trailing_zero("1.1", ".1", "1")]
-    #[case::keep_int_traling_zero("11", "1", "10")]
-    fn sub(#[case] a: Number, #[case] b: Number, #[case] difference: Number) {
-        todo!();
-        //assert_eq!(a - b, difference);
-    }
-    */
 }
