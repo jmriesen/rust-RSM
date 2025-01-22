@@ -5,6 +5,6 @@ impl<'a> Arbitrary<'a> for Value {
     #[cfg_attr(test, mutants::skip)]
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let len: usize = u.int_in_range(0..=MAX_STR_LEN)?;
-        Ok(Self(Vec::from(u.bytes(len)?)))
+        Ok(Value::try_from(u.bytes(len)?).expect("len is less then max len"))
     }
 }
