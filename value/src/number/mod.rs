@@ -9,7 +9,7 @@ pub struct Number {
     ///Note due to 9's complement
     /// positive numbers start with a leading 0
     /// negative numbers start with a leading 9
-    mantica: Vec<i8>,
+    mantissa: Vec<i8>,
 }
 
 impl PartialEq for Number {
@@ -23,7 +23,7 @@ impl PartialEq for Number {
         let mut left = self.clone();
         let mut right = other.clone();
         Number::match_padding(&mut [&mut left, &mut right]);
-        left.mantica == right.mantica
+        left.mantissa == right.mantissa
     }
 }
 
@@ -31,30 +31,30 @@ impl PartialEq for Number {
 // This should be called after any operation that could result in a carry.
 // Note this is specifically NOT a method on Number since since it is invalid
 // to have a "number" that contains digits other then 0-9
-fn carry_logic(mut mantica: Vec<i8>, mut exponent: usize) -> Number {
-    for i in (1..mantica.len()).rev() {
-        if mantica[i] > 9 {
-            mantica[i] -= 10;
-            mantica[i - 1] += 1;
+fn carry_logic(mut mantissa: Vec<i8>, mut exponent: usize) -> Number {
+    for i in (1..mantissa.len()).rev() {
+        if mantissa[i] > 9 {
+            mantissa[i] -= 10;
+            mantissa[i - 1] += 1;
         }
     }
-    mantica[0] %= 10;
-    match mantica[0] {
+    mantissa[0] %= 10;
+    match mantissa[0] {
         8 => {
             /*Negative add digit*/
-            mantica.insert(0, 9);
+            mantissa.insert(0, 9);
             exponent += 1;
         }
         9 => { /* Negative */ }
         0 => { /*Positive*/ }
         1 => {
             /*Positive add digit*/
-            mantica.insert(0, 0);
+            mantissa.insert(0, 0);
             exponent += 1;
         }
         _ => unreachable!(),
     }
-    Number { exponent, mantica }
+    Number { exponent, mantissa }
 }
 
 impl Number {
@@ -73,46 +73,46 @@ impl Number {
             for number in &mut *numbers {
                 let padding_digit = get_padding_digit(number);
                 for _ in number.exponent..new_exponent {
-                    number.mantica.insert(0, padding_digit);
+                    number.mantissa.insert(0, padding_digit);
                     number.exponent += 1;
                 }
             }
             // Match precision
             let new_mantica_len = numbers
                 .iter()
-                .map(|x| x.mantica.len())
+                .map(|x| x.mantissa.len())
                 .max()
                 .expect("non-empty slice");
             for number in &mut *numbers {
                 let padding_digit = get_padding_digit(number);
-                for _ in number.mantica.len()..new_mantica_len {
-                    number.mantica.push(padding_digit);
+                for _ in number.mantissa.len()..new_mantica_len {
+                    number.mantissa.push(padding_digit);
                 }
             }
         }
     }
 
     fn is_negative(&self) -> bool {
-        self.mantica[0] == 9
+        self.mantissa[0] == 9
     }
 
     fn negate(&mut self) {
-        self.mantica = self.mantica.iter().map(|x| 9 - x).collect();
+        self.mantissa = self.mantissa.iter().map(|x| 9 - x).collect();
         *self
-            .mantica
+            .mantissa
             .last_mut()
             .expect("mantica is always non Empty") += 1;
-        *self = carry_logic(std::mem::take(&mut self.mantica), self.exponent);
+        *self = carry_logic(std::mem::take(&mut self.mantissa), self.exponent);
     }
 }
 
 impl From<Value> for Number {
     fn from(value: Value) -> Self {
-        let is_sign = |x: &&u8| **x == b'-' || **x == b'+';
+        let is_sign_character = |x: &&u8| **x == b'-' || **x == b'+';
         let value = &value.0[..];
 
-        let sign = value.iter().take_while(is_sign);
-        let tail = value.iter().skip_while(is_sign);
+        let sign = value.iter().take_while(is_sign_character);
+        let tail = value.iter().skip_while(is_sign_character);
 
         //Pulling of integer part
         let integer = tail.clone().take_while(|x| x.is_ascii_digit());
@@ -120,14 +120,13 @@ impl From<Value> for Number {
         let exponent = integer.clone().count();
 
         //Pulling out decimal part.
-        //Note could still have trailing zeros
         let has_decimal_point = tail.next() == Some(&b'.');
         let decimal = tail.take_while(|x| x.is_ascii_digit() && has_decimal_point);
 
         let digits = integer.chain(decimal).map(|x| (x - b'0') as i8);
 
         let mut num = Number {
-            mantica: iter::once(0).chain(digits).collect(),
+            mantissa: iter::once(0).chain(digits).collect(),
             exponent,
         };
 
@@ -147,23 +146,23 @@ impl From<Number> for Value {
         }
 
         let Number {
-            mut mantica,
+            mut mantissa,
             mut exponent,
         } = value;
 
         //Removing the sign bit
-        mantica.remove(0);
+        mantissa.remove(0);
 
         //Strip trailing zeros
-        while mantica.len() > exponent && mantica.last() == Some(&0) {
-            mantica.pop();
+        while mantissa.len() > exponent && mantissa.last() == Some(&0) {
+            mantissa.pop();
         }
         //Strip leading zeros
-        while exponent > 0 && mantica.first() == Some(&0) {
-            mantica.remove(0);
+        while exponent > 0 && mantissa.first() == Some(&0) {
+            mantissa.remove(0);
             exponent -= 1;
         }
-        let mut digits: Vec<_> = mantica.iter().map(|x| (x + b'0' as i8) as u8).collect();
+        let mut digits: Vec<_> = mantissa.iter().map(|x| (x + b'0' as i8) as u8).collect();
 
         if digits.len() > exponent {
             digits.insert(exponent, b'.');
@@ -255,7 +254,7 @@ mod test {
     #[rstest]
     #[case("9a0", "9")]
     #[case("-+-99OO", "99")]
-    fn stop_a_non_numaric(#[case] given: Number, #[case] cononical: Value) {
+    fn stop_at_non_numaric(#[case] given: Number, #[case] cononical: Value) {
         assert_eq!(cononical, given.into())
     }
 
