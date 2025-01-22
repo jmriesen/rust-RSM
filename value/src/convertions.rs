@@ -23,8 +23,6 @@ impl TryFrom<&[u8]> for Value {
     }
 }
 
-// skip mutation testing since this is just used by rstest
-#[cfg_attr(test, mutants::skip)]
 impl std::str::FromStr for Value {
     type Err = ();
 
