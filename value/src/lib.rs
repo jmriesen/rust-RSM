@@ -93,3 +93,22 @@ impl std::fmt::Debug for Value {
         builder.finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn as_bytes() {
+        let content: Vec<u8> = (10..15).collect();
+        let value = Value::try_from(&content[..]).unwrap();
+        let expected = {
+            let mut expected = content.clone();
+            expected.insert(0, content.len() as u8);
+            expected.insert(1, 0);
+            expected
+        };
+
+        let bytes: Vec<_> = value.as_bytes().collect();
+        assert_eq!(bytes, expected);
+    }
+}

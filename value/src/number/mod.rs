@@ -23,7 +23,7 @@ impl PartialEq for Number {
         let mut left = self.clone();
         let mut right = other.clone();
         Number::match_padding(&mut [&mut left, &mut right]);
-        left.mantica == right.mantica && left.exponent == right.exponent
+        left.mantica == right.mantica
     }
 }
 
@@ -188,6 +188,8 @@ impl std::str::FromStr for Number {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use crate::{Value, number::Number};
     use rstest::rstest;
 
@@ -276,5 +278,14 @@ mod test {
             assert_eq!(negated, original);
             assert_eq!(negated, original);
         }
+    }
+
+    //This is mostly here to satisfy mutation testing
+    #[test]
+    fn expect_neq() {
+        let number = Number::from_str("1").unwrap();
+        let mut negitive = number.clone();
+        negitive.negate();
+        assert_ne!(number, negitive)
     }
 }
