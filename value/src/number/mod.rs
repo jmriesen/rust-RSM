@@ -159,7 +159,7 @@ impl From<Number> for Value {
             mantica.pop();
         }
         //Strip leading zeros
-        while mantica.len() > 1 && mantica.first() == Some(&0) {
+        while exponent > 0 && mantica.first() == Some(&0) {
             mantica.remove(0);
             exponent -= 1;
         }
@@ -235,17 +235,19 @@ mod test {
     }
 
     #[rstest]
-    #[case("09", "9")]
-    #[case("-09", "-9")]
-    #[case("+09", "9")]
-    #[case("009", "9")]
-    #[case("-009", "-9")]
-    #[case("+009", "9")]
-    #[case("9.", "9")]
-    #[case("0.9", ".9")]
-    #[case(".90", ".9")]
-    #[case(".9000", ".9")]
-    #[case(".900090", ".90009")]
+    #[case::leading("09", "9")]
+    #[case::negative("-09", "-9")]
+    #[case::positive("+09", "9")]
+    #[case::multiple("009", "9")]
+    #[case::multiple_neg("-009", "-9")]
+    #[case::multiple_pos("+009", "9")]
+    #[case::dont_strip_dec_leading("0.001", ".001")]
+    #[case::strip_trailing_dot("9.", "9")]
+    #[case::zero_int("0.9", ".9")]
+    #[case::trailing(".90", ".9")]
+    #[case::trailing_multiple(".9000", ".9")]
+    #[case::trailing(".900090", ".90009")]
+    #[case::everything("0.000010000", ".00001")]
     fn strip_zeros(#[case] given: Number, #[case] cononical: Value) {
         assert_eq!(cononical, given.into())
     }
