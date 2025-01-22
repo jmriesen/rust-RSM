@@ -34,8 +34,7 @@ pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = 65534;
 
 mod convertions;
-#[cfg(feature = "ffi")]
-mod ffi;
+pub use convertions::CreationError;
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;

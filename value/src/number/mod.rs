@@ -1,4 +1,6 @@
 mod add;
+use crate::convertions::CreationError;
+
 use super::Value;
 use std::iter;
 // Stores the number in scientific notation/9's complement form
@@ -177,7 +179,7 @@ impl From<Number> for Value {
     }
 }
 impl std::str::FromStr for Number {
-    type Err = ();
+    type Err = CreationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = Value::from_str(s)?;

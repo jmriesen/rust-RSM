@@ -29,7 +29,7 @@ use core::num;
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use std::str::FromStr;
-use value::Value;
+use value::{CreationError, Value};
 
 pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
     comp.push(crate::bindings::OPSTR);
@@ -37,7 +37,7 @@ pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
     comp.push(0);
 }
 
-pub fn parse_string_litteral(string: &str) -> Result<Value, ()> {
+pub fn parse_string_litteral(string: &str) -> Result<Value, CreationError> {
     let string = string
         //Strip off outer quotes.
         .strip_prefix('"')
