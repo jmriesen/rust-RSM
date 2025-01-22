@@ -19,6 +19,7 @@ impl std::ops::Add for Number {
 impl std::ops::Sub for Number {
     type Output = Number;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, mut rhs: Self) -> Self::Output {
         rhs.negate();
         self + rhs

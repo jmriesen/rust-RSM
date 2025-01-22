@@ -71,7 +71,7 @@ impl Number {
                 .max()
                 .expect("non-empty slice");
             for number in &mut *numbers {
-                let padding_digit = get_padding_digit(&number);
+                let padding_digit = get_padding_digit(number);
                 for _ in number.exponent..new_exponent {
                     number.mantica.insert(0, padding_digit);
                     number.exponent += 1;
@@ -84,7 +84,7 @@ impl Number {
                 .max()
                 .expect("non-empty slice");
             for number in &mut *numbers {
-                let padding_digit = get_padding_digit(&number);
+                let padding_digit = get_padding_digit(number);
                 for _ in number.mantica.len()..new_mantica_len {
                     number.mantica.push(padding_digit);
                 }

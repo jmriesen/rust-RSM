@@ -28,9 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-use std::{io::Read, iter};
-
 use serde::{Deserialize, Serialize};
+use std::iter;
 pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = 65534;
 
