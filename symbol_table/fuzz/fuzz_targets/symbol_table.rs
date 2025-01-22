@@ -30,6 +30,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
+use ffi::value::IntoCstring;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{

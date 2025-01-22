@@ -410,6 +410,7 @@ dependencies = [
  "cc",
  "glob",
  "libc",
+ "value",
 ]
 
 [[package]]
@@ -1705,7 +1706,6 @@ name = "value"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
- "ffi",
  "mutants",
  "quickcheck",
  "quickcheck_macros",
