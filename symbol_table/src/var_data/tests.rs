@@ -1,9 +1,9 @@
 use crate::{
     m_var::test_helpers::{var_m, var_m_nullable},
-    value::Value,
     var_data::Direction,
     Table,
 };
+use value::Value;
 mod data {
     use crate::var_data::DataResult;
 

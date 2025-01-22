@@ -31,7 +31,7 @@
 #![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
-use crate::value::Value;
+use value::Value;
 use format::IntermediateRepresentation;
 
 //TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array

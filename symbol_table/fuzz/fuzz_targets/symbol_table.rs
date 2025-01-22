@@ -30,13 +30,14 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
+use ffi::value::IntoCstring;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
     key::{Key, KeyBound},
-    value::Value,
     Direction, MVar, Table,
 };
+use value::Value;
 
 #[derive(Arbitrary, Debug, Deserialize, Serialize)]
 enum TableCommands {

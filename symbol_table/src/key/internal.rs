@@ -27,7 +27,8 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::{key::SubKey, value::Value};
+use crate::key::SubKey;
+use value::Value;
 
 pub const MAX_KEY_SIZE: usize = 255;
 
@@ -171,8 +172,9 @@ impl PartialOrd for KeyBound {
 mod tests {
     use std::str::FromStr;
 
-    use crate::{key::KeyBound, value::Value};
+    use crate::key::KeyBound;
 
+    use value::Value;
     #[test]
     fn extract_sibling_key() {
         let to_key = |keys: &[&'static str]| {

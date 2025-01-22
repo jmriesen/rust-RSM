@@ -37,6 +37,8 @@ use rstest::rstest;
 #[case("SomeString?.2A")]
 #[case("SomeString?1.A")]
 #[case("SomeString?@var")]
+#[case("SomeString?1\"var\"")]
+#[case("SomeString?1\"quote \"\" literal\"")]
 fn parse_pattern(#[case] num: &str) {
     let source_code = format!("w {}", num);
     let (orignal, _lock) = compile_c(&source_code, ffi::parse);

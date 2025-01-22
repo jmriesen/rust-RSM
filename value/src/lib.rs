@@ -29,9 +29,17 @@
  */
 
 use serde::{Deserialize, Serialize};
+use std::iter;
 pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = 65534;
 
+mod convertions;
+pub use convertions::CreationError;
+
+#[cfg(feature = "arbitrary")]
+mod arbitrary;
+mod number;
+pub use number::Number;
 ///This type represents the contents of an M Value.
 ///This can store arbitrary data but is most commonly strings.
 ///
@@ -49,48 +57,24 @@ impl Value {
     pub const fn empty() -> Self {
         Self(Vec::new())
     }
+    pub fn as_bytes(&self) -> impl Iterator<Item = u8> {
+        let len: u16 = self
+            .0
+            .len()
+            .try_into()
+            .expect("Max length of Value should fit in a u16");
+
+        //Deconstructing the u16 explicitly to avoid lifetime issues
+        let [first, second] = len.to_le_bytes();
+        iter::once(first)
+            .chain(iter::once(second))
+            .chain(self.content().iter().cloned())
+    }
 }
 
 impl Default for Value {
     fn default() -> Self {
         Self::empty()
-    }
-}
-
-#[cfg_attr(test, mutants::skip)]
-#[cfg(feature = "ffi")]
-mod ffi {
-
-    use super::{Value, MAX_STR_LEN};
-    use ffi::CSTRING;
-    impl Value {
-        #[must_use]
-        pub fn into_cstring(self) -> CSTRING {
-            let mut buf = [0; MAX_STR_LEN + 1];
-            buf[..self.0.len()].copy_from_slice(&self.0[..]);
-            CSTRING {
-                len: self.0.len().try_into().expect("Max var len < u16::max"),
-                buf,
-            }
-        }
-    }
-    impl From<&CSTRING> for Value {
-        #[cfg_attr(test, mutants::skip)]
-        fn from(value: &CSTRING) -> Self {
-            let data = &value.buf[..value.len as usize];
-            Self(Vec::from(data))
-        }
-    }
-}
-
-impl TryFrom<&[u8]> for Value {
-    type Error = ();
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() <= MAX_STR_LEN {
-            Ok(Self(Vec::from(value)))
-        } else {
-            Err(())
-        }
     }
 }
 
@@ -108,42 +92,21 @@ impl std::fmt::Debug for Value {
     }
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
-pub mod utility {
-    use std::str::FromStr;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn as_bytes() {
+        let content: Vec<u8> = (10..15).collect();
+        let value = Value::try_from(&content[..]).unwrap();
+        let expected = {
+            let mut expected = content.clone();
+            expected.insert(0, content.len() as u8);
+            expected.insert(1, 0);
+            expected
+        };
 
-    use super::MAX_STR_LEN;
-    use arbitrary::Arbitrary;
-
-    use super::Value;
-
-    impl<'a> Arbitrary<'a> for Value {
-        #[cfg_attr(test, mutants::skip)]
-        fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            let len: usize = u.int_in_range(0..=MAX_STR_LEN)?;
-            Ok(Self(Vec::from(u.bytes(len)?)))
-        }
-    }
-
-    // skip mutation testing since this is just used by rstest
-    #[cfg_attr(test, mutants::skip)]
-    impl FromStr for Value {
-        type Err = ();
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Self::try_from(s)
-        }
-    }
-
-    impl TryFrom<&str> for Value {
-        type Error = ();
-
-        fn try_from(value: &str) -> Result<Self, Self::Error> {
-            if value.len() <= MAX_STR_LEN {
-                Ok(Self(Vec::from(value.as_bytes())))
-            } else {
-                Err(())
-            }
-        }
+        let bytes: Vec<_> = value.as_bytes().collect();
+        assert_eq!(bytes, expected);
     }
 }

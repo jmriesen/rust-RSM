@@ -45,16 +45,17 @@ use crate::Compileable;
 impl<'a> Compileable for Expression<'a> {
     type Context = ExpressionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
+        use std::str::FromStr;
         use ExpressionChildren::*;
         match self.children() {
             number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
-                ncopy(num, comp);
+                insert_value(comp, value::Number::from_str(num).unwrap().into());
             }
             string(value) => {
                 //TODO remove duplication.
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
-                compile_string_literal(value, comp);
+                insert_value(comp, parse_string_litteral(value).unwrap());
             }
             Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
             IntrinsicVar(var) => {
@@ -91,9 +92,8 @@ impl<'a> Compileable for Expression<'a> {
                         exp.compile(source_code, comp, ExpressionContext::Eval);
                     }
                     E::Patern(value) => {
-                        //TODO remove duplication
                         let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
-                        compile_string_literal(&format!("\"{}\"", value), comp);
+                        insert_value(comp, value::Value::from_str(value).unwrap());
                     }
                 }
                 comp.push(pat_exp.opp().op_code());
@@ -107,7 +107,7 @@ impl<'a> Compileable for Expression<'a> {
                     .for_each(|x| x.compile(source_code, comp, ExpressionContext::Eval));
 
                 for _ in x.args().len()..2 {
-                    compile_string_literal("\"\"", comp);
+                    insert_value(comp, value::EMPTY.clone());
                 }
                 comp.push(x.code().op_code());
             }

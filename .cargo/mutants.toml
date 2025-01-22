@@ -1,5 +1,5 @@
 #Note I have to explicitly turn on the crates I want to test.
 #If I don't cargo mutants will try and build tree-sitter-M and then fail due do to a missing build.rs file
 # I tried to look into why this file was missing, but could not find the reason. 
-examine_globs = ["symbol_table/**","interpreter/**","compiler/**"]
+examine_globs = ["symbol_table/**","interpreter/**","compiler/**","value/**"]
 

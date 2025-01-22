@@ -7,5 +7,5 @@ members=[
 	"lang-model",
 	"interpreter",
 	"symbol_table/fuzz",
-	"ffi", "symbol_table"]
+	"ffi", "symbol_table", "value"]
 
