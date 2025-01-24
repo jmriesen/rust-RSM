@@ -29,7 +29,7 @@
  */
 #![feature(array_chunks)]
 
-use ffi as bindings;
+use ffi::{self as bindings, VAR_U};
 
 mod command;
 mod dollar;
@@ -296,9 +296,8 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
             _ => unreachable!(),
         };
         comp.push(opcode as u8);
-        use crate::bindings::var_u;
         if let Some(routine) = routine {
-            let routine: var_u = routine
+            let routine: VAR_U = routine
                 .node()
                 .utf8_text(source_code.as_bytes())
                 .unwrap()
@@ -314,7 +313,7 @@ impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
                 NumericIdentifier(x) => x.node(),
             };
 
-            let tag: var_u = node
+            let tag: VAR_U = node
                 .utf8_text(source_code.as_bytes())
                 .unwrap()
                 .try_into()

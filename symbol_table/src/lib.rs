@@ -53,7 +53,7 @@ pub use m_var::MVar;
 use value::Value;
 pub use var_data::Direction;
 use var_data::{DataResult, VarData};
-use var_u::VarU;
+pub use var_u::VarU;
 
 impl hash::Key for VarU {
     fn error() -> Self {

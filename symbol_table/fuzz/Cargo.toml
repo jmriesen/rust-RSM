@@ -15,7 +15,7 @@ value = { path = "../../value"  }
 
 [dependencies.symbol_table]
 path = ".."
-features = ["fuzzing","ffi"]
+features = ["fuzzing"]
 
 [dependencies.ffi]
 path = "../../ffi"

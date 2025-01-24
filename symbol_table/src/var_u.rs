@@ -66,21 +66,6 @@ impl fmt::Display for VarU {
     }
 }
 
-#[cfg_attr(test, mutants::skip)]
-#[cfg(feature = "ffi")]
-impl VarU {
-    pub fn as_c(&self) -> ffi::VAR_U {
-        use std::iter::repeat_n;
-        let mut array = self.0.clone();
-        array.extend(repeat_n(0, array.remaining_capacity()));
-        ffi::VAR_U {
-            var_cu: array
-                .into_inner()
-                .expect("we have allready fill the capasity with zeros"),
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
