@@ -1,28 +1,23 @@
+use crate::IntoC;
 use std::array::from_fn;
-
 use symbol_table::{key::KeyType, MVar, VarU};
-pub trait IntoCvarU {
-    fn into_c(self) -> crate::bindings::VAR_U;
-}
 
-impl IntoCvarU for VarU {
-    fn into_c(self) -> crate::bindings::VAR_U {
+impl IntoC for VarU {
+    type CType = crate::bindings::VAR_U;
+    fn into_c(self) -> Self::CType {
         let mut content = self.contents().iter().cloned();
-        crate::bindings::VAR_U {
+        Self::CType {
             var_cu: from_fn(|_| content.next().unwrap_or(0)),
         }
     }
 }
 
-pub trait IntoCmVar {
-    fn into_c(self) -> crate::bindings::MVAR;
-}
-
-impl<Key: KeyType> IntoCmVar for MVar<Key> {
+impl<Key: KeyType> IntoC for MVar<Key> {
+    type CType = crate::bindings::MVAR;
     #[must_use]
-    fn into_c(self) -> crate::bindings::MVAR {
+    fn into_c(self) -> Self::CType {
         let (slen, key) = self.key.borrow().clone().into_ckey();
-        crate::bindings::MVAR {
+        Self::CType {
             name: self.name.into_c(),
             volset: self.volset,
             uci: self.uci,

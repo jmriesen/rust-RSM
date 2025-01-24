@@ -30,7 +30,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use ffi::{value::IntoCstring, var_u::IntoCmVar};
+use ffi::IntoC;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
@@ -66,7 +66,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Set(var, val) => {
                 assert_eq!(
                     table.set(&var, &val).map_err(|err| err.error_code() as i32),
-                    c_table.set(&var.into_c(), &val.into_cstring())
+                    c_table.set(&var.into_c(), &val.into_c())
                 );
             }
             TableCommands::Get(var) => {

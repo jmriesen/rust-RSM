@@ -1,13 +1,13 @@
-use crate::bindings::{CSTRING, MAX_STR_LEN};
+use crate::{
+    bindings::{CSTRING, MAX_STR_LEN},
+    IntoC,
+};
 use value::Value;
 
-pub trait IntoCstring {
-    fn into_cstring(self) -> CSTRING;
-}
-
-impl IntoCstring for Value {
+impl IntoC for Value {
+    type CType = CSTRING;
     #[must_use]
-    fn into_cstring(self) -> CSTRING {
+    fn into_c(self) -> CSTRING {
         let mut buf = [0; MAX_STR_LEN as usize + 1];
         let content = self.content();
         buf[..content.len()].copy_from_slice(&content);

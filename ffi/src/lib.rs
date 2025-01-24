@@ -161,3 +161,9 @@ impl Drop for SharedSegmentGuard {
         }
     }
 }
+
+pub trait IntoC {
+    type CType;
+
+    fn into_c(self) -> Self::CType;
+}
