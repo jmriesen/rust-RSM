@@ -74,7 +74,7 @@ pub mod test_helpers {
     }
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
+#[cfg(feature = "arbitrary")]
 pub mod helpers {
     use arbitrary::Arbitrary;
 
