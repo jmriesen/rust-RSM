@@ -12,13 +12,8 @@ libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 serde = { version = "1.0.210", features = ["derive"] }
 value = { path = "../../value"  }
-
-[dependencies.symbol_table]
-path = ".."
-features = ["fuzzing","ffi"]
-
-[dependencies.ffi]
-path = "../../ffi"
+symbol_table = { path = "..", features = ["arbitrary"] }
+ffi = {path = "../../ffi"}
 
 [[bin]]
 name = "symbol_table"

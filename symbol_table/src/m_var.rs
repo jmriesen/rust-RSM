@@ -38,8 +38,8 @@ use std::ffi::c_uchar;
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MVar<Key: key::KeyType> {
     pub name: VarU,
-    volset: c_uchar,
-    uci: c_uchar,
+    pub volset: c_uchar,
+    pub uci: c_uchar,
     pub key: Key,
 }
 
@@ -121,22 +121,6 @@ mod tests {
     }
 }
 
-#[cfg_attr(test, mutants::skip)]
-#[cfg(feature = "ffi")]
-impl<Key: crate::key::KeyType> MVar<Key> {
-    #[must_use]
-    pub fn into_cmvar(self) -> ffi::MVAR {
-        let (slen, key) = self.key.borrow().clone().into_ckey();
-        ffi::MVAR {
-            name: self.name.as_c(),
-            volset: self.volset,
-            uci: self.uci,
-            slen,
-            key,
-        }
-    }
-}
-
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
@@ -167,7 +151,7 @@ pub mod test_helpers {
     }
 }
 
-#[cfg(any(test, feature = "fuzzing"))]
+#[cfg(feature = "arbitrary")]
 pub mod helpers {
 
     use super::{MVar, VarU};

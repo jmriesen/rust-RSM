@@ -195,7 +195,7 @@ impl std::fmt::Debug for KeyBound {
 }
 
 #[cfg_attr(test, mutants::skip)]
-#[cfg(feature = "fuzzing")]
+#[cfg(feature = "arbitrary")]
 mod fuzzing {
     use super::{Key, KeyBound};
     use arbitrary::Arbitrary;

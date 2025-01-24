@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 libc = "0.2.158"
 value = { path = "../value"}
+symbol_table = { path = "../symbol_table/"}
 
 
 [build-dependencies]

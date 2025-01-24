@@ -30,7 +30,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use ffi::value::IntoCstring;
+use ffi::IntoC;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
@@ -66,26 +66,26 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             TableCommands::Set(var, val) => {
                 assert_eq!(
                     table.set(&var, &val).map_err(|err| err.error_code() as i32),
-                    c_table.set(&var.into_cmvar(), &val.into_cstring())
+                    c_table.set(&var.into_c(), &val.into_c())
                 );
             }
             TableCommands::Get(var) => {
                 let rust_val = table.get(&var);
-                let c_val = c_table.get(&var.into_cmvar()).map(|x| Value::from(&x));
+                let c_val = c_table.get(&var.into_c()).map(|x| Value::from(&x));
                 assert_eq!(rust_val.ok_or(&-(ffi::ERRM6 as i32)), c_val.as_ref());
             }
             TableCommands::Kill(var) => {
                 table.kill(&var);
-                c_table.kill(&var.into_cmvar());
+                c_table.kill(&var.into_c());
             }
             TableCommands::Data(var) => {
-                let (decedents, data) = c_table.data(&var.clone().into_cmvar());
+                let (decedents, data) = c_table.data(&var.clone().into_c());
                 assert_eq!(decedents, table.data(&var).has_descendants);
                 assert_eq!(data, table.data(&var).has_value);
             }
             TableCommands::Query(var, direction) => {
                 let rust_val = table.query(&var, direction);
-                let c_val = c_table.query(&var.into_cmvar(), direction == Direction::Backward);
+                let c_val = c_table.query(&var.into_c(), direction == Direction::Backward);
                 assert_eq!(
                     rust_val.map(Value::from).unwrap_or_default(),
                     Value::try_from(&c_val[..])
@@ -94,7 +94,7 @@ fuzz_target!(|commands: Vec<TableCommands>| {
             }
             TableCommands::Order(var, direction) => {
                 let rust_val = table.order(&var, direction);
-                let c_val = c_table.order(&var.into_cmvar(), direction == Direction::Backward);
+                let c_val = c_table.order(&var.into_c(), direction == Direction::Backward);
                 assert_eq!(
                     rust_val.map(Value::from).unwrap_or_default(),
                     Value::try_from(&c_val[..])

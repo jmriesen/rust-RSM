@@ -31,6 +31,7 @@ mod bindings;
 pub mod interface;
 pub mod run;
 pub mod value;
+pub mod var_u;
 pub use bindings::*;
 pub mod symbol_table;
 use core::ptr::null_mut;
@@ -99,7 +100,7 @@ impl Default for crate::bindings::SYSTAB {
     }
 }
 
-impl var_u {
+impl VAR_U {
     pub fn as_array(&self) -> &[u8] {
         unsafe { &self.var_cu }
     }
@@ -159,4 +160,10 @@ impl Drop for SharedSegmentGuard {
             libc::shmdt(self.1);
         }
     }
+}
+
+pub trait IntoC {
+    type CType;
+
+    fn into_c(self) -> Self::CType;
 }
