@@ -12,19 +12,34 @@ pub struct Number {
     /// negative numbers start with a leading 9
     mantissa: Vec<i8>,
 }
+fn extract_normalized_representation(number: &Number) -> (&[i8], usize) {
+    let sign_char = number.mantissa[0];
+    let start = number
+        .mantissa
+        .iter()
+        .position(|x| *x != sign_char)
+        // Include the leading sign bit
+        .map(|x| x - 1);
+    let end = number
+        .mantissa
+        .iter()
+        .rev()
+        .position(|x| *x != sign_char)
+        .map(|x| number.mantissa.len() - x);
+
+    //If non-zero
+    if let (Some(start), Some(end)) = (start, end) {
+        let mantissa = &number.mantissa[start..end];
+        let order_of_magnituide = number.exponent - start;
+        (mantissa, order_of_magnituide)
+    } else {
+        (&[0], 0)
+    }
+}
 
 impl PartialEq for Number {
     fn eq(&self, other: &Self) -> bool {
-        // NOTE:
-        // I am currently cloning so I can re use the match_padding function.
-        // Cloning should not be needed, but this is the simplest way I can think of implementing
-        // equality right now.
-        //
-        // If this becomes a performance issue consider rewriting this logic.
-        let mut left = self.clone();
-        let mut right = other.clone();
-        Number::match_padding(&mut [&mut left, &mut right]);
-        left.mantissa == right.mantissa
+        extract_normalized_representation(&self) == extract_normalized_representation(other)
     }
 }
 
