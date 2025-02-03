@@ -33,7 +33,7 @@ pub use literals::*;
 
 use lang_model::*;
 
-use crate::{localvar::VarTypes, ExtrinsicFunctionContext, OpCode};
+use crate::{localvar::VarContext, ExtrinsicFunctionContext, OpCode};
 
 pub enum ExpressionContext {
     Write = crate::bindings::INDWRIT as isize,
@@ -57,7 +57,7 @@ impl<'a> Compileable for Expression<'a> {
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
                 insert_value(comp, parse_string_litteral(value).unwrap());
             }
-            Variable(var) => var.compile(source_code, comp, VarTypes::Eval),
+            Variable(var) => var.compile(source_code, comp, VarContext::Eval),
             IntrinsicVar(var) => {
                 comp.push(var.op_code());
             }

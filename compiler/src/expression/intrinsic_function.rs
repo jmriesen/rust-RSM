@@ -30,7 +30,7 @@
 use crate::{
     expression::insert_value,
     function::{reserve_jump, write_jump},
-    localvar::VarTypes,
+    localvar::VarContext,
 };
 use lang_model::*;
 
@@ -86,7 +86,7 @@ impl<'a> ExpFunctionsExt<'a> for ExpFunctions<'a> {
 
 trait VarFunctionsExt {
     fn components(&self) -> (u8, Variable, Option<Expression>);
-    fn var_types(&self) -> VarTypes;
+    fn var_types(&self) -> VarContext;
 }
 
 impl<'a> VarFunctionsExt for VarFunctions<'a> {
@@ -108,12 +108,12 @@ impl<'a> VarFunctionsExt for VarFunctions<'a> {
         }
     }
 
-    fn var_types(&self) -> VarTypes {
+    fn var_types(&self) -> VarContext {
         use VarFunctionsChildren::*;
         match self.children() {
-            Data(_) | Get(_) | Increment(_) => VarTypes::Build,
-            Name(_) | Order(_) | Query(_) | Next(_) => VarTypes::BuildNullable,
-            Qlength(_) | Qsubscript(_) => VarTypes::Eval,
+            Data(_) | Get(_) | Increment(_) => VarContext::Build,
+            Name(_) | Order(_) | Query(_) | Next(_) => VarContext::BuildNullable,
+            Qlength(_) | Qsubscript(_) => VarContext::Eval,
         }
     }
 }

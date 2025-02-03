@@ -50,7 +50,7 @@ mod models {
     pub use lang_model::*;
 }
 
-use crate::localvar::VarTypes;
+use crate::localvar::VarContext;
 
 trait Compileable {
     type Context;
@@ -182,7 +182,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 }
                 E::For(command) => match command.variable() {
                     Some(var) => {
-                        var.compile(source_code, &mut comp, VarTypes::For);
+                        var.compile(source_code, &mut comp, VarContext::For);
                         let offset_for_code = reserve_jump(&mut comp);
                         let exit = reserve_jump(&mut comp);
 

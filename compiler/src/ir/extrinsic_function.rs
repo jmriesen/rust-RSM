@@ -1,6 +1,6 @@
 use ffi::VAR_U;
 
-use crate::{localvar::VarTypes, ExtrinsicFunctionContext};
+use crate::{ir::variable, localvar::VarContext, ExtrinsicFunctionContext};
 
 //NOTE: I am currently not validating the string size;
 pub enum Location {
@@ -80,7 +80,8 @@ pub fn compile(
                 comp.push(crate::bindings::VARUNDF);
             }
             ByRef(var) => {
-                var.children().compile(source_code, comp, VarTypes::Build);
+                let var = variable::Variable::new(&var.children(), source_code);
+                variable::compile(&var, source_code, comp, VarContext::Build);
                 comp.push(crate::bindings::NEWBREF);
             }
             Expression(exp) => {
