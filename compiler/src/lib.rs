@@ -29,12 +29,13 @@
  */
 #![feature(array_chunks)]
 
-use ffi::{self as bindings, VAR_U};
+use ffi::{self as bindings};
 
 mod command;
 mod dollar;
 mod expression;
 mod function;
+mod ir;
 mod localvar;
 mod op_code;
 mod routine;
@@ -62,7 +63,7 @@ trait OpCode {
 
 ///Test harness that for commands
 ///
-///Wraps the provided command in addtional formatting before calling compile.
+///Wraps the provided command in additional formatting before calling compile.
 ///This is needed since the only type tree sitter can parse is the source_file.
 ///
 #[cfg(test)]
@@ -264,77 +265,7 @@ enum ExtrinsicFunctionContext {
 impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
     type Context = ExtrinsicFunctionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
-        use crate::expression::ExpressionContext;
-        use models::ExtrinsicFunctionArgs::*;
-        let mut args = self.args();
-        let tag = self.tag();
-        let routine = self.routine();
-
-        //NOTE It is easier to  just remove the traling VarUndefined when compiling then then durring parseing
-        if args.last().is_some_and(|x| matches!(x, VarUndefined(_))) {
-            args.pop();
-        }
-        for arg in &args {
-            match arg {
-                VarUndefined(_) => {
-                    comp.push(crate::bindings::VARUNDF);
-                }
-                ByRef(var) => {
-                    var.children().compile(source_code, comp, VarTypes::Build);
-                    comp.push(crate::bindings::NEWBREF);
-                }
-                Expression(exp) => {
-                    exp.compile(source_code, comp, ExpressionContext::Eval);
-                }
-            };
-        }
-
-        let opcode = match (tag.is_some(), routine.is_some()) {
-            (true, false) => crate::bindings::CMDOTAG,
-            (false, true) => crate::bindings::CMDOROU,
-            (true, true) => crate::bindings::CMDORT,
-            _ => unreachable!(),
-        };
-        comp.push(opcode as u8);
-        if let Some(routine) = routine {
-            let routine: VAR_U = routine
-                .node()
-                .utf8_text(source_code.as_bytes())
-                .unwrap()
-                .try_into()
-                .unwrap();
-            comp.extend(routine.as_array());
-        }
-        if let Some(tag) = &tag {
-            use crate::models::TagNameChildren::*;
-            let tag = tag.children();
-            let node = match &tag {
-                identifier(x) => x.node(),
-                NumericIdentifier(x) => x.node(),
-            };
-
-            let tag: VAR_U = node
-                .utf8_text(source_code.as_bytes())
-                .unwrap()
-                .try_into()
-                .unwrap();
-            comp.extend(tag.as_array());
-        }
-
-        let marker = match context {
-            ExtrinsicFunctionContext::Do => {
-                //NOTE on line parse.c:241
-                //args is incremented before we check for ")"
-                //Therefor the args value is 1 higher then it should be
-                let source = self.node().utf8_text(source_code.as_bytes()).unwrap();
-                if source.contains('(') {
-                    1
-                } else {
-                    0
-                }
-            }
-            ExtrinsicFunctionContext::Eval => 129,
-        };
-        comp.push(args.len() as u8 + marker);
+        let function = ir::extrinsic_function::ExtrinsicFunction::new(self, source_code);
+        ir::extrinsic_function::compile(&function, source_code, comp, context);
     }
 }
