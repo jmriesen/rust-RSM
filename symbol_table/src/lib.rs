@@ -33,7 +33,6 @@
 #![feature(hash_extract_if)]
 #![feature(slice_split_once)]
 #![feature(array_windows)]
-#![feature(iter_repeat_n)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::missing_errors_doc)]
 //I disagree with how this lint handles expects.
@@ -47,12 +46,12 @@ mod m_var;
 mod var_data;
 mod var_u;
 
-use hash::CreationError;
+pub use hash::CreationError;
 use key::{Key, SubKey};
 pub use m_var::MVar;
 use value::Value;
-pub use var_data::Direction;
-use var_data::{DataResult, VarData};
+use var_data::VarData;
+pub use var_data::{DataResult, Direction};
 pub use var_u::VarU;
 
 impl hash::Key for VarU {
