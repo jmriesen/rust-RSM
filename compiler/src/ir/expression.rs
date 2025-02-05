@@ -5,7 +5,7 @@ use lang_model::{
 
 use crate::{
     expression::{insert_value, parse_string_litteral, ExpressionContext},
-    ir,
+    ir::{self, operators},
     localvar::VarContext,
     Compileable, ExtrinsicFunctionContext, OpCode,
 };
@@ -20,18 +20,18 @@ pub enum Expression<'a> {
     Expression(Box<Self>),
     InderectExpression(Box<Self>),
     UnaryExpression {
-        op_code: UnaryOpp<'a>,
+        op_code: operators::Unary,
         expresstion: Box<Self>,
     },
     BinaryExpression {
         left: Box<Self>,
-        op_code: BinaryOpp<'a>,
+        op_code: operators::Binary,
         right: Box<Self>,
     },
     PaternMatchExpression {
         left: Box<Self>,
         right: Box<Self>,
-        op_code: PatternOpp<'a>,
+        op_code: operators::Pattern,
     },
     ExtrinsicFunction(ExtrinsicFunction<'a>),
     XCall {
@@ -60,12 +60,12 @@ impl<'a> Expression<'a> {
             Expression(exp) => Self::Expression(nested_new(exp)),
             InderectExpression(exp) => Self::InderectExpression(nested_new(exp.children())),
             UnaryExpression(unary_exp) => Self::UnaryExpression {
-                op_code: unary_exp.opp(),
+                op_code: operators::Unary::new(unary_exp.opp()),
                 expresstion: nested_new(unary_exp.exp()),
             },
             BinaryExpression(bin_exp) => Self::BinaryExpression {
                 left: nested_new(bin_exp.exp_left()),
-                op_code: bin_exp.opp(),
+                op_code: operators::Binary::new(bin_exp.opp()),
                 right: nested_new(bin_exp.exp_right()),
             },
             PaternMatchExpression(pat_exp) => {
@@ -80,7 +80,7 @@ impl<'a> Expression<'a> {
                 Self::PaternMatchExpression {
                     left: nested_new(pat_exp.exp_left()),
                     right,
-                    op_code: pat_exp.opp(),
+                    op_code: operators::Pattern::new(pat_exp.opp()),
                 }
             }
             ExtrinsicFunction(x) => Self::ExtrinsicFunction(x),

@@ -37,7 +37,6 @@ mod expression;
 mod function;
 mod ir;
 mod localvar;
-mod op_code;
 mod routine;
 mod test_harness;
 
