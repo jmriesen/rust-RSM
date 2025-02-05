@@ -28,7 +28,7 @@ pub enum Expression<'a> {
         op_code: operators::Binary,
         right: Box<Self>,
     },
-    ExtrinsicFunction(ExtrinsicFunction<'a>),
+    ExtrinsicFunction(ir::extrinsic_function::ExtrinsicFunction<'a>),
     XCall {
         args: Vec<Self>,
         op_code: XCallCode<'a>,
@@ -78,7 +78,9 @@ impl<'a> Expression<'a> {
                     right,
                 }
             }
-            ExtrinsicFunction(x) => Self::ExtrinsicFunction(x),
+            ExtrinsicFunction(x) => Self::ExtrinsicFunction(
+                ir::extrinsic_function::ExtrinsicFunction::new(&x, source_code),
+            ),
             XCall(xcall) => Self::XCall {
                 args: xcall
                     .args()
@@ -126,7 +128,7 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::ExtrinsicFunction(x) => {
-            x.compile(source_code, comp, ExtrinsicFunctionContext::Eval);
+            ir::extrinsic_function::compile(x, source_code, comp, ExtrinsicFunctionContext::Eval)
         }
         E::XCall { args, op_code } => {
             for arg in args {
