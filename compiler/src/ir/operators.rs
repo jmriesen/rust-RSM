@@ -1,127 +1,127 @@
 pub enum Unary {
-    OPMINUS,
-    OPPLUS,
-    OPNOT,
+    Minus,
+    Plus,
+    Not,
 }
 
 impl Unary {
     pub fn new(sitter: lang_model::UnaryOpp) -> Self {
         use lang_model::UnaryOppChildren as E;
         match sitter.children() {
-            E::OPMINUS(_) => Self::OPMINUS,
-            E::OPPLUS(_) => Self::OPPLUS,
-            E::OPNOT(_) => Self::OPNOT,
+            E::OPMINUS(_) => Self::Minus,
+            E::OPPLUS(_) => Self::Plus,
+            E::OPNOT(_) => Self::Not,
         }
     }
     pub fn op_code(&self) -> u8 {
         match self {
-            Self::OPMINUS => ffi::OPMINUS,
-            Self::OPPLUS => ffi::OPPLUS,
-            Self::OPNOT => ffi::OPNOT,
+            Self::Minus => ffi::OPMINUS,
+            Self::Plus => ffi::OPPLUS,
+            Self::Not => ffi::OPNOT,
         }
     }
 }
 
 pub enum Pattern {
-    OPPAT,
-    OPNPAT,
+    Pat,
+    NotPat,
 }
 
 impl Pattern {
     pub fn new(sitter: lang_model::PatternOpp) -> Self {
         use lang_model::PatternOppChildren as E;
         match sitter.children() {
-            E::OPPAT(_) => Self::OPPAT,
-            E::OPNPAT(_) => Self::OPNPAT,
+            E::OPPAT(_) => Self::Pat,
+            E::OPNPAT(_) => Self::NotPat,
         }
     }
 
     pub fn op_code(&self) -> u8 {
         match self {
-            Self::OPPAT => ffi::OPPAT,
-            Self::OPNPAT => ffi::OPNPAT,
+            Self::Pat => ffi::OPPAT,
+            Self::NotPat => ffi::OPNPAT,
         }
     }
 }
 
 pub enum Binary {
-    OPADD,
-    OPSUB,
-    OPMUL,
-    OPDIV,
-    OPINT,
-    OPMOD,
-    OPPOW,
-    OPCAT,
-    OPGTR,
-    OPAND,
-    OPCON,
-    OPFOL,
-    OPEQL,
-    OPLES,
-    OPNEQL,
-    OPNLES,
-    OPNGTR,
-    OPNAND,
-    OPNCON,
-    OPNFOL,
-    OPNSAF,
-    OPSAF,
+    Add,
+    Sub,
+    Multiply,
+    Divide,
+    IntDivide,
+    Modulus,
+    Power,
+    Concatenate,
+    GreaterThan,
+    And,
+    Contains,
+    Follows,
+    Equal,
+    LessThan,
+    NotEqual,
+    NotLessThen,
+    NotGreaterThan,
+    NotAnd,
+    NotContains,
+    NotFollows,
+    NotSortsAfter,
+    SortsAfter,
 }
 
 impl Binary {
     pub fn new(sitter: lang_model::BinaryOpp) -> Self {
         use lang_model::BinaryOppChildren::*;
         match sitter.children() {
-            OPADD(_) => Self::OPADD,
-            OPSUB(_) => Self::OPSUB,
-            OPMUL(_) => Self::OPMUL,
-            OPDIV(_) => Self::OPDIV,
-            OPINT(_) => Self::OPINT,
-            OPMOD(_) => Self::OPMOD,
-            OPPOW(_) => Self::OPPOW,
-            OPCAT(_) => Self::OPCAT,
-            OPGTR(_) => Self::OPGTR,
-            OPAND(_) => Self::OPAND,
-            OPCON(_) => Self::OPCON,
-            OPFOL(_) => Self::OPFOL,
-            OPEQL(_) => Self::OPEQL,
-            OPLES(_) => Self::OPLES,
-            OPNEQL(_) => Self::OPNEQL,
-            OPNLES(_) => Self::OPNLES,
-            OPNGTR(_) => Self::OPNGTR,
-            OPNAND(_) => Self::OPNAND,
-            OPNCON(_) => Self::OPNCON,
-            OPNFOL(_) => Self::OPNFOL,
-            OPNSAF(_) => Self::OPNSAF,
-            OPSAF(_) => Self::OPSAF,
+            OPADD(_) => Self::Add,
+            OPSUB(_) => Self::Sub,
+            OPMUL(_) => Self::Multiply,
+            OPDIV(_) => Self::Divide,
+            OPINT(_) => Self::IntDivide,
+            OPMOD(_) => Self::Modulus,
+            OPPOW(_) => Self::Power,
+            OPCAT(_) => Self::Concatenate,
+            OPGTR(_) => Self::GreaterThan,
+            OPAND(_) => Self::And,
+            OPCON(_) => Self::Contains,
+            OPFOL(_) => Self::Follows,
+            OPEQL(_) => Self::Equal,
+            OPLES(_) => Self::LessThan,
+            OPNEQL(_) => Self::NotEqual,
+            OPNLES(_) => Self::NotLessThen,
+            OPNGTR(_) => Self::NotGreaterThan,
+            OPNAND(_) => Self::NotAnd,
+            OPNCON(_) => Self::NotContains,
+            OPNFOL(_) => Self::NotFollows,
+            OPNSAF(_) => Self::NotSortsAfter,
+            OPSAF(_) => Self::SortsAfter,
         }
     }
     pub fn op_code(&self) -> u8 {
         use Binary::*;
         match self {
-            OPADD => ffi::OPADD,
-            OPSUB => ffi::OPSUB,
-            OPMUL => ffi::OPMUL,
-            OPDIV => ffi::OPDIV,
-            OPINT => ffi::OPINT,
-            OPMOD => ffi::OPMOD,
-            OPPOW => ffi::OPPOW,
-            OPCAT => ffi::OPCAT,
-            OPGTR => ffi::OPGTR,
-            OPAND => ffi::OPAND,
-            OPCON => ffi::OPCON,
-            OPFOL => ffi::OPFOL,
-            OPEQL => ffi::OPEQL,
-            OPLES => ffi::OPLES,
-            OPNEQL => ffi::OPNEQL,
-            OPNLES => ffi::OPNLES,
-            OPNGTR => ffi::OPNGTR,
-            OPNAND => ffi::OPNAND,
-            OPNCON => ffi::OPNCON,
-            OPNFOL => ffi::OPNFOL,
-            OPNSAF => ffi::OPNSAF,
-            OPSAF => ffi::OPSAF,
+            Add => ffi::OPADD,
+            Sub => ffi::OPSUB,
+            Multiply => ffi::OPMUL,
+            Divide => ffi::OPDIV,
+            IntDivide => ffi::OPINT,
+            Modulus => ffi::OPMOD,
+            Power => ffi::OPPOW,
+            Concatenate => ffi::OPCAT,
+            GreaterThan => ffi::OPGTR,
+            And => ffi::OPAND,
+            Contains => ffi::OPCON,
+            Follows => ffi::OPFOL,
+            Equal => ffi::OPEQL,
+            LessThan => ffi::OPLES,
+            NotEqual => ffi::OPNEQL,
+            NotLessThen => ffi::OPNLES,
+            NotGreaterThan => ffi::OPNGTR,
+            NotAnd => ffi::OPNAND,
+            NotContains => ffi::OPNCON,
+            NotFollows => ffi::OPNFOL,
+            NotSortsAfter => ffi::OPNSAF,
+            SortsAfter => ffi::OPSAF,
         }
     }
 }
