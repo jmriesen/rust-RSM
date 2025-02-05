@@ -22,28 +22,6 @@ impl Unary {
     }
 }
 
-pub enum Pattern {
-    Pat,
-    NotPat,
-}
-
-impl Pattern {
-    pub fn new(sitter: lang_model::PatternOpp) -> Self {
-        use lang_model::PatternOppChildren as E;
-        match sitter.children() {
-            E::OPPAT(_) => Self::Pat,
-            E::OPNPAT(_) => Self::NotPat,
-        }
-    }
-
-    pub fn op_code(&self) -> u8 {
-        match self {
-            Self::Pat => ffi::OPPAT,
-            Self::NotPat => ffi::OPNPAT,
-        }
-    }
-}
-
 pub enum Binary {
     Add,
     Sub,
@@ -67,6 +45,8 @@ pub enum Binary {
     NotFollows,
     NotSortsAfter,
     SortsAfter,
+    Pattern,
+    NotPattern,
 }
 
 impl Binary {
@@ -97,6 +77,13 @@ impl Binary {
             OPSAF(_) => Self::SortsAfter,
         }
     }
+    pub fn new_pattern(sitter: lang_model::PatternOpp) -> Self {
+        use lang_model::PatternOppChildren as E;
+        match sitter.children() {
+            E::OPPAT(_) => Self::Pattern,
+            E::OPNPAT(_) => Self::NotPattern,
+        }
+    }
     pub fn op_code(&self) -> u8 {
         use Binary::*;
         match self {
@@ -122,6 +109,8 @@ impl Binary {
             NotFollows => ffi::OPNFOL,
             NotSortsAfter => ffi::OPNSAF,
             SortsAfter => ffi::OPSAF,
+            Pattern => ffi::OPPAT,
+            NotPattern => ffi::OPNPAT,
         }
     }
 }

@@ -28,11 +28,6 @@ pub enum Expression<'a> {
         op_code: operators::Binary,
         right: Box<Self>,
     },
-    PaternMatchExpression {
-        left: Box<Self>,
-        right: Box<Self>,
-        op_code: operators::Pattern,
-    },
     ExtrinsicFunction(ExtrinsicFunction<'a>),
     XCall {
         args: Vec<Self>,
@@ -77,10 +72,10 @@ impl<'a> Expression<'a> {
                         Box::new(Self::String(value::Value::from_str(value).unwrap()))
                     }
                 };
-                Self::PaternMatchExpression {
+                Self::BinaryExpression {
                     left: nested_new(pat_exp.exp_left()),
+                    op_code: operators::Binary::new_pattern(pat_exp.opp()),
                     right,
-                    op_code: operators::Pattern::new(pat_exp.opp()),
                 }
             }
             ExtrinsicFunction(x) => Self::ExtrinsicFunction(x),
@@ -122,15 +117,6 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::BinaryExpression {
-            left,
-            op_code,
-            right,
-        } => {
-            compile(left, source_code, comp, ExpressionContext::Eval);
-            compile(right, source_code, comp, ExpressionContext::Eval);
-            comp.push(op_code.op_code());
-        }
-        E::PaternMatchExpression {
             left,
             op_code,
             right,
