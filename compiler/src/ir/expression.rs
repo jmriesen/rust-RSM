@@ -138,7 +138,9 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::IntrinsicFunction(intrinsic) => {
-            intrinsic.compile(source_code, comp, ());
+            let fun =
+                crate::ir::intrinsic_functions::IntrinsicFunction::new(intrinsic, source_code);
+            crate::ir::intrinsic_functions::compile(&fun, source_code, comp);
         }
     }
 }

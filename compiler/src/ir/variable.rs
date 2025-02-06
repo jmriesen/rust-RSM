@@ -2,6 +2,7 @@ use lang_model::Expression;
 
 use crate::{localvar::VarContext, Compileable};
 
+#[derive(Clone)]
 pub enum VariableType<'a> {
     Local {
         name: String,
@@ -37,6 +38,7 @@ impl<'a> VariableType<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Variable<'a> {
     var_type: VariableType<'a>,
     subscripts: Vec<Expression<'a>>,

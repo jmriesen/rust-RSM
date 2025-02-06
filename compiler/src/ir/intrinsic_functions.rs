@@ -1,6 +1,10 @@
+use lang_model::Qlength;
+use value::Value;
+
 use crate::{
     expression::ExpressionContext,
     function::{reserve_jump, write_jump},
+    localvar::VarContext,
 };
 
 use super::expression::Expression;
@@ -44,6 +48,40 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OP
         comp.push(fn_code_base + optional_args.count() as u8);
     }
 }
+
+pub struct VarFunction<'a, const REQUIRED: usize, const OPTIONAL: usize> {
+    variable: super::variable::Variable<'a>,
+    function: Function<'a, REQUIRED, OPTIONAL>,
+}
+
+impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED, OPTIONAL> {
+    fn new(
+        var: lang_model::Variable<'a>,
+        args: Vec<lang_model::Expression<'a>>,
+        source_code: &str,
+    ) -> Self {
+        VarFunction {
+            variable: super::variable::Variable::new(&var, &source_code),
+            function: Function::new(args, source_code),
+        }
+    }
+}
+
+impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED, OPTIONAL> {
+    fn compile(
+        &self,
+        source_code: &str,
+        comp: &mut Vec<u8>,
+        context: VarContext,
+        fn_code_base: u8,
+    ) {
+        //TODO handle other context types
+        super::variable::compile(&self.variable, source_code, comp, context);
+        //TODO handle Next case.
+        self.function.compile(source_code, comp, fn_code_base);
+    }
+}
+
 pub enum IntrinsicFunction<'a> {
     Select {
         terms: Vec<SelectTerm<'a>>,
@@ -65,13 +103,25 @@ pub enum IntrinsicFunction<'a> {
     Stack(Function<'a, 1, 1>),
     Text(Function<'a, 1, 0>),
     Translate(Function<'a, 2, 1>),
+
+    QLength(VarFunction<'a, 0, 0>),
+    QSubscript(VarFunction<'a, 1, 0>),
+
+    Data(VarFunction<'a, 0, 0>),
+    Get(VarFunction<'a, 0, 1>),
+    Increment(VarFunction<'a, 0, 1>),
+
+    Name(VarFunction<'a, 0, 3>),
+    Order(VarFunction<'a, 0, 1>),
+    Query(VarFunction<'a, 0, 1>),
+    Next(VarFunction<'a, 0, 0>),
 }
 
 impl<'a> IntrinsicFunction<'a> {
-    pub fn new(sitter: &lang_model::IntrinsicFunction<'a>, source_code: &str) -> Option<Self> {
+    pub fn new(sitter: &lang_model::IntrinsicFunction<'a>, source_code: &str) -> Self {
         use lang_model::IntrinsicFunctionChildren::*;
 
-        Some(match &sitter.children() {
+        match &sitter.children() {
             ExpFunctions(exp_fun) => {
                 use lang_model::ExpFunctionsChildren::*;
                 match exp_fun.children() {
@@ -97,7 +147,46 @@ impl<'a> IntrinsicFunction<'a> {
                     Translate(x) => Self::Translate(Function::new(x.args(), source_code)),
                 }
             }
-            VarFunctions(var_fun) => return None,
+            VarFunctions(var_fun) => {
+                use lang_model::VarFunctionsChildren::*;
+                match var_fun.children() {
+                    Qlength(x) => Self::QLength(VarFunction::new(x.var(), vec![], source_code)),
+                    Qsubscript(x) => {
+                        Self::QSubscript(VarFunction::new(x.var(), vec![x.args()], source_code))
+                    }
+                    Data(x) => Self::Data(VarFunction::new(x.var(), vec![], source_code)),
+                    Get(x) => Self::Get(VarFunction::new(
+                        x.var(),
+                        x.args().into_iter().collect(),
+                        source_code,
+                    )),
+                    Increment(x) => Self::Increment(VarFunction::new(
+                        x.var(),
+                        x.args().into_iter().collect(),
+                        source_code,
+                    )),
+                    Name(x) => Self::Name(VarFunction::new(
+                        x.var(),
+                        x.args().into_iter().collect(),
+                        source_code,
+                    )),
+                    Order(x) => Self::Order(VarFunction::new(
+                        x.var(),
+                        x.args().into_iter().collect(),
+                        source_code,
+                    )),
+                    Query(x) => Self::Query(VarFunction::new(
+                        x.var(),
+                        x.args().into_iter().collect(),
+                        source_code,
+                    )),
+                    Next(x) => Self::Next(VarFunction::new(
+                        x.var(),
+                        [].into_iter().collect(),
+                        source_code,
+                    )),
+                }
+            }
             Select(select) => Self::Select {
                 terms: select
                     .children()
@@ -108,7 +197,7 @@ impl<'a> IntrinsicFunction<'a> {
                     })
                     .collect(),
             },
-        })
+        }
     }
 }
 
@@ -167,5 +256,42 @@ pub fn compile(function: &IntrinsicFunction, source_code: &str, comp: &mut Vec<u
         IntrinsicFunction::Stack(function) => function.compile(source_code, comp, ffi::FUNST1),
         IntrinsicFunction::Text(function) => function.compile(source_code, comp, ffi::FUNT),
         IntrinsicFunction::Translate(function) => function.compile(source_code, comp, ffi::FUNTR2),
+        IntrinsicFunction::QLength(function) => {
+            function.compile(source_code, comp, VarContext::Eval, ffi::FUNQL)
+        }
+        IntrinsicFunction::QSubscript(function) => {
+            function.compile(source_code, comp, VarContext::Eval, ffi::FUNQS)
+        }
+        IntrinsicFunction::Data(function) => {
+            function.compile(source_code, comp, VarContext::Build, ffi::FUND)
+        }
+        IntrinsicFunction::Get(function) => {
+            function.compile(source_code, comp, VarContext::Build, ffi::FUNG1)
+        }
+        IntrinsicFunction::Increment(function) => {
+            function.compile(source_code, comp, VarContext::Build, ffi::FUNI1)
+        }
+        IntrinsicFunction::Name(function) => {
+            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNNA1)
+        }
+        IntrinsicFunction::Order(function) => {
+            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNO1)
+        }
+        IntrinsicFunction::Query(function) => {
+            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNQ1)
+        }
+        IntrinsicFunction::Next(function) => {
+            //Next is just an Order with a hard coded argument
+            use std::str::FromStr;
+            let two = Expression::Number(Value::from_str("2").unwrap().into());
+            let fun = IntrinsicFunction::Order(VarFunction {
+                variable: function.variable.clone(),
+                function: Function {
+                    required: [],
+                    optional: [Some(two); 1],
+                },
+            });
+            compile(&fun, source_code, comp);
+        }
     }
 }

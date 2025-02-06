@@ -27,7 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-mod intrinsic_function;
 mod literals;
 pub use literals::*;
 
