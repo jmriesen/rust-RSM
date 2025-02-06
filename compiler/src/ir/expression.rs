@@ -2,18 +2,17 @@ use lang_model::IntrinsicFunction;
 
 use crate::{
     expression::{insert_value, parse_string_litteral, ExpressionContext},
-    ir::{self, operators},
     localvar::VarContext,
-    Compileable, ExtrinsicFunctionContext,
+    ExtrinsicFunctionContext,
 };
 
-use super::{external_calls::ExternalCalls, variable::Variable};
+use super::*;
 
 pub enum Expression<'a> {
     Number(value::Number),
     String(value::Value),
     Variable(Variable<'a>),
-    IntrinsicVar(ir::intrinsicVar::IntrinsicVar),
+    IntrinsicVar(IntrinsicVar),
     Expression(Box<Self>),
     InderectExpression(Box<Self>),
     UnaryExpression {
@@ -25,7 +24,7 @@ pub enum Expression<'a> {
         op_code: operators::Binary,
         right: Box<Self>,
     },
-    ExtrinsicFunction(ir::extrinsic_function::ExtrinsicFunction<'a>),
+    ExtrinsicFunction(ExtrinsicFunction<'a>),
     ExternalCalls {
         args: Vec<Self>,
         op_code: ExternalCalls,
@@ -47,8 +46,8 @@ impl<'a> Expression<'a> {
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
                 Self::String(parse_string_litteral(value).unwrap())
             }
-            Variable(var) => Self::Variable(super::variable::Variable::new(&var, source_code)),
-            IntrinsicVar(var) => Self::IntrinsicVar(ir::intrinsicVar::IntrinsicVar::new(var)),
+            Variable(var) => Self::Variable(super::Variable::new(&var, source_code)),
+            IntrinsicVar(var) => Self::IntrinsicVar(super::IntrinsicVar::new(var)),
             Expression(exp) => Self::Expression(nested_new(exp)),
             InderectExpression(exp) => Self::InderectExpression(nested_new(exp.children())),
             UnaryExpression(unary_exp) => Self::UnaryExpression {
@@ -75,9 +74,9 @@ impl<'a> Expression<'a> {
                     right,
                 }
             }
-            ExtrinsicFunction(x) => Self::ExtrinsicFunction(
-                ir::extrinsic_function::ExtrinsicFunction::new(&x, source_code),
-            ),
+            ExtrinsicFunction(x) => {
+                Self::ExtrinsicFunction(super::ExtrinsicFunction::new(&x, source_code))
+            }
             XCall(xcall) => Self::ExternalCalls {
                 args: xcall
                     .args()
@@ -101,7 +100,7 @@ pub fn compile(
     match exp {
         E::Number(num) => insert_value(comp, num.clone().into()),
         E::String(value) => insert_value(comp, value.clone()),
-        E::Variable(var) => ir::variable::compile(&var, source_code, comp, VarContext::Eval),
+        E::Variable(var) => super::variable::compile(&var, source_code, comp, VarContext::Eval),
         E::IntrinsicVar(var) => comp.push(var.op_code()),
         E::Expression(exp) => compile(exp, source_code, comp, ExpressionContext::Eval),
         E::InderectExpression(exp) => {
@@ -125,7 +124,7 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::ExtrinsicFunction(x) => {
-            ir::extrinsic_function::compile(x, source_code, comp, ExtrinsicFunctionContext::Eval)
+            super::extrinsic_function::compile(x, source_code, comp, ExtrinsicFunctionContext::Eval)
         }
         E::ExternalCalls { args, op_code } => {
             for arg in args {
@@ -138,9 +137,8 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::IntrinsicFunction(intrinsic) => {
-            let fun =
-                crate::ir::intrinsic_functions::IntrinsicFunction::new(intrinsic, source_code);
-            crate::ir::intrinsic_functions::compile(&fun, source_code, comp);
+            let fun = super::intrinsic_functions::IntrinsicFunction::new(intrinsic, source_code);
+            super::intrinsic_functions::compile(&fun, source_code, comp);
         }
     }
 }

@@ -1,6 +1,10 @@
 use ffi::VAR_U;
 
-use crate::{ir::variable, localvar::VarContext, ExtrinsicFunctionContext};
+use crate::{
+    ir::{variable, Variable},
+    localvar::VarContext,
+    ExtrinsicFunctionContext,
+};
 
 //NOTE: I am currently not validating the string size;
 pub enum Location {
@@ -12,14 +16,14 @@ pub enum Location {
 pub struct ExtrinsicFunction<'a> {
     location: Location,
     //TODO convert to IR all the way down, and remove lifetime requirement
-    arguments: Vec<crate::models::ExtrinsicFunctionArgs<'a>>,
+    arguments: Vec<lang_model::ExtrinsicFunctionArgs<'a>>,
     //NOTE: This affects the compiled output, but I don't think is should.
     //See `compile` for more details.
     contains_paren: bool,
 }
 
 impl<'a> ExtrinsicFunction<'a> {
-    pub fn new(sitter: &crate::models::ExtrinsicFunction<'a>, source_code: &str) -> Self {
+    pub fn new(sitter: &lang_model::ExtrinsicFunction<'a>, source_code: &str) -> Self {
         let tag = sitter.tag().map(|x| {
             let x = x.children();
             use lang_model::TagNameChildren as E;
@@ -80,7 +84,7 @@ pub fn compile(
                 comp.push(crate::bindings::VARUNDF);
             }
             ByRef(var) => {
-                let var = variable::Variable::new(&var.children(), source_code);
+                let var = Variable::new(&var.children(), source_code);
                 variable::compile(&var, source_code, comp, VarContext::Build);
                 comp.push(crate::bindings::NEWBREF);
             }
@@ -92,9 +96,9 @@ pub fn compile(
 
     //Op code
     comp.push(match function.location {
-        Location::Tag(_) => crate::bindings::CMDOTAG,
-        Location::Routine(_) => crate::bindings::CMDOROU,
-        Location::TagRoutine(_, _) => crate::bindings::CMDORT,
+        Location::Tag(_) => ffi::CMDOTAG,
+        Location::Routine(_) => ffi::CMDOROU,
+        Location::TagRoutine(_, _) => ffi::CMDORT,
     } as u8);
 
     // Location

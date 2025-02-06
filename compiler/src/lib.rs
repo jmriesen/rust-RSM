@@ -42,13 +42,6 @@ mod test_harness;
 
 use crate::function::{reserve_jump, write_jump};
 
-#[deprecated]
-mod models {
-    //TODO clean up and remove glob import.
-    #[deprecated]
-    pub use lang_model::*;
-}
-
 use crate::localvar::VarContext;
 
 trait Compileable {
@@ -74,16 +67,16 @@ pub fn test_compile_command(source_code: &str) -> Vec<u8> {
 
 pub fn compile(source_code: &str) -> Vec<u8> {
     use expression::ExpressionContext;
-    let tree = models::create_tree(dbg!(source_code));
-    let tree = models::type_tree(&tree, source_code).unwrap();
+    let tree = lang_model::create_tree(dbg!(source_code));
+    let tree = lang_model::type_tree(&tree, source_code).unwrap();
 
     let mut comp = vec![];
     let tags = tree.children();
     let block = tags[0].block().unwrap();
     for line in block.children() {
         let line = match line {
-            models::BlockChildren::line(line) => line,
-            models::BlockChildren::Block(_line) => continue,
+            lang_model::BlockChildren::line(line) => line,
+            lang_model::BlockChildren::Block(_line) => continue,
         };
         let mut for_jumps = vec![];
         let commands = line.children();
@@ -103,11 +96,11 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 comp.push(bindings::JMP0);
                 reserve_jump(&mut comp)
             });
-            use crate::models::commandChildren as E;
+            use lang_model::commandChildren as E;
             match command.children() {
                 E::WriteCommand(command) => {
                     for arg in command.args() {
-                        use crate::models::WriteArgChildren as E;
+                        use lang_model::WriteArgChildren as E;
                         match arg.children() {
                             E::Bang(_) => comp.push(bindings::CMWRTNL),
                             E::Clear(_) => comp.push(bindings::CMWRTFF),
@@ -230,7 +223,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 comp.pop();
             } else if matches!(
                 command.children(),
-                crate::models::commandChildren::DoCommand(_)
+                lang_model::commandChildren::DoCommand(_)
             ) {
                 comp.push(bindings::OPENDC);
             }
@@ -261,7 +254,7 @@ enum ExtrinsicFunctionContext {
     Do,
 }
 
-impl<'a> Compileable for crate::models::ExtrinsicFunction<'a> {
+impl<'a> Compileable for lang_model::ExtrinsicFunction<'a> {
     type Context = ExtrinsicFunctionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
         let function = ir::extrinsic_function::ExtrinsicFunction::new(self, source_code);

@@ -36,7 +36,7 @@ pub enum VarContext {
     For = ffi::CMFORSET as isize,
 }
 
-impl<'a> Compileable for crate::models::Variable<'a> {
+impl<'a> Compileable for lang_model::Variable<'a> {
     type Context = VarContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarContext) {
         let var = ir::variable::Variable::new(self, source_code);

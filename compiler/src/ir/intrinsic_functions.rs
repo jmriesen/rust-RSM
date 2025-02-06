@@ -1,13 +1,10 @@
-use lang_model::Qlength;
-use value::Value;
-
+use super::expression::Expression;
 use crate::{
     expression::ExpressionContext,
     function::{reserve_jump, write_jump},
     localvar::VarContext,
 };
-
-use super::expression::Expression;
+use value::Value;
 
 pub struct SelectTerm<'a> {
     condition: Expression<'a>,
@@ -50,7 +47,7 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OP
 }
 
 pub struct VarFunction<'a, const REQUIRED: usize, const OPTIONAL: usize> {
-    variable: super::variable::Variable<'a>,
+    variable: super::Variable<'a>,
     function: Function<'a, REQUIRED, OPTIONAL>,
 }
 
@@ -61,7 +58,7 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED,
         source_code: &str,
     ) -> Self {
         VarFunction {
-            variable: super::variable::Variable::new(&var, &source_code),
+            variable: super::Variable::new(&var, &source_code),
             function: Function::new(args, source_code),
         }
     }

@@ -28,11 +28,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 mod literals;
-pub use literals::*;
-
 use lang_model::*;
-
-use crate::{localvar::VarContext, ExtrinsicFunctionContext, OpCode};
+pub use literals::*;
 
 pub enum ExpressionContext {
     Write = crate::bindings::INDWRIT as isize,

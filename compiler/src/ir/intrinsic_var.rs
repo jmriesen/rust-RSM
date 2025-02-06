@@ -20,7 +20,7 @@ pub enum IntrinsicVar {
 
 impl IntrinsicVar {
     pub fn new(sitter: lang_model::IntrinsicVar) -> Self {
-        use crate::models::IntrinsicVarChildren as S;
+        use lang_model::IntrinsicVarChildren as S;
         match sitter.children() {
             S::Device(_) => Self::Device,
             S::Ecode(_) => Self::Ecode,

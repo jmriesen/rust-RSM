@@ -1,7 +1,13 @@
 pub mod expression;
+pub use expression::Expression;
 pub mod external_calls;
+pub use external_calls::ExternalCalls;
 pub mod extrinsic_function;
-pub mod intrinsicVar;
+pub use extrinsic_function::ExtrinsicFunction;
 pub mod intrinsic_functions;
+pub use intrinsic_functions::IntrinsicFunction;
+pub mod intrinsic_var;
+pub use intrinsic_var::IntrinsicVar;
 pub mod operators;
 pub mod variable;
+pub use variable::Variable;

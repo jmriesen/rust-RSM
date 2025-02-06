@@ -25,7 +25,7 @@ pub enum ExternalCalls {
 
 impl ExternalCalls {
     pub fn new(sitter: lang_model::XCallCode) -> Self {
-        use crate::models::XCallCode::*;
+        use lang_model::XCallCode::*;
         match sitter {
             Directory(_) => Self::Directory,
             Host(_) => Self::Host,
