@@ -38,61 +38,6 @@ pub fn write_jump(location: usize, jump_to: usize, comp: &mut [u8]) {
     comp[location - 2..location].copy_from_slice(&offset);
 }
 
-impl<'a> crate::OpCode for crate::models::XCallCode<'a> {
-    fn op_code(&self) -> u8 {
-        use crate::models::XCallCode::*;
-        match self {
-            Directory(_) => ffi::XCDIR,
-            Host(_) => ffi::XCHOST,
-            File(_) => ffi::XCFILE,
-            ErrMsg(_) => ffi::XCERR,
-            OpCom(_) => ffi::XCOPC,
-            Signal(_) => ffi::XCSIG,
-            Spawn(_) => ffi::XCSPA,
-            Version(_) => ffi::XCVER,
-            Zwrite(_) => ffi::XCZWR,
-            E(_) => ffi::XCE,
-            Paschk(_) => ffi::XCPAS,
-            V(_) => ffi::XCV,
-            XCallX(_) => ffi::XCX,
-            Xrsm(_) => ffi::XCXRSM,
-            SetEnv(_) => ffi::XCSETENV,
-            GetEnv(_) => ffi::XCGETENV,
-            RouChk(_) => ffi::XCROUCHK,
-            Fork(_) => ffi::XCFORK,
-            IC(_) => ffi::XCIC,
-            Wait(_) => ffi::XCWAIT,
-            Debug(_) => ffi::XCDEBUG,
-            Compress(_) => ffi::XCCOMP,
-        }
-    }
-}
-
-impl<'a> crate::OpCode for crate::models::IntrinsicVar<'a> {
-    fn op_code(&self) -> u8 {
-        use crate::models::IntrinsicVarChildren::*;
-        match self.children() {
-            Device(_) => ffi::VARD,
-            Ecode(_) => ffi::VAREC,
-            Estack(_) => ffi::VARES,
-            Etrap(_) => ffi::VARET,
-            Horolog(_) => ffi::VARH,
-            Io(_) => ffi::VARI,
-            Job(_) => ffi::VARJ,
-            Key(_) => ffi::VARK,
-            Principal(_) => ffi::VARP,
-            Quit(_) => ffi::VARQ,
-            Reference(_) => ffi::VARR,
-            Storage(_) => ffi::VARS,
-            StackVar(_) => ffi::VARST,
-            System(_) => ffi::VARSY,
-            Test(_) => ffi::VART,
-            X(_) => ffi::VARX,
-            Y(_) => ffi::VARY,
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use core::ops::RangeInclusive;

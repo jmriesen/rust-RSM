@@ -27,11 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::{
-    expression::insert_value,
-    function::{reserve_jump, write_jump},
-    localvar::VarContext,
-};
+use crate::{expression::insert_value, localvar::VarContext};
 use lang_model::*;
 
 use super::ExpressionContext;
@@ -39,49 +35,6 @@ use super::ExpressionContext;
 trait ExpFunctionsExt<'a> {
     fn opcode(&self) -> u8;
     fn args(&self) -> Vec<Expression<'a>>;
-}
-
-impl<'a> ExpFunctionsExt<'a> for ExpFunctions<'a> {
-    fn opcode(&self) -> u8 {
-        use ExpFunctionsChildren::*;
-        match self.children() {
-            View(_) => ffi::FUNV2 - 2,
-            //TODO Text handling should be more detailed.
-            Text(_) => ffi::FUNT - 1,
-            Translate(_) => ffi::FUNTR2 - 2,
-            Find(_) => ffi::FUNF2 - 2,
-            Fnumber(_) => ffi::FUNFN2 - 2,
-            Random(_) => ffi::FUNR - 1,
-            Reverse(_) => ffi::FUNRE - 1,
-            Piece(_) => ffi::FUNP2 - 2,
-            Justify(_) => ffi::FUNJ2 - 2,
-            Extract(_) => ffi::FUNE1 - 1,
-            Ascii(_) => ffi::FUNA1 - 1,
-            Length(_) => ffi::FUNL1 - 1,
-            Stack(_) => ffi::FUNST1 - 1,
-            Char(_) => ffi::FUNC,
-        }
-    }
-    fn args(&self) -> Vec<Expression<'a>> {
-        use ExpFunctionsChildren::*;
-        match self.children() {
-            View(x) => x.args(),
-            //TODO Text handling should be more detailed.
-            Text(x) => vec![x.args()],
-            Translate(x) => x.args(),
-            Find(x) => x.args(),
-            Fnumber(x) => x.args(),
-            Random(x) => vec![x.args()],
-            Reverse(x) => vec![x.args()],
-            Piece(x) => x.args(),
-            Justify(x) => x.args(),
-            Extract(x) => x.args(),
-            Ascii(x) => x.args(),
-            Length(x) => x.args(),
-            Stack(x) => x.args(),
-            Char(x) => x.args(),
-        }
-    }
 }
 
 trait VarFunctionsExt {
@@ -123,72 +76,34 @@ impl<'a> Compileable for IntrinsicFunction<'a> {
     type Context = ();
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, _context: Self::Context) {
         use IntrinsicFunctionChildren::*;
+        let fun = crate::ir::intrinsic_functions::IntrinsicFunction::new(self, source_code);
+        if let Some(fun) = fun {
+            crate::ir::intrinsic_functions::compile(&fun, source_code, comp);
+        } else {
+            //TODO Consider Reducing Duplication betwen ExpFunc and VarFunc
+            match &self.children() {
+                ExpFunctions(_exp_fun) => unreachable!(),
+                VarFunctions(var_fun) => {
+                    let (opcode, var, args) = var_fun.components();
+                    var.compile(source_code, comp, var_fun.var_types());
 
-        //TODO Consider Reducing Duplication betwen ExpFunc and VarFunc
-        match &self.children() {
-            ExpFunctions(exp_fun) => {
-                let args = exp_fun.args();
-
-                for arg in &args {
-                    arg.compile(source_code, comp, ExpressionContext::Eval)
-                }
-
-                if matches!(exp_fun.children(), ExpFunctionsChildren::Char(_)) {
-                    if args.len() > 254 {
-                        panic!("Char has too many args");
-                    } else {
-                        comp.push(exp_fun.opcode());
-                        comp.push(args.len() as u8);
+                    if let Some(arg) = &args {
+                        arg.compile(source_code, comp, ExpressionContext::Eval)
                     }
-                } else {
-                    comp.push(exp_fun.opcode() + args.len() as u8);
+
+                    if matches!(var_fun.children(), VarFunctionsChildren::Next(_)) {
+                        use std::str::FromStr;
+                        insert_value(
+                            comp,
+                            value::Number::from_str("2")
+                                .expect("2 can always be parsed")
+                                .into(),
+                        );
+                    }
+
+                    comp.push(opcode + args.iter().len() as u8 + 1);
                 }
-            }
-            VarFunctions(var_fun) => {
-                let (opcode, var, args) = var_fun.components();
-                var.compile(source_code, comp, var_fun.var_types());
-
-                if let Some(arg) = &args {
-                    arg.compile(source_code, comp, ExpressionContext::Eval)
-                }
-
-                if matches!(var_fun.children(), VarFunctionsChildren::Next(_)) {
-                    use std::str::FromStr;
-                    insert_value(
-                        comp,
-                        value::Number::from_str("2")
-                            .expect("2 can always be parsed")
-                            .into(),
-                    );
-                }
-
-                comp.push(opcode + args.iter().len() as u8 + 1);
-            }
-            Select(select) => {
-                let jump_indexs = select
-                    .children()
-                    .array_chunks::<2>()
-                    .map(|[condition, value]| {
-                        condition.compile(source_code, comp, ExpressionContext::Eval);
-                        comp.push(ffi::JMP0);
-                        let try_next = reserve_jump(comp);
-
-                        value.compile(source_code, comp, ExpressionContext::Eval);
-                        comp.push(ffi::JMP);
-                        let exit = reserve_jump(comp);
-
-                        (try_next, exit)
-                    })
-                    .collect::<Vec<_>>();
-
-                comp.push(ffi::OPERROR);
-                let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
-                comp.extend_from_slice(&errm4);
-
-                for (try_next, exit) in jump_indexs {
-                    write_jump(try_next, exit, comp);
-                    write_jump(exit, comp.len(), comp);
-                }
+                Select(_select) => unreachable!(),
             }
         }
     }

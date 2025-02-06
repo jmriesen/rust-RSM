@@ -1,16 +1,13 @@
-use lang_model::{
-    BinaryOpp, ExpressionChildren, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar,
-    PaternMatchExpressionExp_right, PatternOpp, UnaryOpp, XCallCode,
-};
+use lang_model::IntrinsicFunction;
 
 use crate::{
     expression::{insert_value, parse_string_litteral, ExpressionContext},
     ir::{self, operators},
     localvar::VarContext,
-    Compileable, ExtrinsicFunctionContext, OpCode,
+    Compileable, ExtrinsicFunctionContext,
 };
 
-use super::variable::Variable;
+use super::{external_calls::ExternalCalls, variable::Variable};
 
 pub enum Expression<'a> {
     Number(value::Number),
@@ -29,9 +26,9 @@ pub enum Expression<'a> {
         right: Box<Self>,
     },
     ExtrinsicFunction(ir::extrinsic_function::ExtrinsicFunction<'a>),
-    XCall {
+    ExternalCalls {
         args: Vec<Self>,
-        op_code: XCallCode<'a>,
+        op_code: ExternalCalls,
     },
     IntrinsicFunction(IntrinsicFunction<'a>),
 }
@@ -39,8 +36,8 @@ pub enum Expression<'a> {
 impl<'a> Expression<'a> {
     pub fn new(sitter: &lang_model::Expression<'a>, source_code: &str) -> Self {
         let nested_new = |exp| Box::new(Self::new(&exp, source_code));
+        use lang_model::ExpressionChildren::*;
         use std::str::FromStr;
-        use ExpressionChildren::*;
         match sitter.children() {
             number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
@@ -64,7 +61,7 @@ impl<'a> Expression<'a> {
                 right: nested_new(bin_exp.exp_right()),
             },
             PaternMatchExpression(pat_exp) => {
-                use PaternMatchExpressionExp_right as E;
+                use lang_model::PaternMatchExpressionExp_right as E;
                 let right = match pat_exp.exp_right() {
                     E::Expression(exp) => nested_new(exp),
                     E::Patern(value) => {
@@ -81,13 +78,13 @@ impl<'a> Expression<'a> {
             ExtrinsicFunction(x) => Self::ExtrinsicFunction(
                 ir::extrinsic_function::ExtrinsicFunction::new(&x, source_code),
             ),
-            XCall(xcall) => Self::XCall {
+            XCall(xcall) => Self::ExternalCalls {
                 args: xcall
                     .args()
                     .iter()
                     .map(|x| Self::new(x, source_code))
                     .collect(),
-                op_code: xcall.code(),
+                op_code: ExternalCalls::new(xcall.code()),
             },
             IntrinsicFunction(intrinsic) => Self::IntrinsicFunction(intrinsic),
         }
@@ -130,7 +127,7 @@ pub fn compile(
         E::ExtrinsicFunction(x) => {
             ir::extrinsic_function::compile(x, source_code, comp, ExtrinsicFunctionContext::Eval)
         }
-        E::XCall { args, op_code } => {
+        E::ExternalCalls { args, op_code } => {
             for arg in args {
                 compile(arg, source_code, comp, ExpressionContext::Eval);
             }
