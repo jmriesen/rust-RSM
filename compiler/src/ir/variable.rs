@@ -1,6 +1,5 @@
-use lang_model::Expression;
-
-use crate::{localvar::VarContext, Compileable};
+use super::Expression;
+use crate::localvar::VarContext;
 
 #[derive(Clone)]
 pub enum VariableType<'a> {
@@ -9,19 +8,19 @@ pub enum VariableType<'a> {
     },
     NakedVariable,
     IndirectVariable {
-        expression: Expression<'a>,
+        expression: Box<Expression<'a>>,
     },
     GlobalVariable {
         name: String,
     },
     GlobalUciVariable {
         name: String,
-        uci: Expression<'a>,
+        uci: Box<Expression<'a>>,
     },
     GlobalUciEnvVariable {
         name: String,
-        uci: Expression<'a>,
-        env: Expression<'a>,
+        uci: Box<Expression<'a>>,
+        env: Box<Expression<'a>>,
     },
 }
 
@@ -57,7 +56,7 @@ impl<'a> Variable<'a> {
 
         let var_type = match sitter.heading() {
             Some(E::IndirectVariable(x)) => IndirectVariable {
-                expression: x.children(),
+                expression: Box::new(Expression::new(&x.children(), source_code)),
             },
             Some(E::NakedVariable(_)) => NakedVariable,
             Some(E::GlobalVariable(_)) => GlobalVariable {
@@ -65,16 +64,16 @@ impl<'a> Variable<'a> {
             },
             Some(E::GlobalUciVariable(x)) => GlobalUciVariable {
                 name: name.unwrap(),
-                uci: x.children(),
+                uci: Box::new(Expression::new(&x.children(), source_code)),
             },
             Some(E::GlobalUciEnvVariable(x)) => {
                 let args = x.children();
                 assert_eq!(args.len(), 2);
-                let mut args = args.into_iter();
+                let mut args = args.into_iter().map(|x| Expression::new(&x, source_code));
                 GlobalUciEnvVariable {
                     name: name.unwrap(),
-                    uci: args.next().expect("allready did bounds checking"),
-                    env: args.next().expect("allready did bounds checking"),
+                    uci: Box::new(args.next().expect("allready did bounds checking")),
+                    env: Box::new(args.next().expect("allready did bounds checking")),
                 }
             }
             None => Local {
@@ -83,7 +82,11 @@ impl<'a> Variable<'a> {
         };
         Self {
             var_type,
-            subscripts: sitter.subs(),
+            subscripts: sitter
+                .subs()
+                .iter()
+                .map(|x| Expression::new(&x, source_code))
+                .collect(),
         }
     }
 }
@@ -94,21 +97,21 @@ pub fn compile(variable: &Variable, source_code: &str, comp: &mut Vec<u8>, conte
         E::Local { .. } => {}
         E::NakedVariable => {}
         E::IndirectVariable { expression } => {
-            expression.compile(source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(expression, source_code, comp, ExpressionContext::Eval);
             comp.push(ffi::INDMVAR);
         }
         E::GlobalVariable { .. } => {}
         E::GlobalUciVariable { uci, .. } => {
-            uci.compile(source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(uci, source_code, comp, ExpressionContext::Eval);
         }
         E::GlobalUciEnvVariable { uci, env, .. } => {
-            uci.compile(source_code, comp, ExpressionContext::Eval);
-            env.compile(source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(uci, source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(env, source_code, comp, ExpressionContext::Eval);
         }
     }
 
     for subscript in &variable.subscripts {
-        subscript.compile(source_code, comp, ExpressionContext::Eval);
+        super::expression::compile(subscript, source_code, comp, ExpressionContext::Eval);
     }
 
     comp.push(context as u8);

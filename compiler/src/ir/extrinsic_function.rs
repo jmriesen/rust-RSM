@@ -1,22 +1,38 @@
 use ffi::VAR_U;
 
-use crate::{
-    ir::{variable, Variable},
-    localvar::VarContext,
-    ExtrinsicFunctionContext,
-};
+use super::{expression, variable, Expression, Variable};
+use crate::{expression::ExpressionContext, localvar::VarContext, ExtrinsicFunctionContext};
 
 //NOTE: I am currently not validating the string size;
+#[derive(Clone)]
 pub enum Location {
     Tag(String),
     Routine(String),
     TagRoutine(String, String),
 }
 
+#[derive(Clone)]
+enum Args<'a> {
+    VarUndefined,
+    ByRef(Variable<'a>),
+    Expression(Expression<'a>),
+}
+impl<'a> Args<'a> {
+    pub fn new(sitter: &lang_model::ExtrinsicFunctionArgs<'a>, source_code: &str) -> Self {
+        use lang_model::ExtrinsicFunctionArgs as E;
+        match sitter {
+            E::VarUndefined(_) => Self::VarUndefined,
+            E::ByRef(var) => Self::ByRef(Variable::new(&var.children(), source_code)),
+            E::Expression(exp) => Self::Expression(Expression::new(exp, source_code)),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct ExtrinsicFunction<'a> {
     location: Location,
     //TODO convert to IR all the way down, and remove lifetime requirement
-    arguments: Vec<lang_model::ExtrinsicFunctionArgs<'a>>,
+    arguments: Vec<Args<'a>>,
     //NOTE: This affects the compiled output, but I don't think is should.
     //See `compile` for more details.
     contains_paren: bool,
@@ -50,10 +66,14 @@ impl<'a> ExtrinsicFunction<'a> {
         };
 
         //NOTE It is easier to just remove the trailing VarUndefined when compiling then during parsing
-        let mut arguments = sitter.args();
+        let mut arguments: Vec<_> = sitter
+            .args()
+            .iter()
+            .map(|x| Args::new(x, source_code))
+            .collect();
         if arguments
             .last()
-            .is_some_and(|x| matches!(x, lang_model::ExtrinsicFunctionArgs::VarUndefined(_)))
+            .is_some_and(|x| matches!(x, Args::VarUndefined))
         {
             arguments.pop();
         }
@@ -75,23 +95,17 @@ pub fn compile(
     comp: &mut Vec<u8>,
     context: ExtrinsicFunctionContext,
 ) {
-    use crate::{expression::ExpressionContext, Compileable};
-
-    use lang_model::ExtrinsicFunctionArgs::*;
     for arg in &function.arguments {
         match arg {
-            VarUndefined(_) => {
-                comp.push(crate::bindings::VARUNDF);
+            Args::VarUndefined => comp.push(ffi::VARUNDF),
+            Args::ByRef(variable) => {
+                variable::compile(variable, source_code, comp, VarContext::Build);
+                comp.push(ffi::NEWBREF);
             }
-            ByRef(var) => {
-                let var = Variable::new(&var.children(), source_code);
-                variable::compile(&var, source_code, comp, VarContext::Build);
-                comp.push(crate::bindings::NEWBREF);
+            Args::Expression(expression) => {
+                expression::compile(expression, source_code, comp, ExpressionContext::Eval)
             }
-            Expression(exp) => {
-                exp.compile(source_code, comp, ExpressionContext::Eval);
-            }
-        };
+        }
     }
 
     //Op code

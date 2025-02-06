@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub enum Unary {
     Minus,
     Plus,
@@ -22,6 +23,7 @@ impl Unary {
     }
 }
 
+#[derive(Clone)]
 pub enum Binary {
     Add,
     Sub,

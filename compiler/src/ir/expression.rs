@@ -8,6 +8,7 @@ use crate::{
 
 use super::*;
 
+#[derive(Clone)]
 pub enum Expression<'a> {
     Number(value::Number),
     String(value::Value),
