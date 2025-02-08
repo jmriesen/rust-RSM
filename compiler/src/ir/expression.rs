@@ -1,5 +1,3 @@
-use lang_model::IntrinsicFunction;
-
 use crate::{
     expression::{insert_value, parse_string_litteral, ExpressionContext},
     localvar::VarContext,
@@ -9,10 +7,10 @@ use crate::{
 use super::*;
 
 #[derive(Clone)]
-pub enum Expression<'a> {
+pub enum Expression {
     Number(value::Number),
     String(value::Value),
-    Variable(Variable<'a>),
+    Variable(Variable),
     IntrinsicVar(IntrinsicVar),
     Expression(Box<Self>),
     InderectExpression(Box<Self>),
@@ -25,42 +23,42 @@ pub enum Expression<'a> {
         op_code: operators::Binary,
         right: Box<Self>,
     },
-    ExtrinsicFunction(ExtrinsicFunction<'a>),
+    ExtrinsicFunction(ExtrinsicFunction),
     ExternalCalls {
         args: Vec<Self>,
         op_code: ExternalCalls,
     },
-    IntrinsicFunction(IntrinsicFunction<'a>),
+    IntrinsicFunction(Box<IntrinsicFunction>),
 }
 
-impl<'a> Expression<'a> {
-    pub fn new(sitter: &lang_model::Expression<'a>, source_code: &str) -> Self {
+impl Expression {
+    pub fn new(sitter: &lang_model::Expression<'_>, source_code: &str) -> Self {
         let nested_new = |exp| Box::new(Self::new(&exp, source_code));
-        use lang_model::ExpressionChildren::*;
+        use lang_model::ExpressionChildren as S;
         use std::str::FromStr;
         match sitter.children() {
-            number(num) => {
+            S::number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
                 Self::Number(value::Number::from_str(num).unwrap().into())
             }
-            string(value) => {
+            S::string(value) => {
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();
                 Self::String(parse_string_litteral(value).unwrap())
             }
-            Variable(var) => Self::Variable(super::Variable::new(&var, source_code)),
-            IntrinsicVar(var) => Self::IntrinsicVar(super::IntrinsicVar::new(var)),
-            Expression(exp) => Self::Expression(nested_new(exp)),
-            InderectExpression(exp) => Self::InderectExpression(nested_new(exp.children())),
-            UnaryExpression(unary_exp) => Self::UnaryExpression {
+            S::Variable(var) => Self::Variable(super::Variable::new(&var, source_code)),
+            S::IntrinsicVar(var) => Self::IntrinsicVar(super::IntrinsicVar::new(var)),
+            S::Expression(exp) => Self::Expression(nested_new(exp)),
+            S::InderectExpression(exp) => Self::InderectExpression(nested_new(exp.children())),
+            S::UnaryExpression(unary_exp) => Self::UnaryExpression {
                 op_code: operators::Unary::new(unary_exp.opp()),
                 expresstion: nested_new(unary_exp.exp()),
             },
-            BinaryExpression(bin_exp) => Self::BinaryExpression {
+            S::BinaryExpression(bin_exp) => Self::BinaryExpression {
                 left: nested_new(bin_exp.exp_left()),
                 op_code: operators::Binary::new(bin_exp.opp()),
                 right: nested_new(bin_exp.exp_right()),
             },
-            PaternMatchExpression(pat_exp) => {
+            S::PaternMatchExpression(pat_exp) => {
                 use lang_model::PaternMatchExpressionExp_right as E;
                 let right = match pat_exp.exp_right() {
                     E::Expression(exp) => nested_new(exp),
@@ -75,10 +73,10 @@ impl<'a> Expression<'a> {
                     right,
                 }
             }
-            ExtrinsicFunction(x) => {
+            S::ExtrinsicFunction(x) => {
                 Self::ExtrinsicFunction(super::ExtrinsicFunction::new(&x, source_code))
             }
-            XCall(xcall) => Self::ExternalCalls {
+            S::XCall(xcall) => Self::ExternalCalls {
                 args: xcall
                     .args()
                     .iter()
@@ -86,7 +84,9 @@ impl<'a> Expression<'a> {
                     .collect(),
                 op_code: ExternalCalls::new(xcall.code()),
             },
-            IntrinsicFunction(intrinsic) => Self::IntrinsicFunction(intrinsic),
+            S::IntrinsicFunction(intrinsic) => {
+                Self::IntrinsicFunction(Box::new(IntrinsicFunction::new(&intrinsic, source_code)))
+            }
         }
     }
 }
@@ -138,8 +138,7 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::IntrinsicFunction(intrinsic) => {
-            let fun = super::intrinsic_functions::IntrinsicFunction::new(intrinsic, source_code);
-            super::intrinsic_functions::compile(&fun, source_code, comp);
+            super::intrinsic_functions::compile(&intrinsic, source_code, comp);
         }
     }
 }

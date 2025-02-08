@@ -12,13 +12,13 @@ pub enum Location {
 }
 
 #[derive(Clone)]
-enum Args<'a> {
+enum Args {
     VarUndefined,
-    ByRef(Variable<'a>),
-    Expression(Expression<'a>),
+    ByRef(Variable),
+    Expression(Expression),
 }
-impl<'a> Args<'a> {
-    pub fn new(sitter: &lang_model::ExtrinsicFunctionArgs<'a>, source_code: &str) -> Self {
+impl Args {
+    pub fn new(sitter: &lang_model::ExtrinsicFunctionArgs<'_>, source_code: &str) -> Self {
         use lang_model::ExtrinsicFunctionArgs as E;
         match sitter {
             E::VarUndefined(_) => Self::VarUndefined,
@@ -29,17 +29,17 @@ impl<'a> Args<'a> {
 }
 
 #[derive(Clone)]
-pub struct ExtrinsicFunction<'a> {
+pub struct ExtrinsicFunction {
     location: Location,
     //TODO convert to IR all the way down, and remove lifetime requirement
-    arguments: Vec<Args<'a>>,
+    arguments: Vec<Args>,
     //NOTE: This affects the compiled output, but I don't think is should.
     //See `compile` for more details.
     contains_paren: bool,
 }
 
-impl<'a> ExtrinsicFunction<'a> {
-    pub fn new(sitter: &lang_model::ExtrinsicFunction<'a>, source_code: &str) -> Self {
+impl ExtrinsicFunction {
+    pub fn new(sitter: &lang_model::ExtrinsicFunction<'_>, source_code: &str) -> Self {
         let tag = sitter.tag().map(|x| {
             let x = x.children();
             use lang_model::TagNameChildren as E;

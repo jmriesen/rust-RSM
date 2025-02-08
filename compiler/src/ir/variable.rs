@@ -2,29 +2,29 @@ use super::Expression;
 use crate::localvar::VarContext;
 
 #[derive(Clone)]
-pub enum VariableType<'a> {
+pub enum VariableType {
     Local {
         name: String,
     },
     NakedVariable,
     IndirectVariable {
-        expression: Box<Expression<'a>>,
+        expression: Box<Expression>,
     },
     GlobalVariable {
         name: String,
     },
     GlobalUciVariable {
         name: String,
-        uci: Box<Expression<'a>>,
+        uci: Box<Expression>,
     },
     GlobalUciEnvVariable {
         name: String,
-        uci: Box<Expression<'a>>,
-        env: Box<Expression<'a>>,
+        uci: Box<Expression>,
+        env: Box<Expression>,
     },
 }
 
-impl<'a> VariableType<'a> {
+impl VariableType {
     pub fn name(&self) -> Option<&str> {
         match self {
             VariableType::Local { name } => Some(name),
@@ -38,13 +38,13 @@ impl<'a> VariableType<'a> {
 }
 
 #[derive(Clone)]
-pub struct Variable<'a> {
-    var_type: VariableType<'a>,
-    subscripts: Vec<Expression<'a>>,
+pub struct Variable {
+    var_type: VariableType,
+    subscripts: Vec<Expression>,
 }
 
-impl<'a> Variable<'a> {
-    pub fn new(sitter: &lang_model::Variable<'a>, source_code: &str) -> Self {
+impl Variable {
+    pub fn new(sitter: &lang_model::Variable<'_>, source_code: &str) -> Self {
         use lang_model::VariableHeading as E;
         use VariableType::*;
         let name = sitter.name().map(|x| {

@@ -6,20 +6,22 @@ use crate::{
 };
 use value::Value;
 
-pub struct SelectTerm<'a> {
-    condition: Expression<'a>,
-    value: Expression<'a>,
+#[derive(Clone)]
+pub struct SelectTerm {
+    condition: Expression,
+    value: Expression,
 }
 
-pub struct Function<'a, const REQUIRED: usize, const OPTIONAL: usize> {
-    required: [Expression<'a>; REQUIRED],
+#[derive(Clone)]
+pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
+    required: [Expression; REQUIRED],
     //Note this should really be thought of as a Vec with a fixed capacity but... whatever, this
     //will work, just skip any None values.
-    optional: [Option<Expression<'a>>; OPTIONAL],
+    optional: [Option<Expression>; OPTIONAL],
 }
 
-impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OPTIONAL> {
-    fn new(args: Vec<lang_model::Expression<'a>>, source_code: &str) -> Self {
+impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> {
+    fn new(args: Vec<lang_model::Expression<'_>>, source_code: &str) -> Self {
         use std::array::from_fn;
         let num_of_args = REQUIRED..=REQUIRED + OPTIONAL;
         assert!(
@@ -35,7 +37,7 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OP
     }
 }
 
-impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OPTIONAL> {
+impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> {
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, fn_code_base: u8) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
@@ -46,15 +48,16 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> Function<'a, REQUIRED, OP
     }
 }
 
-pub struct VarFunction<'a, const REQUIRED: usize, const OPTIONAL: usize> {
-    variable: super::Variable<'a>,
-    function: Function<'a, REQUIRED, OPTIONAL>,
+#[derive(Clone)]
+pub struct VarFunction<const REQUIRED: usize, const OPTIONAL: usize> {
+    variable: super::Variable,
+    function: Function<REQUIRED, OPTIONAL>,
 }
 
-impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED, OPTIONAL> {
+impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONAL> {
     fn new(
-        var: lang_model::Variable<'a>,
-        args: Vec<lang_model::Expression<'a>>,
+        var: lang_model::Variable<'_>,
+        args: Vec<lang_model::Expression<'_>>,
         source_code: &str,
     ) -> Self {
         VarFunction {
@@ -64,7 +67,7 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED,
     }
 }
 
-impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED, OPTIONAL> {
+impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONAL> {
     fn compile(
         &self,
         source_code: &str,
@@ -79,43 +82,44 @@ impl<'a, const REQUIRED: usize, const OPTIONAL: usize> VarFunction<'a, REQUIRED,
     }
 }
 
-pub enum IntrinsicFunction<'a> {
+#[derive(Clone)]
+pub enum IntrinsicFunction {
     Select {
-        terms: Vec<SelectTerm<'a>>,
+        terms: Vec<SelectTerm>,
     },
     ///Max number of arguments is 254
     Char {
-        args: Vec<Expression<'a>>,
+        args: Vec<Expression>,
     },
-    View(Function<'a, 2, 2>),
-    Ascii(Function<'a, 1, 1>),
-    Extract(Function<'a, 1, 2>),
-    Find(Function<'a, 2, 1>),
-    Fnumber(Function<'a, 2, 1>),
-    Justify(Function<'a, 2, 1>),
-    Length(Function<'a, 1, 1>),
-    Piece(Function<'a, 2, 2>),
-    Random(Function<'a, 1, 0>),
-    Reverse(Function<'a, 1, 0>),
-    Stack(Function<'a, 1, 1>),
-    Text(Function<'a, 1, 0>),
-    Translate(Function<'a, 2, 1>),
+    View(Function<2, 2>),
+    Ascii(Function<1, 1>),
+    Extract(Function<1, 2>),
+    Find(Function<2, 1>),
+    Fnumber(Function<2, 1>),
+    Justify(Function<2, 1>),
+    Length(Function<1, 1>),
+    Piece(Function<2, 2>),
+    Random(Function<1, 0>),
+    Reverse(Function<1, 0>),
+    Stack(Function<1, 1>),
+    Text(Function<1, 0>),
+    Translate(Function<2, 1>),
 
-    QLength(VarFunction<'a, 0, 0>),
-    QSubscript(VarFunction<'a, 1, 0>),
+    QLength(VarFunction<0, 0>),
+    QSubscript(VarFunction<1, 0>),
 
-    Data(VarFunction<'a, 0, 0>),
-    Get(VarFunction<'a, 0, 1>),
-    Increment(VarFunction<'a, 0, 1>),
+    Data(VarFunction<0, 0>),
+    Get(VarFunction<0, 1>),
+    Increment(VarFunction<0, 1>),
 
-    Name(VarFunction<'a, 0, 3>),
-    Order(VarFunction<'a, 0, 1>),
-    Query(VarFunction<'a, 0, 1>),
-    Next(VarFunction<'a, 0, 0>),
+    Name(VarFunction<0, 3>),
+    Order(VarFunction<0, 1>),
+    Query(VarFunction<0, 1>),
+    Next(VarFunction<0, 0>),
 }
 
-impl<'a> IntrinsicFunction<'a> {
-    pub fn new(sitter: &lang_model::IntrinsicFunction<'a>, source_code: &str) -> Self {
+impl IntrinsicFunction {
+    pub fn new(sitter: &lang_model::IntrinsicFunction<'_>, source_code: &str) -> Self {
         use lang_model::IntrinsicFunctionChildren::*;
 
         match &sitter.children() {
