@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use bite_code::BiteCode;
-use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
+use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Command, Write};
 
 pub mod bite_code;
 mod command;
@@ -55,7 +55,6 @@ pub fn test_compile_command(source_code: &str) -> Vec<u8> {
 }
 
 pub fn compile(source_code: &str) -> Vec<u8> {
-    use expression::ExpressionContext;
     let tree = lang_model::create_tree(dbg!(source_code));
     let tree = lang_model::type_tree(&tree, source_code).unwrap();
 
@@ -74,64 +73,11 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             .enumerate()
             .map(|(i, x)| (i == commands.len() - 1, x))
         {
-            let jump_past_command = match &command.children() {
-                E::WriteCommand(command) => command.post_condition(),
-                E::BrakeCommand(command) => command.post_condition(),
-                E::CloseCommand(command) => command.post_condition(),
-                E::DoCommand(command) => command.post_condition(),
-                E::For(_) => None,
-                E::ElseCommand(_) => None,
-                E::NewCommand(_) => None,
-                E::QUITCommand(_) => todo!(),
-            }
-            .map(|condition| {
-                ir::Expression::new(&condition, source_code)
-                    .compile(&mut comp, ExpressionContext::Eval);
-                comp.push(ffi::JMP0);
-                comp.reserve_jump()
-            });
-            use lang_model::commandChildren as E;
-            match command.children() {
-                E::WriteCommand(command) => {
-                    for arg in command.args().iter().map(|x| Write::new(x, source_code)) {
-                        arg.compile(&mut comp)
-                    }
-                }
-                E::BrakeCommand(command) => {
-                    for command in Break::new(&command, source_code) {
-                        command.compile(&mut comp);
-                    }
-                }
-
-                E::CloseCommand(command) => {
-                    for command in Close::new(&command, source_code) {
-                        command.compile(&mut comp);
-                    }
-                }
-
-                E::ElseCommand(_) => {
-                    comp.push(ffi::OPELSE);
-                }
-                E::NewCommand(_command) => {}
-                E::DoCommand(command) => {
-                    for command in Do::new(&command, source_code) {
-                        command.compile(&mut comp);
-                    }
-                }
-                E::For(command) => {
-                    let loop_exit = For::new(&command, source_code).compile(&mut comp);
-                    for_jumps.push(loop_exit)
-                }
-                E::QUITCommand(_) => todo!(),
-            }
-
-            if let Some(jump_past) = jump_past_command {
-                comp.write_jump(jump_past, comp.current_location())
-            }
-            //For commands only end at the end of the line.
-            if !matches!(command.children(), E::For(_)) {
-                comp.push(ffi::OPENDC);
-            }
+            if let Some(command) = Command::new(command, source_code) {
+                command.compile(&mut comp);
+            } else {
+                temp(command, source_code, &mut comp, &mut for_jumps);
+            };
 
             //Weird extra handling at the end of a line.
             //This should eventually be removed
@@ -159,6 +105,72 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         comp.push(ffi::ENDLIN);
     }
     comp.get_raw()
+}
+
+fn temp(
+    command: &lang_model::command<'_>,
+    source_code: &str,
+    comp: &mut BiteCode,
+    for_jumps: &mut Vec<ir::commands::r#for::EndOfLine>,
+) {
+    use expression::ExpressionContext;
+    let jump_past_command = match &command.children() {
+        E::WriteCommand(command) => command.post_condition(),
+        E::BrakeCommand(command) => command.post_condition(),
+        E::CloseCommand(command) => command.post_condition(),
+        E::DoCommand(command) => command.post_condition(),
+        E::For(_) => None,
+        E::ElseCommand(_) => None,
+        E::NewCommand(_) => None,
+        E::QUITCommand(_) => todo!(),
+    }
+    .map(|condition| {
+        ir::Expression::new(&condition, source_code).compile(comp, ExpressionContext::Eval);
+        comp.push(ffi::JMP0);
+        comp.reserve_jump()
+    });
+    use lang_model::commandChildren as E;
+    match command.children() {
+        E::WriteCommand(command) => {
+            for arg in command.args().iter().map(|x| Write::new(x, source_code)) {
+                arg.compile(comp)
+            }
+        }
+        E::BrakeCommand(command) => {
+            for command in Break::new(&command, source_code) {
+                command.compile(comp);
+            }
+        }
+
+        E::CloseCommand(command) => {
+            for command in Close::new(&command, source_code) {
+                command.compile(comp);
+            }
+        }
+
+        E::ElseCommand(_) => {
+            comp.push(ffi::OPELSE);
+        }
+        E::NewCommand(_command) => {}
+        E::DoCommand(command) => {
+            for command in Do::new(&command, source_code) {
+                command.compile(comp);
+            }
+        }
+        E::For(command) => {
+            let loop_exit = For::new(&command, source_code).compile(comp);
+            for_jumps.push(loop_exit)
+        }
+        E::QUITCommand(_) => todo!(),
+    }
+
+    if let Some(jump_past) = jump_past_command {
+        comp.write_jump(jump_past, comp.current_location())
+    }
+    //For commands only end at the end of the line.
+    if !matches!(command.children(), E::For(_)) {
+        comp.push(ffi::OPENDC);
+    }
 }
 
 enum ExtrinsicFunctionContext {
