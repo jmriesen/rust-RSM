@@ -131,10 +131,8 @@ fn temp(
     });
     use lang_model::commandChildren as E;
     match command.children() {
-        E::WriteCommand(command) => {
-            for arg in command.args().iter().map(|x| Write::new(x, source_code)) {
-                arg.compile(comp)
-            }
+        E::WriteCommand(_) => {
+            unreachable!();
         }
         E::BrakeCommand(command) => {
             for command in Break::new(&command, source_code) {
