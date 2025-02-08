@@ -37,14 +37,5 @@ pub enum ExpressionContext {
     Close = crate::bindings::INDCLOS as isize,
 }
 
-use crate::Compileable;
-impl<'a> Compileable for Expression<'a> {
-    type Context = ExpressionContext;
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
-        let exp = crate::ir::expression::Expression::new(self, source_code);
-        exp.compile(comp, context);
-    }
-}
-
 #[cfg(test)]
 pub mod test;

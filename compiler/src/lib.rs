@@ -43,11 +43,6 @@ mod test_harness;
 
 use crate::function::{reserve_jump, write_jump};
 
-trait Compileable {
-    type Context;
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, contex: Self::Context);
-}
-
 trait OpCode {
     fn op_code(&self) -> u8;
 }
@@ -91,7 +86,8 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 E::QUITCommand(_) => todo!(),
             }
             .map(|condition| {
-                condition.compile(source_code, &mut comp, ExpressionContext::Eval);
+                ir::Expression::new(&condition, source_code)
+                    .compile(&mut comp, ExpressionContext::Eval);
                 comp.push(bindings::JMP0);
                 reserve_jump(&mut comp)
             });
@@ -167,12 +163,4 @@ pub fn compile(source_code: &str) -> Vec<u8> {
 enum ExtrinsicFunctionContext {
     Eval,
     Do,
-}
-
-impl<'a> Compileable for lang_model::ExtrinsicFunction<'a> {
-    type Context = ExtrinsicFunctionContext;
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
-        let function = ir::extrinsic_function::ExtrinsicFunction::new(self, source_code);
-        function.compile(comp, context);
-    }
 }

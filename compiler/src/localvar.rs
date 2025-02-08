@@ -27,21 +27,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::{ir, Compileable};
 
 pub enum VarContext {
     Eval = ffi::OPVAR as isize,
     Build = ffi::OPMVAR as isize,
     BuildNullable = ffi::OPMVARN as isize,
     For = ffi::CMFORSET as isize,
-}
-
-impl<'a> Compileable for lang_model::Variable<'a> {
-    type Context = VarContext;
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarContext) {
-        let var = ir::variable::Variable::new(self, source_code);
-        var.compile(comp, context);
-    }
 }
 
 #[cfg(test)]
