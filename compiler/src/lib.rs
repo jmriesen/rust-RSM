@@ -29,8 +29,10 @@
  */
 #![feature(array_chunks)]
 
+use bite_code::BiteCode;
 use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
 
+pub mod bite_code;
 mod command;
 mod dollar;
 mod expression;
@@ -63,7 +65,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
     let tree = lang_model::create_tree(dbg!(source_code));
     let tree = lang_model::type_tree(&tree, source_code).unwrap();
 
-    let mut comp = vec![];
+    let mut comp = BiteCode::new();
     let tags = tree.children();
     let block = tags[0].block().unwrap();
     for line in block.children() {
@@ -88,7 +90,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 ir::Expression::new(&condition, source_code)
                     .compile(&mut comp, ExpressionContext::Eval);
                 comp.push(ffi::JMP0);
-                reserve_jump(&mut comp)
+                comp.reserve_jump()
             });
             use lang_model::commandChildren as E;
             match command.children() {
@@ -131,7 +133,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 comp.push(ffi::OPENDC);
             }
             if let Some(jump_past) = jump_past_command {
-                write_jump(jump_past, comp.len(), &mut comp)
+                comp.write_jump(jump_past, comp.current_location())
             }
             //For commands only end at the end of the line.
             if !matches!(command.children(), E::For(_)) {
@@ -156,7 +158,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         }
         comp.push(ffi::ENDLIN);
     }
-    comp
+    comp.get_raw()
 }
 
 enum ExtrinsicFunctionContext {

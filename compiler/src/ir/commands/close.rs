@@ -1,6 +1,6 @@
 use lang_model::CloseCommand;
 
-use crate::ir::Expression;
+use crate::{bite_code::BiteCode, ir::Expression};
 
 pub struct Close(Expression);
 
@@ -17,7 +17,7 @@ impl Close {
             .map(|x| Self(x))
             .collect()
     }
-    pub fn compile(&self, comp: &mut Vec<u8>) {
+    pub fn compile(&self, comp: &mut BiteCode) {
         self.0
             .compile(comp, crate::expression::ExpressionContext::Close);
         if !matches!(self.0, Expression::InderectExpression { .. }) {

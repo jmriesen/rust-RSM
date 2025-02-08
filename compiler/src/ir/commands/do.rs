@@ -1,8 +1,8 @@
 use lang_model::DoCommand;
 
 use crate::{
+    bite_code::BiteCode,
     expression::ExpressionContext,
-    function::{reserve_jump, write_jump},
     ir::{Expression, ExtrinsicFunction},
 };
 
@@ -29,7 +29,7 @@ impl Do {
                 .collect()
         }
     }
-    pub fn compile(&self, comp: &mut Vec<u8>) {
+    pub fn compile(&self, comp: &mut BiteCode) {
         match self {
             Do::ArgumentLess => comp.push(ffi::CMDON),
             Do::FunctionCall {
@@ -39,11 +39,11 @@ impl Do {
                 let jump_from = post_condition.as_ref().map(|x| {
                     x.compile(comp, ExpressionContext::Eval);
                     comp.push(ffi::JMP0);
-                    reserve_jump(comp)
+                    comp.reserve_jump()
                 });
                 function_call.compile(comp, crate::ExtrinsicFunctionContext::Do);
                 if let Some(from) = jump_from {
-                    write_jump(from, comp.len(), comp)
+                    comp.write_jump(from, comp.current_location())
                 }
             }
         }

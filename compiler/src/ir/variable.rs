@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::localvar::VarContext;
+use crate::{bite_code::BiteCode, localvar::VarContext};
 
 #[derive(Clone)]
 pub enum VariableType {
@@ -89,7 +89,7 @@ impl Variable {
                 .collect(),
         }
     }
-    pub fn compile(&self, comp: &mut Vec<u8>, context: VarContext) {
+    pub fn compile(&self, comp: &mut BiteCode, context: VarContext) {
         use crate::expression::ExpressionContext;
         use VariableType as E;
         match &self.var_type {
@@ -133,7 +133,7 @@ impl Variable {
 
         if let Some(name) = self.var_type.name() {
             let name: ffi::VAR_U = name.try_into().unwrap();
-            comp.extend(name.as_array())
+            comp.extend(name.as_array().iter().cloned())
         }
     }
 }

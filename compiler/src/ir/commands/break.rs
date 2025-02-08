@@ -1,6 +1,6 @@
 use lang_model::BrakeCommand;
 
-use crate::ir::Expression;
+use crate::{bite_code::BiteCode, ir::Expression};
 
 pub struct Break(Option<Expression>);
 
@@ -17,7 +17,7 @@ impl Break {
                 .collect()
         }
     }
-    pub fn compile(&self, comp: &mut Vec<u8>) {
+    pub fn compile(&self, comp: &mut BiteCode) {
         match self {
             Self(None) => {
                 comp.push(ffi::OPBRK0);

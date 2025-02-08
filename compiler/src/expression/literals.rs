@@ -31,7 +31,9 @@ use core::num;
 use std::str::FromStr;
 use value::{CreationError, Value};
 
-pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
+use crate::bite_code::BiteCode;
+
+pub fn insert_value(comp: &mut BiteCode, value: Value) {
     comp.push(ffi::OPSTR);
     comp.extend(value.as_bytes());
     comp.push(0);

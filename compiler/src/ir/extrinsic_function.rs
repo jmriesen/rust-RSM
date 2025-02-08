@@ -1,7 +1,10 @@
 use ffi::VAR_U;
 
 use super::{Expression, Variable};
-use crate::{expression::ExpressionContext, localvar::VarContext, ExtrinsicFunctionContext};
+use crate::{
+    bite_code::BiteCode, expression::ExpressionContext, localvar::VarContext,
+    ExtrinsicFunctionContext,
+};
 
 //NOTE: I am currently not validating the string size;
 #[derive(Clone)]
@@ -88,7 +91,7 @@ impl ExtrinsicFunction {
         }
     }
 
-    pub fn compile(&self, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
+    pub fn compile(&self, comp: &mut BiteCode, context: ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
                 Args::VarUndefined => comp.push(ffi::VARUNDF),
@@ -116,11 +119,11 @@ impl ExtrinsicFunction {
 
         if let Some(routine) = routine {
             let routine: VAR_U = routine.try_into().unwrap();
-            comp.extend(routine.as_array());
+            comp.extend(routine.as_array().iter().cloned());
         }
         if let Some(tag) = tag {
             let tag: VAR_U = tag.try_into().unwrap();
-            comp.extend(tag.as_array());
+            comp.extend(tag.as_array().iter().cloned());
         }
 
         // End marker + number of args

@@ -1,6 +1,7 @@
 use std::usize;
 
 use crate::{
+    bite_code::BiteCode,
     expression::ExpressionContext,
     function::{reserve_jump, write_jump},
     ir::{Expression, Variable},
@@ -47,12 +48,12 @@ impl For {
             Self::Infinite
         }
     }
-    pub fn compile(&self, comp: &mut Vec<u8>) -> EndOfLine {
+    pub fn compile(&self, comp: &mut BiteCode) -> EndOfLine {
         match self {
             For::Infinite => {
                 comp.push(ffi::CMFOR0);
                 EndOfLine {
-                    jump_to_exit: reserve_jump(comp),
+                    jump_to_exit: comp.reserve_jump(),
                     argumentless: true,
                 }
             }
@@ -61,8 +62,8 @@ impl For {
                 arguments,
             } => {
                 variable.compile(comp, VarContext::For);
-                let jump_to_content = reserve_jump(comp);
-                let jump_to_exit = reserve_jump(comp);
+                let jump_to_content = comp.reserve_jump();
+                let jump_to_exit = comp.reserve_jump();
 
                 for args in arguments {
                     args.start.compile(comp, ExpressionContext::Eval);
@@ -80,7 +81,7 @@ impl For {
                     });
                 }
 
-                write_jump(jump_to_content, comp.len(), comp);
+                comp.write_jump(jump_to_content, comp.current_location());
                 EndOfLine {
                     jump_to_exit,
                     argumentless: false,
@@ -96,20 +97,20 @@ pub struct EndOfLine {
 }
 
 impl EndOfLine {
-    pub fn compile(self, comp: &mut Vec<u8>) {
+    pub fn compile(self, comp: &mut BiteCode) {
         //End for command
         comp.push(ffi::OPENDC);
         if self.argumentless {
             //Jump back to start of for loop.
             comp.push(ffi::JMP);
-            let jump = reserve_jump(comp);
+            let jump = comp.reserve_jump();
             // For content starts right after the jump_to_exit location.
-            write_jump(jump, self.jump_to_exit, comp);
+            comp.write_jump(jump, self.jump_to_exit);
         } else {
             comp.push(ffi::CMFOREND);
         }
         // Jump out of for loop
-        write_jump(self.jump_to_exit, comp.len(), comp);
+        comp.write_jump(self.jump_to_exit, comp.current_location());
         comp.push(ffi::OPNOP);
 
         comp.push(ffi::OPENDC);

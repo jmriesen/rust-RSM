@@ -1,9 +1,5 @@
 use super::expression::Expression;
-use crate::{
-    expression::ExpressionContext,
-    function::{reserve_jump, write_jump},
-    localvar::VarContext,
-};
+use crate::{bite_code::BiteCode, expression::ExpressionContext, localvar::VarContext};
 use value::Value;
 
 #[derive(Clone)]
@@ -38,7 +34,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> 
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> {
-    fn compile(&self, comp: &mut Vec<u8>, fn_code_base: u8) {
+    fn compile(&self, comp: &mut BiteCode, fn_code_base: u8) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
@@ -68,7 +64,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONA
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONAL> {
-    fn compile(&self, comp: &mut Vec<u8>, context: VarContext, fn_code_base: u8) {
+    fn compile(&self, comp: &mut BiteCode, context: VarContext, fn_code_base: u8) {
         //TODO handle other context types
         self.variable.compile(comp, context);
         //TODO handle Next case.
@@ -195,7 +191,7 @@ impl IntrinsicFunction {
         }
     }
 
-    pub fn compile(&self, comp: &mut Vec<u8>) {
+    pub fn compile(&self, comp: &mut BiteCode) {
         match self {
             IntrinsicFunction::Select { terms } => {
                 let jump_indexs: Vec<_> = terms
@@ -203,22 +199,22 @@ impl IntrinsicFunction {
                     .map(|SelectTerm { condition, value }| {
                         condition.compile(comp, ExpressionContext::Eval);
                         comp.push(ffi::JMP0);
-                        let try_next = reserve_jump(comp);
+                        let try_next = comp.reserve_jump();
 
                         value.compile(comp, ExpressionContext::Eval);
                         comp.push(ffi::JMP);
-                        let exit = reserve_jump(comp);
+                        let exit = comp.reserve_jump();
 
                         (try_next, exit)
                     })
                     .collect();
                 comp.push(ffi::OPERROR);
                 let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
-                comp.extend_from_slice(&errm4);
+                comp.extend(errm4.into_iter());
 
                 for (try_next, exit) in jump_indexs {
-                    write_jump(try_next, exit, comp);
-                    write_jump(exit, comp.len(), comp);
+                    comp.write_jump(try_next, exit);
+                    comp.write_jump(exit, comp.current_location());
                 }
             }
             IntrinsicFunction::Char { args } => {

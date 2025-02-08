@@ -1,4 +1,5 @@
 use crate::{
+    bite_code::BiteCode,
     expression::{insert_value, parse_string_litteral, ExpressionContext},
     localvar::VarContext,
     ExtrinsicFunctionContext,
@@ -90,7 +91,7 @@ impl Expression {
         }
     }
 
-    pub fn compile(&self, comp: &mut Vec<u8>, context: ExpressionContext) {
+    pub fn compile(&self, comp: &mut BiteCode, context: ExpressionContext) {
         use Expression as E;
         match self {
             E::Number(num) => insert_value(comp, num.clone().into()),

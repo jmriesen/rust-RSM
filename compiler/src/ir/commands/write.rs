@@ -1,6 +1,6 @@
 use lang_model::WriteArg;
 
-use crate::{expression::ExpressionContext, ir::Expression};
+use crate::{bite_code::BiteCode, expression::ExpressionContext, ir::Expression};
 
 pub enum Write {
     Bang,
@@ -21,7 +21,7 @@ impl Write {
             }
         }
     }
-    pub fn compile(&self, comp: &mut Vec<u8>) {
+    pub fn compile(&self, comp: &mut BiteCode) {
         match self {
             Self::Bang => comp.push(ffi::CMWRTNL),
             Self::Clear => comp.push(ffi::CMWRTFF),
