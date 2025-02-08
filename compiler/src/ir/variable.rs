@@ -97,21 +97,21 @@ pub fn compile(variable: &Variable, comp: &mut Vec<u8>, context: VarContext) {
         E::Local { .. } => {}
         E::NakedVariable => {}
         E::IndirectVariable { expression } => {
-            super::expression::compile(expression, comp, ExpressionContext::Eval);
+            expression.compile(comp, ExpressionContext::Eval);
             comp.push(ffi::INDMVAR);
         }
         E::GlobalVariable { .. } => {}
         E::GlobalUciVariable { uci, .. } => {
-            super::expression::compile(uci, comp, ExpressionContext::Eval);
+            uci.compile(comp, ExpressionContext::Eval);
         }
         E::GlobalUciEnvVariable { uci, env, .. } => {
-            super::expression::compile(uci, comp, ExpressionContext::Eval);
-            super::expression::compile(env, comp, ExpressionContext::Eval);
+            uci.compile(comp, ExpressionContext::Eval);
+            env.compile(comp, ExpressionContext::Eval);
         }
     }
 
     for subscript in &variable.subscripts {
-        super::expression::compile(subscript, comp, ExpressionContext::Eval);
+        subscript.compile(comp, ExpressionContext::Eval);
     }
 
     comp.push(context as u8);

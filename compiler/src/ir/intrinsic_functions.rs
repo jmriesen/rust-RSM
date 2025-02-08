@@ -42,7 +42,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> 
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
-            super::expression::compile(arg, comp, ExpressionContext::Eval);
+            arg.compile(comp, ExpressionContext::Eval);
         }
         comp.push(fn_code_base + optional_args.count() as u8);
     }
@@ -202,11 +202,11 @@ pub fn compile(function: &IntrinsicFunction, comp: &mut Vec<u8>) {
             let jump_indexs: Vec<_> = terms
                 .iter()
                 .map(|SelectTerm { condition, value }| {
-                    super::expression::compile(&condition, comp, ExpressionContext::Eval);
+                    condition.compile(comp, ExpressionContext::Eval);
                     comp.push(ffi::JMP0);
                     let try_next = reserve_jump(comp);
 
-                    super::expression::compile(&value, comp, ExpressionContext::Eval);
+                    value.compile(comp, ExpressionContext::Eval);
                     comp.push(ffi::JMP);
                     let exit = reserve_jump(comp);
 
@@ -227,7 +227,7 @@ pub fn compile(function: &IntrinsicFunction, comp: &mut Vec<u8>) {
                 panic!("Char has too many args");
             } else {
                 for arg in args {
-                    super::expression::compile(arg, comp, ExpressionContext::Eval);
+                    arg.compile(comp, ExpressionContext::Eval);
                 }
                 comp.push(ffi::FUNC);
                 comp.push(args.len() as u8);

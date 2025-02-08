@@ -101,9 +101,7 @@ pub fn compile(
                 variable::compile(variable, comp, VarContext::Build);
                 comp.push(ffi::NEWBREF);
             }
-            Args::Expression(expression) => {
-                expression::compile(expression, comp, ExpressionContext::Eval)
-            }
+            Args::Expression(expression) => expression.compile(comp, ExpressionContext::Eval),
         }
     }
 

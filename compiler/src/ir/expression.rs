@@ -89,51 +89,51 @@ impl Expression {
             }
         }
     }
-}
 
-pub fn compile(exp: &Expression, comp: &mut Vec<u8>, context: ExpressionContext) {
-    use Expression as E;
-    match exp {
-        E::Number(num) => insert_value(comp, num.clone().into()),
-        E::String(value) => insert_value(comp, value.clone()),
-        E::Variable(var) => super::variable::compile(&var, comp, VarContext::Eval),
-        E::IntrinsicVar(var) => comp.push(var.op_code()),
-        E::Expression(exp) => compile(exp, comp, ExpressionContext::Eval),
-        E::InderectExpression(exp) => {
-            compile(exp, comp, ExpressionContext::Eval);
-            comp.push(context as u8);
-        }
-        E::UnaryExpression {
-            op_code,
-            expresstion,
-        } => {
-            compile(expresstion, comp, ExpressionContext::Eval);
-            comp.push(op_code.op_code());
-        }
-        E::BinaryExpression {
-            left,
-            op_code,
-            right,
-        } => {
-            compile(left, comp, ExpressionContext::Eval);
-            compile(right, comp, ExpressionContext::Eval);
-            comp.push(op_code.op_code());
-        }
-        E::ExtrinsicFunction(x) => {
-            super::extrinsic_function::compile(x, comp, ExtrinsicFunctionContext::Eval)
-        }
-        E::ExternalCalls { args, op_code } => {
-            for arg in args {
-                compile(arg, comp, ExpressionContext::Eval);
+    pub fn compile(&self, comp: &mut Vec<u8>, context: ExpressionContext) {
+        use Expression as E;
+        match self {
+            E::Number(num) => insert_value(comp, num.clone().into()),
+            E::String(value) => insert_value(comp, value.clone()),
+            E::Variable(var) => super::variable::compile(&var, comp, VarContext::Eval),
+            E::IntrinsicVar(var) => comp.push(var.op_code()),
+            E::Expression(exp) => exp.compile(comp, ExpressionContext::Eval),
+            E::InderectExpression(exp) => {
+                exp.compile(comp, ExpressionContext::Eval);
+                comp.push(context as u8);
             }
+            E::UnaryExpression {
+                op_code,
+                expresstion,
+            } => {
+                expresstion.compile(comp, ExpressionContext::Eval);
+                comp.push(op_code.op_code());
+            }
+            E::BinaryExpression {
+                left,
+                op_code,
+                right,
+            } => {
+                left.compile(comp, ExpressionContext::Eval);
+                right.compile(comp, ExpressionContext::Eval);
+                comp.push(op_code.op_code());
+            }
+            E::ExtrinsicFunction(x) => {
+                super::extrinsic_function::compile(x, comp, ExtrinsicFunctionContext::Eval)
+            }
+            E::ExternalCalls { args, op_code } => {
+                for arg in args {
+                    arg.compile(comp, ExpressionContext::Eval);
+                }
 
-            for _ in args.len()..2 {
-                insert_value(comp, value::EMPTY.clone());
+                for _ in args.len()..2 {
+                    insert_value(comp, value::EMPTY.clone());
+                }
+                comp.push(op_code.op_code());
             }
-            comp.push(op_code.op_code());
-        }
-        E::IntrinsicFunction(intrinsic) => {
-            super::intrinsic_functions::compile(&intrinsic, comp);
+            E::IntrinsicFunction(intrinsic) => {
+                super::intrinsic_functions::compile(&intrinsic, comp);
+            }
         }
     }
 }
