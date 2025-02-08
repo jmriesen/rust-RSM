@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use ffi::{self as bindings};
-use ir::commands::{close::Close, r#break::Break, Write};
+use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
 
 mod command;
 mod dollar;
@@ -42,8 +42,6 @@ mod routine;
 mod test_harness;
 
 use crate::function::{reserve_jump, write_jump};
-
-use crate::localvar::VarContext;
 
 trait Compileable {
     type Context;
@@ -82,7 +80,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         let mut for_jumps = vec![];
         let commands = line.children();
         for command in &commands {
-            let post_condition = match &command.children() {
+            let jump_past_command = match &command.children() {
                 E::WriteCommand(command) => command.post_condition(),
                 E::BrakeCommand(command) => command.post_condition(),
                 E::CloseCommand(command) => command.post_condition(),
@@ -121,66 +119,26 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 }
                 E::NewCommand(_command) => {}
                 E::DoCommand(command) => {
-                    if command.args().is_empty() {
-                        comp.push(bindings::CMDON);
-                    } else {
-                        for arg in command.args() {
-                            let post_condion = arg.post_condition().map(|x| {
-                                x.compile(source_code, &mut comp, ExpressionContext::Eval);
-                                comp.push(bindings::JMP0);
-                                reserve_jump(&mut comp)
-                            });
-
-                            arg.function().compile(
-                                source_code,
-                                &mut comp,
-                                ExtrinsicFunctionContext::Do,
-                            );
-                            if let Some(jump) = post_condion {
-                                write_jump(jump, comp.len(), &mut comp)
-                            }
-                        }
+                    for command in Do::new(&command, source_code) {
+                        command.compile(&mut comp);
                     }
                 }
-                E::For(command) => match command.variable() {
-                    Some(var) => {
-                        var.compile(source_code, &mut comp, VarContext::For);
-                        let offset_for_code = reserve_jump(&mut comp);
-                        let exit = reserve_jump(&mut comp);
-
-                        for args in command.args() {
-                            for exp in args.children() {
-                                exp.compile(source_code, &mut comp, ExpressionContext::Eval);
-                            }
-
-                            comp.push(match args.children().len() {
-                                1 => bindings::CMFOR1,
-                                2 => bindings::CMFOR2,
-                                3 => bindings::CMFOR3,
-                                _ => unreachable!(),
-                            });
-                        }
-
-                        write_jump(offset_for_code, comp.len(), &mut comp);
-                        for_jumps.push((exit, false));
-                    }
-                    None => {
-                        comp.push(bindings::CMFOR0);
-                        for_jumps.push((reserve_jump(&mut comp), true));
-                    }
-                },
+                E::For(command) => {
+                    let loop_exit = For::new(&command, source_code).compile(&mut comp);
+                    for_jumps.push(loop_exit)
+                }
                 E::QUITCommand(_) => todo!(),
             }
             //NOTE C bug?
-            //if the command has arguments C dosent consume the trailing white space.
-            //this causes extra end commands to be added.
+            //If the command has arguments C doesn't consume the trailing white space.
+            //This causes extra end commands to be added.
             if !command.argumentless() {
                 comp.push(bindings::OPENDC);
             }
-            if let Some(jump) = post_condition {
-                write_jump(jump, comp.len(), &mut comp)
+            if let Some(jump_past) = jump_past_command {
+                write_jump(jump_past, comp.len(), &mut comp)
             }
-            //For commans only end at the end of the line.
+            //For commands only end at the end of the line.
             if !matches!(command.children(), E::For(_)) {
                 comp.push(bindings::OPENDC);
             }
@@ -189,7 +147,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             if !command.argumentless() {
                 //NOTE C bug?
                 //The last command in a line is not subjected to the bug.
-                //This removes the addtional OPENDC I added to compensate for the other bug.
+                //This removes the additional OPENDC I added to compensate for the other bug.
                 comp.pop();
             } else if matches!(
                 command.children(),
@@ -198,21 +156,8 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 comp.push(bindings::OPENDC);
             }
         }
-        for (exit, argless) in for_jumps.into_iter().rev() {
-            comp.push(bindings::OPENDC);
-            if argless {
-                //jump back to start of for loop.
-                comp.push(bindings::JMP);
-                let jump = reserve_jump(&mut comp);
-                write_jump(jump, exit, &mut comp);
-            } else {
-                comp.push(bindings::CMFOREND);
-            }
-            //jump out of for loop
-            write_jump(exit, comp.len(), &mut comp);
-            comp.push(bindings::OPNOP);
-
-            comp.push(bindings::OPENDC);
+        for for_end_processing in for_jumps.into_iter().rev() {
+            for_end_processing.compile(&mut comp);
         }
         comp.push(bindings::ENDLIN);
     }
