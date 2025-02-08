@@ -29,8 +29,6 @@
  */
 #![feature(array_chunks)]
 
-use core::panic;
-
 use bite_code::BiteCode;
 use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
 

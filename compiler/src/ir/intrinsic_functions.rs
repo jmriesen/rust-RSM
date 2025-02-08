@@ -203,18 +203,17 @@ impl IntrinsicFunction {
 
                         value.compile(comp, ExpressionContext::Eval);
                         comp.push(ffi::JMP);
-                        let exit = comp.reserve_jump();
-
-                        (try_next, exit)
+                        let jump_to_end = comp.reserve_jump();
+                        comp.write_jump(try_next, comp.current_location());
+                        jump_to_end
                     })
                     .collect();
                 comp.push(ffi::OPERROR);
                 let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
                 comp.extend(errm4.into_iter());
 
-                for (try_next, exit) in jump_indexs {
-                    comp.write_jump(try_next, exit);
-                    comp.write_jump(exit, comp.current_location());
+                for jump_to_end in jump_indexs {
+                    comp.write_jump(jump_to_end, comp.current_location());
                 }
             }
             IntrinsicFunction::Char { args } => {

@@ -1,9 +1,6 @@
-use std::usize;
-
 use crate::{
-    bite_code::BiteCode,
+    bite_code::{BiteCode, JumpLocation, Location},
     expression::ExpressionContext,
-    function::{reserve_jump, write_jump},
     ir::{Expression, Variable},
     localvar::VarContext,
 };
@@ -13,7 +10,6 @@ pub struct Argument {
     increment_end: Option<(Expression, Option<Expression>)>,
 }
 
-//Optional Variable TODO
 pub enum For {
     Infinite,
     VarLoop {
@@ -54,7 +50,7 @@ impl For {
                 comp.push(ffi::CMFOR0);
                 EndOfLine {
                     jump_to_exit: comp.reserve_jump(),
-                    argumentless: true,
+                    unconditional_jump: Some(comp.current_location()),
                 }
             }
             For::VarLoop {
@@ -84,7 +80,7 @@ impl For {
                 comp.write_jump(jump_to_content, comp.current_location());
                 EndOfLine {
                     jump_to_exit,
-                    argumentless: false,
+                    unconditional_jump: None,
                 }
             }
         }
@@ -92,20 +88,20 @@ impl For {
 }
 
 pub struct EndOfLine {
-    jump_to_exit: usize,
-    argumentless: bool,
+    jump_to_exit: JumpLocation,
+    unconditional_jump: Option<Location>,
 }
 
 impl EndOfLine {
     pub fn compile(self, comp: &mut BiteCode) {
         //End for command
         comp.push(ffi::OPENDC);
-        if self.argumentless {
+        if let Some(location) = self.unconditional_jump {
             //Jump back to start of for loop.
             comp.push(ffi::JMP);
             let jump = comp.reserve_jump();
             // For content starts right after the jump_to_exit location.
-            comp.write_jump(jump, self.jump_to_exit);
+            comp.write_jump(jump, location);
         } else {
             comp.push(ffi::CMFOREND);
         }
