@@ -95,7 +95,7 @@ impl Expression {
         match self {
             E::Number(num) => insert_value(comp, num.clone().into()),
             E::String(value) => insert_value(comp, value.clone()),
-            E::Variable(var) => super::variable::compile(&var, comp, VarContext::Eval),
+            E::Variable(var) => var.compile(comp, VarContext::Eval),
             E::IntrinsicVar(var) => comp.push(var.op_code()),
             E::Expression(exp) => exp.compile(comp, ExpressionContext::Eval),
             E::InderectExpression(exp) => {

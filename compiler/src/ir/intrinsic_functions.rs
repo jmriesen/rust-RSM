@@ -70,7 +70,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONA
 impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONAL> {
     fn compile(&self, comp: &mut Vec<u8>, context: VarContext, fn_code_base: u8) {
         //TODO handle other context types
-        super::variable::compile(&self.variable, comp, context);
+        self.variable.compile(comp, context);
         //TODO handle Next case.
         self.function.compile(comp, fn_code_base);
     }

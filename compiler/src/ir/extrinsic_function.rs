@@ -98,7 +98,7 @@ pub fn compile(
         match arg {
             Args::VarUndefined => comp.push(ffi::VARUNDF),
             Args::ByRef(variable) => {
-                variable::compile(variable, comp, VarContext::Build);
+                variable.compile(comp, VarContext::Build);
                 comp.push(ffi::NEWBREF);
             }
             Args::Expression(expression) => expression.compile(comp, ExpressionContext::Eval),

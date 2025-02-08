@@ -40,7 +40,7 @@ impl<'a> Compileable for lang_model::Variable<'a> {
     type Context = VarContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: VarContext) {
         let var = ir::variable::Variable::new(self, source_code);
-        ir::variable::compile(&var, comp, context);
+        var.compile(comp, context);
     }
 }
 
