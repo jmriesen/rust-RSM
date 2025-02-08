@@ -29,7 +29,6 @@
  */
 #![feature(array_chunks)]
 
-use ffi::{self as bindings};
 use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
 
 mod command;
@@ -88,7 +87,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             .map(|condition| {
                 ir::Expression::new(&condition, source_code)
                     .compile(&mut comp, ExpressionContext::Eval);
-                comp.push(bindings::JMP0);
+                comp.push(ffi::JMP0);
                 reserve_jump(&mut comp)
             });
             use lang_model::commandChildren as E;
@@ -129,14 +128,14 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             //If the command has arguments C doesn't consume the trailing white space.
             //This causes extra end commands to be added.
             if !command.argumentless() {
-                comp.push(bindings::OPENDC);
+                comp.push(ffi::OPENDC);
             }
             if let Some(jump_past) = jump_past_command {
                 write_jump(jump_past, comp.len(), &mut comp)
             }
             //For commands only end at the end of the line.
             if !matches!(command.children(), E::For(_)) {
-                comp.push(bindings::OPENDC);
+                comp.push(ffi::OPENDC);
             }
         }
         if let Some(command) = &commands.last() {
@@ -149,13 +148,13 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 command.children(),
                 lang_model::commandChildren::DoCommand(_)
             ) {
-                comp.push(bindings::OPENDC);
+                comp.push(ffi::OPENDC);
             }
         }
         for for_end_processing in for_jumps.into_iter().rev() {
             for_end_processing.compile(&mut comp);
         }
-        comp.push(bindings::ENDLIN);
+        comp.push(ffi::ENDLIN);
     }
     comp
 }

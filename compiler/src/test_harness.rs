@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::bindings::{u_char, u_short, PARTAB};
+use ffi::{u_char, u_short, PARTAB};
 
 use std::ffi::{CStr, CString};
 
@@ -51,12 +51,10 @@ unsafe fn sync_with_c(
     unsafe { (*src) = (*src).add(offset) };
 }
 
-use super::*;
-
 pub fn compile_string(value: &CStr) -> Vec<u8> {
     use std::iter::once;
     let bytes = value.to_bytes_with_nul();
-    once(crate::bindings::OPSTR)
+    once(ffi::OPSTR)
         //length does not include null bite.
         .chain(((bytes.len() - 1) as u_short).to_le_bytes())
         .chain(bytes.iter().copied())
@@ -68,7 +66,7 @@ pub fn parse_rust_to_c_ffi(
     src: &str,
     partab: &mut PARTAB,
     comp: &mut Vec<u8>,
-    fnc: unsafe extern "C" fn(*mut *mut u8, *mut *mut u8, *mut bindings::PARTAB),
+    fnc: unsafe extern "C" fn(*mut *mut u8, *mut *mut u8, *mut ffi::PARTAB),
 ) {
     let tmp = CString::new(src).unwrap();
     let mut source = tmp.as_ptr() as *mut u_char;
@@ -100,7 +98,7 @@ pub mod test {
         src: &str,
         fn_c: unsafe extern "C" fn() -> (),
     ) -> (Vec<u8>, LockResult<MutexGuard<'_, ()>>) {
-        use crate::bindings::{comp_ptr, partab, source_ptr, systab, SYSTAB};
+        use ffi::{comp_ptr, partab, source_ptr, systab, SYSTAB};
         use std::io::Write;
 
         //TODO this is being leaked.
@@ -108,11 +106,11 @@ pub mod test {
         let source = source.into_raw() as *mut u8;
 
         //TODO Figure out how these different fields actually work.
-        //Zeroing out for now so that I can avoid seg faults
+        //Zeroing out for now so that I can avoid segmentation faults
         let mut sys_tab = SYSTAB::default();
 
         //TODO something about the value of 100 can cause the len to be calculated incorrectly.
-        //attributing to some of the unsafe code in this test harness.
+        //Attributing to some of the unsafe code in this test harness.
         //I think it should be fine for now, after all my end goal is to remove the unsafe C all together.
         const BUFFER_LEN: usize = 600;
         let mut compiled_original = [0u8; BUFFER_LEN];

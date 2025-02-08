@@ -32,7 +32,7 @@ use std::str::FromStr;
 use value::{CreationError, Value};
 
 pub fn insert_value(comp: &mut Vec<u8>, value: Value) {
-    comp.push(crate::bindings::OPSTR);
+    comp.push(ffi::OPSTR);
     comp.extend(value.as_bytes());
     comp.push(0);
 }

@@ -28,13 +28,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 mod literals;
-use lang_model::*;
 pub use literals::*;
 
 pub enum ExpressionContext {
-    Write = crate::bindings::INDWRIT as isize,
-    Eval = crate::bindings::INDEVAL as isize,
-    Close = crate::bindings::INDCLOS as isize,
+    Write = ffi::INDWRIT as isize,
+    Eval = ffi::INDEVAL as isize,
+    Close = ffi::INDCLOS as isize,
 }
 
 #[cfg(test)]
