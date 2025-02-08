@@ -29,6 +29,8 @@
  */
 #![feature(array_chunks)]
 
+use core::panic;
+
 use bite_code::BiteCode;
 use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Write};
 
@@ -41,12 +43,6 @@ mod ir;
 mod localvar;
 mod routine;
 mod test_harness;
-
-use crate::function::{reserve_jump, write_jump};
-
-trait OpCode {
-    fn op_code(&self) -> u8;
-}
 
 ///Test harness that for commands
 ///
@@ -75,7 +71,11 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         };
         let mut for_jumps = vec![];
         let commands = line.children();
-        for command in &commands {
+        for (last_command, command) in commands
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i == commands.len() - 1, x))
+        {
             let jump_past_command = match &command.children() {
                 E::WriteCommand(command) => command.post_condition(),
                 E::BrakeCommand(command) => command.post_condition(),
@@ -126,12 +126,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 }
                 E::QUITCommand(_) => todo!(),
             }
-            //NOTE C bug?
-            //If the command has arguments C doesn't consume the trailing white space.
-            //This causes extra end commands to be added.
-            if !command.argumentless() {
-                comp.push(ffi::OPENDC);
-            }
+
             if let Some(jump_past) = jump_past_command {
                 comp.write_jump(jump_past, comp.current_location())
             }
@@ -139,18 +134,25 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             if !matches!(command.children(), E::For(_)) {
                 comp.push(ffi::OPENDC);
             }
-        }
-        if let Some(command) = &commands.last() {
-            if !command.argumentless() {
+
+            //Weird extra handling at the end of a line.
+            //This should eventually be removed
+            if last_command {
+                if command.argumentless()
+                    && matches!(
+                        command.children(),
+                        lang_model::commandChildren::DoCommand(_)
+                    )
+                {
+                    comp.push(ffi::OPENDC);
+                }
+            } else {
                 //NOTE C bug?
-                //The last command in a line is not subjected to the bug.
-                //This removes the additional OPENDC I added to compensate for the other bug.
-                comp.pop();
-            } else if matches!(
-                command.children(),
-                lang_model::commandChildren::DoCommand(_)
-            ) {
-                comp.push(ffi::OPENDC);
+                //If the command has arguments C doesn't consume the trailing white space.
+                //This causes extra end commands to be added.
+                if !command.argumentless() {
+                    comp.push(ffi::OPENDC);
+                }
             }
         }
         for for_end_processing in for_jumps.into_iter().rev() {

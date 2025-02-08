@@ -27,7 +27,4 @@ impl BiteCode {
     pub fn extend(&mut self, iter: impl IntoIterator<Item = u8>) {
         self.0.extend(iter);
     }
-    pub fn pop(&mut self) {
-        self.0.pop();
-    }
 }
