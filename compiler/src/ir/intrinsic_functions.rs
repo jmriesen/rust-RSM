@@ -194,90 +194,94 @@ impl IntrinsicFunction {
             },
         }
     }
-}
 
-pub fn compile(function: &IntrinsicFunction, comp: &mut Vec<u8>) {
-    match function {
-        IntrinsicFunction::Select { terms } => {
-            let jump_indexs: Vec<_> = terms
-                .iter()
-                .map(|SelectTerm { condition, value }| {
-                    condition.compile(comp, ExpressionContext::Eval);
-                    comp.push(ffi::JMP0);
-                    let try_next = reserve_jump(comp);
+    pub fn compile(&self, comp: &mut Vec<u8>) {
+        match self {
+            IntrinsicFunction::Select { terms } => {
+                let jump_indexs: Vec<_> = terms
+                    .iter()
+                    .map(|SelectTerm { condition, value }| {
+                        condition.compile(comp, ExpressionContext::Eval);
+                        comp.push(ffi::JMP0);
+                        let try_next = reserve_jump(comp);
 
-                    value.compile(comp, ExpressionContext::Eval);
-                    comp.push(ffi::JMP);
-                    let exit = reserve_jump(comp);
+                        value.compile(comp, ExpressionContext::Eval);
+                        comp.push(ffi::JMP);
+                        let exit = reserve_jump(comp);
 
-                    (try_next, exit)
-                })
-                .collect();
-            comp.push(ffi::OPERROR);
-            let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
-            comp.extend_from_slice(&errm4);
+                        (try_next, exit)
+                    })
+                    .collect();
+                comp.push(ffi::OPERROR);
+                let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
+                comp.extend_from_slice(&errm4);
 
-            for (try_next, exit) in jump_indexs {
-                write_jump(try_next, exit, comp);
-                write_jump(exit, comp.len(), comp);
-            }
-        }
-        IntrinsicFunction::Char { args } => {
-            if args.len() > 254 {
-                panic!("Char has too many args");
-            } else {
-                for arg in args {
-                    arg.compile(comp, ExpressionContext::Eval);
+                for (try_next, exit) in jump_indexs {
+                    write_jump(try_next, exit, comp);
+                    write_jump(exit, comp.len(), comp);
                 }
-                comp.push(ffi::FUNC);
-                comp.push(args.len() as u8);
             }
-        }
-        IntrinsicFunction::View(function) => function.compile(comp, ffi::FUNV2),
-        IntrinsicFunction::Ascii(function) => function.compile(comp, ffi::FUNA1),
-        IntrinsicFunction::Extract(function) => function.compile(comp, ffi::FUNE1),
-        IntrinsicFunction::Find(function) => function.compile(comp, ffi::FUNF2),
-        IntrinsicFunction::Fnumber(function) => function.compile(comp, ffi::FUNFN2),
-        IntrinsicFunction::Justify(function) => function.compile(comp, ffi::FUNJ2),
-        IntrinsicFunction::Length(function) => function.compile(comp, ffi::FUNL1),
-        IntrinsicFunction::Piece(function) => function.compile(comp, ffi::FUNP2),
-        IntrinsicFunction::Random(function) => function.compile(comp, ffi::FUNR),
-        IntrinsicFunction::Reverse(function) => function.compile(comp, ffi::FUNRE),
-        IntrinsicFunction::Stack(function) => function.compile(comp, ffi::FUNST1),
-        IntrinsicFunction::Text(function) => function.compile(comp, ffi::FUNT),
-        IntrinsicFunction::Translate(function) => function.compile(comp, ffi::FUNTR2),
-        IntrinsicFunction::QLength(function) => {
-            function.compile(comp, VarContext::Eval, ffi::FUNQL)
-        }
-        IntrinsicFunction::QSubscript(function) => {
-            function.compile(comp, VarContext::Eval, ffi::FUNQS)
-        }
-        IntrinsicFunction::Data(function) => function.compile(comp, VarContext::Build, ffi::FUND),
-        IntrinsicFunction::Get(function) => function.compile(comp, VarContext::Build, ffi::FUNG1),
-        IntrinsicFunction::Increment(function) => {
-            function.compile(comp, VarContext::Build, ffi::FUNI1)
-        }
-        IntrinsicFunction::Name(function) => {
-            function.compile(comp, VarContext::BuildNullable, ffi::FUNNA1)
-        }
-        IntrinsicFunction::Order(function) => {
-            function.compile(comp, VarContext::BuildNullable, ffi::FUNO1)
-        }
-        IntrinsicFunction::Query(function) => {
-            function.compile(comp, VarContext::BuildNullable, ffi::FUNQ1)
-        }
-        IntrinsicFunction::Next(function) => {
-            //Next is just an Order with a hard coded argument
-            use std::str::FromStr;
-            let two = Expression::Number(Value::from_str("2").unwrap().into());
-            let fun = IntrinsicFunction::Order(VarFunction {
-                variable: function.variable.clone(),
-                function: Function {
-                    required: [],
-                    optional: [Some(two); 1],
-                },
-            });
-            compile(&fun, comp);
+            IntrinsicFunction::Char { args } => {
+                if args.len() > 254 {
+                    panic!("Char has too many args");
+                } else {
+                    for arg in args {
+                        arg.compile(comp, ExpressionContext::Eval);
+                    }
+                    comp.push(ffi::FUNC);
+                    comp.push(args.len() as u8);
+                }
+            }
+            IntrinsicFunction::View(function) => function.compile(comp, ffi::FUNV2),
+            IntrinsicFunction::Ascii(function) => function.compile(comp, ffi::FUNA1),
+            IntrinsicFunction::Extract(function) => function.compile(comp, ffi::FUNE1),
+            IntrinsicFunction::Find(function) => function.compile(comp, ffi::FUNF2),
+            IntrinsicFunction::Fnumber(function) => function.compile(comp, ffi::FUNFN2),
+            IntrinsicFunction::Justify(function) => function.compile(comp, ffi::FUNJ2),
+            IntrinsicFunction::Length(function) => function.compile(comp, ffi::FUNL1),
+            IntrinsicFunction::Piece(function) => function.compile(comp, ffi::FUNP2),
+            IntrinsicFunction::Random(function) => function.compile(comp, ffi::FUNR),
+            IntrinsicFunction::Reverse(function) => function.compile(comp, ffi::FUNRE),
+            IntrinsicFunction::Stack(function) => function.compile(comp, ffi::FUNST1),
+            IntrinsicFunction::Text(function) => function.compile(comp, ffi::FUNT),
+            IntrinsicFunction::Translate(function) => function.compile(comp, ffi::FUNTR2),
+            IntrinsicFunction::QLength(function) => {
+                function.compile(comp, VarContext::Eval, ffi::FUNQL)
+            }
+            IntrinsicFunction::QSubscript(function) => {
+                function.compile(comp, VarContext::Eval, ffi::FUNQS)
+            }
+            IntrinsicFunction::Data(function) => {
+                function.compile(comp, VarContext::Build, ffi::FUND)
+            }
+            IntrinsicFunction::Get(function) => {
+                function.compile(comp, VarContext::Build, ffi::FUNG1)
+            }
+            IntrinsicFunction::Increment(function) => {
+                function.compile(comp, VarContext::Build, ffi::FUNI1)
+            }
+            IntrinsicFunction::Name(function) => {
+                function.compile(comp, VarContext::BuildNullable, ffi::FUNNA1)
+            }
+            IntrinsicFunction::Order(function) => {
+                function.compile(comp, VarContext::BuildNullable, ffi::FUNO1)
+            }
+            IntrinsicFunction::Query(function) => {
+                function.compile(comp, VarContext::BuildNullable, ffi::FUNQ1)
+            }
+            IntrinsicFunction::Next(function) => {
+                //Next is just an Order with a hard coded argument
+                use std::str::FromStr;
+                let two = Expression::Number(Value::from_str("2").unwrap().into());
+                IntrinsicFunction::Order(VarFunction {
+                    variable: function.variable.clone(),
+                    function: Function {
+                        required: [],
+                        optional: [Some(two); 1],
+                    },
+                })
+                .compile(comp);
+            }
         }
     }
 }

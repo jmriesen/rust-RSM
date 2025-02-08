@@ -258,6 +258,6 @@ impl<'a> Compileable for lang_model::ExtrinsicFunction<'a> {
     type Context = ExtrinsicFunctionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExtrinsicFunctionContext) {
         let function = ir::extrinsic_function::ExtrinsicFunction::new(self, source_code);
-        ir::extrinsic_function::compile(&function, comp, context);
+        function.compile(comp, context);
     }
 }

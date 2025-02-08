@@ -118,8 +118,8 @@ impl Expression {
                 right.compile(comp, ExpressionContext::Eval);
                 comp.push(op_code.op_code());
             }
-            E::ExtrinsicFunction(x) => {
-                super::extrinsic_function::compile(x, comp, ExtrinsicFunctionContext::Eval)
+            E::ExtrinsicFunction(function) => {
+                function.compile(comp, ExtrinsicFunctionContext::Eval)
             }
             E::ExternalCalls { args, op_code } => {
                 for arg in args {
@@ -132,7 +132,7 @@ impl Expression {
                 comp.push(op_code.op_code());
             }
             E::IntrinsicFunction(intrinsic) => {
-                super::intrinsic_functions::compile(&intrinsic, comp);
+                intrinsic.compile(comp);
             }
         }
     }
