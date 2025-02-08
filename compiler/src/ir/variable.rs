@@ -90,28 +90,28 @@ impl Variable {
         }
     }
 }
-pub fn compile(variable: &Variable, source_code: &str, comp: &mut Vec<u8>, context: VarContext) {
+pub fn compile(variable: &Variable, comp: &mut Vec<u8>, context: VarContext) {
     use crate::expression::ExpressionContext;
     use VariableType as E;
     match &variable.var_type {
         E::Local { .. } => {}
         E::NakedVariable => {}
         E::IndirectVariable { expression } => {
-            super::expression::compile(expression, source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(expression, comp, ExpressionContext::Eval);
             comp.push(ffi::INDMVAR);
         }
         E::GlobalVariable { .. } => {}
         E::GlobalUciVariable { uci, .. } => {
-            super::expression::compile(uci, source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(uci, comp, ExpressionContext::Eval);
         }
         E::GlobalUciEnvVariable { uci, env, .. } => {
-            super::expression::compile(uci, source_code, comp, ExpressionContext::Eval);
-            super::expression::compile(env, source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(uci, comp, ExpressionContext::Eval);
+            super::expression::compile(env, comp, ExpressionContext::Eval);
         }
     }
 
     for subscript in &variable.subscripts {
-        super::expression::compile(subscript, source_code, comp, ExpressionContext::Eval);
+        super::expression::compile(subscript, comp, ExpressionContext::Eval);
     }
 
     comp.push(context as u8);

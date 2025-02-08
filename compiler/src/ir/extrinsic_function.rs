@@ -91,7 +91,6 @@ impl ExtrinsicFunction {
 
 pub fn compile(
     function: &ExtrinsicFunction,
-    source_code: &str,
     comp: &mut Vec<u8>,
     context: ExtrinsicFunctionContext,
 ) {
@@ -99,11 +98,11 @@ pub fn compile(
         match arg {
             Args::VarUndefined => comp.push(ffi::VARUNDF),
             Args::ByRef(variable) => {
-                variable::compile(variable, source_code, comp, VarContext::Build);
+                variable::compile(variable, comp, VarContext::Build);
                 comp.push(ffi::NEWBREF);
             }
             Args::Expression(expression) => {
-                expression::compile(expression, source_code, comp, ExpressionContext::Eval)
+                expression::compile(expression, comp, ExpressionContext::Eval)
             }
         }
     }

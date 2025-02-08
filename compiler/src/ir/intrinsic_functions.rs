@@ -38,11 +38,11 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> 
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Function<REQUIRED, OPTIONAL> {
-    fn compile(&self, source_code: &str, comp: &mut Vec<u8>, fn_code_base: u8) {
+    fn compile(&self, comp: &mut Vec<u8>, fn_code_base: u8) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
-            super::expression::compile(arg, source_code, comp, ExpressionContext::Eval);
+            super::expression::compile(arg, comp, ExpressionContext::Eval);
         }
         comp.push(fn_code_base + optional_args.count() as u8);
     }
@@ -61,24 +61,18 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONA
         source_code: &str,
     ) -> Self {
         VarFunction {
-            variable: super::Variable::new(&var, &source_code),
+            variable: super::Variable::new(&var, source_code),
             function: Function::new(args, source_code),
         }
     }
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> VarFunction<REQUIRED, OPTIONAL> {
-    fn compile(
-        &self,
-        source_code: &str,
-        comp: &mut Vec<u8>,
-        context: VarContext,
-        fn_code_base: u8,
-    ) {
+    fn compile(&self, comp: &mut Vec<u8>, context: VarContext, fn_code_base: u8) {
         //TODO handle other context types
-        super::variable::compile(&self.variable, source_code, comp, context);
+        super::variable::compile(&self.variable, comp, context);
         //TODO handle Next case.
-        self.function.compile(source_code, comp, fn_code_base);
+        self.function.compile(comp, fn_code_base);
     }
 }
 
@@ -202,22 +196,17 @@ impl IntrinsicFunction {
     }
 }
 
-pub fn compile(function: &IntrinsicFunction, source_code: &str, comp: &mut Vec<u8>) {
+pub fn compile(function: &IntrinsicFunction, comp: &mut Vec<u8>) {
     match function {
         IntrinsicFunction::Select { terms } => {
             let jump_indexs: Vec<_> = terms
                 .iter()
                 .map(|SelectTerm { condition, value }| {
-                    super::expression::compile(
-                        &condition,
-                        source_code,
-                        comp,
-                        ExpressionContext::Eval,
-                    );
+                    super::expression::compile(&condition, comp, ExpressionContext::Eval);
                     comp.push(ffi::JMP0);
                     let try_next = reserve_jump(comp);
 
-                    super::expression::compile(&value, source_code, comp, ExpressionContext::Eval);
+                    super::expression::compile(&value, comp, ExpressionContext::Eval);
                     comp.push(ffi::JMP);
                     let exit = reserve_jump(comp);
 
@@ -238,48 +227,44 @@ pub fn compile(function: &IntrinsicFunction, source_code: &str, comp: &mut Vec<u
                 panic!("Char has too many args");
             } else {
                 for arg in args {
-                    super::expression::compile(arg, source_code, comp, ExpressionContext::Eval);
+                    super::expression::compile(arg, comp, ExpressionContext::Eval);
                 }
                 comp.push(ffi::FUNC);
                 comp.push(args.len() as u8);
             }
         }
-        IntrinsicFunction::View(function) => function.compile(source_code, comp, ffi::FUNV2),
-        IntrinsicFunction::Ascii(function) => function.compile(source_code, comp, ffi::FUNA1),
-        IntrinsicFunction::Extract(function) => function.compile(source_code, comp, ffi::FUNE1),
-        IntrinsicFunction::Find(function) => function.compile(source_code, comp, ffi::FUNF2),
-        IntrinsicFunction::Fnumber(function) => function.compile(source_code, comp, ffi::FUNFN2),
-        IntrinsicFunction::Justify(function) => function.compile(source_code, comp, ffi::FUNJ2),
-        IntrinsicFunction::Length(function) => function.compile(source_code, comp, ffi::FUNL1),
-        IntrinsicFunction::Piece(function) => function.compile(source_code, comp, ffi::FUNP2),
-        IntrinsicFunction::Random(function) => function.compile(source_code, comp, ffi::FUNR),
-        IntrinsicFunction::Reverse(function) => function.compile(source_code, comp, ffi::FUNRE),
-        IntrinsicFunction::Stack(function) => function.compile(source_code, comp, ffi::FUNST1),
-        IntrinsicFunction::Text(function) => function.compile(source_code, comp, ffi::FUNT),
-        IntrinsicFunction::Translate(function) => function.compile(source_code, comp, ffi::FUNTR2),
+        IntrinsicFunction::View(function) => function.compile(comp, ffi::FUNV2),
+        IntrinsicFunction::Ascii(function) => function.compile(comp, ffi::FUNA1),
+        IntrinsicFunction::Extract(function) => function.compile(comp, ffi::FUNE1),
+        IntrinsicFunction::Find(function) => function.compile(comp, ffi::FUNF2),
+        IntrinsicFunction::Fnumber(function) => function.compile(comp, ffi::FUNFN2),
+        IntrinsicFunction::Justify(function) => function.compile(comp, ffi::FUNJ2),
+        IntrinsicFunction::Length(function) => function.compile(comp, ffi::FUNL1),
+        IntrinsicFunction::Piece(function) => function.compile(comp, ffi::FUNP2),
+        IntrinsicFunction::Random(function) => function.compile(comp, ffi::FUNR),
+        IntrinsicFunction::Reverse(function) => function.compile(comp, ffi::FUNRE),
+        IntrinsicFunction::Stack(function) => function.compile(comp, ffi::FUNST1),
+        IntrinsicFunction::Text(function) => function.compile(comp, ffi::FUNT),
+        IntrinsicFunction::Translate(function) => function.compile(comp, ffi::FUNTR2),
         IntrinsicFunction::QLength(function) => {
-            function.compile(source_code, comp, VarContext::Eval, ffi::FUNQL)
+            function.compile(comp, VarContext::Eval, ffi::FUNQL)
         }
         IntrinsicFunction::QSubscript(function) => {
-            function.compile(source_code, comp, VarContext::Eval, ffi::FUNQS)
+            function.compile(comp, VarContext::Eval, ffi::FUNQS)
         }
-        IntrinsicFunction::Data(function) => {
-            function.compile(source_code, comp, VarContext::Build, ffi::FUND)
-        }
-        IntrinsicFunction::Get(function) => {
-            function.compile(source_code, comp, VarContext::Build, ffi::FUNG1)
-        }
+        IntrinsicFunction::Data(function) => function.compile(comp, VarContext::Build, ffi::FUND),
+        IntrinsicFunction::Get(function) => function.compile(comp, VarContext::Build, ffi::FUNG1),
         IntrinsicFunction::Increment(function) => {
-            function.compile(source_code, comp, VarContext::Build, ffi::FUNI1)
+            function.compile(comp, VarContext::Build, ffi::FUNI1)
         }
         IntrinsicFunction::Name(function) => {
-            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNNA1)
+            function.compile(comp, VarContext::BuildNullable, ffi::FUNNA1)
         }
         IntrinsicFunction::Order(function) => {
-            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNO1)
+            function.compile(comp, VarContext::BuildNullable, ffi::FUNO1)
         }
         IntrinsicFunction::Query(function) => {
-            function.compile(source_code, comp, VarContext::BuildNullable, ffi::FUNQ1)
+            function.compile(comp, VarContext::BuildNullable, ffi::FUNQ1)
         }
         IntrinsicFunction::Next(function) => {
             //Next is just an Order with a hard coded argument
@@ -292,7 +277,7 @@ pub fn compile(function: &IntrinsicFunction, source_code: &str, comp: &mut Vec<u
                     optional: [Some(two); 1],
                 },
             });
-            compile(&fun, source_code, comp);
+            compile(&fun, comp);
         }
     }
 }

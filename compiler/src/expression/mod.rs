@@ -42,7 +42,7 @@ impl<'a> Compileable for Expression<'a> {
     type Context = ExpressionContext;
     fn compile(&self, source_code: &str, comp: &mut Vec<u8>, context: ExpressionContext) {
         let exp = crate::ir::expression::Expression::new(self, source_code);
-        crate::ir::expression::compile(&exp, source_code, comp, context);
+        crate::ir::expression::compile(&exp, comp, context);
     }
 }
 

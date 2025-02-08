@@ -91,28 +91,23 @@ impl Expression {
     }
 }
 
-pub fn compile(
-    exp: &Expression,
-    source_code: &str,
-    comp: &mut Vec<u8>,
-    context: ExpressionContext,
-) {
+pub fn compile(exp: &Expression, comp: &mut Vec<u8>, context: ExpressionContext) {
     use Expression as E;
     match exp {
         E::Number(num) => insert_value(comp, num.clone().into()),
         E::String(value) => insert_value(comp, value.clone()),
-        E::Variable(var) => super::variable::compile(&var, source_code, comp, VarContext::Eval),
+        E::Variable(var) => super::variable::compile(&var, comp, VarContext::Eval),
         E::IntrinsicVar(var) => comp.push(var.op_code()),
-        E::Expression(exp) => compile(exp, source_code, comp, ExpressionContext::Eval),
+        E::Expression(exp) => compile(exp, comp, ExpressionContext::Eval),
         E::InderectExpression(exp) => {
-            compile(exp, source_code, comp, ExpressionContext::Eval);
+            compile(exp, comp, ExpressionContext::Eval);
             comp.push(context as u8);
         }
         E::UnaryExpression {
             op_code,
             expresstion,
         } => {
-            compile(expresstion, source_code, comp, ExpressionContext::Eval);
+            compile(expresstion, comp, ExpressionContext::Eval);
             comp.push(op_code.op_code());
         }
         E::BinaryExpression {
@@ -120,16 +115,16 @@ pub fn compile(
             op_code,
             right,
         } => {
-            compile(left, source_code, comp, ExpressionContext::Eval);
-            compile(right, source_code, comp, ExpressionContext::Eval);
+            compile(left, comp, ExpressionContext::Eval);
+            compile(right, comp, ExpressionContext::Eval);
             comp.push(op_code.op_code());
         }
         E::ExtrinsicFunction(x) => {
-            super::extrinsic_function::compile(x, source_code, comp, ExtrinsicFunctionContext::Eval)
+            super::extrinsic_function::compile(x, comp, ExtrinsicFunctionContext::Eval)
         }
         E::ExternalCalls { args, op_code } => {
             for arg in args {
-                compile(arg, source_code, comp, ExpressionContext::Eval);
+                compile(arg, comp, ExpressionContext::Eval);
             }
 
             for _ in args.len()..2 {
@@ -138,7 +133,7 @@ pub fn compile(
             comp.push(op_code.op_code());
         }
         E::IntrinsicFunction(intrinsic) => {
-            super::intrinsic_functions::compile(&intrinsic, source_code, comp);
+            super::intrinsic_functions::compile(&intrinsic, comp);
         }
     }
 }
