@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod expression;
 pub use expression::Expression;
 pub mod external_calls;

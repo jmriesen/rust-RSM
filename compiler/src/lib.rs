@@ -30,6 +30,7 @@
 #![feature(array_chunks)]
 
 use ffi::{self as bindings};
+use ir::commands::Write;
 
 mod command;
 mod dollar;
@@ -99,26 +100,8 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             use lang_model::commandChildren as E;
             match command.children() {
                 E::WriteCommand(command) => {
-                    for arg in command.args() {
-                        use lang_model::WriteArgChildren as E;
-                        match arg.children() {
-                            E::Bang(_) => comp.push(bindings::CMWRTNL),
-                            E::Clear(_) => comp.push(bindings::CMWRTFF),
-                            E::Tab(tab) => {
-                                tab.children().compile(
-                                    source_code,
-                                    &mut comp,
-                                    ExpressionContext::Eval,
-                                );
-                                comp.push(bindings::CMWRTAB);
-                            }
-                            E::Expression(exp) => {
-                                exp.compile(source_code, &mut comp, ExpressionContext::Write);
-                                if !exp.is_inderect() {
-                                    comp.push(bindings::CMWRTEX);
-                                }
-                            }
-                        }
+                    for arg in command.args().iter().map(|x| Write::new(x, source_code)) {
+                        arg.compile(&mut comp)
                     }
                 }
                 E::BrakeCommand(command) => {
