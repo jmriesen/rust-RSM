@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use ffi::{self as bindings};
-use ir::commands::Write;
+use ir::commands::{close::Close, r#break::Break, Write};
 
 mod command;
 mod dollar;
@@ -105,32 +105,19 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                     }
                 }
                 E::BrakeCommand(command) => {
-                    let children = command.args();
-                    if children.is_empty() {
-                        comp.push(bindings::OPBRK0);
-                    } else {
-                        for arg in children {
-                            arg.compile(source_code, &mut comp, ExpressionContext::Eval);
-                            if !arg.is_inderect() {
-                                comp.push(bindings::OPBRKN);
-                            }
-                        }
+                    for command in Break::new(&command, source_code) {
+                        command.compile(&mut comp);
                     }
                 }
 
                 E::CloseCommand(command) => {
-                    //TODO this should not allow for one 0 children;
-                    let children = command.args();
-                    for arg in children {
-                        arg.compile(source_code, &mut comp, ExpressionContext::Close);
-                        if !arg.is_inderect() {
-                            comp.push(bindings::CMCLOSE);
-                        }
+                    for command in Close::new(&command, source_code) {
+                        command.compile(&mut comp);
                     }
                 }
 
                 E::ElseCommand(_) => {
-                    comp.push(bindings::OPELSE);
+                    comp.push(ffi::OPELSE);
                 }
                 E::NewCommand(_command) => {}
                 E::DoCommand(command) => {
