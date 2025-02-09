@@ -12,3 +12,22 @@ pub use intrinsic_var::IntrinsicVar;
 pub mod operators;
 pub mod variable;
 pub use variable::Variable;
+
+use crate::bite_code::BiteCode;
+trait Compile {
+    type Context;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context);
+}
+
+impl<T, C> Compile for Vec<T>
+where
+    T: Compile,
+    T: Compile<Context = C>,
+{
+    type Context = C;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+        for term in self {
+            term.compile(bite_code, context)
+        }
+    }
+}

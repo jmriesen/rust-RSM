@@ -1,6 +1,6 @@
 use ffi::VAR_U;
 
-use super::{Expression, Variable};
+use super::{Compile, Expression, Variable};
 use crate::{
     bite_code::BiteCode, expression::ExpressionContext, localvar::VarContext,
     ExtrinsicFunctionContext,
@@ -90,8 +90,10 @@ impl ExtrinsicFunction {
                 .contains('('),
         }
     }
-
-    pub fn compile(&self, comp: &mut BiteCode, context: ExtrinsicFunctionContext) {
+}
+impl Compile for ExtrinsicFunction {
+    type Context = ExtrinsicFunctionContext;
+    fn compile(&self, comp: &mut BiteCode, context: &ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
                 Args::VarUndefined => comp.push(ffi::VARUNDF),

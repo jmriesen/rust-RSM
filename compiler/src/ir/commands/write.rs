@@ -1,6 +1,10 @@
-use lang_model::WriteArg;
+use crate::{
+    bite_code::BiteCode,
+    expression::ExpressionContext,
+    ir::{commands::PostCondition, Compile, Expression},
+};
 
-use crate::{bite_code::BiteCode, expression::ExpressionContext, ir::Expression};
+use super::Command;
 
 pub enum Write {
     Bang,
@@ -10,18 +14,33 @@ pub enum Write {
 }
 
 impl Write {
-    pub fn new(sitter: &WriteArg, source_code: &str) -> Self {
-        use lang_model::WriteArgChildren as E;
-        match sitter.children() {
-            E::Bang(_) => Self::Bang,
-            E::Clear(_) => Self::Clear,
-            E::Tab(tab) => Self::Tab(Expression::new(&tab.children(), source_code)),
-            E::Expression(expression) => {
-                Self::Expression(Expression::new(&expression, source_code))
-            }
-        }
+    pub fn new(sitter: &lang_model::WriteCommand, source_code: &str) -> Command {
+        Command::Write(PostCondition {
+            condition: sitter
+                .post_condition()
+                .map(|x| Expression::new(&x, source_code)),
+
+            value: sitter
+                .args()
+                .iter()
+                .map(|x| {
+                    use lang_model::WriteArgChildren as E;
+                    match x.children() {
+                        E::Bang(_) => Self::Bang,
+                        E::Clear(_) => Self::Clear,
+                        E::Tab(tab) => Self::Tab(Expression::new(&tab.children(), source_code)),
+                        E::Expression(expression) => {
+                            Self::Expression(Expression::new(&expression, source_code))
+                        }
+                    }
+                })
+                .collect(),
+        })
     }
-    pub fn compile(&self, comp: &mut BiteCode) {
+}
+impl Compile for Write {
+    type Context = ();
+    fn compile(&self, comp: &mut BiteCode, _: &()) {
         match self {
             Self::Bang => comp.push(ffi::CMWRTNL),
             Self::Clear => comp.push(ffi::CMWRTFF),

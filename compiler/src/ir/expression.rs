@@ -120,7 +120,7 @@ impl Expression {
                 comp.push(op_code.op_code());
             }
             E::ExtrinsicFunction(function) => {
-                function.compile(comp, ExtrinsicFunctionContext::Eval)
+                function.compile(comp, &ExtrinsicFunctionContext::Eval)
             }
             E::ExternalCalls { args, op_code } => {
                 for arg in args {

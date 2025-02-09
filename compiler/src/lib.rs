@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use bite_code::BiteCode;
-use ir::commands::{close::Close, r#break::Break, r#do::Do, r#for::For, Command, Write};
+use ir::commands::{r#break::Break, r#for::For, Command};
 
 pub mod bite_code;
 mod command;
@@ -68,23 +68,20 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         };
         let mut for_jumps = vec![];
         let commands = line.children();
-        for (last_command, command) in commands
+        for (last_command, raw_command) in commands
             .iter()
             .enumerate()
             .map(|(i, x)| (i == commands.len() - 1, x))
         {
-            if let Some(command) = Command::new(command, source_code) {
-                command.compile(&mut comp);
-            } else {
-                temp(command, source_code, &mut comp, &mut for_jumps);
-            };
+            let command = Command::new(raw_command, source_code);
+            for_jumps.extend(command.compile(&mut comp));
 
             //Weird extra handling at the end of a line.
             //This should eventually be removed
             if last_command {
-                if command.argumentless()
+                if raw_command.argumentless()
                     && matches!(
-                        command.children(),
+                        raw_command.children(),
                         lang_model::commandChildren::DoCommand(_)
                     )
                 {
@@ -94,7 +91,7 @@ pub fn compile(source_code: &str) -> Vec<u8> {
                 //NOTE C bug?
                 //If the command has arguments C doesn't consume the trailing white space.
                 //This causes extra end commands to be added.
-                if !command.argumentless() {
+                if !raw_command.argumentless() {
                     comp.push(ffi::OPENDC);
                 }
             }
@@ -105,70 +102,6 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         comp.push(ffi::ENDLIN);
     }
     comp.get_raw()
-}
-
-fn temp(
-    command: &lang_model::command<'_>,
-    source_code: &str,
-    comp: &mut BiteCode,
-    for_jumps: &mut Vec<ir::commands::r#for::EndOfLine>,
-) {
-    use expression::ExpressionContext;
-    let jump_past_command = match &command.children() {
-        E::WriteCommand(command) => command.post_condition(),
-        E::BrakeCommand(command) => command.post_condition(),
-        E::CloseCommand(command) => command.post_condition(),
-        E::DoCommand(command) => command.post_condition(),
-        E::For(_) => None,
-        E::ElseCommand(_) => None,
-        E::NewCommand(_) => None,
-        E::QUITCommand(_) => todo!(),
-    }
-    .map(|condition| {
-        ir::Expression::new(&condition, source_code).compile(comp, ExpressionContext::Eval);
-        comp.push(ffi::JMP0);
-        comp.reserve_jump()
-    });
-    use lang_model::commandChildren as E;
-    match command.children() {
-        E::WriteCommand(_) => {
-            unreachable!();
-        }
-        E::BrakeCommand(command) => {
-            for command in Break::new(&command, source_code) {
-                command.compile(comp);
-            }
-        }
-
-        E::CloseCommand(command) => {
-            for command in Close::new(&command, source_code) {
-                command.compile(comp);
-            }
-        }
-
-        E::ElseCommand(_) => {
-            comp.push(ffi::OPELSE);
-        }
-        E::NewCommand(_command) => {}
-        E::DoCommand(command) => {
-            for command in Do::new(&command, source_code) {
-                command.compile(comp);
-            }
-        }
-        E::For(command) => {
-            let loop_exit = For::new(&command, source_code).compile(comp);
-            for_jumps.push(loop_exit)
-        }
-        E::QUITCommand(_) => todo!(),
-    }
-
-    if let Some(jump_past) = jump_past_command {
-        comp.write_jump(jump_past, comp.current_location())
-    }
-    //For commands only end at the end of the line.
-    if !matches!(command.children(), E::For(_)) {
-        comp.push(ffi::OPENDC);
-    }
 }
 
 enum ExtrinsicFunctionContext {

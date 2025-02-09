@@ -4,55 +4,68 @@ pub mod r#do;
 pub mod r#for;
 pub mod write;
 
+use close::Close;
+use r#break::Break;
+use r#do::Do;
+use r#for::For;
 pub use write::Write;
 
-use crate::{bite_code::BiteCode, expression::ExpressionContext};
+use super::{Compile, Expression};
+use crate::bite_code::BiteCode;
 
-use super::Expression;
-
-pub enum Command {
-    Write {
-        condition: Option<Expression>,
-        args: Vec<write::Write>,
-    },
+pub struct PostCondition<T> {
+    condition: Option<Expression>,
+    value: T,
 }
-impl Command {
-    pub fn new(sitter: &lang_model::command, source_code: &str) -> Option<Self> {
-        match sitter.children() {
-            lang_model::commandChildren::BrakeCommand(brake_command) => None,
-            lang_model::commandChildren::CloseCommand(close_command) => None,
-            lang_model::commandChildren::DoCommand(do_command) => None,
-            lang_model::commandChildren::ElseCommand(else_command) => None,
-            lang_model::commandChildren::For(_) => None,
-            lang_model::commandChildren::NewCommand(new_command) => None,
-            lang_model::commandChildren::QUITCommand(quitcommand) => None,
-            lang_model::commandChildren::WriteCommand(command) => Some(Self::Write {
-                condition: command
-                    .post_condition()
-                    .map(|x| Expression::new(&x, source_code)),
-                args: command
-                    .args()
-                    .iter()
-                    .map(|x| Write::new(&x, source_code))
-                    .collect(),
-            }),
+
+impl<T, C> Compile for PostCondition<T>
+where
+    T: Compile,
+    T: Compile<Context = C>,
+{
+    type Context = C;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+        if let Some(condition) = &self.condition {
+            bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
+        } else {
+            self.value.compile(bite_code, context);
         }
     }
-    pub fn compile(&self, comp: &mut BiteCode) {
-        match self {
-            Command::Write { condition, args } => {
-                let compile_commands = |bite_code: &mut BiteCode| {
-                    for arg in args.iter() {
-                        arg.compile(bite_code)
-                    }
-                };
-                if let Some(condition) = &condition {
-                    comp.conditional_jump(condition, compile_commands)
-                } else {
-                    compile_commands(comp)
-                }
-            }
+}
+
+pub enum Command {
+    Write(PostCondition<Vec<Write>>),
+    Close(PostCondition<Vec<Close>>),
+    Do(PostCondition<Do>),
+    Break(PostCondition<Break>),
+    Else,
+    For(r#for::For),
+}
+impl Command {
+    pub fn new(sitter: &lang_model::command, source_code: &str) -> Self {
+        match sitter.children() {
+            lang_model::commandChildren::BrakeCommand(command) => Break::new(&command, source_code),
+            lang_model::commandChildren::CloseCommand(command) => Close::new(&command, source_code),
+            lang_model::commandChildren::DoCommand(command) => Do::new(&command, source_code),
+            lang_model::commandChildren::ElseCommand(_) => Self::Else,
+            lang_model::commandChildren::For(command) => Self::For(For::new(&command, source_code)),
+            lang_model::commandChildren::NewCommand(_) => todo!(),
+            lang_model::commandChildren::QUITCommand(_) => todo!(),
+            lang_model::commandChildren::WriteCommand(command) => Write::new(&command, source_code),
         }
-        comp.push(ffi::OPENDC)
+    }
+    pub fn compile(&self, bite_code: &mut BiteCode) -> Option<r#for::EndOfLine> {
+        match self {
+            Command::Write(x) => x.compile(bite_code, &()),
+            Command::Close(x) => x.compile(bite_code, &()),
+            Command::Do(x) => x.compile(bite_code, &()),
+            Command::Break(x) => x.compile(bite_code, &()),
+            Command::Else => bite_code.push(ffi::OPELSE),
+            //TODO I don't like having the explicit return
+            //Remove when I restructure the for command
+            Command::For(x) => return Some(x.compile(bite_code)),
+        }
+        bite_code.push(ffi::OPENDC);
+        None
     }
 }

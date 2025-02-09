@@ -1,31 +1,50 @@
 use lang_model::BrakeCommand;
 
-use crate::{bite_code::BiteCode, ir::Expression};
+use crate::{
+    bite_code::BiteCode,
+    ir::{Compile, Expression},
+};
 
-pub struct Break(Option<Expression>);
+use super::{Command, PostCondition};
+
+pub enum Break {
+    ArgumentLess,
+    Arg(Vec<Expression>),
+}
 
 impl Break {
-    pub fn new(sitter: &BrakeCommand, source_code: &str) -> Vec<Self> {
-        let children = sitter.args();
-        if children.is_empty() {
-            vec![Self(None)]
-        } else {
-            children
-                .iter()
-                .map(|x| Expression::new(x, source_code))
-                .map(|x| Self(Some(x)))
-                .collect()
-        }
+    pub fn new(sitter: &BrakeCommand, source_code: &str) -> Command {
+        Command::Break(PostCondition {
+            condition: sitter
+                .post_condition()
+                .map(|x| Expression::new(&x, source_code)),
+            value: if sitter.args().is_empty() {
+                Self::ArgumentLess
+            } else {
+                Self::Arg(
+                    sitter
+                        .args()
+                        .iter()
+                        .map(|x| Expression::new(&x, source_code))
+                        .collect(),
+                )
+            },
+        })
     }
-    pub fn compile(&self, comp: &mut BiteCode) {
+}
+impl Compile for Break {
+    type Context = ();
+    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
         match self {
-            Self(None) => {
-                comp.push(ffi::OPBRK0);
+            Self::ArgumentLess => {
+                bite_code.push(ffi::OPBRK0);
             }
-            Self(Some(exp)) => {
-                exp.compile(comp, crate::expression::ExpressionContext::Eval);
-                if !matches!(exp, Expression::InderectExpression { .. }) {
-                    comp.push(ffi::OPBRKN);
+            Self::Arg(args) => {
+                for arg in args {
+                    arg.compile(bite_code, crate::expression::ExpressionContext::Eval);
+                    if !matches!(arg, Expression::InderectExpression { .. }) {
+                        bite_code.push(ffi::OPBRKN);
+                    }
                 }
             }
         }
