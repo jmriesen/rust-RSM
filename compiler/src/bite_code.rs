@@ -1,3 +1,5 @@
+use crate::ir::Expression;
+
 pub struct BiteCode(Vec<u8>);
 
 pub struct JumpLocation(usize);
@@ -9,11 +11,6 @@ impl BiteCode {
     }
     pub fn push(&mut self, bite_code: u8) {
         self.0.push(bite_code);
-    }
-    pub fn reserve_jump(&mut self) -> JumpLocation {
-        self.0.push(0);
-        self.0.push(0);
-        JumpLocation(self.0.len())
     }
 
     pub fn write_jump(
@@ -33,5 +30,30 @@ impl BiteCode {
     }
     pub fn extend(&mut self, iter: impl IntoIterator<Item = u8>) {
         self.0.extend(iter);
+    }
+
+    /// In general you should use the other jump methods
+    /// This remains publicly exposed so that the For command can use it.
+    pub fn reserve_jump(&mut self) -> JumpLocation {
+        self.0.push(0);
+        self.0.push(0);
+        JumpLocation(self.0.len())
+    }
+
+    pub fn conditional_jump<T>(
+        &mut self,
+        condition: &Expression,
+        conditional_code: impl Fn(&mut Self) -> T,
+    ) -> T {
+        condition.compile(self, crate::expression::ExpressionContext::Eval);
+        self.push(ffi::JMP0);
+        let post_condition_jump = self.reserve_jump();
+        let value = conditional_code(self);
+        self.write_jump(post_condition_jump, self.current_location());
+        value
+    }
+    pub fn unconditional_jump(&mut self) -> JumpLocation {
+        self.push(ffi::JMP);
+        self.reserve_jump()
     }
 }

@@ -197,15 +197,10 @@ impl IntrinsicFunction {
                 let jump_indexs: Vec<_> = terms
                     .iter()
                     .map(|SelectTerm { condition, value }| {
-                        condition.compile(comp, ExpressionContext::Eval);
-                        comp.push(ffi::JMP0);
-                        let try_next = comp.reserve_jump();
-
-                        value.compile(comp, ExpressionContext::Eval);
-                        comp.push(ffi::JMP);
-                        let jump_to_end = comp.reserve_jump();
-                        comp.write_jump(try_next, comp.current_location());
-                        jump_to_end
+                        comp.conditional_jump(condition, |bite_code| {
+                            value.compile(bite_code, ExpressionContext::Eval);
+                            bite_code.unconditional_jump()
+                        })
                     })
                     .collect();
                 comp.push(ffi::OPERROR);

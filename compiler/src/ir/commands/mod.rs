@@ -41,16 +41,15 @@ impl Command {
     pub fn compile(&self, comp: &mut BiteCode) {
         match self {
             Command::Write { condition, args } => {
-                let post_condition_jump = condition.as_ref().map(|condition| {
-                    condition.compile(comp, ExpressionContext::Eval);
-                    comp.push(ffi::JMP0);
-                    comp.reserve_jump()
-                });
-                for arg in args {
-                    arg.compile(comp)
-                }
-                if let Some(jump_past) = post_condition_jump {
-                    comp.write_jump(jump_past, comp.current_location())
+                let compile_commands = |bite_code: &mut BiteCode| {
+                    for arg in args.iter() {
+                        arg.compile(bite_code)
+                    }
+                };
+                if let Some(condition) = &condition {
+                    comp.conditional_jump(condition, compile_commands)
+                } else {
+                    compile_commands(comp)
                 }
             }
         }

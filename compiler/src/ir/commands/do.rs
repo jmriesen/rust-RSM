@@ -2,7 +2,6 @@ use lang_model::DoCommand;
 
 use crate::{
     bite_code::BiteCode,
-    expression::ExpressionContext,
     ir::{Expression, ExtrinsicFunction},
 };
 
@@ -36,14 +35,12 @@ impl Do {
                 post_condition,
                 function_call,
             } => {
-                let jump_from = post_condition.as_ref().map(|x| {
-                    x.compile(comp, ExpressionContext::Eval);
-                    comp.push(ffi::JMP0);
-                    comp.reserve_jump()
-                });
-                function_call.compile(comp, crate::ExtrinsicFunctionContext::Do);
-                if let Some(from) = jump_from {
-                    comp.write_jump(from, comp.current_location())
+                if let Some(condition) = post_condition {
+                    comp.conditional_jump(condition, |x| {
+                        function_call.compile(x, crate::ExtrinsicFunctionContext::Do)
+                    })
+                } else {
+                    function_call.compile(comp, crate::ExtrinsicFunctionContext::Do);
                 }
             }
         }

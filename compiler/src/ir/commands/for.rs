@@ -98,9 +98,7 @@ impl EndOfLine {
         comp.push(ffi::OPENDC);
         if let Some(location) = self.unconditional_jump {
             //Jump back to start of for loop.
-            comp.push(ffi::JMP);
-            let jump = comp.reserve_jump();
-            // For content starts right after the jump_to_exit location.
+            let jump = comp.unconditional_jump();
             comp.write_jump(jump, location);
         } else {
             comp.push(ffi::CMFOREND);
