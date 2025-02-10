@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use bite_code::BiteCode;
-use ir::commands::{r#break::Break, r#for::For, Command};
+use ir::commands::Command;
 
 pub mod bite_code;
 mod command;
@@ -68,33 +68,9 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         };
         let mut for_jumps = vec![];
         let commands = line.children();
-        for (last_command, raw_command) in commands
-            .iter()
-            .enumerate()
-            .map(|(i, x)| (i == commands.len() - 1, x))
-        {
-            let command = Command::new(raw_command, source_code);
+        for command in commands {
+            let command = Command::new(&command, source_code);
             for_jumps.extend(command.compile(&mut comp));
-
-            //Weird extra handling at the end of a line.
-            //This should eventually be removed
-            if last_command {
-                if raw_command.argumentless()
-                    && matches!(
-                        raw_command.children(),
-                        lang_model::commandChildren::DoCommand(_)
-                    )
-                {
-                    comp.push(ffi::OPENDC);
-                }
-            } else {
-                //NOTE C bug?
-                //If the command has arguments C doesn't consume the trailing white space.
-                //This causes extra end commands to be added.
-                if !raw_command.argumentless() {
-                    comp.push(ffi::OPENDC);
-                }
-            }
         }
         for for_end_processing in for_jumps.into_iter().rev() {
             for_end_processing.compile(&mut comp);

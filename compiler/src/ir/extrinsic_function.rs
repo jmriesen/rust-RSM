@@ -34,11 +34,7 @@ impl Args {
 #[derive(Clone)]
 pub struct ExtrinsicFunction {
     location: Location,
-    //TODO convert to IR all the way down, and remove lifetime requirement
     arguments: Vec<Args>,
-    //NOTE: This affects the compiled output, but I don't think is should.
-    //See `compile` for more details.
-    contains_paren: bool,
 }
 
 impl ExtrinsicFunction {
@@ -83,11 +79,6 @@ impl ExtrinsicFunction {
         Self {
             arguments,
             location,
-            contains_paren: sitter
-                .node()
-                .utf8_text(source_code.as_bytes())
-                .unwrap()
-                .contains('('),
         }
     }
 }
@@ -130,16 +121,7 @@ impl Compile for ExtrinsicFunction {
 
         // End marker + number of args
         let marker = match context {
-            ExtrinsicFunctionContext::Do => {
-                //NOTE on line `parse.c:241`
-                //args is incremented before we check for ")"
-                //Therefor the args value is 1 higher then it should be
-                if self.contains_paren {
-                    1
-                } else {
-                    0
-                }
-            }
+            ExtrinsicFunctionContext::Do => 0,
             ExtrinsicFunctionContext::Eval => 129,
         };
         comp.push(self.arguments.len() as u8 + marker);
