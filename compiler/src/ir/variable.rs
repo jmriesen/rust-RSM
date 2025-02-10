@@ -125,7 +125,7 @@ impl Variable {
 
         //Use a slightly more compact format if all we have to worry about is subscripts
         if matches!(self.var_type, E::GlobalVariable { .. } | E::Local { .. }) {
-            comp.push(op_code | self.subscripts.len() as u8);
+            comp.push(op_code + self.subscripts.len() as u8);
         } else {
             comp.push(op_code);
             comp.push(self.subscripts.len() as u8);

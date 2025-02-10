@@ -27,16 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-pub fn reserve_jump(comp: &mut Vec<u8>) -> usize {
-    comp.push(0);
-    comp.push(0);
-    comp.len()
-}
-
-pub fn write_jump(location: usize, jump_to: usize, comp: &mut [u8]) {
-    let offset = (jump_to as i16 - location as i16).to_le_bytes();
-    comp[location - 2..location].copy_from_slice(&offset);
-}
 
 #[cfg(test)]
 mod test {

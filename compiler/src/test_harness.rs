@@ -27,9 +27,9 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use ffi::{u_char, u_short, PARTAB};
+use ffi::{u_char, PARTAB};
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 /// copies the compiled code back to C's comp and moves the comp/src pointer
 /// This should be removed once the compile code has been converted from C to rust.
@@ -49,38 +49,6 @@ unsafe fn sync_with_c(
 
     //Move source ptr;
     unsafe { (*src) = (*src).add(offset) };
-}
-
-pub fn compile_string(value: &CStr) -> Vec<u8> {
-    use std::iter::once;
-    let bytes = value.to_bytes_with_nul();
-    once(ffi::OPSTR)
-        //length does not include null bite.
-        .chain(((bytes.len() - 1) as u_short).to_le_bytes())
-        .chain(bytes.iter().copied())
-        .collect()
-}
-
-#[allow(dead_code)]
-pub fn parse_rust_to_c_ffi(
-    src: &str,
-    partab: &mut PARTAB,
-    comp: &mut Vec<u8>,
-    fnc: unsafe extern "C" fn(*mut *mut u8, *mut *mut u8, *mut ffi::PARTAB),
-) {
-    let tmp = CString::new(src).unwrap();
-    let mut source = tmp.as_ptr() as *mut u_char;
-    let source_ptr = &mut source as *mut *mut u_char;
-
-    let mut buff = [0u8; 200];
-    let mut comp_c = &mut buff as *mut u_char;
-    let comp_ptr = &mut comp_c as *mut *mut u_char;
-
-    unsafe { fnc(source_ptr, comp_ptr, partab as *mut PARTAB) }
-
-    let num = unsafe { comp_c.offset_from(buff.as_ptr()) };
-
-    comp.extend(buff.into_iter().take(num as usize));
 }
 
 #[cfg(test)]

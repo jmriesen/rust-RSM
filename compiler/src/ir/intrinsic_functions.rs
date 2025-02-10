@@ -275,3 +275,28 @@ impl IntrinsicFunction {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{bite_code, ir::Expression};
+
+    use super::IntrinsicFunction;
+
+    #[test]
+    #[should_panic]
+    fn max_number_of_args_pluse_1() {
+        let exps = std::iter::repeat(Expression::String("0".parse().unwrap()));
+        IntrinsicFunction::Char {
+            args: exps.take(255).collect(),
+        }
+        .compile(&mut bite_code::BiteCode::new());
+    }
+    #[test]
+    fn max_number_of_args() {
+        let exps = std::iter::repeat(Expression::String("0".parse().unwrap()));
+        IntrinsicFunction::Char {
+            args: exps.take(254).collect(),
+        }
+        .compile(&mut bite_code::BiteCode::new());
+    }
+}
