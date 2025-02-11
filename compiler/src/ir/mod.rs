@@ -14,7 +14,7 @@ pub mod variable;
 pub use variable::Variable;
 
 use crate::bite_code::BiteCode;
-trait Compile {
+pub trait Compile {
     type Context;
     fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context);
 }

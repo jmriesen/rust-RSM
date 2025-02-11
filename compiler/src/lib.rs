@@ -30,7 +30,7 @@
 #![feature(array_chunks)]
 
 use bite_code::BiteCode;
-use ir::commands::Command;
+use ir::{commands::Command, Compile};
 
 pub mod bite_code;
 mod command;
@@ -66,21 +66,19 @@ pub fn compile(source_code: &str) -> Vec<u8> {
             lang_model::BlockChildren::line(line) => line,
             lang_model::BlockChildren::Block(_line) => continue,
         };
-        let mut for_jumps = vec![];
-        let commands = line.children();
-        for command in commands {
-            let command = Command::new(&command, source_code);
-            for_jumps.extend(command.compile(&mut comp));
+        let mut commands = vec![];
+        let mut line_tail = line.children().into_iter();
+        while let Some(command) = line_tail.next() {
+            commands.push(Command::new(&command, source_code, &mut line_tail));
         }
-        for for_end_processing in for_jumps.into_iter().rev() {
-            for_end_processing.compile(&mut comp);
-        }
+        commands.compile(&mut comp, &());
+
         comp.push(ffi::ENDLIN);
     }
     comp.get_raw()
 }
 
-enum ExtrinsicFunctionContext {
+pub enum ExtrinsicFunctionContext {
     Eval,
     Do,
 }
