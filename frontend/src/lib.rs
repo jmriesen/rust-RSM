@@ -8,7 +8,7 @@ pub mod intrinsic_var;
 pub mod operators;
 pub mod variable;
 
-trait TreeSitterParser<'a> {
+pub trait TreeSitterParser<'a> {
     type NodeType;
     fn new(sitter: &Self::NodeType, source_code: &str) -> Self;
 }

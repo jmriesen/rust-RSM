@@ -1462,11 +1462,14 @@ dependencies = [
 name = "rsm"
 version = "0.1.0"
 dependencies = [
+ "backend",
  "bindgen",
  "cbindgen",
  "cc",
  "ffi",
+ "frontend",
  "glob",
+ "ir",
  "lang-model",
  "rstest",
  "tree-sitter",

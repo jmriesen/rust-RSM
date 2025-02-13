@@ -27,9 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use ffi::{u_char, PARTAB};
-
-use std::ffi::CString;
+use ffi::u_char;
 
 /// copies the compiled code back to C's comp and moves the comp/src pointer
 /// This should be removed once the compile code has been converted from C to rust.
@@ -53,9 +51,13 @@ unsafe fn sync_with_c(
 
 #[cfg(test)]
 pub mod test {
-    use std::sync::{LockResult, Mutex, MutexGuard};
+    use std::{
+        ffi::CString,
+        sync::{LockResult, Mutex, MutexGuard},
+    };
+
+    use ffi::PARTAB;
     static GUARD: Mutex<()> = Mutex::new(());
-    use super::*;
 
     #[allow(dead_code)]
     pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {

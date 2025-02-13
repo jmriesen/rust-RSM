@@ -27,14 +27,5 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-mod literals;
-pub use literals::*;
-
-pub enum ExpressionContext {
-    Write = ffi::INDWRIT as isize,
-    Eval = ffi::INDEVAL as isize,
-    Close = ffi::INDCLOS as isize,
-}
-
 #[cfg(test)]
 pub mod test;

@@ -28,13 +28,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-pub enum VarContext {
-    Eval = ffi::OPVAR as isize,
-    Build = ffi::OPMVAR as isize,
-    BuildNullable = ffi::OPMVARN as isize,
-    For = ffi::CMFORSET as isize,
-}
-
 #[cfg(test)]
 mod test {
     use crate::{test_compile_command, test_harness::test::compile_c};

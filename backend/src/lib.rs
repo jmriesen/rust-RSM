@@ -1,4 +1,4 @@
-use bite_code::BiteCode;
+pub use bite_code::BiteCode;
 
 pub mod bite_code;
 pub mod commands;

@@ -29,15 +29,11 @@
  */
 #![feature(array_chunks)]
 
-use bite_code::BiteCode;
-use ir::{commands::Command, Compile};
-
-pub mod bite_code;
+use backend::{BiteCode, Compile};
 mod command;
 mod dollar;
 mod expression;
 mod function;
-mod ir;
 mod localvar;
 mod routine;
 mod test_harness;
@@ -69,7 +65,11 @@ pub fn compile(source_code: &str) -> Vec<u8> {
         let mut commands = vec![];
         let mut line_tail = line.children().into_iter();
         while let Some(command) = line_tail.next() {
-            commands.push(Command::new(&command, source_code, &mut line_tail));
+            commands.push(frontend::commands::new(
+                &command,
+                source_code,
+                &mut line_tail,
+            ));
         }
         commands.compile(&mut comp, &());
 
