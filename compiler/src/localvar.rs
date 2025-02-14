@@ -52,7 +52,7 @@ mod test {
     //TODO index
     fn parse_var(#[case] num: &str) {
         let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+        let (orignal, _lock) = compile_c(&source_code);
 
         assert_eq!(orignal, test_compile_command(&source_code));
     }

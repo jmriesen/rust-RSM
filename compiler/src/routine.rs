@@ -44,7 +44,7 @@ mod test {
     #[case("$$tag(89,.name)")]
     fn extrinsic_call(#[case] fn_call: &str) {
         let source_code = format!("w {}", fn_call);
-        let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+        let (orignal, _lock) = compile_c(&source_code);
         let temp = test_compile_command(&source_code);
 
         assert_eq!(orignal, temp);

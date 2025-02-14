@@ -38,7 +38,7 @@ mod test {
     #[test]
     fn select_test() {
         let source_code = "w $s(1:2,3:4,5:6)";
-        let (orignal, _lock) = compile_c(source_code, ffi::parse);
+        let (orignal, _lock) = compile_c(source_code);
         let temp = test_compile_command(source_code);
 
         assert_eq!(orignal, temp);
@@ -72,13 +72,13 @@ mod test {
 
             {
                 let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+                let (orignal, _lock) = compile_c(&source_code);
 
                 assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+                let (orignal, _lock) = compile_c(&source_code);
                 let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);
@@ -106,13 +106,13 @@ mod test {
             let args = repeat("variable").take(val).collect::<Vec<_>>().join(",");
             {
                 let source_code = format!("w ${}({})", full, args);
-                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+                let (orignal, _lock) = compile_c(&source_code);
 
                 assert_eq!(orignal, test_compile_command(&source_code));
             }
             {
                 let source_code = format!("w ${}({})", abbreviated, args);
-                let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+                let (orignal, _lock) = compile_c(&source_code);
                 let temp = test_compile_command(&source_code);
 
                 assert_eq!(orignal, temp);

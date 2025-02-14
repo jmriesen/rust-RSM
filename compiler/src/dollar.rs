@@ -69,7 +69,7 @@ mod test {
     fn intrinsic_var(#[case] var: &str) {
         {
             let source_code = format!("w {}", var);
-            let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+            let (orignal, _lock) = compile_c(&source_code);
 
             assert_eq!(orignal, test_compile_command(&source_code));
         }
@@ -112,7 +112,7 @@ mod test {
         for num in 1..=2 {
             let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
             let source_code = format!("w {}({})", call, args);
-            let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+            let (orignal, _lock) = compile_c(&source_code);
             let temp = test_compile_command(&source_code);
 
             assert_eq!(orignal, temp);

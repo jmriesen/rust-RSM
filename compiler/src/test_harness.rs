@@ -27,27 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use ffi::u_char;
-
-/// copies the compiled code back to C's comp and moves the comp/src pointer
-/// This should be removed once the compile code has been converted from C to rust.
-/// # Safety
-/// This should only be called on the src/comp pointers that are provided by C.
-#[allow(dead_code)]
-unsafe fn sync_with_c(
-    src: *mut *mut u_char,
-    comp: *mut *mut u_char,
-    offset: usize,
-    byte_code: &[u8],
-) {
-    use std::ptr::copy_nonoverlapping;
-    // Copy over byte_code
-    unsafe { copy_nonoverlapping((*byte_code).as_ptr(), *comp, byte_code.len()) }
-    unsafe { *comp = (*comp).add(byte_code.len()) };
-
-    //Move source ptr;
-    unsafe { (*src) = (*src).add(offset) };
-}
 
 #[cfg(test)]
 pub mod test {
@@ -59,18 +38,9 @@ pub mod test {
     use ffi::PARTAB;
     static GUARD: Mutex<()> = Mutex::new(());
 
-    #[allow(dead_code)]
-    pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-        ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
-    }
-
-    pub fn compile_c(
-        src: &str,
-        fn_c: unsafe extern "C" fn() -> (),
-    ) -> (Vec<u8>, LockResult<MutexGuard<'_, ()>>) {
+    pub fn compile_c(src: &str) -> (Vec<u8>, LockResult<MutexGuard<'_, ()>>) {
         use ffi::{comp_ptr, partab, source_ptr, systab, SYSTAB};
         use std::io::Write;
-
         //TODO this is being leaked.
         let source = CString::new(dbg!(src)).unwrap();
         let source = source.into_raw() as *mut u8;
@@ -92,7 +62,7 @@ pub mod test {
             unsafe { comp_ptr = compiled_original.as_mut_ptr() };
             unsafe { partab = PARTAB::default() };
             unsafe { systab = &mut sys_tab as *mut SYSTAB };
-            unsafe { fn_c() }
+            unsafe { ffi::parse() }
             unsafe { comp_ptr.offset_from(compiled_original.as_ptr()) }
         };
 

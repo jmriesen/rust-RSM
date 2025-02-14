@@ -41,7 +41,7 @@ use rstest::rstest;
 #[case("SomeString?1\"quote \"\" literal\"")]
 fn parse_pattern(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+    let (orignal, _lock) = compile_c(&source_code);
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
@@ -63,7 +63,7 @@ fn parse_pattern(#[case] num: &str) {
 //#[case("1.90E-100")]
 fn parse_number(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+    let (orignal, _lock) = compile_c(&source_code);
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
@@ -74,7 +74,7 @@ fn parse_number(#[case] num: &str) {
 #[case("\" string with quote\"\"quote\"\" some text\"")]
 fn parse_string(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+    let (orignal, _lock) = compile_c(&source_code);
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
@@ -87,7 +87,7 @@ fn parse_string(#[case] num: &str) {
 #[case("-'-45")]
 fn parse_unary_exp(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+    let (orignal, _lock) = compile_c(&source_code);
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
@@ -97,7 +97,7 @@ fn parse_unary_exp(#[case] num: &str) {
 #[case("98+(something+9)")]
 fn parse_binary(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+    let (orignal, _lock) = compile_c(&source_code);
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
