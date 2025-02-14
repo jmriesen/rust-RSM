@@ -29,6 +29,7 @@
  */
 mod bindings;
 pub mod interface;
+pub mod parse;
 pub mod run;
 pub mod value;
 pub mod var_u;

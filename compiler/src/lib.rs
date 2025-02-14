@@ -36,7 +36,6 @@ mod expression;
 mod function;
 mod localvar;
 mod routine;
-mod test_harness;
 
 ///Test harness that for commands
 ///

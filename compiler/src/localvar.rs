@@ -30,7 +30,8 @@
 
 #[cfg(test)]
 mod test {
-    use crate::{test_compile_command, test_harness::test::compile_c};
+    use crate::test_compile_command;
+    use ffi::parse::parse;
     use rstest::rstest;
     #[rstest]
     #[case("SomeString")]
@@ -52,7 +53,7 @@ mod test {
     //TODO index
     fn parse_var(#[case] num: &str) {
         let source_code = format!("w {}", num);
-        let (orignal, _lock) = compile_c(&source_code);
+        let orignal = parse(&source_code);
 
         assert_eq!(orignal, test_compile_command(&source_code));
     }

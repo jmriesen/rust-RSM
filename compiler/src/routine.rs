@@ -29,7 +29,8 @@
  */
 #[cfg(test)]
 mod test {
-    use crate::{test_compile_command, test_harness::test::compile_c};
+    use crate::test_compile_command;
+    use ffi::parse::parse;
     use rstest::rstest;
 
     #[rstest]
@@ -44,7 +45,7 @@ mod test {
     #[case("$$tag(89,.name)")]
     fn extrinsic_call(#[case] fn_call: &str) {
         let source_code = format!("w {}", fn_call);
-        let (orignal, _lock) = compile_c(&source_code);
+        let orignal = parse(&source_code);
         let temp = test_compile_command(&source_code);
 
         assert_eq!(orignal, temp);
