@@ -9,6 +9,7 @@ pub mod intrinsic_functions;
 pub mod intrinsic_var;
 pub mod operators;
 pub mod value;
+pub mod var_u;
 pub mod variable;
 
 pub trait Compile {
@@ -25,6 +26,19 @@ where
     fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
         for term in self {
             term.compile(bite_code, context)
+        }
+    }
+}
+
+impl<T, C> Compile for Option<T>
+where
+    T: Compile,
+    T: Compile<Context = C>,
+{
+    type Context = C;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+        if let Some(inner) = self {
+            inner.compile(bite_code, context)
         }
     }
 }

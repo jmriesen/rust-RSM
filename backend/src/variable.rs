@@ -1,4 +1,7 @@
-use crate::{Compile, bite_code::BiteCode};
+use crate::{
+    Compile,
+    bite_code::{self, BiteCode},
+};
 use ir::{Variable, variable::VariableType};
 
 #[derive(Clone, Copy)]
@@ -51,9 +54,6 @@ impl Compile for Variable {
             comp.push(self.subscripts.len() as u8);
         }
 
-        if let Some(name) = self.var_type.name() {
-            let name: ffi::VAR_U = name.try_into().unwrap();
-            comp.extend(name.as_array().iter().cloned())
-        }
+        self.var_type.name().compile(comp, &());
     }
 }

@@ -1,4 +1,3 @@
-use ffi::VAR_U;
 use ir::{
     ExtrinsicFunction,
     extrinsic_function::{Args, Location},
@@ -38,15 +37,8 @@ impl Compile for ExtrinsicFunction {
             Location::Routine(routine) => (None, Some(routine)),
             Location::TagRoutine(tag, routine) => (Some(tag), Some(routine)),
         };
-
-        if let Some(routine) = routine {
-            let routine: VAR_U = routine.try_into().unwrap();
-            comp.extend(routine.as_array().iter().cloned());
-        }
-        if let Some(tag) = tag {
-            let tag: VAR_U = tag.try_into().unwrap();
-            comp.extend(tag.as_array().iter().cloned());
-        }
+        routine.compile(comp, &());
+        tag.compile(comp, &());
 
         // End marker + number of args
         let marker = match context {
