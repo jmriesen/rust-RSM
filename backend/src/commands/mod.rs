@@ -32,8 +32,6 @@ impl Compile for Command {
             Command::Do(x) => x.compile(bite_code, &()),
             Command::Break(x) => x.compile(bite_code, &()),
             Command::Else => bite_code.push(ffi::OPELSE),
-            //TODO I don't like having the explicit return
-            //Remove when I restructure the for command
             Command::For(x) => x.compile(bite_code, &()),
         }
         bite_code.push(ffi::OPENDC);
