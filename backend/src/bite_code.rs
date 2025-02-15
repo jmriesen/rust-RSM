@@ -49,10 +49,10 @@ impl BiteCode {
     ) -> T {
         condition.compile(self, &crate::expression::ExpressionContext::Eval);
         self.push(ffi::JMP0);
-        let post_condition_jump = self.reserve_jump();
-        let value = conditional_code(self);
-        self.write_jump(post_condition_jump, self.current_location());
-        value
+        let conditional_jump = self.reserve_jump();
+        let conditional_code_return = conditional_code(self);
+        self.write_jump(conditional_jump, self.current_location());
+        conditional_code_return
     }
     pub fn unconditional_jump(&mut self) -> JumpLocation {
         self.push(ffi::JMP);
