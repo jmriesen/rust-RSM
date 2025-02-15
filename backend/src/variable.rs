@@ -31,9 +31,7 @@ impl Compile for Variable {
             }
         }
 
-        for subscript in &self.subscripts {
-            subscript.compile(comp, &ExpressionContext::Eval);
-        }
+        self.subscripts.compile(comp, &ExpressionContext::Eval);
 
         comp.push(*context as u8);
         let op_code = match &self.var_type {
