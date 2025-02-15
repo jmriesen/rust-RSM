@@ -20,9 +20,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for VarFunction<REQUIRED, OPTIONAL> {
     type Context = (VarContext, u8);
     fn compile(&self, comp: &mut BiteCode, (context, fn_code_base): &Self::Context) {
-        //TODO handle other context types
         self.variable.compile(comp, &context);
-        //TODO handle Next case.
         self.function.compile(comp, &fn_code_base);
     }
 }
