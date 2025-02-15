@@ -22,7 +22,6 @@ impl Compile for Expression {
             E::String(value) => value.compile(comp, &()),
             E::Variable(var) => var.compile(comp, &VarContext::Eval),
             E::IntrinsicVar(var) => var.compile(comp, &()),
-            E::Expression(exp) => exp.compile(comp, &ExpressionContext::Eval),
             E::InderectExpression(exp) => {
                 exp.compile(comp, &ExpressionContext::Eval);
                 comp.push(*context as u8);

@@ -37,7 +37,7 @@ impl<'a> TreeSitterParser<'a> for Expression {
             }
             S::Variable(var) => Self::Variable(Variable::new(&var, source_code)),
             S::IntrinsicVar(var) => Self::IntrinsicVar(IntrinsicVar::new(&var, source_code)),
-            S::Expression(exp) => Self::Expression(nested_new(exp)),
+            S::Expression(exp) => Self::new(&exp, source_code),
             S::InderectExpression(exp) => Self::InderectExpression(nested_new(exp.children())),
             S::UnaryExpression(unary_exp) => Self::UnaryExpression {
                 op_code: operators::Unary::new(&unary_exp.opp(), source_code),

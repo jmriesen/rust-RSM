@@ -6,7 +6,6 @@ pub enum Expression {
     String(value::Value),
     Variable(Variable),
     IntrinsicVar(IntrinsicVar),
-    Expression(Box<Self>),
     InderectExpression(Box<Self>),
     UnaryExpression {
         op_code: operators::Unary,
