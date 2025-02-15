@@ -47,10 +47,10 @@ impl Compile for Expression {
                 function.compile(comp, &ExtrinsicFunctionContext::Eval)
             }
             E::ExternalCalls { args, op_code } => {
-                for arg in args {
-                    arg.compile(comp, &ExpressionContext::Eval);
-                }
+                args.compile(comp, &ExpressionContext::Eval);
 
+                // All External Commands expect at least 2 arguments
+                // If less then 2 arguments exist in the IR just pass the empty value.
                 for _ in args.len()..2 {
                     ::value::EMPTY.compile(comp, &());
                 }
