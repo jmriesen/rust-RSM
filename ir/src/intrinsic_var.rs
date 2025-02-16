@@ -1,0 +1,20 @@
+#[derive(Clone)]
+pub enum IntrinsicVar {
+    Device,
+    Ecode,
+    Estack,
+    Etrap,
+    Horolog,
+    Io,
+    Job,
+    Key,
+    Principal,
+    Quit,
+    Reference,
+    Storage,
+    StackVar,
+    System,
+    Test,
+    X,
+    Y,
+}

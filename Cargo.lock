@@ -133,6 +133,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
+name = "backend"
+version = "0.1.0"
+dependencies = [
+ "ffi",
+ "ir",
+ "value",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -549,6 +558,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "frontend"
+version = "0.1.0"
+dependencies = [
+ "ir",
+ "lang-model",
+ "value",
+]
+
+[[package]]
 name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -895,6 +913,13 @@ dependencies = [
  "thiserror 1.0.69",
  "uname",
  "uuid",
+]
+
+[[package]]
+name = "ir"
+version = "0.1.0"
+dependencies = [
+ "value",
 ]
 
 [[package]]
@@ -1437,11 +1462,14 @@ dependencies = [
 name = "rsm"
 version = "0.1.0"
 dependencies = [
+ "backend",
  "bindgen",
  "cbindgen",
  "cc",
  "ffi",
+ "frontend",
  "glob",
+ "ir",
  "lang-model",
  "rstest",
  "tree-sitter",

@@ -30,7 +30,6 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use ffi::IntoC;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
@@ -49,57 +48,43 @@ enum TableCommands {
     Order(MVar<KeyBound>, Direction),
 }
 
-fuzz_target!(|commands: Vec<TableCommands>| {
-    let mut table = Table::new();
-    /*
-    let commands: Vec<TableCommands> =
-        ron::from_str(&std::fs::read_to_string("test.ron").unwrap()).unwrap();
-        let _ = std::fs::write(
-            "test.ron",
-            ron::ser::to_string_pretty(&commands, ron::ser::PrettyConfig::default()).unwrap(),
-        );
-    */
-    let mut c_table = ffi::symbol_table::Table::new();
-
-    for command in commands.into_iter().take(100) {
-        match command {
-            TableCommands::Set(var, val) => {
-                assert_eq!(
-                    table.set(&var, &val).map_err(|err| err.error_code() as i32),
-                    c_table.set(&var.into_c(), &val.into_c())
-                );
-            }
-            TableCommands::Get(var) => {
-                let rust_val = table.get(&var);
-                let c_val = c_table.get(&var.into_c()).map(|x| Value::from(&x));
-                assert_eq!(rust_val.ok_or(&-(ffi::ERRM6 as i32)), c_val.as_ref());
-            }
-            TableCommands::Kill(var) => {
-                table.kill(&var);
-                c_table.kill(&var.into_c());
-            }
-            TableCommands::Data(var) => {
-                let (decedents, data) = c_table.data(&var.clone().into_c());
-                assert_eq!(decedents, table.data(&var).has_descendants);
-                assert_eq!(data, table.data(&var).has_value);
-            }
-            TableCommands::Query(var, direction) => {
-                let rust_val = table.query(&var, direction);
-                let c_val = c_table.query(&var.into_c(), direction == Direction::Backward);
-                assert_eq!(
-                    rust_val.map(Value::from).unwrap_or_default(),
-                    Value::try_from(&c_val[..])
-                        .expect("The buffer comming from C should always fit")
-                );
-            }
-            TableCommands::Order(var, direction) => {
-                let rust_val = table.order(&var, direction);
-                let c_val = c_table.order(&var.into_c(), direction == Direction::Backward);
-                assert_eq!(
-                    rust_val.map(Value::from).unwrap_or_default(),
-                    Value::try_from(&c_val[..])
-                        .expect("The buffer comming from C should always fit")
-                );
+fuzz_target!(|commands: Vec<TableCommands>| -> () {
+    {
+        let mut table = Table::new();
+        let mut c_table = ffi::symbol_table::Table::new();
+        for command in commands.into_iter().take(100) {
+            match command {
+                TableCommands::Set(var, val) => {
+                    assert_eq!(table.set(&var, &val), c_table.set(&var, val));
+                }
+                TableCommands::Get(var) => {
+                    assert_eq!(table.get(&var), c_table.get(&var).as_ref());
+                }
+                TableCommands::Kill(var) => {
+                    table.kill(&var);
+                    c_table.kill(&var);
+                }
+                TableCommands::Data(var) => {
+                    assert_eq!(table.data(&var), c_table.data(&var));
+                }
+                TableCommands::Query(var, direction) => {
+                    assert_eq!(
+                        table
+                            .query(&var, direction)
+                            .map(Value::from)
+                            .unwrap_or_default(),
+                        c_table.query(&var, direction)
+                    );
+                }
+                TableCommands::Order(var, direction) => {
+                    assert_eq!(
+                        table
+                            .order(&var, direction)
+                            .map(Value::from)
+                            .unwrap_or_default(),
+                        c_table.order(&var, direction)
+                    );
+                }
             }
         }
     }

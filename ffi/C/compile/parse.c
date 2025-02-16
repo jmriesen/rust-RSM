@@ -165,12 +165,12 @@ void parse_do(int runtime)                                                      
 
                 while (TRUE) {                                                  // while we have args
                     if (args > MAX_NUM_ARGS) SYNTX;                             // too many
-                    args++;                                                     // count an argument
 
                     if (*source_ptr == ')') {                                   // trailing bracket ?
                         source_ptr++;                                           // skip the )
                         break;                                                  // and exit
                     }
+                    args++;                                                     // count an argument
 
                     if ((*source_ptr == ',') || (*source_ptr == ')')) {         // if empty argument
                         *comp_ptr++ = VARUNDF;                                  // flag it
@@ -1401,6 +1401,9 @@ void parse_write(void)                                                          
         if ((*source_ptr == ' ') || (*source_ptr == '\0')) break;               // a space or end of line and all done
         if (*source_ptr == ',') source_ptr++;                                   // increment past a comma
     }                                                                           // end of while (TRUE) write
+    if (*source_ptr == ' '){
+        source_ptr++;
+    }
 
     return;
 }
@@ -1495,8 +1498,7 @@ void parse(void)                                                                
                 } else while (TRUE) {                                           // get the args
                     eval();                                                     // get arg
                     *comp_ptr++ = OPBRKN;                                       // the op code
-                    if (*source_ptr != ',') break;                              // done
-                    source_ptr++;                                               // point at next
+                    if (*source_ptr++ != ',') break;                            // done
                 }
             } else {                                                            // at end of line
                 source_ptr--;                                                   // point back at null
@@ -1545,6 +1547,7 @@ void parse(void)                                                                
             if (c == '\0') source_ptr--;                                        // point back at eol
 
             if ((*source_ptr == ' ') || (*source_ptr == '\0')) {                // argumentless form?
+                source_ptr++;
                 *comp_ptr++ = CMDON;                                            // add the opcode
             } else {
                 parse_do(0);

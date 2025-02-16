@@ -28,13 +28,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use crate::{
-    ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set, UTIL_Key_Build,
-    UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR,
+    IntoC, ST_Data, ST_Get, ST_Init, ST_Kill, ST_KillAll, ST_Order, ST_Query, ST_Set,
+    UTIL_Key_Build, UTIL_Key_Extract, UTIL_String_Key, CSTRING, MAX_STR_LEN, MVAR,
 };
 use std::{
     ptr::{from_mut, from_ref},
     sync::{LockResult, Mutex, MutexGuard},
 };
+use symbol_table::{
+    key::{Key, KeyBound},
+    CreationError, DataResult, Direction, MVar,
+};
+use value::Value;
 
 ///controls access to table globals
 static TABLE_MUTEX: Mutex<()> = Mutex::new(());
@@ -52,49 +57,73 @@ impl Table {
         temp
     }
 
-    pub fn set(&mut self, var: &MVAR, data: &CSTRING) -> Result<(), i32> {
-        let result = unsafe { ST_Set(from_ref(var).cast_mut(), from_ref(data).cast_mut()) };
+    pub fn set(&mut self, var: &MVar<Key>, data: Value) -> Result<(), CreationError> {
+        let var = var.clone().into_c();
+        let data = data.into_c();
+        let result = unsafe { ST_Set(from_ref(&var).cast_mut(), from_ref(&data).cast_mut()) };
         if result.is_negative() {
-            Err(result)
+            //This should be the only type of error returned
+            assert_eq!(result, -256);
+            Err(CreationError)
         } else {
             Ok(())
         }
     }
 
-    pub fn get(&self, var: &MVAR) -> Result<CSTRING, i32> {
+    pub fn get(&self, var: &MVar<Key>) -> Option<Value> {
+        let var = var.clone().into_c();
         let mut buf = [0; 65535];
-        let len = unsafe { ST_Get(from_ref(var).cast_mut(), buf.as_mut_ptr()) };
+        let len = unsafe { ST_Get(from_ref(&var).cast_mut(), buf.as_mut_ptr()) };
 
         if len >= 0 {
-            Ok(CSTRING {
+            //NOTE: copying value out rather then returning a reference.
+            // I am doing this for 2 reasons:
+            // 1) The type convention currently requires cloning the data.
+            // 2) I don't want to try and enforce that C never tries to update the underlining
+            //    data. (I could do it, but it sounds like a giant headache)
+            Some(Value::from(&CSTRING {
                 buf,
                 len: len as u16,
-            })
+            }))
         } else {
-            Err(len)
+            assert_eq!(crate::bindings::ERRM6 as i32, -len);
+            None
         }
     }
-    pub fn kill(&self, var: &MVAR) {
-        unsafe { ST_Kill(from_ref(var).cast_mut()) };
+    pub fn kill(&self, var: &MVar<Key>) {
+        let var = var.clone().into_c();
+        unsafe { ST_Kill(from_ref(&var).cast_mut()) };
     }
 
-    ///returns (there are descendants,there is data)
-    pub fn data(&self, var: &MVAR) -> (bool, bool) {
+    pub fn data(&self, var: &MVar<Key>) -> DataResult {
+        let var = var.clone().into_c();
         let mut buff = [0; 3];
-        unsafe { ST_Data(from_ref(var).cast_mut(), buff.as_mut_ptr()) };
+        unsafe { ST_Data(from_ref(&var).cast_mut(), buff.as_mut_ptr()) };
         match &buff[..2] {
-            b"0\0" => (false, false),
-            b"1\0" => (false, true),
-            b"10" => (true, false),
-            b"11" => (true, true),
+            b"0\0" => DataResult {
+                has_descendants: false,
+                has_value: false,
+            },
+            b"1\0" => DataResult {
+                has_descendants: false,
+                has_value: true,
+            },
+            b"10" => DataResult {
+                has_descendants: true,
+                has_value: false,
+            },
+            b"11" => DataResult {
+                has_descendants: true,
+                has_value: true,
+            },
             _ => unreachable!(),
         }
     }
 
-    pub fn query(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
+    pub fn query(&self, var: &MVar<KeyBound>, direction: Direction) -> Value {
         let mut buf = [0; 65535];
-        let mut var = *var;
-        if reverse {
+        let mut var = var.clone().into_c();
+        if direction == Direction::Backward {
             flip_trailing_null(&mut var);
         }
 
@@ -102,26 +131,44 @@ impl Table {
             ST_Query(
                 from_mut(&mut var),
                 buf.as_mut_ptr(),
-                if reverse { -1 } else { 1 },
+                if direction == Direction::Backward {
+                    -1
+                } else {
+                    1
+                },
             )
         };
-        Vec::from(&buf[..len as usize])
+        // Query should never error
+        assert!(!len.is_negative());
+        Value::from(&CSTRING {
+            buf,
+            len: len as u16,
+        })
     }
 
-    pub fn order(&self, var: &MVAR, reverse: bool) -> Vec<u8> {
+    pub fn order(&self, var: &MVar<KeyBound>, direction: Direction) -> Value {
         let mut buf = [0; 65535];
-        let mut var = *var;
-        if reverse {
+        let mut var = var.clone().into_c();
+        if direction == Direction::Backward {
             flip_trailing_null(&mut var);
         }
         let len = unsafe {
             ST_Order(
                 from_mut(&mut var),
                 buf.as_mut_ptr(),
-                if reverse { -1 } else { 1 },
+                if direction == Direction::Backward {
+                    -1
+                } else {
+                    1
+                },
             )
         };
-        Vec::from(&buf[..len as usize])
+        // Order should never error
+        assert!(!len.is_negative());
+        Value::from(&CSTRING {
+            buf,
+            len: len as u16,
+        })
     }
 }
 

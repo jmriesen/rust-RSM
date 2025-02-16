@@ -44,13 +44,6 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct CreationError;
 
-impl CreationError {
-    #[allow(clippy::unused_self)]
-    pub fn error_code(self) -> i16 {
-        -256
-    }
-}
-
 const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
 ///The +1 is so that we always have room for the error key.
 const NUMBER_OF_TOTAL_SLOTS: usize = NUMBER_OF_NORMAL_SLOTS + 1;
@@ -243,11 +236,6 @@ mod tests {
         //been filed.
         let index = table.create_ptr(var_u("$ECODE"));
         assert_eq!(index, Ok(table.index_ptr(ERROR_SLOT_INDEX).unwrap()));
-    }
-
-    #[test]
-    fn error_code() {
-        assert_eq!(CreationError {}.error_code(), -256);
     }
 
     #[test]

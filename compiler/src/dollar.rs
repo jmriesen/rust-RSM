@@ -30,7 +30,8 @@
 #[cfg(test)]
 mod test {
 
-    use crate::{test_compile_command, test_harness::test::compile_c};
+    use crate::test_compile_command;
+    use ffi::parse::parse;
     use rstest::rstest;
 
     #[rstest]
@@ -69,7 +70,7 @@ mod test {
     fn intrinsic_var(#[case] var: &str) {
         {
             let source_code = format!("w {}", var);
-            let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+            let orignal = parse(&source_code);
 
             assert_eq!(orignal, test_compile_command(&source_code));
         }
@@ -109,10 +110,12 @@ mod test {
     #[case("$&%COMPRESS")]
     fn x_call(#[case] call: &str) {
         use core::iter::repeat;
+
+        use ffi::parse::parse;
         for num in 1..=2 {
             let args = repeat("10").take(num).collect::<Vec<_>>().join(",");
             let source_code = format!("w {}({})", call, args);
-            let (orignal, _lock) = compile_c(&source_code, ffi::parse);
+            let orignal = parse(&source_code);
             let temp = test_compile_command(&source_code);
 
             assert_eq!(orignal, temp);
