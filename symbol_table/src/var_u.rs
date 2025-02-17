@@ -72,6 +72,10 @@ pub mod test_helpers {
     pub fn var_u(var: &str) -> VarU {
         VarU(var.bytes().take(MAX_VAR_NAME_SIZE).collect())
     }
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", var_u("foo")), "foo")
+    }
 }
 
 #[cfg(feature = "arbitrary")]
