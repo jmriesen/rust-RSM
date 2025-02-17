@@ -11,6 +11,8 @@ fn function<const REQUIRED: usize, const OPTIONAL: usize>(
 ) -> Function<REQUIRED, OPTIONAL> {
     use std::array::from_fn;
     let num_of_args = REQUIRED..=REQUIRED + OPTIONAL;
+    //THis assert is here to satisfy mutation testing
+    assert_eq!(num_of_args.clone().count(), OPTIONAL + 1);
     assert!(
         num_of_args.contains(&args.len()),
         "Exceded maximum arguments. Expected: {num_of_args:?}, Found:{}",
@@ -114,5 +116,14 @@ impl<'a> TreeSitterParser<'a> for IntrinsicFunction {
                     .collect(),
             },
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use crate::command_from_source;
+
+    #[test]
+    fn smoke_test() {
+        command_from_source("W $O(foo)");
     }
 }

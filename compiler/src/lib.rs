@@ -30,6 +30,7 @@
 #![feature(array_chunks)]
 
 use backend::{BiteCode, Compile};
+use ir::commands::Command;
 mod command;
 mod dollar;
 mod expression;
@@ -44,34 +45,20 @@ mod routine;
 ///
 #[cfg(test)]
 pub fn test_compile_command(source_code: &str) -> Vec<u8> {
-    let source_code = source_code.replace('\n', "\n ");
-    let source_code = &format!("tag {source_code}\n");
-    compile(source_code)
+    use frontend::wrap_command_in_routine;
+
+    let commands = wrap_command_in_routine(source_code);
+    compile_routine(commands)
 }
 
-pub fn compile(source_code: &str) -> Vec<u8> {
-    let tree = lang_model::create_tree(dbg!(source_code));
-    let tree = lang_model::type_tree(&tree, source_code).unwrap();
+pub fn parse_routine(source_code: &str) -> Vec<Vec<Command>> {
+    frontend::parse_routine(source_code)
+}
 
+pub fn compile_routine(routine: frontend::Routine) -> Vec<u8> {
     let mut comp = BiteCode::new();
-    let tags = tree.children();
-    let block = tags[0].block().unwrap();
-    for line in block.children() {
-        let line = match line {
-            lang_model::BlockChildren::line(line) => line,
-            lang_model::BlockChildren::Block(_line) => continue,
-        };
-        let mut commands = vec![];
-        let mut line_tail = line.children().into_iter();
-        while let Some(command) = line_tail.next() {
-            commands.push(frontend::commands::new(
-                &command,
-                source_code,
-                &mut line_tail,
-            ));
-        }
-        commands.compile(&mut comp, &());
-
+    for line in routine {
+        line.compile(&mut comp, &());
         comp.push(ffi::ENDLIN);
     }
     comp.get_raw()
