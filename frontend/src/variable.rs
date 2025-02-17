@@ -1,4 +1,7 @@
-use ir::{Expression, Variable, variable::VariableType};
+use ir::{
+    Expression, Variable,
+    variable::{Env, GlobleIdent, UserClassIdentifiers, VariableType},
+};
 
 use crate::TreeSitterParser;
 
@@ -19,26 +22,37 @@ impl<'a> TreeSitterParser<'a> for Variable {
                 expression: Box::new(Expression::new(&x.children(), source_code)),
             },
             Some(E::NakedVariable(_)) => NakedVariable,
-            Some(E::GlobalVariable(_)) => GlobalVariable {
+            None => Named {
                 name: name.unwrap(),
+                globle_ident: None,
             },
-            Some(E::GlobalUciVariable(x)) => GlobalUciVariable {
+            Some(E::GlobalVariable(_)) => Named {
                 name: name.unwrap(),
-                uci: Box::new(Expression::new(&x.children(), source_code)),
+                globle_ident: Some(GlobleIdent { user_class: None }),
+            },
+            Some(E::GlobalUciVariable(x)) => Named {
+                name: name.unwrap(),
+                globle_ident: Some(GlobleIdent {
+                    user_class: Some(Box::new(UserClassIdentifiers {
+                        uci: Expression::new(&x.children(), source_code),
+                        env: None,
+                    })),
+                }),
             },
             Some(E::GlobalUciEnvVariable(x)) => {
                 let args = x.children();
                 assert_eq!(args.len(), 2);
                 let mut args = args.into_iter().map(|x| Expression::new(&x, source_code));
-                GlobalUciEnvVariable {
+                Named {
                     name: name.unwrap(),
-                    uci: Box::new(args.next().expect("allready did bounds checking")),
-                    env: Box::new(args.next().expect("allready did bounds checking")),
+                    globle_ident: Some(GlobleIdent {
+                        user_class: Some(Box::new(UserClassIdentifiers {
+                            uci: args.next().expect("Already bounds checked"),
+                            env: Some(Env(args.next().expect("Already bounds checked"))),
+                        })),
+                    }),
                 }
             }
-            None => Local {
-                name: name.unwrap(),
-            },
         };
         Self {
             var_type,

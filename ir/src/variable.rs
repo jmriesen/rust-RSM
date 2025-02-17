@@ -1,39 +1,27 @@
 use super::Expression;
 
 #[derive(Clone)]
+pub struct GlobleIdent {
+    pub user_class: Option<Box<UserClassIdentifiers>>,
+}
+#[derive(Clone)]
+pub struct UserClassIdentifiers {
+    pub uci: Expression,
+    pub env: Option<Env>,
+}
+#[derive(Clone)]
+pub struct Env(pub Expression);
+
+#[derive(Clone)]
 pub enum VariableType {
-    Local {
+    Named {
         name: String,
+        globle_ident: Option<GlobleIdent>,
     },
     NakedVariable,
     IndirectVariable {
         expression: Box<Expression>,
     },
-    GlobalVariable {
-        name: String,
-    },
-    GlobalUciVariable {
-        name: String,
-        uci: Box<Expression>,
-    },
-    GlobalUciEnvVariable {
-        name: String,
-        uci: Box<Expression>,
-        env: Box<Expression>,
-    },
-}
-
-impl VariableType {
-    pub fn name(&self) -> Option<&str> {
-        match self {
-            VariableType::Local { name } => Some(name),
-            VariableType::NakedVariable => None,
-            VariableType::IndirectVariable { .. } => None,
-            VariableType::GlobalVariable { name } => Some(name),
-            VariableType::GlobalUciVariable { name, .. } => Some(name),
-            VariableType::GlobalUciEnvVariable { name, .. } => Some(name),
-        }
-    }
 }
 
 #[derive(Clone)]
