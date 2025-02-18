@@ -31,7 +31,7 @@
 mod test {
     use rstest::rstest;
 
-    use crate::test_compile_command;
+    use crate::test::test_compile_command;
     use ffi::parse::parse;
 
     #[test]

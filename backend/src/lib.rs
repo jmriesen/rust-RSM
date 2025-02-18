@@ -42,3 +42,32 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+pub mod test {
+    use ir::commands::Command;
+
+    use crate::{BiteCode, Compile};
+
+    pub fn test_compile_command(source_code: &str) -> Vec<u8> {
+        use frontend::wrap_command_in_routine;
+
+        let commands = wrap_command_in_routine(source_code);
+        compile_routine(commands)
+    }
+
+    pub fn parse_routine(source_code: &str) -> Vec<Vec<Command>> {
+        frontend::parse_routine(source_code)
+    }
+
+    pub fn compile_routine(routine: frontend::Routine) -> Vec<u8> {
+        let mut comp = BiteCode::new();
+        for line in routine {
+            line.compile(&mut comp, &());
+            comp.push(ffi::ENDLIN);
+        }
+        comp.get_raw()
+    }
+}

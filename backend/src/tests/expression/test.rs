@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::test_compile_command;
+use crate::test::test_compile_command;
 use ffi::parse::parse;
 use rstest::rstest;
 
