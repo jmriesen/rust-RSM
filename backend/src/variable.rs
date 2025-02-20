@@ -1,22 +1,27 @@
-use std::{env, num::NonZero};
-
-use crate::{
-    Compile,
-    bite_code::{self, BiteCode},
-};
+use crate::{Compile, bite_code::BiteCode};
 use ir::{
     Variable,
-    variable::{Env, GlobleIdent, UserClassIdentifiers, VariableType},
+    variable::{Env, GlobleIdent, VariableType},
 };
 
 #[derive(Clone, Copy)]
 pub enum VarContext {
-    Eval = ffi::OPVAR as isize,
-    Build = ffi::OPMVAR as isize,
-    BuildNullable = ffi::OPMVARN as isize,
-    For = ffi::CMFORSET as isize,
+    Eval = 61 as isize,
+    Build = 62 as isize,
+    BuildNullable = 63 as isize,
+    For = 177 as isize,
 }
 
+pub enum VarCodes {
+    Named = 0,
+    Globle = 128,
+    Naked = 252,
+    GlobleUci = 253,
+    GlobleUciEnv = 254,
+    IndirectVariable = 255,
+}
+
+const INDERECT_VAR: u8 = 66;
 impl Compile for Variable {
     type Context = VarContext;
     fn compile(&self, comp: &mut BiteCode, context: &VarContext) {
@@ -42,7 +47,7 @@ impl Compile for Variable {
             E::NakedVariable => {}
             E::IndirectVariable { expression } => {
                 expression.compile(comp, &ExpressionContext::Eval);
-                comp.push(ffi::INDMVAR);
+                comp.push(INDERECT_VAR);
             }
         }
 
@@ -52,11 +57,11 @@ impl Compile for Variable {
         let op_code = match &self.var_type {
             E::Named {
                 globle_ident: None, ..
-            } => ffi::TYPVARNAM,
+            } => VarCodes::Named,
             E::Named {
                 globle_ident: Some(GlobleIdent { user_class: None }),
                 ..
-            } => ffi::TYPVARGBL,
+            } => VarCodes::Globle,
             E::Named {
                 globle_ident:
                     Some(GlobleIdent {
@@ -65,13 +70,13 @@ impl Compile for Variable {
                 ..
             } => {
                 if user_class.env.is_none() {
-                    ffi::TYPVARGBLUCI
+                    VarCodes::GlobleUci
                 } else {
-                    ffi::TYPVARGBLUCIENV
+                    VarCodes::GlobleUciEnv
                 }
             }
-            E::NakedVariable => ffi::TYPVARNAKED,
-            E::IndirectVariable { .. } => ffi::TYPVARIND,
+            E::NakedVariable => VarCodes::Naked,
+            E::IndirectVariable { .. } => VarCodes::IndirectVariable,
         } as u8;
 
         //Use a slightly more compact format if all we have to worry about is subscripts

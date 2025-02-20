@@ -6,8 +6,8 @@ edition = "2024"
 [dependencies]
 ir = {path="../ir/"}
 value = {path = "../value/"}
-ffi= {path = "../ffi/"}
 
 [dev-dependencies]
 frontend= {path="../frontend/"}
 rstest = "0.22.0"
+ffi= {path = "../ffi/"}

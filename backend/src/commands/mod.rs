@@ -7,6 +7,8 @@ pub mod close;
 pub mod r#do;
 pub mod r#for;
 pub mod write;
+const COMAND_END: u8 = 4;
+const ELSE: u8 = 9;
 
 impl<T, C> Compile for PostCondition<T>
 where
@@ -31,9 +33,9 @@ impl Compile for Command {
             Command::Close(x) => x.compile(bite_code, &()),
             Command::Do(x) => x.compile(bite_code, &()),
             Command::Break(x) => x.compile(bite_code, &()),
-            Command::Else => bite_code.push(ffi::OPELSE),
+            Command::Else => bite_code.push(ELSE),
             Command::For(x) => x.compile(bite_code, &()),
         }
-        bite_code.push(ffi::OPENDC);
+        bite_code.push(COMAND_END);
     }
 }

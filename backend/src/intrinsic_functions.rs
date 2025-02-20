@@ -5,25 +5,54 @@ use ir::{
 };
 use value::Value;
 
+#[derive(Clone, Copy)]
+pub enum FunctionCodes {
+    Char = 102,
+    View = 135,
+    Ascii = 100,
+    Extract = 104,
+    Find = 107,
+    Fnumber = 109,
+    Justify = 113,
+    Length = 115,
+    Piece = 121,
+    Random = 128,
+    Reverse = 129,
+    Stack = 130,
+    Text = 132,
+    Translate = 133,
+    //Var functions
+    QLength = 124,
+    QSubscript = 125,
+    Data = 103,
+    Get = 111,
+    Increment = 98,
+    Name = 117,
+    Order = 119,
+    Query = 126,
+}
+
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED, OPTIONAL> {
-    type Context = u8;
-    fn compile(&self, comp: &mut BiteCode, fn_code_base: &u8) {
+    type Context = FunctionCodes;
+    fn compile(&self, comp: &mut BiteCode, fn_code_base: &FunctionCodes) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
             arg.compile(comp, &ExpressionContext::Eval);
         }
-        comp.push(fn_code_base + optional_args.count() as u8);
+        comp.push(*fn_code_base as u8 + optional_args.count() as u8);
     }
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for VarFunction<REQUIRED, OPTIONAL> {
-    type Context = (VarContext, u8);
+    type Context = (VarContext, FunctionCodes);
     fn compile(&self, comp: &mut BiteCode, (context, fn_code_base): &Self::Context) {
         self.variable.compile(comp, &context);
         self.function.compile(comp, &fn_code_base);
     }
 }
+const ERROR_CODE_OP: u8 = 2;
+const NO_TRUE_CONDITION_IN_SELECT: i16 = 4 as i16;
 
 impl Compile for IntrinsicFunction {
     type Context = ();
@@ -39,8 +68,8 @@ impl Compile for IntrinsicFunction {
                         })
                     })
                     .collect();
-                comp.push(ffi::OPERROR);
-                let errm4 = (-(ffi::ERRM4 as i16)).to_le_bytes();
+                comp.push(ERROR_CODE_OP);
+                let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
                 comp.extend(errm4.into_iter());
 
                 for jump_to_end in jump_indexs {
@@ -54,46 +83,56 @@ impl Compile for IntrinsicFunction {
                     for arg in args {
                         arg.compile(comp, &ExpressionContext::Eval);
                     }
-                    comp.push(ffi::FUNC);
+                    comp.push(FunctionCodes::Char as u8);
                     comp.push(args.len() as u8);
                 }
             }
-            IntrinsicFunction::View(function) => function.compile(comp, &ffi::FUNV2),
-            IntrinsicFunction::Ascii(function) => function.compile(comp, &ffi::FUNA1),
-            IntrinsicFunction::Extract(function) => function.compile(comp, &ffi::FUNE1),
-            IntrinsicFunction::Find(function) => function.compile(comp, &ffi::FUNF2),
-            IntrinsicFunction::Fnumber(function) => function.compile(comp, &ffi::FUNFN2),
-            IntrinsicFunction::Justify(function) => function.compile(comp, &ffi::FUNJ2),
-            IntrinsicFunction::Length(function) => function.compile(comp, &ffi::FUNL1),
-            IntrinsicFunction::Piece(function) => function.compile(comp, &ffi::FUNP2),
-            IntrinsicFunction::Random(function) => function.compile(comp, &ffi::FUNR),
-            IntrinsicFunction::Reverse(function) => function.compile(comp, &ffi::FUNRE),
-            IntrinsicFunction::Stack(function) => function.compile(comp, &ffi::FUNST1),
-            IntrinsicFunction::Text(function) => function.compile(comp, &ffi::FUNT),
-            IntrinsicFunction::Translate(function) => function.compile(comp, &ffi::FUNTR2),
+            IntrinsicFunction::View(function) => function.compile(comp, &(FunctionCodes::View)),
+            IntrinsicFunction::Ascii(function) => function.compile(comp, &(FunctionCodes::Ascii)),
+            IntrinsicFunction::Extract(function) => {
+                function.compile(comp, &(FunctionCodes::Extract))
+            }
+            IntrinsicFunction::Find(function) => function.compile(comp, &(FunctionCodes::Find)),
+            IntrinsicFunction::Fnumber(function) => {
+                function.compile(comp, &(FunctionCodes::Fnumber))
+            }
+            IntrinsicFunction::Justify(function) => {
+                function.compile(comp, &(FunctionCodes::Justify))
+            }
+            IntrinsicFunction::Length(function) => function.compile(comp, &(FunctionCodes::Length)),
+            IntrinsicFunction::Piece(function) => function.compile(comp, &(FunctionCodes::Piece)),
+            IntrinsicFunction::Random(function) => function.compile(comp, &(FunctionCodes::Random)),
+            IntrinsicFunction::Reverse(function) => {
+                function.compile(comp, &(FunctionCodes::Reverse))
+            }
+            IntrinsicFunction::Stack(function) => function.compile(comp, &(FunctionCodes::Stack)),
+            IntrinsicFunction::Text(function) => function.compile(comp, &(FunctionCodes::Text)),
+            IntrinsicFunction::Translate(function) => {
+                function.compile(comp, &(FunctionCodes::Translate))
+            }
             IntrinsicFunction::QLength(function) => {
-                function.compile(comp, &(VarContext::Eval, ffi::FUNQL))
+                function.compile(comp, &(VarContext::Eval, FunctionCodes::QLength))
             }
             IntrinsicFunction::QSubscript(function) => {
-                function.compile(comp, &(VarContext::Eval, ffi::FUNQS))
+                function.compile(comp, &(VarContext::Eval, FunctionCodes::QSubscript))
             }
             IntrinsicFunction::Data(function) => {
-                function.compile(comp, &(VarContext::Build, ffi::FUND))
+                function.compile(comp, &(VarContext::Build, FunctionCodes::Data))
             }
             IntrinsicFunction::Get(function) => {
-                function.compile(comp, &(VarContext::Build, ffi::FUNG1))
+                function.compile(comp, &(VarContext::Build, FunctionCodes::Get))
             }
             IntrinsicFunction::Increment(function) => {
-                function.compile(comp, &(VarContext::Build, ffi::FUNI1))
+                function.compile(comp, &(VarContext::Build, FunctionCodes::Increment))
             }
             IntrinsicFunction::Name(function) => {
-                function.compile(comp, &(VarContext::BuildNullable, ffi::FUNNA1))
+                function.compile(comp, &(VarContext::BuildNullable, FunctionCodes::Name))
             }
             IntrinsicFunction::Order(function) => {
-                function.compile(comp, &(VarContext::BuildNullable, ffi::FUNO1))
+                function.compile(comp, &(VarContext::BuildNullable, FunctionCodes::Order))
             }
             IntrinsicFunction::Query(function) => {
-                function.compile(comp, &(VarContext::BuildNullable, ffi::FUNQ1))
+                function.compile(comp, &(VarContext::BuildNullable, FunctionCodes::Query))
             }
             IntrinsicFunction::Next(function) => {
                 //Next is just an Order with a hard coded argument
