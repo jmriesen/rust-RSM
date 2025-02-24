@@ -7,6 +7,12 @@ pub struct BiteCode(Vec<u8>);
 pub struct JumpLocation(usize);
 pub struct Location(usize);
 
+pub enum JumpCodes {
+    Conditional = 5,
+    Unconditional = 172,
+    ForUnconditional = 173,
+}
+
 impl BiteCode {
     pub fn new() -> Self {
         Self(Vec::new())
@@ -48,14 +54,14 @@ impl BiteCode {
         conditional_code: impl Fn(&mut Self) -> T,
     ) -> T {
         condition.compile(self, &crate::expression::ExpressionContext::Eval);
-        self.push(ffi::JMP0);
+        self.push(JumpCodes::Conditional as u8);
         let conditional_jump = self.reserve_jump();
         let conditional_code_return = conditional_code(self);
         self.write_jump(conditional_jump, self.current_location());
         conditional_code_return
     }
     pub fn unconditional_jump(&mut self) -> JumpLocation {
-        self.push(ffi::JMP);
+        self.push(JumpCodes::Unconditional as u8);
         self.reserve_jump()
     }
 }

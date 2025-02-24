@@ -8,9 +8,9 @@ use crate::bite_code::BiteCode;
 use super::*;
 #[derive(Clone, Copy)]
 pub enum ExpressionContext {
-    Write = ffi::INDWRIT as isize,
-    Eval = ffi::INDEVAL as isize,
-    Close = ffi::INDCLOS as isize,
+    Write = 195 as isize,
+    Eval = 65 as isize,
+    Close = 181 as isize,
 }
 
 impl Compile for Expression {

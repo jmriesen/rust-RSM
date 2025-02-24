@@ -29,7 +29,7 @@
  */
 #[cfg(test)]
 mod test {
-    use crate::test_compile_command;
+    use crate::test::test_compile_command;
     use ffi::parse::parse;
     use rstest::rstest;
 

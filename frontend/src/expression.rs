@@ -19,6 +19,19 @@ pub fn parse_string_litteral(string: &str) -> Result<Value, CreationError> {
         .replace("\"\"", "\"");
     Value::from_str(&string)
 }
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use super::parse_string_litteral;
+    use value::Value;
+
+    #[test]
+    fn parseing_string_litteral() {
+        let value = parse_string_litteral(r#""this "is" a string""#).unwrap();
+        assert_eq!(value, Value::from_str("this \"is\" a string").unwrap());
+    }
+}
 
 impl<'a> TreeSitterParser<'a> for Expression {
     type NodeType = lang_model::Expression<'a>;

@@ -1,11 +1,19 @@
 use ir::commands::r#for::{For, ForKind};
 
 use crate::{
-    Compile,
-    bite_code::{BiteCode, JumpLocation, Location},
+    Compile, NO_OP_CODE,
+    bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
+    commands::COMAND_END,
     expression::ExpressionContext,
     variable::VarContext,
 };
+
+enum ForCodes {
+    One = 174,
+    Two = 175,
+    Three = 176,
+    End = 178,
+}
 
 impl Compile for For {
     type Context = ();
@@ -18,7 +26,7 @@ impl Compile for For {
         let end_behavior = {
             match &self.kind {
                 ForKind::Infinite => {
-                    bite_code.push(ffi::CMFOR0);
+                    bite_code.push(JumpCodes::ForUnconditional as u8);
                     EndBehavior {
                         break_jump: bite_code.reserve_jump(),
                         unconditional_jump: Some(bite_code.current_location()),
@@ -44,10 +52,10 @@ impl Compile for For {
                         }
 
                         bite_code.push(match args.increment_end {
-                            None => ffi::CMFOR1,
-                            Some((_, None)) => ffi::CMFOR2,
-                            Some((_, Some(_))) => ffi::CMFOR3,
-                        });
+                            None => ForCodes::One,
+                            Some((_, None)) => ForCodes::Two,
+                            Some((_, Some(_))) => ForCodes::Three,
+                        } as u8);
                     }
 
                     bite_code.write_jump(jump_to_content, bite_code.current_location());
@@ -61,7 +69,7 @@ impl Compile for For {
         // Inserting loop body
         self.commands.compile(bite_code, &());
         //Inserting an extra OPENDC command (probably not needed)
-        bite_code.push(ffi::OPENDC);
+        bite_code.push(COMAND_END);
 
         //Insert end off loop logic
         {
@@ -74,11 +82,11 @@ impl Compile for For {
                 let jump = bite_code.unconditional_jump();
                 bite_code.write_jump(jump, location);
             } else {
-                bite_code.push(ffi::CMFOREND);
+                bite_code.push(ForCodes::End as u8);
             }
             // Jump out of for loop
             bite_code.write_jump(break_jump, bite_code.current_location());
-            bite_code.push(ffi::OPNOP);
+            bite_code.push(NO_OP_CODE);
         };
     }
 }
