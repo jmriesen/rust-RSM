@@ -194,49 +194,52 @@ Frequency it is only after a first draft solution that I truly understand the pr
 Therefore I will nearly always want to refactor my code at some point in the future.
 With a robust set of unit tests this is a fairly painless and simple process.
 Without them I have to be hyper aware of every change I make, as any change could introduce a bug.
+
 ## Mutation Testing
 
 ### Concept Overview
-Mutation testing is a technique to check how well a test suite defines the behavior of code base.
+Mutation testing is a technique to check how well a test suite defines the behavior of a codebase.
 This is accomplished by introducing mutations.
-If the mutated code can still past the test suit, then the tests are not fully specifying the systems behavior.
-(It is possible for a mutation to not change systems behavior, but in this project that should be fairly rare.)
-The main downside to mutation testing is that it takes time to run. 
-For each mutation we may have to run the entire test suite. 
+If the mutated code can still pass the test suite, then the tests are not fully specifying the system's behavior.
+(It is possible for a mutation to not change the system's behavior, but in this project that should be fairly rare.)
+The main downside to mutation testing is that it takes time to run.
+For each mutation, we may have to run the entire test suite.
 
 ### Use in Rust-RSM
-I am currently using [cargo-mutants](https://mutants.rs/) to run mutation testing. 
+I am currently using [cargo-mutants](https://mutants.rs/) to run mutation testing.
 Since mutation testing can take quite a while to run, the CICD pipeline is currently only introducing mutations into the edited hunks of code.
 The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
 
 ### General thoughts on the Mutation Testing
 Mutation testing is a low effort technique that dramatically increases my confidence in my unit test suite.
 The first time I ran `cargo mutants`, I ended up finding a bug in the test code that would have been impossible to detect using traditional unit testing.
-## C Foreign Function Interface 
-###  Concept Overview
+
+## C Foreign Function Interface
+
+### Concept Overview
 A foreign function is simply a function that was written in a different programming language.
-In this case I am calling C code from Rust and vice versa.
+In this case, I am calling C code from Rust and vice versa.
 Calling code that was written in a different language requires some extra care:
-- Parameters must match the target language's memory layout
-- The C/Rust compilers don't understand the other language and therefore have to assume the foreign code could do anything
+- Parameters must match the target language's memory layout.
+- The C/Rust compilers don't understand the other language and therefore have to assume the foreign code could do anything.
 
 ### Use in Rust-RSM
-In this project Rust is responsible for matching the C ABI when cross language calls occurs.
+In this project, Rust is responsible for matching the C ABI when cross-language calls occur.
 The bindgen and cbindgen tools do most of the heavy lifting by automating the generation of type and function definitions.
-However there are a few project specific things that have to be kept in mind:
+However, there are a few project specific things that have to be kept in mind:
 - Don't blindly trust the generated type definitions.
-The C code uses dynamically sized types, however the header files/generated Rust types assume these types occupy their max size.
+The C code uses dynamically sized types, however, the header files/generated Rust types assume these types occupy their max size.
 `CSTRING` is the most commonly used example.
 - Pay extra attention to pointers/pointer arithmetic.
 The C code sometimes allocates memory for multiple structs of different types at once.
 This is particularly prominent in the shared memory segment.
-This can be problematic since Rust assumes every struct can be moved, however as long as you are aware of this issue it is fairly easy to work around.
-- The C code assumes it is single threaded.
-The C code uses a lot of global variables, and since it assumes it is single threaded there are no synchronization guards in place (Atomics, Mutexs, ext).
-However Rust unit tests are multi threaded by default.
+This can be problematic since Rust assumes every struct can be moved, however, as long as you are aware of this issue, it is fairly easy to work around.
+- The C code assumes it is single-threaded.
+The C code uses a lot of global variables, and since it assumes it is single-threaded, there are no synchronization guards in place (Atomics, Mutexes, etc.).
+However, Rust unit tests are multi-threaded by default.
 
 ### General Thoughts on FFI
-Some times you just need functionality that was written in another programming language.
+Sometimes you just need functionality that was written in another programming language.
 There are a lot of invariants that need to be upheld, but it is manageable with the bindgen and cbindgen build tools.
 It is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 
