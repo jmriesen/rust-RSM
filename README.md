@@ -23,10 +23,10 @@ One of the reasons I selected RSM for this porting project is because I knew it 
 
 ## Why RSM?
 I have always found language design interesting.
-When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
-I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
+When I learned M at work, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half-baked interpreter.
 Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
-On a whim I started trying to convert some of the code to Rust, and after a while the project became the main code base I would use to try stuff out.
+On a whim I started trying to convert some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
 
 # Project Structure
 ## [ffi](./ffi/) 
@@ -146,9 +146,9 @@ NOTE: currently fuzzing is only done in the symbol table create.
 [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
 ## Running Mutation Testing
-   NOTE: this can take a while.
-   - `cd <crate name>`
-   - `cargo mutants`
+NOTE: this can take a while.
+- `cd <crate name>`
+- `cargo mutants`
 
 # Techniques/Concepts 
 ## Unit Testing
