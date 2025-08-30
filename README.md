@@ -10,33 +10,35 @@ To learn and explore how best to develop software.
 
 To me, best currently means creating software that is correct (has no bugs), I am confident is correct (I can confidently say it has no bugs), and is easy to change. 
 # Project Goals
-  - Learn how to efficiently refactor code
-  - Lean how to efficiently test my code, and test my tests
-  - Live with the code
+- Learn how to efficiently refactor code
+- Lean how to efficiently test my code, and test my tests
+- Live with the code
 
 Some ideas seem really convenient at the start, but become a tangled mess later on.
-Others seem overly verbose initially but pay of in the long run.
+Others seem overly verbose initially but pay off in the long run.
 One of the reasons I selected RSM for this porting project is because I knew it would be a large project, and I would have to live with any decisions I made.
+
 # What is this Project?
   This project is a port of the [Reference Standard M](https://gitlab.com/Reference-Standard-M/rsm) implementation maintained by David Wicksell from C to Rust.
-## Why RSM? 
-   I have always found language design interesting. 
-   When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
-   I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
-   Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
-   On a whim I started trying to convert some of the code to Rust, and after a while the project became the main code base I would use to try stuff out.
+
+## Why RSM?
+I have always found language design interesting.
+When I learned M at work I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half baked interpreter.
+Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
+On a whim I started trying to convert some of the code to Rust, and after a while the project became the main code base I would use to try stuff out.
 
 # Project Structure
 ## [ffi](./ffi/) 
-   The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (ie making C and Rust play nicely together in the same codebase).
+The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (ie making C and Rust play nicely together in the same codebase).
 
-   This crate is responsible for: 
-   - Building the C code
-   - Generating the ffi struct and function definitions
-   - Exposing an Unsafe API to the C code
-   - Exposing a Safe API to the C code
+This crate is responsible for: 
+- Building the C code
+- Generating the ffi struct and function definitions
+- Exposing an Unsafe API to the C code
+- Exposing a Safe API to the C code
 ### Safe API Considerations
-   Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
+Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
 #### Concurrency Considerations
 The original RSM code was a single threaded/multi process application. 
 Because of this there are many references to global variables without any sort of synchronization control.
@@ -63,49 +65,51 @@ So we end up with the logical composite type AB.
 Fortunately this is mostly just a logical construction, and is fairly easy to spot in the C code, and deal with in the Rust rewrite.
 
 ## [tree-sitter-m](./tree-sitter-M)
-   For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
-   This crate is responsible for:
-   - Using JavaScript to specify the grammar
-   - Using an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation
-   - Running the `tree-sitter-cli` as part of the [build script](./tree-sitter-M/bindings/rust/build.rs)
-   - Generating
-     - A C library that contains the parser
-     - A Rust crate that wraps that C library
-     - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the grammar's structure
+For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
+This crate is responsible for:
+- Using JavaScript to specify the grammar
+- Using an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation
+- Running the `tree-sitter-cli` as part of the [build script](./tree-sitter-M/bindings/rust/build.rs)
+- Generating
+  - A C library that contains the parser
+  - A Rust crate that wraps that C library
+  - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the grammar's structure
+
 ## [lang-model](./lang-model/)
-   This holds the Rust types wrappers for each of the nodes in the M grammar.
-   The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
+This holds the Rust types wrappers for each of the nodes in the M grammar.
+The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
+
 ## [compiler](./compiler/)
-   This crate takes the abstract syntax tree (AST) provided by the `lang-model` and converts it into byte code.
+This crate takes the abstract syntax tree (AST) provided by the `lang-model` and converts it into byte code.
 
-   This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
-   As a result there are still a number lingering artifacts,
-   type definitions and implementation blocks that really don't belong in this crate,
-   but still live there since I have not gotten around to cleaning them up.
+This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
+As a result there are still a number lingering artifacts,
+type definitions and implementation blocks that really don't belong in this crate,
+but still live there since I have not gotten around to cleaning them up.
 
-   Additionally I did not yet understand how the shared memory segment worked when writing most of this crate,
-   so for the most part it just pretends that the globals in the shared memory segment don't exist.
+Additionally I did not yet understand how the shared memory segment worked when writing most of this crate,
+so for the most part it just pretends that the globals in the shared memory segment don't exist.
 ## [interpreter](./interpreter/)
-   Currently the crate is responsible for 
-   - Creating a database file
-   - Setting up the shared memory segment
+Currently the crate is responsible for 
+- Creating a database file
+- Setting up the shared memory segment
 
 ## [Language Server](./lang-server)
-   This is a language server for M.
-   This was a spur of the moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
-   I think there are a lot of neat things you could do with a language server.
+This is a language server for M.
+This was a spur of the moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
+I think there are a lot of neat things you could do with a language server.
 
-   Future feature idea
-   - Find all assumed variables and indirection calls.
-   - Renaming variables
-   - Find all references
-   - Lint for unused and assumed variables
-   - Extract method 
-   - Introduce package scoping
+Future feature idea
+- Find all assumed variables and indirection calls.
+- Renaming variables
+- Find all references
+- Lint for unused and assumed variables
+- Extract method 
+- Introduce package scoping
 
-   One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
+One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
 
-   Example of dynamic scoping:
+Example of dynamic scoping:
 ```
 A()
    s i=i+1 ; tag A references to variable i without initializing it
@@ -120,26 +124,26 @@ C()
    d A()
    q ; i now has the value of 10
 ```
-   Dynamic scoping makes it difficult to locally reason about the code.
-   This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
+Dynamic scoping makes it difficult to locally reason about the code.
+This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
 # Running the Project
-  This project dose not currently produce a working executable.
-  If you need a working M interpreter please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
-  Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
+This project dose not currently produce a working executable.
+If you need a working M interpreter please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
+Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 ## Development Environment Setup
-   NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the cli tools
-   - `cargo install tree-sitter-cli --version <version> --locked`
-   - `cargo install cargo-mutants   --version <version> --locked`
-   - You will need clang installed (requirement of bindgen) see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
+NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the cli tools
+- `cargo install tree-sitter-cli --version <version> --locked`
+- `cargo install cargo-mutants   --version <version> --locked`
+- You will need clang installed (requirement of bindgen) see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
 
 ## Running Unit Tests 
-   - `cargo test`
+- `cargo test`
 ## Running Fuzz Tests
-   NOTE: currently fuzzing is only done in the symbol table create. 
-   - `cargo fuzz list`
-   - `cargo fuzz run <fuzzing target>`
+NOTE: currently fuzzing is only done in the symbol table create. 
+- `cargo fuzz list`
+- `cargo fuzz run <fuzzing target>`
 
-   [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
+[cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
 ## Running Mutation Testing
    NOTE: this can take a while.
