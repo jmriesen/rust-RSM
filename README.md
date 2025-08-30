@@ -65,10 +65,12 @@ Fortunately, the C types are only kind of self referential.
 They frequently assume that type A will be immediately followed by type B.
 So we end up with the logical composite type AB.
 This is mostly just a logical construction, and is fairly easy to spot in the C code and handle once you know what to look for. 
+
 ## [tree-sitter-m](./tree-sitter-M)
-For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
+For this project, I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
 This crate is responsible for:
 - Using JavaScript to specify the grammar
+
 - Using an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation
 - Running the `tree-sitter-cli` as part of the [build script](./tree-sitter-M/bindings/rust/build.rs)
 - Generating
@@ -78,34 +80,32 @@ This crate is responsible for:
 
 ## [lang-model](./lang-model/)
 This holds the Rust types wrappers for each of the nodes in the M grammar.
-The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
+The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json)using a separate personal project.
 
 ## [compiler](./compiler/)
 This crate takes the abstract syntax tree (AST) provided by the `lang-model` and converts it into byte code.
 
-This is some regards is the "root" crate. Before I started splitting up the project into multiple crates everything lived in here.
-As a result there are still a number lingering artifacts,
-type definitions and implementation blocks that really don't belong in this crate,
-but still live there since I have not gotten around to cleaning them up.
+This is in some regards the "root" crate. Before I started splitting up the project into multiple crates, everything lived in here.
+As a result, there are still a number of lingering artifacts, type definitions and implementation blocks, that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
 
-Additionally I did not yet understand how the shared memory segment worked when writing most of this crate,
-so for the most part it just pretends that the globals in the shared memory segment don't exist.
+Additionally, I did not yet understand how the shared memory segment worked when I started writing this crate, so for the most part, it just pretends that the globals in the shared memory segment don't exist.
+
 ## [interpreter](./interpreter/)
-Currently the crate is responsible for 
+Currently, the crate is responsible for:
 - Creating a database file
 - Setting up the shared memory segment
 
 ## [Language Server](./lang-server)
 This is a language server for M.
-This was a spur of the moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
+This was a spur-of-the-moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
 I think there are a lot of neat things you could do with a language server.
 
-Future feature idea
+Future feature ideas:
 - Find all assumed variables and indirection calls.
 - Renaming variables
 - Find all references
 - Lint for unused and assumed variables
-- Extract method 
+- Extract method
 - Introduce package scoping
 
 One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
@@ -127,9 +127,10 @@ C()
 ```
 Dynamic scoping makes it difficult to locally reason about the code.
 This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
+
 # Running the Project
-This project dose not currently produce a working executable.
-If you need a working M interpreter please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
+This project does not currently produce a working executable.
+If you need a working M interpreter, please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
 Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 ## Development Environment Setup
 NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the cli tools
