@@ -32,38 +32,39 @@ On a whim I started trying to convert some of the code to Rust, and after a whil
 ## [ffi](./ffi/) 
 The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (ie making C and Rust play nicely together in the same codebase).
 
-This crate is responsible for: 
+This crate is responsible for:
 - Building the C code
 - Generating the ffi struct and function definitions
 - Exposing an Unsafe API to the C code
 - Exposing a Safe API to the C code
+
 ### Safe API Considerations
 Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
-#### Concurrency Considerations
-The original RSM code was a single threaded/multi process application. 
-Because of this there are many references to global variables without any sort of synchronization control.
-Rust by default runs all of its unit test in parallel (multi-threaded) so care has to be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
 
-Additionally C uses a shared memory segment to manage cross process communication.
+#### Concurrency Considerations
+The original RSM code was a single threaded/multi process application.
+Because of this, there are many references to global variables without any sort of synchronization control.
+Rust by default runs all of its unit tests in parallel (multi-threaded) so care has to be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
+
+Additionally, C uses a shared memory segment to manage cross process communication.
 
 #### Type Considerations
 There are of course all the normal C vs Rust type considerations.
-However in addition to that the C code makes heavy use of un-sized types and quasi self references types.
+However, in addition to that, the C code makes heavy use of un-sized types and quasi self references types.
 
 ###### Dynamically Sized Types
 One fairly common dynamically sized type used in the C code is `CSTRING`.
-The strut definition claims to hold a `[u_char;65535]` however in practice that is only the max size for this type.
-If the string is smaller then 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
+The struct definition claims to hold a `[u_char;65535]`, however in practice that is only the max size for this type.
+If the string is smaller than 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
 
 Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
-###### Quasi Self References 
+###### Quasi Self References
 Self references in Rust are hard since unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
-Fortunately the C types are only kind of self referential.
+Fortunately, the C types are only kind of self referential.
 They frequently assume that type A will be immediately followed by type B.
 So we end up with the logical composite type AB.
-Fortunately this is mostly just a logical construction, and is fairly easy to spot in the C code, and deal with in the Rust rewrite.
-
+This is mostly just a logical construction, and is fairly easy to spot in the C code and handle once you know what to look for. 
 ## [tree-sitter-m](./tree-sitter-M)
 For this project I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
 This crate is responsible for:
