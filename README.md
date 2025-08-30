@@ -129,46 +129,59 @@ Dynamic scoping makes it difficult to locally reason about the code.
 This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
 
 # Running the Project
+
 This project does not currently produce a working executable.
 If you need a working M interpreter, please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
 Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
+
 ## Development Environment Setup
-NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the cli tools
+
+NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the CLI tools
 - `cargo install tree-sitter-cli --version <version> --locked`
 - `cargo install cargo-mutants   --version <version> --locked`
 - You will need clang installed (requirement of bindgen) see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
 
-## Running Unit Tests 
+## Running Unit Tests
+
 - `cargo test`
+
 ## Running Fuzz Tests
-NOTE: currently fuzzing is only done in the symbol table create. 
+
+NOTE: currently fuzzing is only done in the symbol table create.
+
 - `cargo fuzz list`
 - `cargo fuzz run <fuzzing target>`
 
 [cargo fuzz book](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 
+
 ## Running Mutation Testing
+
 NOTE: this can take a while.
+
 - `cd <crate name>`
 - `cargo mutants`
 
-# Techniques/Concepts 
+
+# Techniques/Concepts
+
 ## Unit Testing
-The more unit tests I write the more useful I realize unit tests are, and the less they seem to be about double checking my work.
 
-### Concept Overview 
-Unit tests are code fragments that describes how a "unit" of code is invoked and what behavior is expected from that "unit".
+The more unit tests I write, the more useful I realize unit tests are, and the less they seem to be about double checking my work.
 
-I think unit test should be.
-- Descriptive.
+### Concept Overview
+Unit tests are code fragments that describe how a "unit" of code is invoked and what behavior is expected from that "unit".
+
+I think unit test should be:
+- Descriptive
 Well written unit test should be able to serve as documentation.
-- Small.
-If you need more than 20 lines of code to write a unit test you are probably violating the single responsibility heuristic. 
-- Simple.
-It should take less the 2 minutes for someone to look at a unit test, understand what it is verifying and why that is correct.
-- Fast and deterministic. 
-Unit test should be run frequently.
-At least once every half an hour, often much more frequently.  
+- Small
+If you need more than 20 lines of code to write a unit test, you are probably violating the single responsibility heuristic.
+- Simple
+It should take less than 2 minutes for someone to look at a unit test, understand what it is verifying, and why that is correct.
+- Fast and deterministic
+Unit tests should be run frequently.
+At least once every half an hour, often much more frequently.
 
 When I was first introduced to unit testing in collage, it was primarily presented as an afterthought, a way to verify your code was correct before turning in the assignment.
 However waiting to write/run unit test until after the code is already in a finished state robs unit tests of most of there utility.
