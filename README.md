@@ -70,7 +70,6 @@ This is mostly just a logical construction, and is fairly easy to spot in the C 
 For this project, I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
 This crate is responsible for:
 - Using JavaScript to specify the grammar
-
 - Using an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation
 - Running the `tree-sitter-cli` as part of the [build script](./tree-sitter-M/bindings/rust/build.rs)
 - Generating
@@ -113,7 +112,7 @@ One of the biggest roadblocks as I see to refactoring in M is the dynamic scopin
 Example of dynamic scoping:
 ```
 A()
-   s i=i+1 ; tag A references to variable i without initializing it
+   s i=i+1 ; tag A references variable i without initializing it
    q
 B() 
    s i=0
