@@ -108,6 +108,7 @@ impl<'a> TreeSitterParser<'a> for IntrinsicFunction {
             Select(select) => Self::Select {
                 terms: select
                     .children()
+                    .iter()
                     .array_chunks::<2>()
                     .map(|[condition, value]| SelectTerm {
                         condition: Expression::new(condition, source_code),
