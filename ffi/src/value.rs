@@ -6,7 +6,6 @@ use value::Value;
 
 impl IntoC for Value {
     type CType = CSTRING;
-    #[must_use]
     fn into_c(self) -> CSTRING {
         let mut buf = [0; MAX_STR_LEN as usize + 1];
         let content = self.content();

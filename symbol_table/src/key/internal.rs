@@ -32,7 +32,7 @@ use value::Value;
 
 pub const MAX_KEY_SIZE: usize = 255;
 
-use super::{format, Error, Iter, Key, KeyBound};
+use super::{Error, Iter, Key, KeyBound, format};
 
 use super::IntermediateRepresentation;
 
@@ -103,7 +103,7 @@ impl KeyBound {
     /// with the last sub keys value maximized.
     /// otherwise this is a no op.
     #[must_use]
-    pub fn wrap_if_null_tail(&self) -> std::borrow::Cow<Self> {
+    pub fn wrap_if_null_tail(&self) -> std::borrow::Cow<'_, Self> {
         if self.has_trailing_null() {
             let mut modified_key = self.0.clone();
             for _ in 0..format::NULL.len() {

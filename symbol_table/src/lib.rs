@@ -29,7 +29,6 @@
  */
 //TODO remove once this module is actually being used.
 #![feature(btree_cursors)]
-#![feature(hash_extract_if)]
 #![feature(slice_split_once)]
 #![feature(array_windows)]
 #![warn(clippy::pedantic)]
@@ -131,7 +130,7 @@ impl Table {
         &self,
         var: &MVar<Key>,
         direction: Direction,
-    ) -> Option<SubKey> {
+    ) -> Option<SubKey<'_>> {
         self.table
             .locate(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))

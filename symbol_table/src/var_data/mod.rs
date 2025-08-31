@@ -163,7 +163,7 @@ impl VarData {
         })
     }
 
-    pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey> {
+    pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey<'_>> {
         match direction {
             Direction::Forward => self
                 .sub_values
