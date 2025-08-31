@@ -176,7 +176,7 @@ impl KeyBound {
     }
 
     #[must_use]
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         Iter { tail: &self.0[..] }
     }
 

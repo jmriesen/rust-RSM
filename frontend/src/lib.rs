@@ -1,4 +1,4 @@
-#![feature(array_chunks)]
+#![feature(iter_array_chunks)]
 use ir::commands::Command;
 pub mod commands;
 pub mod expression;
