@@ -61,7 +61,7 @@ impl Document {
         &'a self,
         query: &'a tree_sitter::Query,
         query_cursor: &'a mut tree_sitter::QueryCursor,
-    ) -> tree_sitter::QueryMatches<'a, 'a, &[u8]> {
+    ) -> tree_sitter::QueryMatches<'a, 'a, &'a [u8]> {
         query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
 

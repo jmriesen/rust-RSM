@@ -27,7 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-#![feature(let_chains)]
 #![feature(iter_intersperse)]
 #[allow(unused)]
 use clap::{Parser, Subcommand};

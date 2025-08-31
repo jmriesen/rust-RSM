@@ -14,7 +14,6 @@ impl IntoC for VarU {
 
 impl<Key: KeyType> IntoC for MVar<Key> {
     type CType = crate::bindings::MVAR;
-    #[must_use]
     fn into_c(self) -> Self::CType {
         let (slen, key) = self.key.borrow().clone().into_ckey();
         Self::CType {
