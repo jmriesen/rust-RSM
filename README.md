@@ -19,17 +19,17 @@ Others seem overly verbose initially but pay off in the long run.
 One of the reasons I selected RSM for this porting project is because I knew it would be a large project, and I would have to live with any decisions I made.
 
 # What is this Project?
-  This project is a port of the [Reference Standard M](https://gitlab.com/Reference-Standard-M/rsm) implementation maintained by David Wicksell from C to Rust.
+This project is a port of the [Reference Standard M](https://gitlab.com/Reference-Standard-M/rsm) implementation maintained by David Wicksell from C to Rust.
 
 ## Why RSM?
 I have always found language design interesting.
 When I learned M at work, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
 I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half-baked interpreter.
 Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
-On a whim I started trying to convert some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
+On a whim, I started trying to convert some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
 
 # Project Structure
-## [ffi](./ffi/) 
+## [ffi](./ffi/)
 The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (ie making C and Rust play nicely together in the same codebase).
 
 This crate is responsible for:
