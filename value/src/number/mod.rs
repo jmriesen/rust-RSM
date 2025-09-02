@@ -3,7 +3,52 @@ use crate::convertions::CreationError;
 
 use super::Value;
 use std::iter;
-// Stores the number in scientific notation/9's complement form
+/// An M number.
+///
+/// The value is internally stored as using scientific notation and 9's complement.
+/// This means that `.1` is represented precisely but `2/3` is not.
+///
+///
+/// Numbers consist of the following in order
+/// - zero or more signs
+/// - zero or more digits
+/// - a decimal point
+/// - zero or more digits
+///
+/// When parsing an `Value` into a `Number` we start at the left and parse as much as we can.
+/// ```
+/// use value::Number;
+/// use std::str::FromStr;
+/// assert_eq!("20abcdef".parse::<Number>().unwrap(),"20".parse().unwrap());
+/// assert_eq!("20 0abcdef".parse::<Number>().unwrap(),"20".parse().unwrap());
+/// assert_eq!("20.0.40".parse::<Number>().unwrap(),"20".parse().unwrap());
+/// ```
+/// If we can't parse anything we return 0.
+/// ```
+/// use value::Number;
+/// use std::str::FromStr;
+/// assert_eq!("abcdef".parse::<Number>().unwrap(),"0".parse().unwrap());
+/// ```
+///
+/// Numbers are nominalized removing uneasily signs and leading/trailing zeros.
+/// ```
+/// use value::Number;
+/// use std::str::FromStr;
+/// assert_eq!("+1".parse::<Number>().unwrap(),"1".parse().unwrap());
+/// assert_eq!("-+--+1".parse::<Number>().unwrap(),"-1".parse().unwrap());
+/// assert_eq!("00001.00000".parse::<Number>().unwrap(),"1".parse().unwrap());
+/// ```
+/// A number that is converted back into a value is always in its normalized form.
+/// ```
+/// use value::Value;
+/// use value::Number;
+/// use std::str::FromStr;
+/// let orignal : Value = "+00001.00000".parse().unwrap();
+/// let number : Number = orignal.clone().into();
+/// assert_ne!(orignal,number.clone().into());
+/// assert_eq!("1".parse::<Value>().unwrap(),number.into());
+/// ```
+
 #[derive(Debug, Clone)]
 pub struct Number {
     exponent: usize,
@@ -211,7 +256,7 @@ mod test {
     #[case("")]
     #[case("-.")]
     #[case("+.")]
-    //#[case("+.")] this is throwing an error `w +"+."`
+    #[case("+.")] //this is throwing an error `w +"+."`
     #[case("0.")]
     #[case("0.0")]
     #[case(".0")]
