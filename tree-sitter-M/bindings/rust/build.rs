@@ -33,7 +33,9 @@ fn main() {
     //The only files we should be manually editing are the scanner and grammar.
     let src_dir = std::path::Path::new("src");
     let scanner_path = src_dir.join("scanner.c");
+    let note_types = src_dir.join("node-types.json");
     println!("cargo:rerun-if-changed={}", scanner_path.to_str().unwrap());
+    println!("cargo:rerun-if-changed={}", note_types.to_str().unwrap());
     println!("cargo:rerun-if-changed=grammar.js");
 
     //Runs the cli.
