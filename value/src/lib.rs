@@ -29,9 +29,7 @@
  */
 use serde::{Deserialize, Serialize};
 use std::iter;
-pub static EMPTY: Value = Value::empty();
 const MAX_STR_LEN: usize = u16::MAX as usize - 1;
-
 mod convertions;
 pub use convertions::CreationError;
 

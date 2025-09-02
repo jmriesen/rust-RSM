@@ -49,9 +49,9 @@ impl Compile for Expression {
                 args.compile(comp, &ExpressionContext::Eval);
 
                 // All External Commands expect at least 2 arguments
-                // If less then 2 arguments exist in the IR just pass the empty value.
+                // If less than 2 arguments exist in the IR just pass the empty value.
                 for _ in args.len()..2 {
-                    ::value::EMPTY.compile(comp, &());
+                    ::value::Value::empty().compile(comp, &());
                 }
                 op_code.compile(comp, &())
             }
