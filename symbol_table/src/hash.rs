@@ -29,7 +29,7 @@
  */
 use std::{
     array,
-    collections::{hash_map, HashMap},
+    collections::{HashMap, hash_map},
     fmt::{self, Debug},
 };
 
@@ -44,18 +44,16 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct CreationError;
 
-const NUMBER_OF_NORMAL_SLOTS: usize = 3072;
-///The +1 is so that we always have room for the error key.
-const NUMBER_OF_TOTAL_SLOTS: usize = NUMBER_OF_NORMAL_SLOTS + 1;
-const ERROR_SLOT_INDEX: usize = NUMBER_OF_NORMAL_SLOTS;
-
-/// Wrapper around the std `std::collections::HashMap` with a few additional properties.
-/// Max number of entries is '`NUM_SLOTS`'*
-/// If the map is full we can still insert a special Error Key.
-/// Internally the keys are stored in a array, and the indexes into that array are handed out using
-/// a stack.
+/// A pre-allocated `HashTable` with a fixed capacity.
+/// # Error handling
+/// One slot is reserved for holding an error value and will always be available even when the rest
+/// of the table is full.
+/// # Optimization
+/// Newly created entries are always inserted at the lowest available index in the backing array.
+/// This behavior was present in the original C code and has been ported for completeness.
+/// I have not benchmarked this potential optimization against a standard has map.
 #[allow(clippy::module_name_repetitions)]
-pub struct HashTable<K, V>
+pub struct HashTable<K, V, const SLOTS: usize = 3073>
 where
     K: Key,
     V: Default,
@@ -64,18 +62,21 @@ where
     map: std::collections::HashMap<K, usize>,
     ///Stack storing which indexes are available
     open_slots: Vec<usize>,
-    ///The actual data store
-    slots: [Option<V>; NUMBER_OF_TOTAL_SLOTS],
+    /// The actual data store
+    slots: [Option<V>; SLOTS],
 }
 
-impl<K, V> HashTable<K, V>
+impl<K, V, const SLOTS: usize> HashTable<K, V, SLOTS>
 where
     K: Key,
     V: Default,
 {
+    const NUMBER_OF_NORMAL_SLOTS: usize = SLOTS - 1;
+    const ERROR_SLOT_INDEX: usize = SLOTS - 1;
+    /// Create a new empty `HashTable`
     pub fn new() -> Self {
-        let mut open_slots = Vec::with_capacity(NUMBER_OF_NORMAL_SLOTS);
-        for i in (0..NUMBER_OF_NORMAL_SLOTS).rev() {
+        let mut open_slots = Vec::with_capacity(Self::NUMBER_OF_NORMAL_SLOTS);
+        for i in (0..Self::NUMBER_OF_NORMAL_SLOTS).rev() {
             open_slots.push(i);
         }
         Self {
@@ -93,7 +94,7 @@ where
                     .open_slots
                     .pop()
                     //If slots are all filled check if we should use the error slot
-                    .or_else(|| (entry.key() == &K::error()).then_some(ERROR_SLOT_INDEX));
+                    .or_else(|| (entry.key() == &K::error()).then_some(Self::ERROR_SLOT_INDEX));
 
                 if let Some(new_slot_index) = index {
                     entry.insert(new_slot_index);
@@ -117,7 +118,7 @@ where
     pub fn free(&mut self, key: &K) {
         if let Some(index) = self.map.remove(key) {
             self.slots[index] = None;
-            if index != ERROR_SLOT_INDEX {
+            if index != Self::ERROR_SLOT_INDEX {
                 self.open_slots.push(index);
             }
         }
@@ -193,7 +194,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use super::{super::VarU, CreationError, ERROR_SLOT_INDEX, NUMBER_OF_NORMAL_SLOTS};
+    use super::{super::VarU, CreationError};
     use crate::{var_data::VarData, var_u::test_helpers::var_u};
     use pretty_assertions::assert_eq;
     use std::ptr::from_ref;
@@ -219,7 +220,7 @@ mod tests {
     #[test]
     fn create() {
         let mut table = Map::new();
-        for i in 0..NUMBER_OF_NORMAL_SLOTS {
+        for i in 0..Map::NUMBER_OF_NORMAL_SLOTS {
             let var = var_u(&format!("var{i}"));
             let index = table.create_ptr(var.clone());
             //NOTE having sequential indexes probably improves cash locality
@@ -235,7 +236,7 @@ mod tests {
         //There is a special node reserved for ECODE in the case that everything else has
         //been filed.
         let index = table.create_ptr(var_u("$ECODE"));
-        assert_eq!(index, Ok(table.index_ptr(ERROR_SLOT_INDEX).unwrap()));
+        assert_eq!(index, Ok(table.index_ptr(Map::ERROR_SLOT_INDEX).unwrap()));
     }
 
     #[test]
