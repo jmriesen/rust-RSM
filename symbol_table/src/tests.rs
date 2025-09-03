@@ -150,7 +150,7 @@ fn kill_initialized_root() {
     assert_eq!(table.get(&var_i), None);
 
     //Hash table should have freed the entire.
-    assert_eq!(table.table.locate(&var.name), None);
+    assert_eq!(table.table.get(&var.name), None);
 }
 
 #[test]
@@ -162,11 +162,11 @@ fn keep_slot_open_if_variable_was_new_ed() {
     table.kill(&var);
 
     //Hash table should still have the slot reserved.
-    assert_ne!(table.table.locate(&var.name), None);
+    assert_ne!(table.table.get(&var.name), None);
     table.pop_new_frame();
     //Hash table should have freed the slot since it was not new-ed
     //by something else and the restored value holds no data.
-    assert_eq!(table.table.locate(&var.name), None);
+    assert_eq!(table.table.get(&var.name), None);
 }
 
 #[test]

@@ -79,22 +79,22 @@ impl SymbolTable {
     ///Gets a value that was stored in the symbol table.
     #[must_use]
     pub fn get(&self, var: &MVar<Key>) -> Option<&Value> {
-        self.table.locate(&var.name)?.value(&var.key)
+        self.table.get(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the symbol table
     pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
         self.table
-            .create(var.name.clone())?
+            .create_entry(var.name.clone())?
             .set_value(&var.key, value);
         Ok(())
     }
 
     pub fn kill(&mut self, var: &MVar<Key>) {
-        if let Some(data) = self.table.locate_mut(&var.name) {
+        if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
             if !(data.has_data() || self.attached(&var.name)) {
-                self.table.free(&var.name);
+                self.table.remove(&var.name);
             }
         }
     }
@@ -108,7 +108,7 @@ impl SymbolTable {
 
     #[must_use]
     pub fn data(&self, var: &MVar<Key>) -> DataResult {
-        self.table.locate(&var.name).map_or(
+        self.table.get(&var.name).map_or(
             DataResult {
                 has_value: false,
                 has_descendants: false,
@@ -121,7 +121,7 @@ impl SymbolTable {
     #[must_use]
     pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
         self.table
-            .locate(&var.name)
+            .get(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
             .map(|key| var.copy_new_key(key))
     }
@@ -134,7 +134,7 @@ impl SymbolTable {
         direction: Direction,
     ) -> Option<SubKey<'_>> {
         self.table
-            .locate(&var.name)
+            .get(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
     }
 
@@ -159,11 +159,11 @@ impl SymbolTable {
                 if data.has_data() || self.attached(&var) {
                     let slot = self
                         .table
-                        .locate_mut(&var)
+                        .get_mut(&var)
                         .expect("The slot should already exists");
                     *slot = data;
                 } else {
-                    self.table.free(&var);
+                    self.table.remove(&var);
                 }
             }
         }
@@ -189,7 +189,7 @@ impl SymbolTable {
             .last_mut()
             .expect("There must be a NewFrame in the stack before you can call new");
         for &var in vars {
-            let slot = self.table.create(var.clone())?;
+            let slot = self.table.create_entry(var.clone())?;
             current_frame.push((var.clone(), std::mem::take(slot)));
         }
         Ok(())
