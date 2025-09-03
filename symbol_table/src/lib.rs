@@ -72,6 +72,7 @@ pub struct SymbolTable {
 
 impl SymbolTable {
     #[must_use]
+    /// Create a new empty `SymbolTable`
     pub fn new() -> Self {
         Self::default()
     }
@@ -82,7 +83,7 @@ impl SymbolTable {
         self.table.get(&var.name)?.value(&var.key)
     }
 
-    /// Inserts a value into the symbol table
+    /// Inserts a value into the `SymbolTale` replacing any existing value.
     pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
         self.table
             .create_entry(var.name.clone())?
@@ -90,6 +91,7 @@ impl SymbolTable {
         Ok(())
     }
 
+    /// Removing var including all of its sub-keys.
     pub fn kill(&mut self, var: &MVar<Key>) {
         if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
@@ -99,13 +101,18 @@ impl SymbolTable {
         }
     }
 
+    /// Kill all variables accept `keep` and intrinsic variables.
     //NOTE not yet mutation tested
-    pub fn keep(&mut self, vars: &[VarU]) {
+    pub fn keep(&mut self, keep: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
         self.table
-            .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
+            .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
 
+    /// The Data M intrinsic function.
+    /// Checks if the specified key
+    /// 1) Has a value.
+    /// 2) Has any sub-keys.
     #[must_use]
     pub fn data(&self, var: &MVar<Key>) -> DataResult {
         self.table.get(&var.name).map_or(
@@ -117,7 +124,7 @@ impl SymbolTable {
         )
     }
 
-    /// Returns the next record in the variable.
+    /// Returns the next the variable regardless of key-level.
     #[must_use]
     pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
         self.table
