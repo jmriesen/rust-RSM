@@ -120,25 +120,22 @@ Dynamic scoping makes it difficult to locally reason about the code.
 This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
 
 ## [ir](./ir/)
-IR stands for intermediate representation and this crate holds the Abstract Syntax Tree definition that is output by the frontend and consumed by the backend.
-Eventually I would also like to write and optimizer that can take IR as input and return more efficient IR as output.
+IR stands for intermediate representation and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
 
 ## [frontend](./frontend/)
-The frontend is responsible to taking in text input, invoking the tree-sitter-parser and converting the result into IR.
+The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
 
 ## [backend](./backend/)
-The backend is responsible for taking the IR and converting it into bytecode.
+The Backend is responsible for taking the IR and converting it into bytecode.
 
 ## [value](./value/)
-M has only one primitive value type.
-This crate is responsible for defining that type and all the associated primitive operations.
-ex addition, division, concatenation
+M has only one primitive value type. This crate is responsible for defining that type and all the associated primitive operations, such as addition, division, and concatenation.
 
 ## [symbol_table](./symbol_table/)
-This crate is responsible for managing
-1) What variables are in scope.
-2) Variables keys and sub-keys.
-3) Shadowing/restoring variables.
+This crate is responsible for managing:
+1. What variables are in scope.
+2. Variable keys and sub-keys.
+3. Shadowing/restoring variables.
 
 # Running the Project
 
