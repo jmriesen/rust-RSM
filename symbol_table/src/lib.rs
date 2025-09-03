@@ -27,7 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-//TODO remove once this module is actually being used.
 #![feature(btree_cursors)]
 #![feature(slice_split_once)]
 #![feature(array_windows)]
@@ -37,7 +36,6 @@
 //It requires documentation on panics that should be unreachable.
 #![allow(clippy::missing_panics_doc)]
 
-//TODO go over and see what can be made private
 mod hash;
 pub mod key;
 mod m_var;
@@ -62,13 +60,17 @@ impl hash::Key for VarU {
 /// This Vec should be treated as a Stack, i.e. FILO.
 type NewFrame = Vec<(VarU, VarData)>;
 
+/// The a `SymbolTable` stores
+/// 1) What variables are currently in scope.
+/// 2) What the value of those variables are.
+/// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
-pub struct Table {
+pub struct SymbolTable {
     table: hash::HashTable<VarU, VarData>,
     stack: Vec<NewFrame>,
 }
 
-impl Table {
+impl SymbolTable {
     #[must_use]
     pub fn new() -> Self {
         Self::default()

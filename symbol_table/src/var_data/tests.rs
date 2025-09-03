@@ -1,7 +1,7 @@
 use crate::{
+    SymbolTable,
     m_var::test_helpers::{var_m, var_m_nullable},
     var_data::Direction,
-    Table,
 };
 use value::Value;
 mod data {
@@ -11,7 +11,7 @@ mod data {
 
     #[test]
     fn root_data() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let var = var_m("var", &[]);
         assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
@@ -20,7 +20,7 @@ mod data {
     }
     #[test]
     fn root_descendants() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let root = var_m("var", &[]);
         let sub = var_m("var", &["sub"]);
         assert!(!table.data(&root).has_descendants);
@@ -30,7 +30,7 @@ mod data {
     }
     #[test]
     fn sub_key_data() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let var = var_m("var", &["sub"]);
         assert!(!table.data(&var).has_value);
         let data: Value = "data".try_into().unwrap();
@@ -40,7 +40,7 @@ mod data {
 
     #[test]
     fn sub_key_descendants() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let data: Value = "data".try_into().unwrap();
         let var = var_m("var", &["sub"]);
         let descendant = var_m("var", &["sub", "sub"]);
@@ -52,7 +52,7 @@ mod data {
     ///All of the variables keys are stored in one sorted list
     #[test]
     fn adjacent_keys_are_not_sub_keys() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let data: Value = "data".try_into().unwrap();
         let a = var_m("var", &["a"]);
         let b = var_m("var", &["b"]);
@@ -105,7 +105,7 @@ mod query {
         let keys: [&[&str]; 4] = [&["-1"], &["0"], &["0", "1"], &["a"]];
         let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
@@ -129,7 +129,7 @@ mod query {
         let keys: [&[&str]; 4] = [&["-1"], &["0", "-1"], &["0", "1"], &["a"]];
         let m_vars: Vec<_> = keys.map(|x| var_m("foo", x)).to_vec();
 
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
@@ -146,7 +146,7 @@ mod query {
 
     #[test]
     fn value_with_no_subscripts() {
-        let mut table = super::Table::new();
+        let mut table = super::SymbolTable::new();
         let root = var_m("foo", &[]);
         let _ = table.set(&root, &Value::try_from("Value").unwrap());
 
@@ -175,7 +175,7 @@ mod query {
     ///TODO File an issue with the upstream repo
     #[test]
     fn root_value_is_handled() {
-        let mut table = super::Table::new();
+        let mut table = super::SymbolTable::new();
         //Root value is absent
         assert_eq!(
             table.query(&var_m_nullable("foo", &["bar"]), Direction::Backward),
@@ -197,7 +197,7 @@ mod query {
         let keys: [&[&str]; 5] = [&["-1"], &["0"], &["0", "-1"], &["0", "1"], &["1"]];
         let m_vars = keys.map(|x| var_m("foo", x));
 
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         for var in &m_vars {
             table.set(var, &Value::try_from("Value").unwrap()).unwrap();
         }
@@ -219,7 +219,7 @@ mod order {
     #[test]
     fn forward_and_backward() {
         use Direction::{Backward, Forward};
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let data = Value::try_from("data").unwrap();
         table.set(&var_m("foo", &["0"]), &data).unwrap();
         table.set(&var_m("foo", &["1", "a"]), &data).unwrap();
@@ -258,7 +258,7 @@ mod order {
 
     #[test]
     fn value_with_no_subscripts() {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let foo = var_m("foo", &[]);
         let bar = var_m("bar", &["subscript"]);
         table.set(&foo, &Value::try_from("Value").unwrap()).unwrap();

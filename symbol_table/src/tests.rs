@@ -1,19 +1,19 @@
 use std::borrow::Borrow;
 
-use super::Table;
+use super::SymbolTable;
 use crate::m_var::test_helpers::var_m;
 use pretty_assertions::{assert_eq, assert_ne};
 
 #[test]
 fn get_unset_variable() {
-    let table = Table::new();
+    let table = SymbolTable::new();
     let m_var = var_m("foo", &[]);
     assert_eq!(table.get(&m_var), None);
 }
 
 #[test]
 fn get_unset_key() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let m_var = var_m("foo", &[]);
     let data = "Data".try_into().unwrap();
     table.set(m_var.borrow(), &data).unwrap();
@@ -24,7 +24,7 @@ fn get_unset_key() {
 
 #[test]
 fn set_root_value() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let m_var = var_m("foo", &[]);
     let data = "Data".try_into().unwrap();
 
@@ -34,7 +34,7 @@ fn set_root_value() {
 
 #[test]
 fn set_index_value() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let m_var = var_m("foo", &["keys"]);
     let data = "Data".try_into().unwrap();
     table.set(&m_var, &data).unwrap();
@@ -48,7 +48,7 @@ fn set_root_then_index() {
     let with_key = var_m("foo", &["keys"]);
     let key_data = "key Data".try_into().unwrap();
     {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
 
         table.set(&root, &root_data).unwrap();
         table.set(&with_key, &key_data).unwrap();
@@ -56,7 +56,7 @@ fn set_root_then_index() {
         assert_eq!(Some(&key_data), table.get(&with_key));
     }
     {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
 
         table.set(&with_key, &key_data).unwrap();
         table.set(&root, &root_data).unwrap();
@@ -67,7 +67,7 @@ fn set_root_then_index() {
 
 #[test]
 fn set_null_value() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let m_var = var_m("foo", &[]);
     let data = "".try_into().unwrap();
 
@@ -77,7 +77,7 @@ fn set_null_value() {
 
 #[test]
 fn set_works_while_with_prefixs() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let prefix = var_m("foo", &["prefix"]);
     let full = var_m("foo", &["prefixAndMore"]);
     let prefix_data = "prefix".try_into().unwrap();
@@ -91,7 +91,7 @@ fn set_works_while_with_prefixs() {
 
 #[test]
 fn set_overrides_value() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let m_var = var_m("foo", &[]);
     let initial_value = "inital".try_into().unwrap();
     let end_value = "end".try_into().unwrap();
@@ -116,7 +116,7 @@ fn do_a_bunch_of_sets() {
     ];
     let test_data = test_data.map(|(keys, value)| (var_m("foo", &keys), value.try_into().unwrap()));
 
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     for (var, value) in &test_data {
         table.set(var, value).unwrap();
     }
@@ -128,7 +128,7 @@ fn do_a_bunch_of_sets() {
 
 #[test]
 fn kill_uninitialized_var() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     //These should be no ops.
     table.kill(&var_m("foo", &[]));
     table.kill(&var_m("foo", &["arg"]));
@@ -136,7 +136,7 @@ fn kill_uninitialized_var() {
 
 #[test]
 fn kill_initialized_root() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let var = var_m("foo", &[]);
     let var_i = var_m("foo", &["i"]);
     let var_ii = var_m("foo", &["i", "ii"]);
@@ -155,7 +155,7 @@ fn kill_initialized_root() {
 
 #[test]
 fn keep_slot_open_if_variable_was_new_ed() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let var = var_m("foo", &[]);
     table.push_new_frame();
     table.new_var(&[&var.name]).unwrap();
@@ -171,7 +171,7 @@ fn keep_slot_open_if_variable_was_new_ed() {
 
 #[test]
 fn kill_initialized_index() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let var = var_m("foo", &[]);
     let var_i = var_m("foo", &["i"]);
     let var_ii = var_m("foo", &["i", "ii"]);
@@ -187,7 +187,7 @@ fn kill_initialized_index() {
 
 #[test]
 fn kill_removes_only_specified_index() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let data = "data".try_into().unwrap();
     let a = var_m("foo", &["a"]);
     let b = var_m("foo", &["b"]);
@@ -204,7 +204,7 @@ fn kill_removes_only_specified_index() {
 
 #[test]
 fn keep_vars() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let data = "data".try_into().unwrap();
     let dolor = var_m("$dolor", &[]);
     let normal = var_m("normal", &[]);
@@ -225,7 +225,7 @@ fn keep_vars() {
 
 #[test]
 fn newing_stores_a_copy() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let var = var_m("var", &[]);
 
     let level_zero = "zero".try_into().unwrap();
@@ -257,7 +257,7 @@ fn newing_stores_a_copy() {
 
 #[test]
 fn assumed_variables_are_accessible() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let new_ed_var = var_m("var", &[]);
     let assumed_var = var_m("assumed", &[]);
 
@@ -278,7 +278,7 @@ fn assumed_variables_are_accessible() {
 
 #[test]
 fn calling_new_on_the_same_variable_multiple_times() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let var = var_m("var", &[]);
 
     let initial_value = "inital".try_into().unwrap();
@@ -302,7 +302,7 @@ fn calling_new_on_the_same_variable_multiple_times() {
 
 #[test]
 fn new_all_does_not_new_excluded_or_intrinsic_vars() {
-    let mut table = Table::new();
+    let mut table = SymbolTable::new();
     let intrinsic = var_m("$var", &[]);
     let included = var_m("included", &[]);
     let excluded = var_m("excluded", &[]);
