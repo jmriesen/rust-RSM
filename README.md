@@ -106,7 +106,7 @@ Currently, the crate is responsible for:
 
 ## [lang-server](./lang-server)
 This is a language server for M.
-This was a spur-of-the-moment weekend project that more or less only gives you some basic syntax highlighting/syntax error detection.
+This was a spur-of-the-moment weekend project that only provides some basic syntax highlighting/syntax error detection.
 There are a lot of useful features I would like to see from an M language server;
 however the rest of the project will have to mature before I can start working on those features. 
 
@@ -231,7 +231,9 @@ A foreign function is simply a function that was written in a different programm
 In this case, I am calling C code from Rust and vice versa.
 Calling code that was written in a different language requires some extra care:
 - Parameters must match the target language's memory layout
-- The C/Rust compilers don't understand the other language and therefore have to assume the foreign code could do anything.
+- From the Rust compiler's viewpoint calling into C code is a black box that could do anything.
+Therefore every ffi call is inherently Unsafe since the Rust compiler cannot verify that [Rust's safety invariants](https://doc.rust-lang.org/nomicon/) are upheld.
+
 
 ### Use in Rust-RSM
 In this project, Rust is responsible for matching the C ABI when cross-language calls occur.
@@ -252,19 +254,24 @@ Sometimes you just need functionality that was written in another programming la
 There are a lot of invariants that need to be upheld, but it is manageable with the bindgen and cbindgen build tools.
 FFI is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 
-## A/B and Property Based Testing
-A/B and Property Testing are two separate concepts, however in this project I frequently use them together.
+## Property Based Testing
 ### Concept Overview 
 The idea behind Property Based Testing is that we want to verify some invariant is upheld for all inputs. 
 So we plug in a bunch of random inputs and verify that the invariant holds true. 
 
-A/B testing at its core is testing the invariant, "system A should behave the same as system B".
+There are a couple of different testing paradigms that can be viewed as verifying an invariant.
+ 
+| Technique          | Invariant | 
+|--------------------|-----------|
+| Regression testing | The new code behaves just like the old code did.| 
+| Fuzz testing       | The code does not crash and there are no memory access violations.|
 
-Note: Fuzz Testing can be view as Property Based Testing with the invariant: The code does not crash and there are no memory access violations.
 ### Use in Rust-RSM
-A lot of my unit tests so far have been A/B tests. 
-Since this project is a rewrite, it is fairly easy to create A/B tests, however I would like to move away from using A/B tests as a primary means of testing.
-The fact that I have the original C code that I can A/B test against is fairly artificial, so I think I will learn more by focusing on other forms of testing.
+When I started this project I was primarily combining regression testing with property basted testing.
+I would just run both the original code and my port and compare their results.
+Regression testing in this manor is fairly situation specific and only really applies when porting legacy code. 
 
-That being said, I think A/B testing can be put to great use checking how well I converted/tested a module of code.
-If bugs are slipping past my unit tests and are only being caught once I add A/B tests, this is an indication that my unit test writing skills need additional work.
+I have been moving away from using that technique as a primary means of testing since I figure I will learn more by focusing on other forms of testing.
+
+That being said, I think regression testing can be put to great use checking how well I converted/tested a module of code.
+If bugs are slipping past my unit tests and are only being caught once I add the regression tests, this is an indication that my unit test writing skills need additional work.
