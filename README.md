@@ -1,10 +1,10 @@
 # Project Motivation 
-I think that in order to truly understand an idea or a practice you must actually try it, and live with it for a while.
+I think that in order to truly understand an idea or a practice you must actually try it and live with it for a while.
 
 A while back I realized that I was watching a lot of conference talks and reading a lot of blog posts about various software development practices.
-This lead to me developing some opinions that did not hold up well when theory crashed into reality.
+This led to me developing some opinions that did not hold up well when theory crashed into reality.
 
-This project is intended to be a sandbox where I can try out various ideas and practices, to figure out what works and doesn't.
+This project is a sandbox where I can try out various ideas and practices to figure out what works and doesn't.
 # Mission Statement 
 To learn and explore how best to develop software.
 
@@ -14,7 +14,7 @@ To me, best currently means creating software that is correct (has no bugs), I a
 - Lean how to efficiently test my code, and test my tests
 - Live with the code
 
-Some ideas seem really convenient at the start, but become a tangled mess later on.
+Some ideas seem really convenient at the start but become a tangled mess later on.
 Others seem overly verbose initially but pay off in the long run.
 One of the reasons I selected RSM for this porting project is because I knew it would be a large project, and I would have to live with any decisions I made.
 
@@ -23,14 +23,14 @@ This project is a port of the [Reference Standard M](https://gitlab.com/Referenc
 
 ## Why RSM?
 I have always found language design interesting.
-When I learned M at work, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
-I quickly realized that M was not as simple as I assumed, especially when I started to try and add indirection and goto support to my half-baked interpreter.
+When I learned M workings at Epic, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+I quickly realized that M was not as simple as I assumed, especially when I tried to add indirection and goto support to my half-baked interpreter.
 Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
-On a whim, I started trying to convert some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
+On a whim, I experimented with converting some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
 
 # Project Structure
 ## [ffi](./ffi/)
-The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (ie making C and Rust play nicely together in the same codebase).
+The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (i.e., making C and Rust play nicely together in the same binary).
 
 This crate is responsible for:
 - Building the C code
@@ -39,7 +39,7 @@ This crate is responsible for:
 - Exposing a Safe API to the C code
 
 ### Safe API Considerations
-Most of the other crates use the unsafe API currently, but I would like to move towards only exposing a safe API.
+Most of the other crates in this project use the unsafe API currently, but I would like to move towards only exposing a safe API.
 
 #### Concurrency Considerations
 The original RSM code was a single threaded/multi process application.
@@ -50,21 +50,21 @@ Additionally, C uses a shared memory segment to manage cross process communicati
 
 #### Type Considerations
 There are of course all the normal C vs Rust type considerations.
-However, in addition to that, the C code makes heavy use of un-sized types and quasi self references types.
+However, in addition to those, the original C code makes heavy use of un-sized types and quasi self references types.
 
 ###### Dynamically Sized Types
-One fairly common dynamically sized type used in the C code is `CSTRING`.
-The struct definition claims to hold a `[u_char;65535]`, however in practice that is only the max size for this type.
-If the string is smaller than 65535 bytes (most of the time) then the C code only allocates enough space to hold the string.
+One fairly common dynamically sized type used in the ordinal C code is `CSTRING`.
+The struct definition claims to hold a `[u_char;65535]`; however in practice that is only the max size for this type.
+If the string is smaller than 65535 bytes (most of the time), then the C code only allocates enough space to hold the string.
 
 Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
 ###### Quasi Self References
-Self references in Rust are hard since unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
+Self references in Rust are challenging, since unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
 Fortunately, the C types are only kind of self referential.
-They frequently assume that type A will be immediately followed by type B.
-So we end up with the logical composite type AB.
-This is mostly just a logical construction, and is fairly easy to spot in the C code and handle once you know what to look for. 
+They frequently assume that type A will be immediately followed by type B,
+so we end up with the logical composite type AB.
+This is mostly just a logical construction, and it is fairly easy to spot and handle once you know what to look for. 
 
 ## [tree-sitter-m](./tree-sitter-M)
 For this project, I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
@@ -78,11 +78,11 @@ This crate is responsible for:
   - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the grammar's structure
 
 ## [lang-model](./lang-model/)
-This holds the Rust types wrappers for each of the nodes in the M grammar.
+This holds the Rust type wrappers for each of the nodes in the M grammar.
 The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
 
 ## [ir](./ir/)
-IR stands for intermediate representation and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
+IR stands for intermediate representation, and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
 
 ## [frontend](./frontend/)
 The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
@@ -95,9 +95,9 @@ M has only one primitive value type. This crate is responsible for defining that
 
 ## [symbol_table](./symbol_table/)
 This crate is responsible for managing:
-1. What variables are in scope.
-2. Variable keys and sub-keys.
-3. Shadowing/restoring variables.
+- What variables are in scope
+- Variable keys and sub-keys
+- Shadowing/restoring variables
 
 ## [interpreter](./interpreter/)
 Currently, the crate is responsible for:
@@ -106,18 +106,19 @@ Currently, the crate is responsible for:
 
 ## [lang-server](./lang-server)
 This is a language server for M.
-This was a spur-of-the-moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
-I think there are a lot of neat things you could do with a language server.
+This was a spur-of-the-moment weekend project that more or less only gives you some basic syntax highlighting/syntax error detection.
+There are a lot of useful features I would like to see from an M language server;
+however the rest of the project will have to mature before I can start working on those features. 
 
 Future feature ideas:
-- Find all assumed variables and indirection calls.
-- Renaming variables
+- Find all assumed variables and indirection calls
+- Rename variables
 - Find all references
 - Lint for unused and assumed variables
 - Extract method
 - Introduce package scoping
 
-One of the biggest roadblocks as I see to refactoring in M is the dynamic scoping of variables.
+One of the biggest roadblocks I see to refactoring in M is the dynamic scoping of variables.
 
 Example of dynamic scoping:
 ```
@@ -135,7 +136,7 @@ C()
    q ; i now has the value of 10
 ```
 Dynamic scoping makes it difficult to locally reason about the code.
-This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
+This makes it rather challenging to create automatic refactoring tools even for relatively simple operations like "rename variable".
 
 # Running the Project
 
@@ -148,7 +149,7 @@ Any bugs that I find during the course of creating this clone will be reported b
 NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of the CLI tools
 - `cargo install tree-sitter-cli --version <version> --locked`
 - `cargo install cargo-mutants   --version <version> --locked`
-- You will need clang installed (requirement of bindgen) see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
+- You will need clang installed (requirement of bindgen); see bindgen [documentation](https://rust-lang.github.io/rust-bindgen/requirements.html) for more details.
 
 ## Running Unit Tests
 
@@ -156,7 +157,7 @@ NOTE check the [GitHub actions](./.github/workflows/rust.yml) for the version of
 
 ## Running Fuzz Tests
 
-NOTE: currently fuzzing is only done in the symbol table create.
+NOTE: currently fuzzing is only done in the symbol table crate
 
 - `cargo fuzz list`
 - `cargo fuzz run <fuzzing target>`
@@ -166,7 +167,7 @@ NOTE: currently fuzzing is only done in the symbol table create.
 
 ## Running Mutation Testing
 
-NOTE: this can take a while.
+NOTE: this can take a while
 
 - `cd <crate name>`
 - `cargo mutants`
@@ -182,23 +183,23 @@ The more unit tests I write, the more useful I realize unit tests are, and the l
 Unit tests are code fragments that describe how a "unit" of code is invoked and what behavior is expected from that "unit".
 
 I think unit test should be:
-- Descriptive
-Well written unit test should be able to serve as documentation.
-- Small
+- Descriptive:
+Well written unit tests should be able to serve as documentation.
+- Small:
 If you need more than 20 lines of code to write a unit test, you are probably violating the single responsibility heuristic.
-- Simple
-It should take less than 2 minutes for someone to look at a unit test, understand what it is verifying, and why that is correct.
-- Fast and deterministic
+- Simple:
+It should take less than two minutes for someone to look at a unit test, understand what it is verifying, and why that behavior is correct.
+- Fast and deterministic:
 Unit tests should be run frequently.
-At least once every half an hour, often much more frequently.
+I frequently run them every couple of minutes.
 
-When I was first introduced to unit testing in collage, it was primarily presented as an afterthought, a way to verify your code was correct before turning in the assignment.
-However waiting to write/run unit test until after the code is already in a finished state robs unit tests of most of there utility.
+In college, unit testing was primarily presented as an afterthought, a way to verify your code was correct before turning in the assignment.
+However waiting to write/run unit tests until after the code is already in a finished state robs unit tests of most of there utility.
 
-As I see it there are two main benefits to writing unit test before writing your code.
-- First if it allows you to imagine how your code will be called. 
-If the unit tests are hard to write then the application code is going to be hard to write/maintain.
-- Second once code behavior has been pined down with unit tests, you can fearlessly refactor without worrying about breaking changes.
+As I see it, there are two main benefits to writing unit tests before writing your code.
+- First it allows you to imagine how your code will be called. 
+If the unit tests are hard to write, then the application code is going to be hard to write/maintain.
+- Second, once code behavior has been pined down with unit tests, you can fearlessly refactor without worrying about breaking changes.
 Frequency it is only after a first draft solution that I truly understand the problem I am trying to solve.
 Therefore I will nearly always want to refactor my code at some point in the future.
 With a robust set of unit tests this is a fairly painless and simple process.
@@ -207,8 +208,8 @@ Without them I have to be hyper aware of every change I make, as any change coul
 ## Mutation Testing
 
 ### Concept Overview
-Mutation testing is a technique to check how well a test suite defines the behavior of a codebase.
-This is accomplished by introducing mutations.
+The goal of Mutation Testing is to check how well a test suite defines the behavior of a codebase.
+This goal is accomplished by introducing mutations into the source code (e.g., Small changes like replacing addition with subtraction or less than with less than or equal to).
 If the mutated code can still pass the test suite, then the tests are not fully specifying the system's behavior.
 (It is possible for a mutation to not change the system's behavior, but in this project that should be fairly rare.)
 The main downside to mutation testing is that it takes time to run.
@@ -217,9 +218,9 @@ For each mutation, we may have to run the entire test suite.
 ### Use in Rust-RSM
 I am currently using [cargo-mutants](https://mutants.rs/) to run mutation testing.
 Since mutation testing can take quite a while to run, the CICD pipeline is currently only introducing mutations into the edited hunks of code.
-The expectation is that all generated mutants must be killed or timeout before a branch can be merged into main.
+The expectation is that all mutants must be killed or timeout before a branch can be merged into main.
 
-### General thoughts on the Mutation Testing
+### General Thoughts on Mutation Testing
 Mutation testing is a low effort technique that dramatically increases my confidence in my unit test suite.
 The first time I ran `cargo mutants`, I ended up finding a bug in the test code that would have been impossible to detect using traditional unit testing.
 
@@ -229,7 +230,7 @@ The first time I ran `cargo mutants`, I ended up finding a bug in the test code 
 A foreign function is simply a function that was written in a different programming language.
 In this case, I am calling C code from Rust and vice versa.
 Calling code that was written in a different language requires some extra care:
-- Parameters must match the target language's memory layout.
+- Parameters must match the target language's memory layout
 - The C/Rust compilers don't understand the other language and therefore have to assume the foreign code could do anything.
 
 ### Use in Rust-RSM
@@ -237,12 +238,11 @@ In this project, Rust is responsible for matching the C ABI when cross-language 
 The bindgen and cbindgen tools do most of the heavy lifting by automating the generation of type and function definitions.
 However, there are a few project specific things that have to be kept in mind:
 - Don't blindly trust the generated type definitions.
-The C code uses dynamically sized types, however, the header files/generated Rust types assume these types occupy their max size.
-`CSTRING` is the most commonly used example.
+The original C code uses dynamically sized types; however, the header files/generated Rust types assume these types occupy their max size.
 - Pay extra attention to pointers/pointer arithmetic.
-The C code sometimes allocates memory for multiple structs of different types at once.
-This is particularly prominent in the shared memory segment.
-This can be problematic since Rust assumes every struct can be moved, however, as long as you are aware of this issue, it is fairly easy to work around.
+The original C code sometimes allocates memory for multiple structs of different types at once.
+This pattern is particularly prominent in the shared memory segment and is problematic when verbatim translated into Rust since Rust assumes every struct can be moved.
+However, as long as you are aware of this issue, it is fairly easy to work around.
 - The C code assumes it is single-threaded.
 The C code uses a lot of global variables, and since it assumes it is single-threaded, there are no synchronization guards in place (Atomics, Mutexes, etc.).
 However, Rust unit tests are multi-threaded by default.
@@ -250,7 +250,7 @@ However, Rust unit tests are multi-threaded by default.
 ### General Thoughts on FFI
 Sometimes you just need functionality that was written in another programming language.
 There are a lot of invariants that need to be upheld, but it is manageable with the bindgen and cbindgen build tools.
-It is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
+FFI is not something I would introduce into a project on a whim, but I would also not be afraid of adding it if I needed some specialized functionality.
 
 ## A/B and Property Based Testing
 A/B and Property Testing are two separate concepts, however in this project I frequently use them together.
@@ -263,8 +263,8 @@ A/B testing at its core is testing the invariant, "system A should behave the sa
 Note: Fuzz Testing can be view as Property Based Testing with the invariant: The code does not crash and there are no memory access violations.
 ### Use in Rust-RSM
 A lot of my unit tests so far have been A/B tests. 
-Since this is a rewrite it is fairly easy to create A/B tests however I would like to move away from using this as a primary means of testing.
+Since this project is a rewrite, it is fairly easy to create A/B tests, however I would like to move away from using A/B tests as a primary means of testing.
 The fact that I have the original C code that I can A/B test against is fairly artificial, so I think I will learn more by focusing on other forms of testing.
 
-That being said I think A/B testing can be put to great use checking how well I converted/tested a module of code.
+That being said, I think A/B testing can be put to great use checking how well I converted/tested a module of code.
 If bugs are slipping past my unit tests and are only being caught once I add A/B tests, this is an indication that my unit test writing skills need additional work.
