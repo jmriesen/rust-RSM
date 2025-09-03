@@ -81,20 +81,12 @@ This crate is responsible for:
 This holds the Rust types wrappers for each of the nodes in the M grammar.
 The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json)using a separate personal project.
 
-## [compiler](./compiler/)
-This crate takes the abstract syntax tree (AST) provided by the `lang-model` and converts it into byte code.
-
-This is in some regards the "root" crate. Before I started splitting up the project into multiple crates, everything lived in here.
-As a result, there are still a number of lingering artifacts, type definitions and implementation blocks, that really don't belong in this crate, but still live there since I have not gotten around to cleaning them up.
-
-Additionally, I did not yet understand how the shared memory segment worked when I started writing this crate, so for the most part, it just pretends that the globals in the shared memory segment don't exist.
-
 ## [interpreter](./interpreter/)
 Currently, the crate is responsible for:
 - Creating a database file
 - Setting up the shared memory segment
 
-## [Language Server](./lang-server)
+## [lang-server](./lang-server)
 This is a language server for M.
 This was a spur-of-the-moment weekend project, and more or less only gives you some basic syntax highlighting/syntax error detection.
 I think there are a lot of neat things you could do with a language server.
@@ -126,6 +118,27 @@ C()
 ```
 Dynamic scoping makes it difficult to locally reason about the code.
 This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
+
+## [ir](./ir/)
+IR stands for intermediate representation and this crate holds the Abstract Syntax Tree definition that is output by the frontend and consumed by the backend.
+Eventually I would also like to write and optimizer that can take IR as input and return more efficient IR as output.
+
+## [frontend](./frontend/)
+The frontend is responsible to taking in text input, invoking the tree-sitter-parser and converting the result into IR.
+
+## [backend](./backend/)
+The backend is responsible for taking the IR and converting it into bytecode.
+
+## [value](./value/)
+M has only one primitive value type.
+This crate is responsible for defining that type and all the associated primitive operations.
+ex addition, division, concatenation
+
+## [symbol_table](./symbol_table/)
+This crate is responsible for managing
+1) What variables are in scope.
+2) Variables keys and sub-keys.
+3) Shadowing/restoring variables.
 
 # Running the Project
 
