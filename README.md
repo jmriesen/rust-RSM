@@ -79,7 +79,25 @@ This crate is responsible for:
 
 ## [lang-model](./lang-model/)
 This holds the Rust types wrappers for each of the nodes in the M grammar.
-The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json)using a separate personal project.
+The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
+
+## [ir](./ir/)
+IR stands for intermediate representation and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
+
+## [frontend](./frontend/)
+The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
+
+## [backend](./backend/)
+The Backend is responsible for taking the IR and converting it into bytecode.
+
+## [value](./value/)
+M has only one primitive value type. This crate is responsible for defining that type and all the associated primitive operations, such as addition, division, and concatenation.
+
+## [symbol_table](./symbol_table/)
+This crate is responsible for managing:
+1. What variables are in scope.
+2. Variable keys and sub-keys.
+3. Shadowing/restoring variables.
 
 ## [interpreter](./interpreter/)
 Currently, the crate is responsible for:
@@ -118,24 +136,6 @@ C()
 ```
 Dynamic scoping makes it difficult to locally reason about the code.
 This makes it rather hard to create automatic refactoring tools that preserve behavior even for relatively simple operations like "rename variable".
-
-## [ir](./ir/)
-IR stands for intermediate representation and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
-
-## [frontend](./frontend/)
-The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
-
-## [backend](./backend/)
-The Backend is responsible for taking the IR and converting it into bytecode.
-
-## [value](./value/)
-M has only one primitive value type. This crate is responsible for defining that type and all the associated primitive operations, such as addition, division, and concatenation.
-
-## [symbol_table](./symbol_table/)
-This crate is responsible for managing:
-1. What variables are in scope.
-2. Variable keys and sub-keys.
-3. Shadowing/restoring variables.
 
 # Running the Project
 
