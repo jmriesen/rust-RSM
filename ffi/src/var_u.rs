@@ -1,8 +1,8 @@
 use crate::IntoC;
 use std::array::from_fn;
-use symbol_table::{key::KeyType, MVar, VarU};
+use symbol_table::{key::KeyType, MVar, VariableName};
 
-impl IntoC for VarU {
+impl IntoC for VariableName {
     type CType = crate::bindings::VAR_U;
     fn into_c(self) -> Self::CType {
         let mut content = self.contents().iter().cloned();

@@ -47,10 +47,9 @@ pub struct CreationError;
 /// A pre-allocated `HashTable` with a fixed capacity.
 /// # Error handling
 /// One slot is reserved for holding an error value and will always be available even when the rest
-///
-/// Note the additional slot is used iff the all other slots are already full and then the error
-/// value is inserted.
 /// of the table is full.
+/// Note the additional slot is used iff the all other slots are already full and when the error
+/// value is inserted.
 /// # Optimization
 /// The slots are reused in a FILO manor.
 /// This behavior was present in the original C code and has been ported for completeness.
@@ -123,6 +122,7 @@ where
         self.map.get(key).map(|x| self.slots[*x].as_mut().unwrap())
     }
 
+    /// Remove entry from the table.
     pub fn remove(&mut self, key: &K) {
         if let Some(index) = self.map.remove(key) {
             self.slots[index] = None;
@@ -132,22 +132,22 @@ where
         }
     }
 
-    pub fn remove_if(&mut self, predict: impl Fn(&K) -> bool) {
-        let mut to_be_removed: Vec<_> = self
+    /// For each element in the table:
+    /// Apply the predicate function to that key, if it returns true remove the key from the table
+    pub fn remove_if(&mut self, predicate: impl Fn(&K) -> bool) {
+        let to_be_removed: Vec<_> = self
             .map
-            .extract_if(|key, _| predict(key))
+            .extract_if(|key, _| predicate(key))
             .map(|(_, index)| index)
             .collect();
 
-        //NOTE the only reason I am sorting is so that the order of keys inserted back into open
-        //slots is deterministic
-        to_be_removed.sort_by(|a, b| a.cmp(b).reverse());
         self.open_slots.extend_from_slice(&to_be_removed);
         for index in &to_be_removed {
             self.slots[*index] = None;
         }
     }
 
+    /// Creates an iterator that returns key value pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
         let mut iter: Vec<_> = self.map.iter().collect();
         iter.sort_by_key(|(_, index)| **index);

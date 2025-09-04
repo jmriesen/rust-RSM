@@ -40,7 +40,7 @@ mod hash;
 pub mod key;
 mod m_var;
 mod var_data;
-mod var_u;
+mod variable_name;
 
 pub use hash::CreationError;
 use key::{Key, SubKey};
@@ -48,17 +48,17 @@ pub use m_var::MVar;
 use value::Value;
 use var_data::VarData;
 pub use var_data::{DataResult, Direction};
-pub use var_u::VarU;
+pub use variable_name::VariableName;
 
-impl hash::Key for VarU {
+impl hash::Key for VariableName {
     fn error() -> Self {
-        VarU::new(b"$ECODE").expect("the error key is a valid VarU")
+        VariableName::new(b"$ECODE").expect("the error key is a valid VarU")
     }
 }
 
 /// Stores the information required to restore new-ed variables to there previous state.
 /// This Vec should be treated as a Stack, i.e. FILO.
-type NewFrame = Vec<(VarU, VarData)>;
+type NewFrame = Vec<(VariableName, VarData)>;
 
 /// The a `SymbolTable` stores
 /// 1) What variables are currently in scope.
@@ -66,7 +66,7 @@ type NewFrame = Vec<(VarU, VarData)>;
 /// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
 pub struct SymbolTable {
-    table: hash::HashTable<VarU, VarData>,
+    table: hash::HashTable<VariableName, VarData>,
     stack: Vec<NewFrame>,
 }
 
@@ -103,7 +103,7 @@ impl SymbolTable {
 
     /// Kill all variables except `keep` and intrinsic variables.
     //NOTE not yet mutation tested
-    pub fn keep(&mut self, keep: &[VarU]) {
+    pub fn keep(&mut self, keep: &[VariableName]) {
         self.table
             .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
@@ -188,7 +188,7 @@ impl SymbolTable {
     ///
     /// NOTE A new-ed variable will take up space in the `SymbolTable` table even if the variables
     /// value is never set.
-    pub fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_var(&mut self, vars: &[&VariableName]) -> Result<(), CreationError> {
         // Will panic if there is no current new_frame
         let current_frame = self
             .stack
@@ -203,7 +203,7 @@ impl SymbolTable {
 
     /// News all the variables that exist in the symbol table except for intrinsic variables and
     /// variables specified in the exclude parameter.
-    pub fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_all_but(&mut self, exclude: &[&VariableName]) -> Result<(), CreationError> {
         let vars_to_new: Vec<_> = self
             .table
             .iter()
@@ -218,7 +218,7 @@ impl SymbolTable {
     }
 
     /// Checks if this variables exists anywhere in the `NewFrame` Stack.
-    fn attached(&self, var: &VarU) -> bool {
+    fn attached(&self, var: &VariableName) -> bool {
         self.stack
             .iter()
             .any(|new_frame| new_frame.iter().any(|(new_ed_var, _)| var == new_ed_var))

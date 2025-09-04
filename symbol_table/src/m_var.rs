@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use super::var_u::VarU;
+use super::variable_name::VariableName;
 use serde::{Deserialize, Serialize};
 
 use crate::key::{self, KeyBound};
@@ -37,7 +37,7 @@ use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MVar<Key: key::KeyType> {
-    pub name: VarU,
+    pub name: VariableName,
     pub volset: c_uchar,
     pub uci: c_uchar,
     pub key: Key,
@@ -69,7 +69,7 @@ impl<Key: key::KeyType> From<MVar<Key>> for Value {
 }
 
 impl<Key: key::KeyType> MVar<Key> {
-    pub fn new(name: VarU, key: Key) -> Self {
+    pub fn new(name: VariableName, key: Key) -> Self {
         //TODO All M vars are currently assumed to be local and have a vol set of 0;
         Self {
             name,
@@ -124,10 +124,7 @@ mod tests {
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
-    use crate::{
-        key::{Key, KeyBound},
-        var_u::test_helpers::var_u,
-    };
+    use crate::key::{Key, KeyBound};
     use value::Value;
     #[must_use]
     pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<KeyBound> {
@@ -137,7 +134,7 @@ pub mod test_helpers {
             .collect::<Vec<_>>();
         let key = KeyBound::new(&values).unwrap();
 
-        MVar::new(var_u(name), key)
+        MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
     }
     #[must_use]
     pub fn var_m(name: &str, values: &[&str]) -> MVar<Key> {
@@ -147,14 +144,14 @@ pub mod test_helpers {
             .collect::<Vec<_>>();
         let key = Key::new(&values).unwrap();
 
-        MVar::new(var_u(name), key)
+        MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
     }
 }
 
 #[cfg(feature = "arbitrary")]
 pub mod helpers {
 
-    use super::{MVar, VarU};
+    use super::{MVar, VariableName};
     use arbitrary::Arbitrary;
 
     #[cfg_attr(test, mutants::skip)]
@@ -163,7 +160,7 @@ pub mod helpers {
         Key: Arbitrary<'a> + crate::key::KeyType,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            Ok(MVar::new(VarU::arbitrary(u)?, Key::arbitrary(u)?))
+            Ok(MVar::new(VariableName::arbitrary(u)?, Key::arbitrary(u)?))
         }
     }
 }
