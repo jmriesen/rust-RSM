@@ -23,7 +23,7 @@ This project is a port of the [Reference Standard M](https://gitlab.com/Referenc
 
 ## Why RSM?
 I have always found language design interesting.
-When I learned M workings at Epic, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+When I was learning M workings at Epic, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
 I quickly realized that M was not as simple as I assumed, especially when I tried to add indirection and goto support to my half-baked interpreter.
 Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
 On a whim, I experimented with converting some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
@@ -39,28 +39,28 @@ This crate is responsible for:
 - Exposing a Safe API to the C code
 
 ### Safe API Considerations
-Most of the other crates in this project use the unsafe API currently, but I would like to move towards only exposing a safe API.
+Most of the other crates in this project currently use the Unsafe API, but I would like to move towards only exposing a Safe API.
 
 #### Concurrency Considerations
 The original RSM code was a single threaded/multi process application.
 Because of this, there are many references to global variables without any sort of synchronization control.
-Rust by default runs all of its unit tests in parallel (multi-threaded) so care has to be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
+Rust by default runs all of its unit tests in parallel (multi-threaded), so care must be taken whenever the Rust unit tests call out to C in order to avoid race conditions.
 
 Additionally, C uses a shared memory segment to manage cross process communication.
 
 #### Type Considerations
 There are of course all the normal C vs Rust type considerations.
-However, in addition to those, the original C code makes heavy use of un-sized types and quasi self references types.
+However, in addition to those, the original C code makes heavy use of un-sized types and quasi self referential types.
 
 ###### Dynamically Sized Types
 One fairly common dynamically sized type used in the ordinal C code is `CSTRING`.
-The struct definition claims to hold a `[u_char;65535]`; however in practice that is only the max size for this type.
+The struct definition claims to hold a `[u_char;65535]`; however, in practice that is only the max size for this type.
 If the string is smaller than 65535 bytes (most of the time), then the C code only allocates enough space to hold the string.
 
 Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
-###### Quasi Self References
-Self references in Rust are challenging, since unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
+###### Quasi Self Referential Types.
+Self references in Rust are challenging since, unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
 Fortunately, the C types are only kind of self referential.
 They frequently assume that type A will be immediately followed by type B,
 so we end up with the logical composite type AB.
@@ -82,7 +82,7 @@ This holds the Rust type wrappers for each of the nodes in the M grammar.
 The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
 
 ## [ir](./ir/)
-IR stands for intermediate representation, and this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
+IR stands for intermediate representation; this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
 
 ## [frontend](./frontend/)
 The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
@@ -105,10 +105,9 @@ Currently, the crate is responsible for:
 - Setting up the shared memory segment
 
 ## [lang-server](./lang-server)
-This is a language server for M.
-This was a spur-of-the-moment weekend project that only provides some basic syntax highlighting/syntax error detection.
-There are a lot of useful features I would like to see from an M language server;
-however the rest of the project will have to mature before I can start working on those features. 
+This is a language server for M and was a spur-of-the-moment weekend project that only provides some basic syntax highlighting/syntax error detection.
+There are many useful features I would like to see from an M language server;
+however, the rest of the project will have to mature before I can start working on those features. 
 
 Future feature ideas:
 - Find all assumed variables and indirection calls
@@ -191,15 +190,15 @@ If you need more than 20 lines of code to write a unit test, you are probably vi
 It should take less than two minutes for someone to look at a unit test, understand what it is verifying, and why that behavior is correct.
 - Fast and deterministic:
 Unit tests should be run frequently.
-I frequently run them every couple of minutes.
+I normally run them every couple of minutes.
 
 In college, unit testing was primarily presented as an afterthought, a way to verify your code was correct before turning in the assignment.
-However waiting to write/run unit tests until after the code is already in a finished state robs unit tests of most of there utility.
+However waiting to write/run unit tests until after the code is already in a finished state robs unit tests of most of their utility.
 
 As I see it, there are two main benefits to writing unit tests before writing your code.
-- First it allows you to imagine how your code will be called. 
+- First, it allows you to imagine how your code will be called. 
 If the unit tests are hard to write, then the application code is going to be hard to write/maintain.
-- Second, once code behavior has been pined down with unit tests, you can fearlessly refactor without worrying about breaking changes.
+- Second, once code behavior has been pinned down with unit tests, you can fearlessly refactor without worrying about breaking changes.
 Frequency it is only after a first draft solution that I truly understand the problem I am trying to solve.
 Therefore I will nearly always want to refactor my code at some point in the future.
 With a robust set of unit tests this is a fairly painless and simple process.
@@ -231,19 +230,19 @@ A foreign function is simply a function that was written in a different programm
 In this case, I am calling C code from Rust and vice versa.
 Calling code that was written in a different language requires some extra care:
 - Parameters must match the target language's memory layout
-- From the Rust compiler's viewpoint calling into C code is a black box that could do anything.
-Therefore every ffi call is inherently Unsafe since the Rust compiler cannot verify that [Rust's safety invariants](https://doc.rust-lang.org/nomicon/) are upheld.
+- From the Rust compiler's viewpoint calling into C code is a black box that could do anything;
+therefore, every ffi call is inherently Unsafe since the Rust compiler cannot verify that [Rust's safety invariants](https://doc.rust-lang.org/nomicon/) are upheld.
 
 
 ### Use in Rust-RSM
 In this project, Rust is responsible for matching the C ABI when cross-language calls occur.
 The bindgen and cbindgen tools do most of the heavy lifting by automating the generation of type and function definitions.
-However, there are a few project specific things that have to be kept in mind:
+However, there are a few project specific things that must be kept in mind:
 - Don't blindly trust the generated type definitions.
 The original C code uses dynamically sized types; however, the header files/generated Rust types assume these types occupy their max size.
 - Pay extra attention to pointers/pointer arithmetic.
 The original C code sometimes allocates memory for multiple structs of different types at once.
-This pattern is particularly prominent in the shared memory segment and is problematic when verbatim translated into Rust since Rust assumes every struct can be moved.
+This pattern is particularly prominent in the shared memory segment and is problematic when verbatim translated into Rust, since Rust assumes every struct can be moved.
 However, as long as you are aware of this issue, it is fairly easy to work around.
 - The C code assumes it is single-threaded.
 The C code uses a lot of global variables, and since it assumes it is single-threaded, there are no synchronization guards in place (Atomics, Mutexes, etc.).
@@ -264,12 +263,12 @@ There are a couple of different testing paradigms that can be viewed as verifyin
 | Technique          | Invariant | 
 |--------------------|-----------|
 | Regression testing | The new code behaves just like the old code did.| 
-| Fuzz testing       | The code does not crash and there are no memory access violations.|
+| Fuzz testing       | The code does not crash, and there are no memory access violations.|
 
 ### Use in Rust-RSM
 When I started this project I was primarily combining regression testing with property basted testing.
-I would just run both the original code and my port and compare their results.
-Regression testing in this manor is fairly situation specific and only really applies when porting legacy code. 
+I would run both the original code and my port and compare their results.
+Regression testing in this manner is fairly situation specific and only really applies when porting legacy code. 
 
 I have been moving away from using that technique as a primary means of testing since I figure I will learn more by focusing on other forms of testing.
 
