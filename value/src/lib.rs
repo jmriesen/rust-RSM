@@ -27,12 +27,9 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
 use serde::{Deserialize, Serialize};
 use std::iter;
-pub static EMPTY: Value = Value::empty();
-const MAX_STR_LEN: usize = 65534;
-
+const MAX_STR_LEN: usize = u16::MAX as usize - 1;
 mod convertions;
 pub use convertions::CreationError;
 
@@ -40,23 +37,54 @@ pub use convertions::CreationError;
 mod arbitrary;
 mod number;
 pub use number::Number;
-///This type represents the contents of an M Value.
-///This can store arbitrary data but is most commonly strings.
+/// An M Value.
 ///
-///NOTE There is a `byte_maxs` of 65535 (just like 'CSTRINGS')
-#[derive(Clone, PartialEq, Eq, Deserialize, Serialize)] //NOTE keep the Manual Debug implementation in sync
+/// # Type convertions:
+/// In the M language only has one value type and the expression "a"+"b" is perfectly valid in
+/// M. It evaluates to 0. However I have chosen not to implement math operations directly on the `Value` type.
+///
+/// The internal representation used during arithmetic is significantly different from the representation used
+/// to store arbitrary values. Since converting between the two is nontrivial I want to be explicit
+/// about when the convertions occurs.
+/// ```
+/// use value::{Value,Number};
+/// let a :Number = "a".parse::<Value>().unwrap().into();
+/// let b :Number = "b".parse::<Value>().unwrap().into();
+/// let _ = a +b;
+/// ```
+///
+/// # Errors:
+/// A u16 is used to track the values length.
+/// Trying to convert a byte sequence longer the `u16::MAX` -1 results in an error.
+/// ```
+/// use value::{Value,CreationError};
+/// let long_string :String = std::iter::repeat("a").take(u16::MAX.into()).collect();
+/// assert_eq!(long_string.parse::<Value>(), Err(CreationError::ExceededMaxStringLen))
+/// ```
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Value(Vec<u8>);
 
 impl Value {
+    /// Returns the raw value as a slice of u8s
     #[must_use]
     pub fn content(&self) -> &[u8] {
         &self.0[..]
     }
 
     #[must_use]
+    /// Creates a new empty Value
     pub const fn empty() -> Self {
         Self(Vec::new())
     }
+
+    /// Serialize value into a byte stream
+    ///
+    /// The first two bytes are the length represented as a little endian u16.
+    /// The remaining bytes are content of the Value.
+    ///
+    /// NOTE: This is used to match the C ABI, and should only be used if you need to
+    /// convert to a `ffi::CSTRING`
     pub fn as_bytes(&self) -> impl Iterator<Item = u8> {
         let len: u16 = self
             .0

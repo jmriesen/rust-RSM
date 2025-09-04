@@ -34,7 +34,7 @@ use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
     key::{Key, KeyBound},
-    Direction, MVar, Table,
+    Direction, MVar, SymbolTable,
 };
 use value::Value;
 
@@ -50,7 +50,7 @@ enum TableCommands {
 
 fuzz_target!(|commands: Vec<TableCommands>| -> () {
     {
-        let mut table = Table::new();
+        let mut table = SymbolTable::new();
         let mut c_table = ffi::symbol_table::Table::new();
         for command in commands.into_iter().take(100) {
             match command {

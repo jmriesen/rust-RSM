@@ -1,6 +1,6 @@
 use crate::{MAX_STR_LEN, Value};
 use thiserror::Error;
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum CreationError {
     #[error("Max string length is {MAX_STR_LEN}")]
     ExceededMaxStringLen,

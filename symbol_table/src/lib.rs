@@ -27,7 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-//TODO remove once this module is actually being used.
 #![feature(btree_cursors)]
 #![feature(slice_split_once)]
 #![feature(array_windows)]
@@ -37,7 +36,6 @@
 //It requires documentation on panics that should be unreachable.
 #![allow(clippy::missing_panics_doc)]
 
-//TODO go over and see what can be made private
 mod hash;
 pub mod key;
 mod m_var;
@@ -62,14 +60,19 @@ impl hash::Key for VarU {
 /// This Vec should be treated as a Stack, i.e. FILO.
 type NewFrame = Vec<(VarU, VarData)>;
 
+/// The a `SymbolTable` stores
+/// 1) What variables are currently in scope.
+/// 2) What the value of those variables are.
+/// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
-pub struct Table {
+pub struct SymbolTable {
     table: hash::HashTable<VarU, VarData>,
     stack: Vec<NewFrame>,
 }
 
-impl Table {
+impl SymbolTable {
     #[must_use]
+    /// Create a new empty `SymbolTable`
     pub fn new() -> Self {
         Self::default()
     }
@@ -77,36 +80,42 @@ impl Table {
     ///Gets a value that was stored in the symbol table.
     #[must_use]
     pub fn get(&self, var: &MVar<Key>) -> Option<&Value> {
-        self.table.locate(&var.name)?.value(&var.key)
+        self.table.get(&var.name)?.value(&var.key)
     }
 
-    /// Inserts a value into the symbol table
+    /// Inserts a value into the `SymbolTale` replacing any existing value.
     pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
         self.table
-            .create(var.name.clone())?
+            .create_entry(var.name.clone())?
             .set_value(&var.key, value);
         Ok(())
     }
 
+    /// Removing var including all of its sub-keys.
     pub fn kill(&mut self, var: &MVar<Key>) {
-        if let Some(data) = self.table.locate_mut(&var.name) {
+        if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
             if !(data.has_data() || self.attached(&var.name)) {
-                self.table.free(&var.name);
+                self.table.remove(&var.name);
             }
         }
     }
 
+    /// Kill all variables accept `keep` and intrinsic variables.
     //NOTE not yet mutation tested
-    pub fn keep(&mut self, vars: &[VarU]) {
+    pub fn keep(&mut self, keep: &[VarU]) {
         //Keep anything from the passed in slice and all $ vars
         self.table
-            .remove_if(|x| !(vars.contains(x) || x.is_intrinsic()));
+            .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
 
+    /// The Data M intrinsic function.
+    /// Checks if the specified key
+    /// 1) Has a value.
+    /// 2) Has any sub-keys.
     #[must_use]
     pub fn data(&self, var: &MVar<Key>) -> DataResult {
-        self.table.locate(&var.name).map_or(
+        self.table.get(&var.name).map_or(
             DataResult {
                 has_value: false,
                 has_descendants: false,
@@ -115,11 +124,11 @@ impl Table {
         )
     }
 
-    /// Returns the next record in the variable.
+    /// Returns the next the variable regardless of key-level.
     #[must_use]
     pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
         self.table
-            .locate(&var.name)
+            .get(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
             .map(|key| var.copy_new_key(key))
     }
@@ -132,7 +141,7 @@ impl Table {
         direction: Direction,
     ) -> Option<SubKey<'_>> {
         self.table
-            .locate(&var.name)
+            .get(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
     }
 
@@ -157,11 +166,11 @@ impl Table {
                 if data.has_data() || self.attached(&var) {
                     let slot = self
                         .table
-                        .locate_mut(&var)
+                        .get_mut(&var)
                         .expect("The slot should already exists");
                     *slot = data;
                 } else {
-                    self.table.free(&var);
+                    self.table.remove(&var);
                 }
             }
         }
@@ -187,7 +196,7 @@ impl Table {
             .last_mut()
             .expect("There must be a NewFrame in the stack before you can call new");
         for &var in vars {
-            let slot = self.table.create(var.clone())?;
+            let slot = self.table.create_entry(var.clone())?;
             current_frame.push((var.clone(), std::mem::take(slot)));
         }
         Ok(())

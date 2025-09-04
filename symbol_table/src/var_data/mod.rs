@@ -145,6 +145,7 @@ impl VarData {
     }
 
     pub fn query(&self, key: &KeyBound, direction: Direction) -> Option<Key> {
+        static EMPTY: Value = Value::empty();
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => {
@@ -153,7 +154,7 @@ impl VarData {
                     .prev()
                     //If going backwards we also have to check the root
                     .or((!key.is_empty() && self.value.is_some())
-                        .then_some((&key::EMPTY_BOUND, &value::EMPTY)))
+                        .then_some((&key::EMPTY_BOUND, &EMPTY)))
             }
         }
         .map(|x| {
