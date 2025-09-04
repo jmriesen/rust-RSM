@@ -101,10 +101,9 @@ impl SymbolTable {
         }
     }
 
-    /// Kill all variables accept `keep` and intrinsic variables.
+    /// Kill all variables except `keep` and intrinsic variables.
     //NOTE not yet mutation tested
     pub fn keep(&mut self, keep: &[VarU]) {
-        //Keep anything from the passed in slice and all $ vars
         self.table
             .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
