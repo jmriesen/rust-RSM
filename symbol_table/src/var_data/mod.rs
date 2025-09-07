@@ -27,48 +27,91 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
-
-use serde::{Deserialize, Serialize};
-
 use crate::key::{self, Key, KeyBound};
+use serde::{Deserialize, Serialize};
+use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 use value::{self, Value};
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+/// The direction in which to iterate through a variable's keys.
 pub enum Direction {
     Forward,
     Backward,
 }
 
+/// The result of the $Data intrinsic function.
+///
+/// When converted into a value the first bit represents if the node has descendants.
+/// The second represents if the node has a value.
+/// ```
+/// use value::Value;
+/// use symbol_table::DataResult;
+/// let value = |x| Value::try_from(x).unwrap();
+///       assert_eq!(
+///           value("0"),
+///           DataResult {
+///               has_value: false,
+///               has_descendants: false,
+///           }
+///           .into(),
+///       );
+///       assert_eq!(
+///           value("1"),
+///           DataResult {
+///               has_value: true,
+///               has_descendants: false,
+///           }
+///           .into(),
+///       );
+///       assert_eq!(
+///           value("10"),
+///           DataResult {
+///               has_value: false,
+///               has_descendants: true,
+///           }
+///           .into(),
+///       );
+///       assert_eq!(
+///           value("11"),
+///           DataResult {
+///               has_value: true,
+///               has_descendants: true,
+///           }
+///           .into(),
+///       );
+/// ```
 #[derive(Debug, PartialEq)]
 pub struct DataResult {
+    /// Is the value at the node non-null
     pub has_value: bool,
+    /// Does the node have children.
     pub has_descendants: bool,
 }
 
 impl From<DataResult> for Value {
     fn from(value: DataResult) -> Self {
-        match value {
+        let bytes: &[u8] = match value {
             DataResult {
                 has_value: false,
                 has_descendants: false,
-            } => &b"0"[..],
+            } => b"0",
             DataResult {
                 has_value: true,
                 has_descendants: false,
-            } => &b"1"[..],
+            } => b"1",
             DataResult {
                 has_value: false,
                 has_descendants: true,
-            } => &b"10"[..],
+            } => b"10",
             DataResult {
                 has_value: true,
                 has_descendants: true,
-            } => &b"11"[..],
-        }
-        .try_into()
-        .expect("all data values should convert without issue")
+            } => b"11",
+        };
+        bytes
+            .try_into()
+            .expect("all data values should convert without issue")
     }
 }
 
