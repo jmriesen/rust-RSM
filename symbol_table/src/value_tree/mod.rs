@@ -115,14 +115,20 @@ impl From<DataResult> for Value {
     }
 }
 
-///Data associated for a specific variable
+/// A tree of nullable values.
+/// Tree paths are specified by sequences of keys.
+/// Each layer of the tree is sorted by the key.
 #[derive(Debug, PartialEq, Eq, Default)]
-pub struct VarData {
-    sub_values: BTreeMap<KeyBound, Value>,
+pub struct ValueTree {
+    // Value of the tree root.
     value: Option<Value>,
+    // Values of all the other nodes.
+    // They are internally stored in a flattened in a sorted list structure.
+    sub_values: BTreeMap<KeyBound, Value>,
 }
 
-impl VarData {
+impl ValueTree {
+    /// Get a value of a node.
     pub fn value(&self, key: &Key) -> Option<&Value> {
         let key: &KeyBound = key.borrow();
         if key.is_empty() {
@@ -133,11 +139,12 @@ impl VarData {
             //The C code speed up $O by string a reference to the last used node.
             //I am not doing this right now as it would require making a self referential type
             //and I am not focusing on performance right now. (just correctness)
-            //NOTE you could also probably accomplish the last key thing using using a sorted vec
+            //NOTE you could also probably accomplish the last key thing using a sorted vec
             self.sub_values.get(key)
         }
     }
 
+    /// Sets the value of a given node.
     pub fn set_value(&mut self, key: &Key, data: &Value) {
         let key: &KeyBound = key.borrow();
         if key.is_empty() {
@@ -147,12 +154,13 @@ impl VarData {
         }
     }
 
+    /// Remove a node from the tree.
+    /// This also removes all of that notes children.
     pub fn kill(&mut self, key: &Key) {
         let key: &KeyBound = key.borrow();
         if key.is_empty() {
-            //Clear values
-            self.sub_values = BTreeMap::default();
             self.value = None;
+            self.sub_values = BTreeMap::default();
         } else {
             //NOTE Removing a range of keys seems like something the std BTree map should support,
             //However it looks like there is still some design swirl going on, and the design has
@@ -168,6 +176,9 @@ impl VarData {
         }
     }
 
+    /// Checks if a given node has a value, and if it has descendants.
+    ///
+    /// Corresponds to the M intrinsic data function.
     pub fn data(&self, key: &Key) -> DataResult {
         let key: &KeyBound = key.borrow();
         if key.is_empty() {
@@ -187,6 +198,9 @@ impl VarData {
         }
     }
 
+    /// Returns the path to the next node in the tree.
+    ///
+    /// Corresponds to the M intrinsic query function.
     pub fn query(&self, key: &KeyBound, direction: Direction) -> Option<Key> {
         static EMPTY: Value = Value::empty();
         match direction {
@@ -207,6 +221,8 @@ impl VarData {
         })
     }
 
+    /// Find the next node in the same level as the given node and return the last segment of its
+    /// path.
     pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey<'_>> {
         match direction {
             Direction::Forward => self
@@ -222,7 +238,8 @@ impl VarData {
         .and_then(|x| key.extract_sibling_sub_key(x))
     }
 
-    pub fn has_data(&self) -> bool {
+    /// Check if this tree contains any values.
+    pub fn not_empty(&self) -> bool {
         self.data(&Key::empty())
             != DataResult {
                 has_value: false,

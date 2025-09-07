@@ -1,7 +1,7 @@
 use crate::{
     SymbolTable,
     m_var::test_helpers::{var_m, var_m_nullable},
-    var_data::Direction,
+    value_tree::Direction,
 };
 use value::Value;
 mod data {

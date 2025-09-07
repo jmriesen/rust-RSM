@@ -39,15 +39,15 @@
 mod hash;
 pub mod key;
 mod m_var;
-mod var_data;
+mod value_tree;
 mod variable_name;
 
 pub use hash::CreationError;
 use key::{Key, SubKey};
 pub use m_var::MVar;
 use value::Value;
-use var_data::VarData;
-pub use var_data::{DataResult, Direction};
+use value_tree::ValueTree;
+pub use value_tree::{DataResult, Direction};
 pub use variable_name::VariableName;
 
 impl hash::Key for VariableName {
@@ -58,7 +58,7 @@ impl hash::Key for VariableName {
 
 /// Stores the information required to restore new-ed variables to there previous state.
 /// This Vec should be treated as a Stack, i.e. FILO.
-type NewFrame = Vec<(VariableName, VarData)>;
+type NewFrame = Vec<(VariableName, ValueTree)>;
 
 /// The a `SymbolTable` stores
 /// 1) What variables are currently in scope.
@@ -66,7 +66,7 @@ type NewFrame = Vec<(VariableName, VarData)>;
 /// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
 pub struct SymbolTable {
-    table: hash::HashTable<VariableName, VarData>,
+    table: hash::HashTable<VariableName, ValueTree>,
     stack: Vec<NewFrame>,
 }
 
@@ -95,7 +95,7 @@ impl SymbolTable {
     pub fn kill(&mut self, var: &MVar<Key>) {
         if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
-            if !(data.has_data() || self.attached(&var.name)) {
+            if !(data.not_empty() || self.attached(&var.name)) {
                 self.table.remove(&var.name);
             }
         }
@@ -162,7 +162,7 @@ impl SymbolTable {
             //multiple times.
             for (var, data) in frame.into_iter().rev() {
                 //If there is data to restore OR the variable was new-ed before.
-                if data.has_data() || self.attached(&var) {
+                if data.not_empty() || self.attached(&var) {
                     let slot = self
                         .table
                         .get_mut(&var)
