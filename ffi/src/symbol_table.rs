@@ -36,7 +36,7 @@ use std::{
     sync::{LockResult, Mutex, MutexGuard},
 };
 use symbol_table::{
-    key::{Key, KeyBound},
+    key::{Path, PathBound},
     CreationError, DataResult, Direction, MVar,
 };
 use value::Value;
@@ -57,7 +57,7 @@ impl Table {
         temp
     }
 
-    pub fn set(&mut self, var: &MVar<Key>, data: Value) -> Result<(), CreationError> {
+    pub fn set(&mut self, var: &MVar<Path>, data: Value) -> Result<(), CreationError> {
         let var = var.clone().into_c();
         let data = data.into_c();
         let result = unsafe { ST_Set(from_ref(&var).cast_mut(), from_ref(&data).cast_mut()) };
@@ -70,7 +70,7 @@ impl Table {
         }
     }
 
-    pub fn get(&self, var: &MVar<Key>) -> Option<Value> {
+    pub fn get(&self, var: &MVar<Path>) -> Option<Value> {
         let var = var.clone().into_c();
         let mut buf = [0; 65535];
         let len = unsafe { ST_Get(from_ref(&var).cast_mut(), buf.as_mut_ptr()) };
@@ -90,12 +90,12 @@ impl Table {
             None
         }
     }
-    pub fn kill(&self, var: &MVar<Key>) {
+    pub fn kill(&self, var: &MVar<Path>) {
         let var = var.clone().into_c();
         unsafe { ST_Kill(from_ref(&var).cast_mut()) };
     }
 
-    pub fn data(&self, var: &MVar<Key>) -> DataResult {
+    pub fn data(&self, var: &MVar<Path>) -> DataResult {
         let var = var.clone().into_c();
         let mut buff = [0; 3];
         unsafe { ST_Data(from_ref(&var).cast_mut(), buff.as_mut_ptr()) };
@@ -120,7 +120,7 @@ impl Table {
         }
     }
 
-    pub fn query(&self, var: &MVar<KeyBound>, direction: Direction) -> Value {
+    pub fn query(&self, var: &MVar<PathBound>, direction: Direction) -> Value {
         let mut buf = [0; 65535];
         let mut var = var.clone().into_c();
         if direction == Direction::Backward {
@@ -146,7 +146,7 @@ impl Table {
         })
     }
 
-    pub fn order(&self, var: &MVar<KeyBound>, direction: Direction) -> Value {
+    pub fn order(&self, var: &MVar<PathBound>, direction: Direction) -> Value {
         let mut buf = [0; 65535];
         let mut var = var.clone().into_c();
         if direction == Direction::Backward {

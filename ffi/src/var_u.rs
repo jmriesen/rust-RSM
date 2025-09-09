@@ -1,6 +1,6 @@
 use crate::IntoC;
 use std::array::from_fn;
-use symbol_table::{key::KeyType, MVar, VariableName};
+use symbol_table::{key::PathType, MVar, VariableName};
 
 impl IntoC for VariableName {
     type CType = crate::bindings::VAR_U;
@@ -12,7 +12,7 @@ impl IntoC for VariableName {
     }
 }
 
-impl<Key: KeyType> IntoC for MVar<Key> {
+impl<Key: PathType> IntoC for MVar<Key> {
     type CType = crate::bindings::MVAR;
     fn into_c(self) -> Self::CType {
         let (slen, key) = self.key.borrow().clone().into_ckey();

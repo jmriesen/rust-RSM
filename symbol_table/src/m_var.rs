@@ -30,27 +30,27 @@
 use super::variable_name::VariableName;
 use serde::{Deserialize, Serialize};
 
-use crate::key::{self, KeyBound};
+use crate::key::{self, PathBound};
 use value::Value;
 const UCI_IS_LOCALVAR: u8 = 255;
 use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct MVar<Key: key::KeyType> {
+pub struct MVar<Key: key::PathType> {
     pub name: VariableName,
     pub volset: c_uchar,
     pub uci: c_uchar,
     pub key: Key,
 }
 
-impl<Key: key::KeyType> std::fmt::Display for MVar<Key> {
+impl<Key: key::PathType> std::fmt::Display for MVar<Key> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = Value::from(self.clone());
         write!(f, "{}", String::from_utf8_lossy(value.content()))
     }
 }
 
-impl<Key: key::KeyType> From<MVar<Key>> for Value {
+impl<Key: key::PathType> From<MVar<Key>> for Value {
     fn from(var: MVar<Key>) -> Self {
         assert_eq!(var.uci, UCI_IS_LOCALVAR, "Unimplemented");
         assert_eq!(var.volset, 0, "Unimplemented");
@@ -68,7 +68,7 @@ impl<Key: key::KeyType> From<MVar<Key>> for Value {
     }
 }
 
-impl<Key: key::KeyType> MVar<Key> {
+impl<Key: key::PathType> MVar<Key> {
     pub fn new(name: VariableName, key: Key) -> Self {
         //TODO All M vars are currently assumed to be local and have a vol set of 0;
         Self {
@@ -78,8 +78,8 @@ impl<Key: key::KeyType> MVar<Key> {
             volset: 0,
         }
     }
-    pub fn to_nullable(self) -> MVar<KeyBound> {
-        MVar::<KeyBound> {
+    pub fn to_nullable(self) -> MVar<PathBound> {
+        MVar::<PathBound> {
             name: self.name,
             volset: self.volset,
             uci: self.uci,
@@ -87,7 +87,7 @@ impl<Key: key::KeyType> MVar<Key> {
         }
     }
 
-    pub fn copy_new_key<NewKey: key::KeyType>(&self, key: NewKey) -> MVar<NewKey> {
+    pub fn copy_new_key<NewKey: key::PathType>(&self, key: NewKey) -> MVar<NewKey> {
         MVar::<NewKey> {
             name: self.name.clone(),
             volset: self.volset,
@@ -124,25 +124,25 @@ mod tests {
 #[cfg(test)]
 pub mod test_helpers {
     use super::*;
-    use crate::key::{Key, KeyBound};
+    use crate::key::{Path, PathBound};
     use value::Value;
     #[must_use]
-    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<KeyBound> {
+    pub fn var_m_nullable(name: &str, values: &[&str]) -> MVar<PathBound> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = KeyBound::new(&values).unwrap();
+        let key = PathBound::new(&values).unwrap();
 
         MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
     }
     #[must_use]
-    pub fn var_m(name: &str, values: &[&str]) -> MVar<Key> {
+    pub fn var_m(name: &str, values: &[&str]) -> MVar<Path> {
         let values = values
             .iter()
             .map(|x| Value::try_from(*x).unwrap())
             .collect::<Vec<_>>();
-        let key = Key::new(&values).unwrap();
+        let key = Path::new(&values).unwrap();
 
         MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
     }
@@ -157,7 +157,7 @@ pub mod helpers {
     #[cfg_attr(test, mutants::skip)]
     impl<'a, Key> Arbitrary<'a> for MVar<Key>
     where
-        Key: Arbitrary<'a> + crate::key::KeyType,
+        Key: Arbitrary<'a> + crate::key::PathType,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             Ok(MVar::new(VariableName::arbitrary(u)?, Key::arbitrary(u)?))

@@ -43,7 +43,7 @@ mod value_tree;
 mod variable_name;
 
 pub use hash::CreationError;
-use key::{Key, SubKey};
+use key::{Path, Segment};
 pub use m_var::MVar;
 use value::Value;
 use value_tree::ValueTree;
@@ -79,12 +79,12 @@ impl SymbolTable {
 
     ///Gets a value that was stored in the symbol table.
     #[must_use]
-    pub fn get(&self, var: &MVar<Key>) -> Option<&Value> {
+    pub fn get(&self, var: &MVar<Path>) -> Option<&Value> {
         self.table.get(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the `SymbolTale` replacing any existing value.
-    pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
+    pub fn set(&mut self, var: &MVar<Path>, value: &Value) -> Result<(), CreationError> {
         self.table
             .create_entry(var.name.clone())?
             .set_value(&var.key, value);
@@ -92,7 +92,7 @@ impl SymbolTable {
     }
 
     /// Removing var including all of its sub-keys.
-    pub fn kill(&mut self, var: &MVar<Key>) {
+    pub fn kill(&mut self, var: &MVar<Path>) {
         if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
             if !(data.not_empty() || self.attached(&var.name)) {
@@ -113,7 +113,7 @@ impl SymbolTable {
     /// 1) Has a value.
     /// 2) Has any sub-keys.
     #[must_use]
-    pub fn data(&self, var: &MVar<Key>) -> DataResult {
+    pub fn data(&self, var: &MVar<Path>) -> DataResult {
         self.table.get(&var.name).map_or(
             DataResult {
                 has_value: false,
@@ -125,7 +125,11 @@ impl SymbolTable {
 
     /// Returns the next the variable regardless of key-level.
     #[must_use]
-    pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
+    pub fn query<K: key::PathType>(
+        &self,
+        var: &MVar<K>,
+        direction: Direction,
+    ) -> Option<MVar<Path>> {
         self.table
             .get(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
@@ -134,11 +138,11 @@ impl SymbolTable {
 
     /// Returns the next `sub_key` that is in `MVar` and at the same `sub_key` depth as the provided `MVar`.
     #[must_use]
-    pub fn order<Key: key::KeyType>(
+    pub fn order<Key: key::PathType>(
         &self,
         var: &MVar<Key>,
         direction: Direction,
-    ) -> Option<SubKey<'_>> {
+    ) -> Option<Segment<'_>> {
         self.table
             .get(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))

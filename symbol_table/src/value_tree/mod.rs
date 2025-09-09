@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::key::{self, Key, KeyBound};
+use crate::key::{self, Path, PathBound};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 use value::{self, Value};
@@ -124,13 +124,13 @@ pub struct ValueTree {
     value: Option<Value>,
     // Values of all the other nodes.
     // They are internally stored in a flattened in a sorted list structure.
-    sub_values: BTreeMap<KeyBound, Value>,
+    sub_values: BTreeMap<PathBound, Value>,
 }
 
 impl ValueTree {
     /// Get a value of a node.
-    pub fn value(&self, key: &Key) -> Option<&Value> {
-        let key: &KeyBound = key.borrow();
+    pub fn value(&self, key: &Path) -> Option<&Value> {
+        let key: &PathBound = key.borrow();
         if key.is_empty() {
             self.value.as_ref()
         } else {
@@ -145,8 +145,8 @@ impl ValueTree {
     }
 
     /// Sets the value of a given node.
-    pub fn set_value(&mut self, key: &Key, data: &Value) {
-        let key: &KeyBound = key.borrow();
+    pub fn set_value(&mut self, key: &Path, data: &Value) {
+        let key: &PathBound = key.borrow();
         if key.is_empty() {
             self.value = Some(data.clone());
         } else {
@@ -156,8 +156,8 @@ impl ValueTree {
 
     /// Remove a node from the tree.
     /// This also removes all of that notes children.
-    pub fn kill(&mut self, key: &Key) {
-        let key: &KeyBound = key.borrow();
+    pub fn kill(&mut self, key: &Path) {
+        let key: &PathBound = key.borrow();
         if key.is_empty() {
             self.value = None;
             self.sub_values = BTreeMap::default();
@@ -179,8 +179,8 @@ impl ValueTree {
     /// Checks if a given node has a value, and if it has descendants.
     ///
     /// Corresponds to the M intrinsic data function.
-    pub fn data(&self, key: &Key) -> DataResult {
-        let key: &KeyBound = key.borrow();
+    pub fn data(&self, key: &Path) -> DataResult {
+        let key: &PathBound = key.borrow();
         if key.is_empty() {
             DataResult {
                 has_value: self.value.is_some(),
@@ -201,8 +201,9 @@ impl ValueTree {
     /// Returns the path to the next node in the tree.
     ///
     /// Corresponds to the M intrinsic query function.
-    pub fn query(&self, key: &KeyBound, direction: Direction) -> Option<Key> {
+    pub fn query(&self, key: &PathBound, direction: Direction) -> Option<Path> {
         static EMPTY: Value = Value::empty();
+        static EMPTY_BOUND: PathBound = PathBound::empty();
         match direction {
             Direction::Forward => self.sub_values.lower_bound(Bound::Excluded(key)).next(),
             Direction::Backward => {
@@ -210,8 +211,7 @@ impl ValueTree {
                     .upper_bound(Bound::Excluded(&key.wrap_if_null_tail()))
                     .prev()
                     //If going backwards we also have to check the root
-                    .or((!key.is_empty() && self.value.is_some())
-                        .then_some((&key::EMPTY_BOUND, &EMPTY)))
+                    .or((!key.is_empty() && self.value.is_some()).then_some((&EMPTY_BOUND, &EMPTY)))
             }
         }
         .map(|x| {
@@ -223,7 +223,7 @@ impl ValueTree {
 
     /// Find the next node in the same level as the given node and return the last segment of its
     /// path.
-    pub fn order(&self, key: &KeyBound, direction: Direction) -> Option<crate::key::SubKey<'_>> {
+    pub fn order(&self, key: &PathBound, direction: Direction) -> Option<crate::key::Segment<'_>> {
         match direction {
             Direction::Forward => self
                 .sub_values
@@ -240,7 +240,7 @@ impl ValueTree {
 
     /// Check if this tree contains any values.
     pub fn not_empty(&self) -> bool {
-        self.data(&Key::empty())
+        self.data(&Path::empty())
             != DataResult {
                 has_value: false,
                 has_descendants: false,
