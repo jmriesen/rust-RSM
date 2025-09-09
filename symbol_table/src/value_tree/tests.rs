@@ -1,11 +1,10 @@
 use crate::{
     SymbolTable,
     m_var::test_helpers::{var_m, var_m_nullable},
-    var_data::Direction,
+    value_tree::Direction,
 };
 use value::Value;
 mod data {
-    use crate::var_data::DataResult;
 
     use super::*;
 
@@ -61,38 +60,6 @@ mod data {
         let _ = table.set(&b, &data);
         let _ = table.set(&c, &data);
         assert!(!dbg!(table.data(&b)).has_descendants);
-    }
-
-    #[test]
-    fn into_value() {
-        assert_eq!(
-            Value::try_from("0").unwrap(),
-            Value::from(DataResult {
-                has_value: false,
-                has_descendants: false,
-            }),
-        );
-        assert_eq!(
-            Value::try_from("1").unwrap(),
-            Value::from(DataResult {
-                has_value: true,
-                has_descendants: false,
-            }),
-        );
-        assert_eq!(
-            Value::try_from("10").unwrap(),
-            Value::from(DataResult {
-                has_value: false,
-                has_descendants: true,
-            }),
-        );
-        assert_eq!(
-            Value::try_from("11").unwrap(),
-            Value::from(DataResult {
-                has_value: true,
-                has_descendants: true,
-            }),
-        );
     }
 }
 

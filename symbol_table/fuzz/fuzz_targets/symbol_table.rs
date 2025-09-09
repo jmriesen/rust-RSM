@@ -33,19 +33,19 @@ use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use serde::{Deserialize, Serialize};
 use symbol_table::{
-    key::{Key, KeyBound},
+    key::{Path, PathBound},
     Direction, MVar, SymbolTable,
 };
 use value::Value;
 
 #[derive(Arbitrary, Debug, Deserialize, Serialize)]
 enum TableCommands {
-    Set(MVar<Key>, Value),
-    Get(MVar<Key>),
-    Kill(MVar<Key>),
-    Data(MVar<Key>),
-    Query(MVar<KeyBound>, Direction),
-    Order(MVar<KeyBound>, Direction),
+    Set(MVar<Path>, Value),
+    Get(MVar<Path>),
+    Kill(MVar<Path>),
+    Data(MVar<Path>),
+    Query(MVar<PathBound>, Direction),
+    Order(MVar<PathBound>, Direction),
 }
 
 fuzz_target!(|commands: Vec<TableCommands>| -> () {

@@ -41,7 +41,7 @@
 /// the digits of a negative number are stored as nines complement.
 /// [`INT_ZERO_POINT`-x, ..x bytes.., ..., 0] = negative number; x is # of integer digits (base 10)
 /// [`STRING_FLAG`,..., 0] = string (if numbers are to large they are stored as strings.
-use super::{Error, SubKey};
+use super::{PathCreationError, Segment};
 use value::Value;
 
 pub const MAX_SUB_LEN: usize = 127;
@@ -76,7 +76,7 @@ pub enum IntermediateRepresentation<'a> {
 }
 
 impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
-    type Error = Error;
+    type Error = PathCreationError;
 
     fn try_from(value: &'a Value) -> Result<Self, Self::Error> {
         let contents = value.content();
@@ -84,13 +84,13 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
             //TODO consider reevaluating where this should be enforced.
             //If the goal of this is to prevent a buffer overflow then it should really be owned by
             //KeyList
-            Err(Error::SubscriptToLarge)
+            Err(PathCreationError::PathToLong)
         } else if contents.is_empty() {
             Ok(Self::Null)
         } else if contents == [b'0'] {
             Ok(Self::Zero)
         } else if contents.contains(&b'\0') {
-            Err(Error::SubKeyContainsNull)
+            Err(PathCreationError::NullByteInPath)
         } else {
             //Attempt to parse as a number
             let negative = contents.starts_with(&[b'-']);
@@ -138,8 +138,8 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
     }
 }
 
-impl<'a> From<SubKey<'a>> for IntermediateRepresentation<'a> {
-    fn from(value: SubKey<'a>) -> Self {
+impl<'a> From<Segment<'a>> for IntermediateRepresentation<'a> {
+    fn from(value: Segment<'a>) -> Self {
         let flag = value.0[0];
         let data = &value.0[1..value.0.len() - 1]; //don't include flag or end marker
         match flag {

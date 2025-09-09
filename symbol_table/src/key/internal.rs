@@ -27,12 +27,12 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::key::SubKey;
+use crate::key::Segment;
 use value::Value;
 
 pub const MAX_KEY_SIZE: usize = 255;
 
-use super::{Error, Iter, Key, KeyBound, format};
+use super::{Path, PathBound, PathCreationError, SegmentIterator, format};
 
 use super::IntermediateRepresentation;
 
@@ -44,22 +44,22 @@ impl<'a> IntermediateRepresentation<'a> {
     }
 }
 
-impl TryFrom<KeyBound> for Key {
+impl TryFrom<PathBound> for Path {
     type Error = ();
 
-    fn try_from(value: KeyBound) -> Result<Self, Self::Error> {
+    fn try_from(value: PathBound) -> Result<Self, Self::Error> {
         if value.has_trailing_null() {
             Err(())
         } else {
-            Ok(Key(value))
+            Ok(Path(value))
         }
     }
 }
 
-impl KeyBound {
-    pub fn push(self, src: &Value) -> Result<Self, Error> {
+impl PathBound {
+    pub fn push(self, src: &Value) -> Result<Self, PathCreationError> {
         if self.has_trailing_null() {
-            Err(Error::SubKeyIsNull)
+            Err(PathCreationError::NullNonTerminalSegment)
         } else {
             //Pulling Vec out of Self since I may break NullableKey invariants.
             let mut data = self.0;
@@ -67,7 +67,7 @@ impl KeyBound {
             sub_key.push_internal_fmt(&mut data);
 
             if data.len() > MAX_KEY_SIZE {
-                Err(Error::KeyToLarge)
+                Err(PathCreationError::SegmentToLarge)
             } else {
                 Ok(Self(data))
             }
@@ -118,13 +118,13 @@ impl KeyBound {
 
     ///Returns a new key that corresponds to the maximum subscript of the input key.
     #[must_use]
-    pub fn upper_subscript_bound(&self) -> KeyBound {
+    pub fn upper_subscript_bound(&self) -> PathBound {
         let mut modified_key = self.0.clone();
         modified_key.extend(format::MAX_SUB_KEY);
-        KeyBound(modified_key)
+        PathBound(modified_key)
     }
     #[must_use]
-    pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<SubKey<'a>> {
+    pub fn extract_sibling_sub_key<'a>(&self, other: &'a Self) -> Option<Segment<'a>> {
         //NOTE This was not written to be preferment, just correct.
         //This should totally be possible to do without any additional allocations.
         let mut keys: Vec<_> = self.iter().collect();
@@ -141,18 +141,18 @@ impl KeyBound {
     }
 }
 
-impl<'a> std::iter::Iterator for Iter<'a> {
-    type Item = SubKey<'a>;
+impl<'a> std::iter::Iterator for SegmentIterator<'a> {
+    type Item = Segment<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let key_end = IntermediateRepresentation::seek_key_end(self.tail)?;
         let (key, tail) = self.tail.split_at(key_end);
         self.tail = tail;
-        Some(SubKey(&key[..key.len()]))
+        Some(Segment(&key[..key.len()]))
     }
 }
 
-impl Ord for KeyBound {
+impl Ord for PathBound {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let min_len = self.0.len().min(other.0.len());
         match self.0[..min_len].cmp(&other.0[..min_len]) {
@@ -163,7 +163,7 @@ impl Ord for KeyBound {
     }
 }
 
-impl PartialOrd for KeyBound {
+impl PartialOrd for PathBound {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -172,14 +172,14 @@ impl PartialOrd for KeyBound {
 mod tests {
     use std::str::FromStr;
 
-    use crate::key::KeyBound;
+    use crate::key::PathBound;
 
     use value::Value;
     #[test]
     fn extract_sibling_key() {
         let to_key = |keys: &[&'static str]| {
             let keys: Vec<_> = keys.iter().map(|x| Value::from_str(x).unwrap()).collect();
-            KeyBound::new(&keys).unwrap()
+            PathBound::new(&keys).unwrap()
         };
         let foo_bar = to_key(&["foo", "bar"]);
         let foo_zar = to_key(&["foo", "zar"]);

@@ -31,48 +31,48 @@
 #![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
+use thiserror::Error;
 use value::Value;
 use format::IntermediateRepresentation;
 
-//TODO Key max length is `MAX_KEY_SIZE` so I should be able to replace this with an array
-
-/// Keys represent a sequence of subscript that can be used to **store a value** withing a variable.
-/// In the variable foo(1,"subscript","bar"), (1,"subscript","bar") is the Key.
+/// Path to a node in a `ValueTree`.
 ///
+/// # Optimization
 /// There internal format has been optimized for sorting.
+/// Each comparison should just be a memcmp.
 #[derive(Eq, PartialEq, Clone,Debug,Serialize,Deserialize)]
-pub struct Key(KeyBound);
+pub struct Path(PathBound);
 
-/// Keys represent a sequence of subscript that can be used to **specify a bound** withing a variable.
-/// If the final subscript in a `KeyBound` is "", the key will be treated as a lower bound when going
+/// Specifies a path before, after, or to a node in a `ValueTree`.
+/// 
+/// If the final segment in a path is "" the path will be treated as a lower bound when going
 /// forwards, and an upper bound while going backwards.
 #[derive(Eq, PartialEq, Clone,Serialize,Deserialize)]
-pub struct KeyBound(Vec<u8>);
+pub struct PathBound(Vec<u8>);
 
-/// Represents one segment of a key.
-/// If we have the `MVar` foo("a","b") "a" is one segment of the key ("a","b").
+/// Represents one segment of a `Path`.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub struct SubKey<'a>(&'a [u8]);
-pub struct Iter<'a> {
+pub struct Segment<'a>(&'a [u8]);
+pub struct SegmentIterator<'a> {
     tail: &'a [u8],
 }
 
+
 /// Errors that can occur while trying to create a key.
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    /// Attempting to create a subscript larger then `MAX_SUB_LEN`
-    SubscriptToLarge,
-    /// Subscripts are not allowed to contain a null byte.
-    SubKeyContainsNull,
-    /// Attempting to create a key with length greater then `MAX_KEY_SIZE`
-    KeyToLarge,
-    /// Attempting to push a new subscript into a key that ends in null.
-    SubKeyIsNull,
+#[derive(Debug, PartialEq,Error)]
+pub enum PathCreationError {
+    #[error("The maximum path length is {}",format::MAX_SUB_LEN)]
+    PathToLong,
+    #[error("Null bytes are not alloed in a path")]
+    NullByteInPath,
+    #[error("The maximum segment length is {}",internal::MAX_KEY_SIZE)]
+    SegmentToLarge,
+    #[error("Null segments(\"\") are only allowed at the end of a path.")]
+    NullNonTerminalSegment,
 }
 
-pub static EMPTY_BOUND:KeyBound = KeyBound::empty();
 pub mod conversions {
-    use super::{IntermediateRepresentation, Iter, Key, KeyBound, SubKey, Value};
+    use super::{IntermediateRepresentation, SegmentIterator, Path, PathBound, Segment, Value};
 
     /// `KeyType` is used to represent either type of Key and is used as a genetic type bound
     /// to reduce code duplication.
@@ -80,26 +80,27 @@ pub mod conversions {
     /// Mostly this type is used as a way of converting Keys into `KeyBounds`.
     /// The `BTree` API bound API kind of forces me to store/interact with everything using the
     /// `KeyBound` type.
-    pub trait KeyType:
-        std::borrow::Borrow<KeyBound> + Clone + Into<KeyBound> + PartialEq + Eq
+    pub trait PathType:
+        std::borrow::Borrow<PathBound> + Clone + Into<PathBound> + PartialEq + Eq
     {
     }
-    impl KeyType for KeyBound {}
-    impl KeyType for Key {}
+    impl PathType for PathBound {}
+    impl PathType for Path {}
 
-    impl std::borrow::Borrow<KeyBound> for Key {
-        fn borrow(&self) -> &KeyBound {
+    // All Paths can be treated as path bounds
+    impl std::borrow::Borrow<PathBound> for Path {
+        fn borrow(&self) -> &PathBound {
             &self.0
         }
     }
-    impl From<Key> for KeyBound {
-        fn from(value: Key) -> Self {
+    impl From<Path> for PathBound {
+        fn from(value: Path) -> Self {
             value.0
         }
     }
 
-    impl<'a> From<SubKey<'a>> for Value {
-        fn from(value: SubKey<'a>) -> Self {
+    impl<'a> From<Segment<'a>> for Value {
+        fn from(value: Segment<'a>) -> Self {
             IntermediateRepresentation::from(value)
                 .external_fmt(false)
                 .as_slice()
@@ -110,33 +111,33 @@ pub mod conversions {
 
     //This lint seems to be a false positive.
     #[allow(clippy::into_iter_without_iter)]
-    impl<'a> IntoIterator for &'a KeyBound {
-        type IntoIter = Iter<'a>;
-        type Item = SubKey<'a>;
+    impl<'a> IntoIterator for &'a PathBound {
+        type IntoIter = SegmentIterator<'a>;
+        type Item = Segment<'a>;
         fn into_iter(self) -> Self::IntoIter {
             self.iter()
         }
     }
 }
-pub use conversions::KeyType;
+pub use conversions::PathType;
 use serde::{Deserialize, Serialize};
 
-impl Key {
-    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, Error> {
+impl Path {
+    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, PathCreationError> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
-            Err(Error::SubKeyIsNull)
+            Err(PathCreationError::NullNonTerminalSegment)
         } else {
-            Ok(Self(KeyBound::new(values)?))
+            Ok(Self(PathBound::new(values)?))
         }
     }
 
     #[must_use] pub const fn empty() -> Self {
-        Self(KeyBound::empty())
+        Self(PathBound::empty())
     }
 }
 
-impl KeyBound {
-    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, Error> {
+impl PathBound {
+    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value>) -> Result<Self, PathCreationError> {
         let mut key = Self(Vec::new());
         for value in values {
             key = key.push(value)?;
@@ -176,8 +177,8 @@ impl KeyBound {
     }
 
     #[must_use]
-    pub fn iter(&self) -> Iter<'_> {
-        Iter { tail: &self.0[..] }
+    pub fn iter(&self) -> SegmentIterator<'_> {
+        SegmentIterator { tail: &self.0[..] }
     }
 
     #[must_use] pub const fn empty() -> Self {
@@ -186,7 +187,7 @@ impl KeyBound {
 }
 
 #[cfg_attr(test, mutants::skip)]
-impl std::fmt::Debug for KeyBound {
+impl std::fmt::Debug for PathBound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list()
             .entries(self.iter().map(Value::from))
@@ -197,9 +198,9 @@ impl std::fmt::Debug for KeyBound {
 #[cfg_attr(test, mutants::skip)]
 #[cfg(feature = "arbitrary")]
 mod fuzzing {
-    use super::{Key, KeyBound};
+    use super::{Path, PathBound};
     use arbitrary::Arbitrary;
-    impl<'a> Arbitrary<'a> for Key {
+    impl<'a> Arbitrary<'a> for Path {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -209,7 +210,7 @@ mod fuzzing {
         }
     }
 
-    impl<'a> Arbitrary<'a> for KeyBound {
+    impl<'a> Arbitrary<'a> for PathBound {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let keys: Vec<_> = u.arbitrary()?;
             match Self::new(&keys) {
@@ -236,10 +237,10 @@ mod tests {
 
     #[test]
     fn subscripts_have_a_max_size() {
-        assert!(KeyBound::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
+        assert!(PathBound::new([&generate_value("a", MAX_SUB_LEN)]).is_ok());
         assert_eq!(
-            KeyBound::new([&generate_value("a", MAX_SUB_LEN + 1)]),
-            Err(Error::SubscriptToLarge)
+            PathBound::new([&generate_value("a", MAX_SUB_LEN + 1)]),
+            Err(PathCreationError::PathToLong)
         );
     }
 
@@ -249,7 +250,7 @@ mod tests {
         const SUBSCRIPT_STORAGE_OVERHEAD: usize = 2;
 
         //NOTE I have to use multiple subscripts due to limit on subscript length.
-        assert!(KeyBound::new([
+        assert!(PathBound::new([
             &generate_value("a", MAX_SUB_LEN),
             &generate_value(
                 "a",
@@ -261,7 +262,7 @@ mod tests {
         .is_ok());
 
         assert_eq!(
-            KeyBound::new([
+            PathBound::new([
                 &generate_value("a", MAX_SUB_LEN),
                 &generate_value(
                     "a",
@@ -271,27 +272,27 @@ mod tests {
                     +1 // Pushing us over the limit.
                 ),
             ]),
-            Err(Error::KeyToLarge)
+            Err(PathCreationError::SegmentToLarge)
         );
     }
 
     #[test]
     fn subscript_values_can_not_contain_null_byte() {
-        let result = KeyBound::new([&"a\0b".try_into().unwrap()]);
-        assert_eq!(result, Err(Error::SubKeyContainsNull));
+        let result = PathBound::new([&"a\0b".try_into().unwrap()]);
+        assert_eq!(result, Err(PathCreationError::NullByteInPath));
     }
 
     #[test]
     fn null_subscripts_are_only_valid_as_the_last_subscript_of_a_key_bound() {
         let value = generate_value("a", 1);
-        assert!(KeyBound::new(&[Value::empty()]).is_ok());
-        assert!(KeyBound::new(&[value.clone(), Value::empty(),]).is_ok());
+        assert!(PathBound::new(&[Value::empty()]).is_ok());
+        assert!(PathBound::new(&[value.clone(), Value::empty(),]).is_ok());
         assert_eq!(
-            KeyBound::new(&[Value::empty(), value]),
-            Err(Error::SubKeyIsNull)
+            PathBound::new(&[Value::empty(), value]),
+            Err(PathCreationError::NullNonTerminalSegment)
         );
 
-        assert_eq!(Key::new(&[Value::empty()]), Err(Error::SubKeyIsNull));
+        assert_eq!(Path::new(&[Value::empty()]), Err(PathCreationError::NullNonTerminalSegment));
     }
 
     #[test]
@@ -299,7 +300,7 @@ mod tests {
         // This assert is just here to stop a mutation testing false positive.
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
 
-        let key = KeyBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)])
+        let key = PathBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)])
         .unwrap();
         assert!(matches!(
             key.iter().next().unwrap().into(),
@@ -310,7 +311,7 @@ mod tests {
     #[test]
     fn trailing_slash_leading_dots_and_zeros() {
         //Things that should be strings
-        let strings = KeyBound::new(
+        let strings = PathBound::new(
             [".", "-.", "1.", ".10", "01", "0.1", "1.1.1", "string"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -324,7 +325,7 @@ mod tests {
         }
 
         //Things that should **Not** be strings
-        let non_strings = KeyBound::new(
+        let non_strings = PathBound::new(
             [".1", "10", ".01"]
                 .map(|x| Value::try_from(x).unwrap())
                 .iter(),
@@ -340,8 +341,8 @@ mod tests {
 
     #[test]
     fn sorting_order_negative_positive_strings() {
-        let keys: [KeyBound; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
-            .map(|x| KeyBound::new([&x.try_into().unwrap()]).unwrap());
+        let keys: [PathBound; 7] = ["", "-9.9", "-9", "0", "9", "9.9", "string"]
+            .map(|x| PathBound::new([&x.try_into().unwrap()]).unwrap());
         for [a, b] in keys.array_windows() {
             assert!(a < b);
         }
@@ -352,7 +353,7 @@ mod tests {
         let values: Vec<Value> = ["-9.9", "-9", "0", "9", "9.9", "string", ""]
             .map(|x| x.try_into().unwrap())
             .to_vec();
-        let key = KeyBound::new(&values).unwrap();
+        let key = PathBound::new(&values).unwrap();
         for (expected, actual) in values.iter().zip(key.iter()) {
             assert_eq!(expected, &actual.into());
         }

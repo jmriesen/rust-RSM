@@ -39,26 +39,26 @@
 mod hash;
 pub mod key;
 mod m_var;
-mod var_data;
-mod var_u;
+mod value_tree;
+mod variable_name;
 
 pub use hash::CreationError;
-use key::{Key, SubKey};
+use key::{Path, Segment};
 pub use m_var::MVar;
 use value::Value;
-use var_data::VarData;
-pub use var_data::{DataResult, Direction};
-pub use var_u::VarU;
+use value_tree::ValueTree;
+pub use value_tree::{DataResult, Direction};
+pub use variable_name::VariableName;
 
-impl hash::Key for VarU {
+impl hash::Key for VariableName {
     fn error() -> Self {
-        VarU::new(b"$ECODE").expect("the error key is a valid VarU")
+        VariableName::new(b"$ECODE").expect("the error key is a valid VarU")
     }
 }
 
 /// Stores the information required to restore new-ed variables to there previous state.
 /// This Vec should be treated as a Stack, i.e. FILO.
-type NewFrame = Vec<(VarU, VarData)>;
+type NewFrame = Vec<(VariableName, ValueTree)>;
 
 /// The a `SymbolTable` stores
 /// 1) What variables are currently in scope.
@@ -66,7 +66,7 @@ type NewFrame = Vec<(VarU, VarData)>;
 /// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
 pub struct SymbolTable {
-    table: hash::HashTable<VarU, VarData>,
+    table: hash::HashTable<VariableName, ValueTree>,
     stack: Vec<NewFrame>,
 }
 
@@ -79,12 +79,12 @@ impl SymbolTable {
 
     ///Gets a value that was stored in the symbol table.
     #[must_use]
-    pub fn get(&self, var: &MVar<Key>) -> Option<&Value> {
+    pub fn get(&self, var: &MVar<Path>) -> Option<&Value> {
         self.table.get(&var.name)?.value(&var.key)
     }
 
     /// Inserts a value into the `SymbolTale` replacing any existing value.
-    pub fn set(&mut self, var: &MVar<Key>, value: &Value) -> Result<(), CreationError> {
+    pub fn set(&mut self, var: &MVar<Path>, value: &Value) -> Result<(), CreationError> {
         self.table
             .create_entry(var.name.clone())?
             .set_value(&var.key, value);
@@ -92,19 +92,18 @@ impl SymbolTable {
     }
 
     /// Removing var including all of its sub-keys.
-    pub fn kill(&mut self, var: &MVar<Key>) {
+    pub fn kill(&mut self, var: &MVar<Path>) {
         if let Some(data) = self.table.get_mut(&var.name) {
             data.kill(&var.key);
-            if !(data.has_data() || self.attached(&var.name)) {
+            if !(data.not_empty() || self.attached(&var.name)) {
                 self.table.remove(&var.name);
             }
         }
     }
 
-    /// Kill all variables accept `keep` and intrinsic variables.
+    /// Kill all variables except `keep` and intrinsic variables.
     //NOTE not yet mutation tested
-    pub fn keep(&mut self, keep: &[VarU]) {
-        //Keep anything from the passed in slice and all $ vars
+    pub fn keep(&mut self, keep: &[VariableName]) {
         self.table
             .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
@@ -114,7 +113,7 @@ impl SymbolTable {
     /// 1) Has a value.
     /// 2) Has any sub-keys.
     #[must_use]
-    pub fn data(&self, var: &MVar<Key>) -> DataResult {
+    pub fn data(&self, var: &MVar<Path>) -> DataResult {
         self.table.get(&var.name).map_or(
             DataResult {
                 has_value: false,
@@ -126,7 +125,11 @@ impl SymbolTable {
 
     /// Returns the next the variable regardless of key-level.
     #[must_use]
-    pub fn query<K: key::KeyType>(&self, var: &MVar<K>, direction: Direction) -> Option<MVar<Key>> {
+    pub fn query<K: key::PathType>(
+        &self,
+        var: &MVar<K>,
+        direction: Direction,
+    ) -> Option<MVar<Path>> {
         self.table
             .get(&var.name)
             .and_then(|data| data.query(var.key.borrow(), direction))
@@ -135,11 +138,11 @@ impl SymbolTable {
 
     /// Returns the next `sub_key` that is in `MVar` and at the same `sub_key` depth as the provided `MVar`.
     #[must_use]
-    pub fn order<Key: key::KeyType>(
+    pub fn order<Key: key::PathType>(
         &self,
         var: &MVar<Key>,
         direction: Direction,
-    ) -> Option<SubKey<'_>> {
+    ) -> Option<Segment<'_>> {
         self.table
             .get(&var.name)
             .and_then(|data| data.order(var.key.borrow(), direction))
@@ -163,7 +166,7 @@ impl SymbolTable {
             //multiple times.
             for (var, data) in frame.into_iter().rev() {
                 //If there is data to restore OR the variable was new-ed before.
-                if data.has_data() || self.attached(&var) {
+                if data.not_empty() || self.attached(&var) {
                     let slot = self
                         .table
                         .get_mut(&var)
@@ -189,7 +192,7 @@ impl SymbolTable {
     ///
     /// NOTE A new-ed variable will take up space in the `SymbolTable` table even if the variables
     /// value is never set.
-    pub fn new_var(&mut self, vars: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_var(&mut self, vars: &[&VariableName]) -> Result<(), CreationError> {
         // Will panic if there is no current new_frame
         let current_frame = self
             .stack
@@ -204,7 +207,7 @@ impl SymbolTable {
 
     /// News all the variables that exist in the symbol table except for intrinsic variables and
     /// variables specified in the exclude parameter.
-    pub fn new_all_but(&mut self, exclude: &[&VarU]) -> Result<(), CreationError> {
+    pub fn new_all_but(&mut self, exclude: &[&VariableName]) -> Result<(), CreationError> {
         let vars_to_new: Vec<_> = self
             .table
             .iter()
@@ -219,7 +222,7 @@ impl SymbolTable {
     }
 
     /// Checks if this variables exists anywhere in the `NewFrame` Stack.
-    fn attached(&self, var: &VarU) -> bool {
+    fn attached(&self, var: &VariableName) -> bool {
         self.stack
             .iter()
             .any(|new_frame| new_frame.iter().any(|(new_ed_var, _)| var == new_ed_var))

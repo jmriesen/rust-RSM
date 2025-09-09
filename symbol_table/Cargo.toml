@@ -9,6 +9,7 @@ arrayvec = {version = "0.7.6",features = ["serde"]}
 value = { path = "../value/" ,features= ["arbitrary"]}
 ron = "0.8.1"
 serde = { version = "1.0.210", features = ["derive"] }
+thiserror = "2.0.16"
 
 [dev-dependencies]
 rstest = "0.22.0"
