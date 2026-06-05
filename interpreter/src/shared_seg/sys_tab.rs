@@ -58,17 +58,15 @@ impl Deref for MetaDataTabLayout {
 }
 impl MetaDataTabLayout {
     pub fn new(jobs: u32, lock_size: Pages) -> Self {
-        Self(unsafe {
-            TabLayout::new(
-                TypedLayout::new(),
-                //I am not sure what this u_int section is for.
-                TypedArrayLayout::new((jobs * MAX_VOL) as usize),
-                TypedArrayLayout::new(jobs as usize),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(Bytes::from(lock_size).0 + 100),
-            )
-        })
+        Self(TabLayout::new(
+            TypedLayout::new(),
+            //I am not sure what this u_int section is for.
+            TypedArrayLayout::new((jobs * MAX_VOL) as usize),
+            TypedArrayLayout::new(jobs as usize),
+            TypedArrayLayout::new(0),
+            TypedArrayLayout::new(0),
+            TypedArrayLayout::new(Bytes::from(lock_size).0 + 100),
+        ))
     }
 }
 

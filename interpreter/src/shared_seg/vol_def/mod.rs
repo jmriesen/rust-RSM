@@ -73,17 +73,15 @@ impl VolumeSetLayout {
         routine_buffer: Bytes,
     ) -> Self {
         let number_of_blocks = global_buffer.0 / block_size.0;
-        Self(unsafe {
-            TabLayout::new(
-                TypedLayout::new(),
-                TypedArrayLayout::new(header_size.0),
-                TypedArrayLayout::new(number_of_blocks),
-                TypedArrayLayout::new(global_buffer.0),
-                TypedArrayLayout::new(block_size.0),
-                //TODO: These units seem off, confirm this is correct?
-                TypedArrayLayout::new(routine_buffer.0),
-            )
-        })
+        Self(TabLayout::new(
+            TypedLayout::new(),
+            TypedArrayLayout::new(header_size.0),
+            TypedArrayLayout::new(number_of_blocks),
+            TypedArrayLayout::new(global_buffer.0),
+            TypedArrayLayout::new(block_size.0),
+            //TODO: These units seem off, confirm this is correct?
+            TypedArrayLayout::new(routine_buffer.0),
+        ))
     }
 }
 

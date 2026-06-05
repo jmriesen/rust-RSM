@@ -220,9 +220,8 @@ pub struct TabLayout<A, B, C, D, E, F> {
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     ///Constructs a `TabLayout`
-    ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
     #[must_use]
-    pub unsafe fn new(
+    pub fn new(
         a_layout: TypedLayout<A>,
         b_layout: TypedArrayLayout<B>,
         c_layout: TypedArrayLayout<C>,
