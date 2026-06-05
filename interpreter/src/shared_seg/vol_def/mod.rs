@@ -79,8 +79,12 @@ impl VolumeSetLayout {
             TypedArrayLayout::new(number_of_blocks),
             TypedArrayLayout::new(global_buffer.0),
             TypedArrayLayout::new(block_size.0),
-            //TODO: These units seem off, confirm this is correct?
-            TypedArrayLayout::new(routine_buffer.0),
+            // TODO: This last allocation should be split into two parts.
+            // There is the RBD which is the heading information about the Routine buffer.
+            // And there is the buffer itself.
+            // Currency these are being allocated together.
+            // Alternatively, this could be an un-sized type.
+            TypedArrayLayout::new(routine_buffer.0 / size_of::<RBD>()),
         ))
     }
 }
