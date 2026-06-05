@@ -42,6 +42,7 @@ use ffi::{
 };
 use std::{
     num::NonZeroU32,
+    ops::Deref,
     path::{Path, PathBuf},
     ptr::{from_mut, from_ref},
 };
@@ -52,8 +53,59 @@ pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
         ::std::mem::size_of::<T>(),
     )
 }
-type MetaDataTabLayout = TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>;
-type VolumeSetLayout = TabLayout<vol_def, u8, GBD, u8, u8, RBD>;
+struct MetaDataTabLayout(TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>);
+impl Deref for MetaDataTabLayout {
+    type Target = TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl MetaDataTabLayout {
+    fn new(jobs: u32, lock_size: Pages) -> Self {
+        Self(unsafe {
+            TabLayout::new(
+                TypedLayout::new(),
+                //I am not sure what this u_int section is for.
+                TypedArrayLayout::new((jobs * MAX_VOL) as usize),
+                TypedArrayLayout::new(jobs as usize),
+                TypedArrayLayout::new(0),
+                TypedArrayLayout::new(0),
+                TypedArrayLayout::new(Bytes::from(lock_size).0 + 100),
+            )
+        })
+    }
+}
+
+struct VolumeSetLayout(TabLayout<vol_def, u8, GBD, u8, u8, RBD>);
+impl Deref for VolumeSetLayout {
+    type Target = TabLayout<vol_def, u8, GBD, u8, u8, RBD>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl VolumeSetLayout {
+    fn new(
+        header_size: Bytes,
+        global_buffer: Bytes,
+        block_size: Bytes,
+        routine_buffer: Bytes,
+    ) -> Self {
+        let number_of_blocks = global_buffer.0 / block_size.0;
+        Self(unsafe {
+            TabLayout::new(
+                TypedLayout::new(),
+                TypedArrayLayout::new(header_size.0),
+                TypedArrayLayout::new(number_of_blocks),
+                TypedArrayLayout::new(global_buffer.0),
+                TypedArrayLayout::new(block_size.0),
+                //TODO: These units seem off, confirm this is correct?
+                TypedArrayLayout::new(routine_buffer.0),
+            )
+        })
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -157,30 +209,13 @@ impl Config {
     /// Shared memory initialization error issues will be propagated up to the caller
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SystemTab, Error> {
         //TODO These layouts should be wrapped or abstracted in some way.
-        let meta_data_tab = unsafe {
-            MetaDataTabLayout::new(
-                TypedLayout::new(),
-                //I am not sure what this u_int section is for.
-                TypedArrayLayout::new((self.jobs * MAX_VOL) as usize),
-                TypedArrayLayout::new(self.jobs as usize),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(Bytes::from(self.lock_size).0 + 100),
-            )
-        };
-
-        let volset_layout = unsafe {
-            VolumeSetLayout::new(
-                TypedLayout::new(),
-                TypedArrayLayout::new(self.label.header_size().0),
-                TypedArrayLayout::new(
-                    Bytes::from(self.global_buffer).0 / self.label.block_size().0,
-                ),
-                TypedArrayLayout::new(Bytes::from(self.global_buffer).0),
-                TypedArrayLayout::new(self.label.block_size().0),
-                TypedArrayLayout::new(Bytes::from(self.routine_buffer).0),
-            )
-        };
+        let meta_data_tab = MetaDataTabLayout::new(self.jobs, self.lock_size);
+        let volset_layout = VolumeSetLayout::new(
+            self.label.header_size(),
+            self.global_buffer.into(),
+            self.label.block_size(),
+            self.routine_buffer.into(),
+        );
 
         let share_size = meta_data_tab.size() + volset_layout.size();
         let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
