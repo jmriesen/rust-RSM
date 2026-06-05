@@ -30,8 +30,8 @@
 use crate::{
     shared_seg::{
         alloc::{create_shared_mem, TabLayout, TypedArrayLayout, TypedLayout},
-        sys_tab::SystemTab,
-        vol_def::label::Label,
+        sys_tab::{MetaDataTabLayout, SystemTab},
+        vol_def::{label::Label, VolumeSetLayout},
     },
     units::{Bytes, Megbibytes, Pages},
 };
@@ -52,59 +52,6 @@ pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
         std::ptr::from_mut::<T>(p).cast::<u8>(),
         ::std::mem::size_of::<T>(),
     )
-}
-struct MetaDataTabLayout(TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>);
-impl Deref for MetaDataTabLayout {
-    type Target = TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl MetaDataTabLayout {
-    fn new(jobs: u32, lock_size: Pages) -> Self {
-        Self(unsafe {
-            TabLayout::new(
-                TypedLayout::new(),
-                //I am not sure what this u_int section is for.
-                TypedArrayLayout::new((jobs * MAX_VOL) as usize),
-                TypedArrayLayout::new(jobs as usize),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(0),
-                TypedArrayLayout::new(Bytes::from(lock_size).0 + 100),
-            )
-        })
-    }
-}
-
-struct VolumeSetLayout(TabLayout<vol_def, u8, GBD, u8, u8, RBD>);
-impl Deref for VolumeSetLayout {
-    type Target = TabLayout<vol_def, u8, GBD, u8, u8, RBD>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl VolumeSetLayout {
-    fn new(
-        header_size: Bytes,
-        global_buffer: Bytes,
-        block_size: Bytes,
-        routine_buffer: Bytes,
-    ) -> Self {
-        let number_of_blocks = global_buffer.0 / block_size.0;
-        Self(unsafe {
-            TabLayout::new(
-                TypedLayout::new(),
-                TypedArrayLayout::new(header_size.0),
-                TypedArrayLayout::new(number_of_blocks),
-                TypedArrayLayout::new(global_buffer.0),
-                TypedArrayLayout::new(block_size.0),
-                //TODO: These units seem off, confirm this is correct?
-                TypedArrayLayout::new(routine_buffer.0),
-            )
-        })
-    }
 }
 
 #[derive(Error, Debug)]

@@ -33,25 +33,59 @@ use std::{
     io::Read,
     mem::transmute,
     num::NonZeroI32,
+    ops::Deref,
     os::fd::AsRawFd,
     path::Path,
     ptr::{from_mut, null_mut},
 };
 
 use ffi::{
-    shared_memory_id, DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK, MAX_DAEMONS,
-    MIN_DAEMONS, RBD, RBD_HASH, RSM_SYSTEM, VOL_DEF, VOL_FILENAME_MAX, WD_TAB,
+    shared_memory_id, vol_def, DAEMONS, DATA_UNION, DB_STAT, GBD, GBD_HASH, LABEL_BLOCK,
+    MAX_DAEMONS, MIN_DAEMONS, RBD, RBD_HASH, RSM_SYSTEM, VOL_DEF, VOL_FILENAME_MAX, WD_TAB,
 };
 use libc::{c_char, c_void};
 
 use derive_more::{AsMut, AsRef};
 use ref_cast::RefCast;
 
-use crate::{start::Error, units::Bytes};
+use crate::{
+    shared_seg::alloc::{TypedArrayLayout, TypedLayout},
+    start::Error,
+    units::Bytes,
+};
 
 use self::{global_buf::init_global_buffer_descriptors, label::Label};
 
 use super::alloc::{Allocation, TabLayout};
+pub struct VolumeSetLayout(TabLayout<vol_def, u8, GBD, u8, u8, RBD>);
+impl Deref for VolumeSetLayout {
+    type Target = TabLayout<vol_def, u8, GBD, u8, u8, RBD>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl VolumeSetLayout {
+    pub fn new(
+        header_size: Bytes,
+        global_buffer: Bytes,
+        block_size: Bytes,
+        routine_buffer: Bytes,
+    ) -> Self {
+        let number_of_blocks = global_buffer.0 / block_size.0;
+        Self(unsafe {
+            TabLayout::new(
+                TypedLayout::new(),
+                TypedArrayLayout::new(header_size.0),
+                TypedArrayLayout::new(number_of_blocks),
+                TypedArrayLayout::new(global_buffer.0),
+                TypedArrayLayout::new(block_size.0),
+                //TODO: These units seem off, confirm this is correct?
+                TypedArrayLayout::new(routine_buffer.0),
+            )
+        })
+    }
+}
 
 #[derive(RefCast, AsMut, AsRef)]
 #[repr(transparent)]
@@ -170,7 +204,7 @@ pub unsafe fn new<'a>(
     jobs: usize,
     tab: *mut c_void,
     //TODO I am ignoring this for now but this should probably be converted to some sort of builder
-    layout: &TabLayout<VOL_DEF, u8, GBD, u8, u8, RBD>,
+    layout: &VolumeSetLayout,
 ) -> Result<&'a mut Volume, Error> {
     let (volume, header, gbd_head, global_buf, zero_block, rbd_head, end) =
         unsafe { layout.calculate_offsets(tab) };
