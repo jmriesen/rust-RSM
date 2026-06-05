@@ -268,7 +268,7 @@ There are a couple of different testing paradigms that can be viewed as verifyin
 ### Use in Rust-RSM
 When I started this project I was primarily combining regression testing with property basted testing.
 I would run both the original code and my port and compare their results.
-Regression testing in this manner is fairly situation specific and only really applies when porting legacy code. 
+Regression testing in this manner is fairly situation specific and only really applies when porting legacy code.
 
 I have been moving away from using that technique as a primary means of testing since I figure I will learn more by focusing on other forms of testing.
 

@@ -42,9 +42,8 @@ mod tests {
         assert!(find_open_slot(&mut [], StartType::Run, 0).is_none());
     }
 
-    fn init_job_table<const N: usize>(process_ids: [i32; N]) -> [jobtab; N] {
-        let mut tables: [jobtab; N] =
-            [MaybeUninit::<jobtab>::zeroed(); N].map(|x| unsafe { x.assume_init() });
+    fn init_job_table<const N: usize>(process_ids: [i32; N]) -> Box<[jobtab; N]> {
+        let mut tables = Box::new(unsafe { [MaybeUninit::<jobtab>::zeroed().assume_init(); N] });
         for (job_tab, pid) in tables.iter_mut().zip(process_ids.into_iter()) {
             job_tab.pid = pid;
         }
@@ -54,8 +53,8 @@ mod tests {
     #[test]
     fn run_uses_first_empty_slot() {
         let mut tables = init_job_table([1, 0, 3]);
-        let slot =
-            find_open_slot(&mut tables, StartType::Run, 12).expect("there should be an open slot");
+        let slot = find_open_slot(tables.as_mut(), StartType::Run, 12)
+            .expect("there should be an open slot");
 
         assert_eq!({ slot.pid }, 12);
         assert_eq!(from_ref(slot), from_ref(&tables[1]));
@@ -64,8 +63,8 @@ mod tests {
     #[test]
     fn job_looks_for_matching_pid() {
         let mut tables = init_job_table([0, 12, 3]);
-        let slot =
-            find_open_slot(&mut tables, StartType::Job, 12).expect("there should be an open slot");
+        let slot = find_open_slot(tables.as_mut(), StartType::Job, 12)
+            .expect("there should be an open slot");
 
         assert_eq!({ slot.pid }, 12);
         assert_eq!(from_ref(slot), from_ref(&tables[1]));
@@ -74,17 +73,18 @@ mod tests {
     #[test]
     fn return_none_if_table_is_full() {
         let mut tables = init_job_table([1, 2, 3]);
-        let slot = find_open_slot(&mut tables, StartType::Run, 4);
+        let slot = find_open_slot(tables.as_mut(), StartType::Run, 4);
         assert!(slot.is_none());
-        let slot = find_open_slot(&mut tables, StartType::Job, 4);
+        let slot = find_open_slot(tables.as_mut(), StartType::Job, 4);
         assert!(slot.is_none());
     }
 
     #[test]
     fn all_other_start_types_return_none() {
         let mut tables = init_job_table([0, 1, 2]);
-        assert!(find_open_slot(&mut tables, StartType::Do, 1).is_none());
-        assert!(find_open_slot(&mut tables, StartType::Extrinsic, 1).is_none());
-        assert!(find_open_slot(&mut tables, StartType::Xecute, 1).is_none());
+        let tables = tables.as_mut();
+        assert!(find_open_slot(tables, StartType::Do, 1).is_none());
+        assert!(find_open_slot(tables, StartType::Extrinsic, 1).is_none());
+        assert!(find_open_slot(tables, StartType::Xecute, 1).is_none());
     }
 }
