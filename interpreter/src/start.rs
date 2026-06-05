@@ -29,7 +29,7 @@
  */
 use crate::{
     shared_seg::{
-        alloc::{create_shared_mem, TabLayout},
+        alloc::{create_shared_mem, TabLayout, TypedArrayLayout, TypedLayout},
         sys_tab::SystemTab,
         vol_def::label::Label,
     },
@@ -52,6 +52,8 @@ pub unsafe fn any_as_mut_u8_slice<T: Sized>(p: &mut T) -> &mut [u8] {
         ::std::mem::size_of::<T>(),
     )
 }
+type MetaDataTabLayout = TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>;
+type VolumeSetLayout = TabLayout<vol_def, u8, GBD, u8, u8, RBD>;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -156,26 +158,27 @@ impl Config {
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SystemTab, Error> {
         //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = unsafe {
-            TabLayout::<SystemTab, u_int, jobtab, (), (), LOCKTAB>::new(
-                Layout::new::<SystemTab>(),
+            MetaDataTabLayout::new(
+                TypedLayout::new(),
                 //I am not sure what this u_int section is for.
-                Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
-                Layout::array::<jobtab>(self.jobs as usize).unwrap(),
-                Layout::new::<()>(),
-                Layout::new::<()>(),
-                Layout::array::<u8>(Bytes::from(self.lock_size).0).unwrap(),
+                TypedArrayLayout::new((self.jobs * MAX_VOL) as usize),
+                TypedArrayLayout::new(self.jobs as usize),
+                TypedArrayLayout::new(0),
+                TypedArrayLayout::new(0),
+                TypedArrayLayout::new(Bytes::from(self.lock_size).0 + 100),
             )
         };
 
         let volset_layout = unsafe {
-            TabLayout::<vol_def, u8, GBD, u8, u8, RBD>::new(
-                Layout::new::<vol_def>(),
-                Layout::array::<u8>(self.label.header_size().0).unwrap(),
-                Layout::array::<GBD>(Bytes::from(self.global_buffer).0 / self.label.block_size().0)
-                    .unwrap(),
-                Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
-                Layout::array::<u8>(self.label.block_size().0).unwrap(),
-                Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
+            VolumeSetLayout::new(
+                TypedLayout::new(),
+                TypedArrayLayout::new(self.label.header_size().0),
+                TypedArrayLayout::new(
+                    Bytes::from(self.global_buffer).0 / self.label.block_size().0,
+                ),
+                TypedArrayLayout::new(Bytes::from(self.global_buffer).0),
+                TypedArrayLayout::new(self.label.block_size().0),
+                TypedArrayLayout::new(Bytes::from(self.routine_buffer).0),
             )
         };
 

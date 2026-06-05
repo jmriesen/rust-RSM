@@ -29,7 +29,7 @@
  */
 use crate::units::{Bytes, Pages};
 use core::{ffi::c_void, marker::PhantomData};
-use std::{alloc::Layout, mem::MaybeUninit, slice::from_mut_ptr_range};
+use std::{alloc::Layout, mem::MaybeUninit, ops::Deref, slice::from_mut_ptr_range};
 /*
 let sem_id = unsafe{semget(
 shar_mem_key,
@@ -161,36 +161,74 @@ impl Allocation<u8> {
     }
 }
 
+pub struct TypedLayout<A> {
+    inner: Layout,
+    phantom: PhantomData<A>,
+}
+
+impl<A> Deref for TypedLayout<A> {
+    type Target = Layout;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<A> TypedLayout<A> {
+    pub fn new() -> Self {
+        Self {
+            inner: Layout::new::<A>(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+pub struct TypedArrayLayout<A> {
+    inner: Layout,
+    phantom: PhantomData<A>,
+}
+
+impl<A> Deref for TypedArrayLayout<A> {
+    type Target = Layout;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<A> TypedArrayLayout<A> {
+    pub fn new(len: usize) -> Self {
+        Self {
+            inner: Layout::array::<A>(len).unwrap(),
+            phantom: PhantomData,
+        }
+    }
+}
+
 /// This represents the layout for a bunch of types placed one after the other.
 /// NOTE This always rounds up to a whole number of page files.
 /// SAFETY I am assuming all the layouts have an alignment of 1.
 /// This code could break if that is not upheld.
 pub struct TabLayout<A, B, C, D, E, F> {
-    a_layout: Layout,
-    b_layout: Layout,
-    c_layout: Layout,
-    d_layout: Layout,
-    e_layout: Layout,
-    f_layout: Layout,
-    a_phantom: PhantomData<A>,
-    b_phantom: PhantomData<B>,
-    c_phantom: PhantomData<C>,
-    d_phantom: PhantomData<D>,
-    e_phantom: PhantomData<E>,
-    f_phantom: PhantomData<F>,
+    a_layout: TypedLayout<A>,
+    b_layout: TypedArrayLayout<B>,
+    c_layout: TypedArrayLayout<C>,
+    d_layout: TypedArrayLayout<D>,
+    e_layout: TypedArrayLayout<E>,
+    f_layout: TypedArrayLayout<F>,
 }
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
-    ///constructs a `TabLayout`
+    ///Constructs a `TabLayout`
     ///The caller needs to guarantee that the provided layouts are large enough for the type parameters.
     #[must_use]
     pub unsafe fn new(
-        a_layout: Layout,
-        b_layout: Layout,
-        c_layout: Layout,
-        d_layout: Layout,
-        e_layout: Layout,
-        f_layout: Layout,
+        a_layout: TypedLayout<A>,
+        b_layout: TypedArrayLayout<B>,
+        c_layout: TypedArrayLayout<C>,
+        d_layout: TypedArrayLayout<D>,
+        e_layout: TypedArrayLayout<E>,
+        f_layout: TypedArrayLayout<F>,
     ) -> Self {
         Self {
             a_layout,
@@ -199,12 +237,6 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
             d_layout,
             e_layout,
             f_layout,
-            a_phantom: PhantomData,
-            b_phantom: PhantomData,
-            c_phantom: PhantomData,
-            d_phantom: PhantomData,
-            e_phantom: PhantomData,
-            f_phantom: PhantomData,
         }
     }
     /// The size of all they layouts
@@ -244,16 +276,16 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         Allocation<F>,
         *mut c_void,
     ) {
-        //we allays round up to the next page file.
-        //padding is the "extra space" that was added.
+        //We always round up to the next page file.
+        //Padding is the "extra space" that was added.
         let padding = Bytes::from(self.size()) - self.raw_size();
         let end = cursor.byte_add(Bytes::from(self.size()).0);
         (
-            Allocation::<A>::new(&mut cursor, self.a_layout),
-            Allocation::<B>::new(&mut cursor, self.b_layout),
-            Allocation::<C>::new(&mut cursor, self.c_layout),
-            Allocation::<D>::new(&mut cursor, self.d_layout),
-            Allocation::<E>::new(&mut cursor, self.e_layout),
+            Allocation::<A>::new(&mut cursor, *self.a_layout),
+            Allocation::<B>::new(&mut cursor, *self.b_layout),
+            Allocation::<C>::new(&mut cursor, *self.c_layout),
+            Allocation::<D>::new(&mut cursor, *self.d_layout),
+            Allocation::<E>::new(&mut cursor, *self.e_layout),
             Allocation::<F>::new(
                 &mut cursor,
                 Layout::array::<u8>(self.f_layout.size() + padding.0).unwrap(),
