@@ -65,7 +65,7 @@ impl MetaDataTabLayout {
             TypedArrayLayout::new(jobs as usize),
             TypedArrayLayout::new(0),
             TypedArrayLayout::new(0),
-            TypedArrayLayout::new(Bytes::from(lock_size).0 + 100),
+            TypedArrayLayout::new(Bytes::from(lock_size).0 / size_of::<LOCKTAB>()),
         ))
     }
 }

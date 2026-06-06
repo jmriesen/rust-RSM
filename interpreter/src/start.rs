@@ -255,7 +255,7 @@ mod tests {
         //detractor is guarantied to run regardless of if start failed.
         //There has got to be a better way of dealing with this, but this is my current quick fix.
         let _mem_guard = util_share(&file_path);
-        result.unwrap();
+        assert_eq!(result, Ok(()));
         let c_sys_tab = SystemTab::from_raw(global_guard.systab().unwrap());
 
         assert_sys_tab_eq(sys_tab, c_sys_tab);
