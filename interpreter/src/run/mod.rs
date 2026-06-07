@@ -227,8 +227,8 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
         unsafe {
             partab.debug = 0;
         }
-        unsafe { partab.strstk_start = strstk.as_mut_ptr() }; // address of strstk
-        unsafe { partab.strstk_last = strstk.as_mut_ptr().add(MAX_SSTK as usize) };
+        unsafe { partab.strstk_start = (&raw mut strstk).cast() }; // address of strstk
+        unsafe { partab.strstk_last = (&raw mut strstk).byte_add(MAX_SSTK as usize).cast() };
         unsafe { partab.varlst = std::ptr::null_mut() }; // used by compiler
         unsafe { partab.vol_fds[0] = file.as_raw_fd() }; // make sure fd is right
                                                          //ST_Init();
