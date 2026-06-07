@@ -83,10 +83,10 @@ fn rsm_version() -> String {
     let mut output =
         format!("Reference Standard M V {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ");
     if VERSION_TEST != 0 {
-        output.push_str(&format!("T{VERSION_TEST} "));
+        let _ = write!(output, "T{VERSION_TEST} ");
     }
     let uname = uname::uname().unwrap();
     let _ = write!(output, "for {} {}", uname.sysname, uname.machine);
-    let _ = write!(output, "Built {} at {}", "---", "----");
+    let _ = write!(output, "Built --- at ----");
     output
 }
