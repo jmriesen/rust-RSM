@@ -79,13 +79,14 @@ fn systab_info(file: &str) -> Result<String, String> {
 }
 
 fn rsm_version() -> String {
+    use std::fmt::Write;
     let mut output =
         format!("Reference Standard M V {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ");
     if VERSION_TEST != 0 {
         output.push_str(&format!("T{VERSION_TEST} "));
     }
     let uname = uname::uname().unwrap();
-    output.push_str(&format!("for {} {}", uname.sysname, uname.machine));
-    output.push_str(&format!("Built {} at {}", "---", "----"));
+    let _ = write!(output, "for {} {}", uname.sysname, uname.machine);
+    let _ = write!(output, "Built {} at {}", "---", "----");
     output
 }
