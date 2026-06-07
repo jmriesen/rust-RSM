@@ -204,6 +204,28 @@ impl<A> TypedArrayLayout<A> {
         }
     }
 }
+pub struct BufferLayout<A> {
+    inner: Layout,
+    phantom: PhantomData<A>,
+}
+
+impl<A> Deref for BufferLayout<A> {
+    type Target = Layout;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<A> BufferLayout<A> {
+    pub fn new(size: Bytes) -> Self {
+        assert!(size.0 > size_of::<A>());
+        Self {
+            inner: Layout::array::<u8>(size.0).unwrap(),
+            phantom: PhantomData,
+        }
+    }
+}
 
 /// This represents the layout for a bunch of types placed one after the other.
 /// NOTE This always rounds up to a whole number of page files.
@@ -215,7 +237,7 @@ pub struct TabLayout<A, B, C, D, E, F> {
     c_layout: TypedArrayLayout<C>,
     d_layout: TypedArrayLayout<D>,
     e_layout: TypedArrayLayout<E>,
-    f_layout: TypedArrayLayout<F>,
+    f_layout: BufferLayout<F>,
 }
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
@@ -227,7 +249,7 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         c_layout: TypedArrayLayout<C>,
         d_layout: TypedArrayLayout<D>,
         e_layout: TypedArrayLayout<E>,
-        f_layout: TypedArrayLayout<F>,
+        f_layout: BufferLayout<F>,
     ) -> Self {
         Self {
             a_layout,

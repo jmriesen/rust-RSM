@@ -44,7 +44,7 @@ use libc::{c_int, c_void};
 
 use super::{alloc::TabLayout, lock_tab, vol_def::Volume};
 use crate::{
-    shared_seg::alloc::{TypedArrayLayout, TypedLayout},
+    shared_seg::alloc::{BufferLayout, TypedArrayLayout, TypedLayout},
     units::{Bytes, Pages},
 };
 
@@ -65,7 +65,7 @@ impl MetaDataTabLayout {
             TypedArrayLayout::new(jobs as usize),
             TypedArrayLayout::new(0),
             TypedArrayLayout::new(0),
-            TypedArrayLayout::new(Bytes::from(lock_size).0 / size_of::<LOCKTAB>()),
+            BufferLayout::new(lock_size.into()),
         ))
     }
 }
