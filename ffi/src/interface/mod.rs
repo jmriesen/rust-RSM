@@ -53,6 +53,7 @@ impl GlobalGuard {
         }
     }
     pub fn systab(&self) -> Option<&crate::SYSTAB> {
+        assert!(unsafe { systab.is_aligned() });
         unsafe { systab.as_ref() }
     }
 }
