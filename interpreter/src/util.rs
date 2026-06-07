@@ -64,7 +64,7 @@ fn systab_info(file: &str) -> Result<String, String> {
     //In the C code we use the full path every time.
     let vol = unsafe { (*systab).vol[0] };
 
-    (vol != std::ptr::null::<VOL_DEF>().cast_mut())
+    (vol != std::ptr::null_mut::<VOL_DEF>())
         .then_some(0)
         .ok_or("Cannot connect to environment.".to_string())?;
 
