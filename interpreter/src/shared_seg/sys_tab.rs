@@ -29,6 +29,7 @@
  */
 use std::{
     fmt::Display,
+    ops::Deref,
     ptr::{from_mut, from_ref, null_mut},
     slice::from_raw_parts_mut,
 };
@@ -42,7 +43,32 @@ use ffi::{
 use libc::{c_int, c_void};
 
 use super::{alloc::TabLayout, lock_tab, vol_def::Volume};
-use crate::units::{Bytes, Pages};
+use crate::{
+    shared_seg::alloc::{BufferLayout, TypedArrayLayout, TypedLayout},
+    units::{Bytes, Pages},
+};
+
+pub struct MetaDataTabLayout(TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>);
+impl Deref for MetaDataTabLayout {
+    type Target = TabLayout<SystemTab, u_int, jobtab, (), (), LOCKTAB>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl MetaDataTabLayout {
+    pub fn new(jobs: u32, lock_size: Pages) -> Self {
+        Self(TabLayout::new(
+            TypedLayout::new(),
+            //I am not sure what this u_int section is for.
+            TypedArrayLayout::new((jobs * MAX_VOL) as usize),
+            TypedArrayLayout::new(jobs as usize),
+            TypedArrayLayout::new(0),
+            TypedArrayLayout::new(0),
+            BufferLayout::new(lock_size.into()),
+        ))
+    }
+}
 
 #[repr(C, packed(1))]
 pub struct SystemTab {
@@ -301,7 +327,7 @@ pub unsafe fn init<'a>(
     volume: &mut Volume,
     addoff: Pages,
     ptr: *mut c_void,
-    layout: &TabLayout<SystemTab, u_int, JOBTAB, (), (), LOCKTAB>,
+    layout: &MetaDataTabLayout,
 ) -> &'a mut SystemTab {
     let (sys_tab, _, job_tab, _, _, lock_tab, _) = unsafe { layout.calculate_offsets(ptr) };
     let lock_tab = lock_tab::init(lock_tab);

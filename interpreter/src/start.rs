@@ -29,9 +29,9 @@
  */
 use crate::{
     shared_seg::{
-        alloc::{create_shared_mem, TabLayout},
-        sys_tab::SystemTab,
-        vol_def::label::Label,
+        alloc::{create_shared_mem, TabLayout, TypedArrayLayout, TypedLayout},
+        sys_tab::{MetaDataTabLayout, SystemTab},
+        vol_def::{label::Label, VolumeSetLayout},
     },
     units::{Bytes, Megbibytes, Pages},
 };
@@ -42,6 +42,7 @@ use ffi::{
 };
 use std::{
     num::NonZeroU32,
+    ops::Deref,
     path::{Path, PathBuf},
     ptr::{from_mut, from_ref},
 };
@@ -154,30 +155,13 @@ impl Config {
     ///
     /// Shared memory initialization error issues will be propagated up to the caller
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SystemTab, Error> {
-        //TODO These layouts should be wrapped or abstracted in some way.
-        let meta_data_tab = unsafe {
-            TabLayout::<SystemTab, u_int, jobtab, (), (), LOCKTAB>::new(
-                Layout::new::<SystemTab>(),
-                //I am not sure what this u_int section is for.
-                Layout::array::<u_int>((self.jobs * MAX_VOL) as usize).unwrap(),
-                Layout::array::<jobtab>(self.jobs as usize).unwrap(),
-                Layout::new::<()>(),
-                Layout::new::<()>(),
-                Layout::array::<u8>(Bytes::from(self.lock_size).0).unwrap(),
-            )
-        };
-
-        let volset_layout = unsafe {
-            TabLayout::<vol_def, u8, GBD, u8, u8, RBD>::new(
-                Layout::new::<vol_def>(),
-                Layout::array::<u8>(self.label.header_size().0).unwrap(),
-                Layout::array::<GBD>(Bytes::from(self.global_buffer).0 / self.label.block_size().0)
-                    .unwrap(),
-                Layout::array::<u8>(Bytes::from(self.global_buffer).0).unwrap(),
-                Layout::array::<u8>(self.label.block_size().0).unwrap(),
-                Layout::array::<u8>(Bytes::from(self.routine_buffer).0).unwrap(),
-            )
-        };
+        let meta_data_tab = MetaDataTabLayout::new(self.jobs, self.lock_size);
+        let volset_layout = VolumeSetLayout::new(
+            self.label.header_size(),
+            self.global_buffer.into(),
+            self.label.block_size(),
+            self.routine_buffer.into(),
+        );
 
         let share_size = meta_data_tab.size() + volset_layout.size();
         let (shared_mem_segment, _shar_mem_id) = create_shared_mem(share_size.into()).unwrap();
@@ -246,7 +230,6 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    #[ignore]
     fn validate_mem_seg_layout() {
         let file_path = "test_artifacts/temp";
 
@@ -270,7 +253,7 @@ mod tests {
         //detractor is guarantied to run regardless of if start failed.
         //There has got to be a better way of dealing with this, but this is my current quick fix.
         let _mem_guard = util_share(&file_path);
-        result.unwrap();
+        assert_eq!(result, Ok(()));
         let c_sys_tab = SystemTab::from_raw(global_guard.systab().unwrap());
 
         assert_sys_tab_eq(sys_tab, c_sys_tab);
