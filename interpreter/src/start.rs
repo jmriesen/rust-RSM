@@ -155,7 +155,6 @@ impl Config {
     ///
     /// Shared memory initialization error issues will be propagated up to the caller
     pub fn setup_shared_mem_segemnt<'a>(self) -> Result<&'a mut SystemTab, Error> {
-        //TODO These layouts should be wrapped or abstracted in some way.
         let meta_data_tab = MetaDataTabLayout::new(self.jobs, self.lock_size);
         let volset_layout = VolumeSetLayout::new(
             self.label.header_size(),
