@@ -69,12 +69,10 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
             .ok_or("RSM environment is not initialized.".to_string())?;
 
         let vol = unsafe { (*systab).vol[0] };
-        (vol != std::ptr::null_mut::<VOL_DEF>())
-            .then_some(0)
-            .ok_or(
-                "Error occurred in process - Environment does not match runtime image version."
-                    .to_string(),
-            )?;
+        (!vol.is_null()).then_some(0).ok_or(
+            "Error occurred in process - Environment does not match runtime image version."
+                .to_string(),
+        )?;
         //TODO exit
 
         let env_num = env

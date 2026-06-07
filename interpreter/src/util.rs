@@ -28,8 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use ffi::{
-    systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
-    VERSION_TEST, VOL_DEF,
+    systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_TEST,
 };
 use std::{ffi::CString, fs::OpenOptions};
 
@@ -64,7 +63,7 @@ fn systab_info(file: &str) -> Result<String, String> {
     //In the C code we use the full path every time.
     let vol = unsafe { (*systab).vol[0] };
 
-    (vol != std::ptr::null_mut::<VOL_DEF>())
+    (!vol.is_null())
         .then_some(0)
         .ok_or("Cannot connect to environment.".to_string())?;
 
