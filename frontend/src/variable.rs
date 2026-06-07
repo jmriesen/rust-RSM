@@ -59,7 +59,7 @@ impl<'a> TreeSitterParser<'a> for Variable {
             subscripts: sitter
                 .subs()
                 .iter()
-                .map(|x| Expression::new(&x, source_code))
+                .map(|x| Expression::new(x, source_code))
                 .collect(),
         }
     }

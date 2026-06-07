@@ -42,7 +42,7 @@ impl<'a> TreeSitterParser<'a> for Expression {
         match sitter.children() {
             S::number(num) => {
                 let num = num.node().utf8_text(source_code.as_bytes()).unwrap();
-                Self::Number(Number::from_str(num).unwrap().into())
+                Self::Number(Number::from_str(num).unwrap())
             }
             S::string(value) => {
                 let value = value.node().utf8_text(source_code.as_bytes()).unwrap();

@@ -13,6 +13,12 @@ pub enum JumpCodes {
     ForUnconditional = 173,
 }
 
+impl Default for BiteCode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BiteCode {
     pub fn new() -> Self {
         Self(Vec::new())

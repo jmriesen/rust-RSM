@@ -84,7 +84,7 @@ fn extract_normalized_representation(number: &Number) -> (&[i8], usize) {
 
 impl PartialEq for Number {
     fn eq(&self, other: &Self) -> bool {
-        extract_normalized_representation(&self) == extract_normalized_representation(other)
+        extract_normalized_representation(self) == extract_normalized_representation(other)
     }
 }
 

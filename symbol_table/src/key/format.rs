@@ -87,13 +87,13 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
             Err(PathCreationError::PathToLong)
         } else if contents.is_empty() {
             Ok(Self::Null)
-        } else if contents == [b'0'] {
+        } else if contents == *b"0" {
             Ok(Self::Zero)
         } else if contents.contains(&b'\0') {
             Err(PathCreationError::NullByteInPath)
         } else {
             //Attempt to parse as a number
-            let negative = contents.starts_with(&[b'-']);
+            let negative = contents.starts_with(b"-");
             let mut parts = if negative { &contents[1..] } else { contents }.split(|x| *x == b'.');
 
             let int_part = parts
@@ -112,8 +112,8 @@ impl<'a> TryFrom<&'a Value> for IntermediateRepresentation<'a> {
                     let numeric = is_numeric(int_part) && is_numeric(dec_part);
                     let contains_some_digits = !int_part.is_empty() || !dec_part.is_empty();
                     let can_represent_int_part = int_part.len() <= MAX_INT_SEGMENT_SIZE;
-                    let leading_zeros = int_part.starts_with(&[b'0']);
-                    let trailing_zeros = dec_part.ends_with(&[b'0']);
+                    let leading_zeros = int_part.starts_with(b"0");
+                    let trailing_zeros = dec_part.ends_with(b"0");
 
                     if numeric
                         && contains_some_digits
@@ -171,7 +171,7 @@ impl<'a> From<Segment<'a>> for IntermediateRepresentation<'a> {
     }
 }
 
-impl<'a> IntermediateRepresentation<'a> {
+impl IntermediateRepresentation<'_> {
     pub fn push_external_fmt(self, output: &mut Vec<u8>, quote_strings: bool) {
         match self {
             IntermediateRepresentation::Null => {

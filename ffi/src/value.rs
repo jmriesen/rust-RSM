@@ -9,7 +9,7 @@ impl IntoC for Value {
     fn into_c(self) -> CSTRING {
         let mut buf = [0; MAX_STR_LEN as usize + 1];
         let content = self.content();
-        buf[..content.len()].copy_from_slice(&content);
+        buf[..content.len()].copy_from_slice(content);
         CSTRING {
             len: content.len().try_into().expect("Max var len < u16::max"),
             buf,

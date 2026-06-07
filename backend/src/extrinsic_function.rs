@@ -12,8 +12,8 @@ pub enum ExtrinsicFunctionContext {
 }
 
 enum ArgmentCodes {
-    VarUndefined = 169 as isize,
-    ByRef = 168 as isize,
+    VarUndefined = 169_isize,
+    ByRef = 168_isize,
 }
 
 enum CallCode {
