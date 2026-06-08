@@ -212,13 +212,13 @@ impl SystemTab {
 
     #[cfg(test)]
     pub fn assert_eq(&self, other: &Self) {
-        use super::test_utils::{test_memory_segment_equality, DifferencesList};
+        use super::test_utils::{test_memory_segment_equality, Diff};
         use ffi::VOL_DEF;
         use pretty_assertions::assert_eq;
         let discrepancies = test_memory_segment_equality(self.to_slice(), other.to_slice());
 
-        let mut expected_discrepancies = DifferencesList::new();
-        expected_discrepancies.insert_int(
+        let mut expected_discrepancies = Diff::new();
+        expected_discrepancies.insert(
             self.sem_id,
             other.sem_id,
             std::mem::offset_of!(SystemTab, sem_id),
@@ -229,7 +229,7 @@ impl SystemTab {
             .filter(|(x, y)| x.is_some() || y.is_some())
             .map(|(x, y)| (x.unwrap(), y.unwrap()))
         {
-            expected_discrepancies.insert_int(
+            expected_discrepancies.insert(
                 left.shm_id(),
                 right.shm_id(),
                 unsafe { from_ref(left).byte_offset_from(from_ref(self)) } as usize
