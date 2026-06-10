@@ -27,7 +27,7 @@ serde = { version = "1", features = ["derive"] }
 uuid = { version = "1.10.0", features = ["v4"] }
 rstest = "0.22.0"
 pretty_assertions = "1.4.0"
-rand = "0.8.5"
+rand = "0.8.6"
 mutants = "0.0.3"
 
 [build-dependencies]
