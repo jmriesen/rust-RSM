@@ -40,7 +40,7 @@ pub trait Key: Eq + std::hash::Hash + Sized {
     fn error() -> Self;
 }
 
-/// The HashTable is full so we could not insert a new entry.
+/// The `HashTable` is full so we could not insert a new entry.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct CreationError;
 

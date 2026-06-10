@@ -28,8 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use ffi::{
-    systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH,
-    VERSION_TEST, VOL_DEF,
+    systab, UTIL_Share, COMP_VER, DB_VER, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_TEST,
 };
 use std::{ffi::CString, fs::OpenOptions};
 
@@ -64,7 +63,7 @@ fn systab_info(file: &str) -> Result<String, String> {
     //In the C code we use the full path every time.
     let vol = unsafe { (*systab).vol[0] };
 
-    (vol != std::ptr::null::<VOL_DEF>().cast_mut())
+    (!vol.is_null())
         .then_some(0)
         .ok_or("Cannot connect to environment.".to_string())?;
 
@@ -80,13 +79,14 @@ fn systab_info(file: &str) -> Result<String, String> {
 }
 
 fn rsm_version() -> String {
+    use std::fmt::Write;
     let mut output =
         format!("Reference Standard M V {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ");
     if VERSION_TEST != 0 {
-        output.push_str(&format!("T{VERSION_TEST} "));
+        let _ = write!(output, "T{VERSION_TEST} ");
     }
     let uname = uname::uname().unwrap();
-    output.push_str(&format!("for {} {}", uname.sysname, uname.machine));
-    output.push_str(&format!("Built {} at {}", "---", "----"));
+    let _ = write!(output, "for {} {}", uname.sysname, uname.machine);
+    let _ = write!(output, "Built --- at ----");
     output
 }

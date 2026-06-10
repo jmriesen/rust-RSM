@@ -9,7 +9,7 @@ impl<'a> TreeSitterParser<'a> for ForKind {
     type NodeType = lang_model::For<'a>;
     fn new(sitter: &lang_model::For, source_code: &str) -> Self {
         if let Some(var) = sitter.variable() {
-            assert!(sitter.args().len() > 0);
+            assert!(!sitter.args().is_empty());
             Self::VarLoop {
                 variable: Variable::new(&var, source_code),
                 arguments: sitter

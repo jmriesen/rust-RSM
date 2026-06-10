@@ -232,42 +232,35 @@ impl<A> BufferLayout<A> {
 /// SAFETY I am assuming all the layouts have an alignment of 1.
 /// This code could break if that is not upheld.
 pub struct TabLayout<A, B, C, D, E, F> {
-    a_layout: TypedLayout<A>,
-    b_layout: TypedArrayLayout<B>,
-    c_layout: TypedArrayLayout<C>,
-    d_layout: TypedArrayLayout<D>,
-    e_layout: TypedArrayLayout<E>,
-    f_layout: BufferLayout<F>,
+    a: TypedLayout<A>,
+    b: TypedArrayLayout<B>,
+    c: TypedArrayLayout<C>,
+    d: TypedArrayLayout<D>,
+    e: TypedArrayLayout<E>,
+    f: BufferLayout<F>,
 }
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     ///Constructs a `TabLayout`
     #[must_use]
     pub fn new(
-        a_layout: TypedLayout<A>,
-        b_layout: TypedArrayLayout<B>,
-        c_layout: TypedArrayLayout<C>,
-        d_layout: TypedArrayLayout<D>,
-        e_layout: TypedArrayLayout<E>,
-        f_layout: BufferLayout<F>,
+        a: TypedLayout<A>,
+        b: TypedArrayLayout<B>,
+        c: TypedArrayLayout<C>,
+        d: TypedArrayLayout<D>,
+        e: TypedArrayLayout<E>,
+        f: BufferLayout<F>,
     ) -> Self {
-        Self {
-            a_layout,
-            b_layout,
-            c_layout,
-            d_layout,
-            e_layout,
-            f_layout,
-        }
+        Self { a, b, c, d, e, f }
     }
     /// The size of all they layouts
     fn raw_size(&self) -> Bytes {
-        Bytes(self.a_layout.size())
-            + Bytes(self.b_layout.size())
-            + Bytes(self.c_layout.size())
-            + Bytes(self.d_layout.size())
-            + Bytes(self.e_layout.size())
-            + Bytes(self.f_layout.size())
+        Bytes(self.a.size())
+            + Bytes(self.b.size())
+            + Bytes(self.c.size())
+            + Bytes(self.d.size())
+            + Bytes(self.e.size())
+            + Bytes(self.f.size())
     }
 
     ///Size of the tab rounded up to the next page.
@@ -302,14 +295,14 @@ impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
         let padding = Bytes::from(self.size()) - self.raw_size();
         let end = cursor.byte_add(Bytes::from(self.size()).0);
         (
-            Allocation::<A>::new(&mut cursor, *self.a_layout),
-            Allocation::<B>::new(&mut cursor, *self.b_layout),
-            Allocation::<C>::new(&mut cursor, *self.c_layout),
-            Allocation::<D>::new(&mut cursor, *self.d_layout),
-            Allocation::<E>::new(&mut cursor, *self.e_layout),
+            Allocation::<A>::new(&mut cursor, *self.a),
+            Allocation::<B>::new(&mut cursor, *self.b),
+            Allocation::<C>::new(&mut cursor, *self.c),
+            Allocation::<D>::new(&mut cursor, *self.d),
+            Allocation::<E>::new(&mut cursor, *self.e),
             Allocation::<F>::new(
                 &mut cursor,
-                Layout::array::<u8>(self.f_layout.size() + padding.0).unwrap(),
+                Layout::array::<u8>(self.f.size() + padding.0).unwrap(),
             ),
             end,
         )

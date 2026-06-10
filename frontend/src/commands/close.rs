@@ -8,7 +8,7 @@ use crate::TreeSitterParser;
 
 pub fn new(sitter: &CloseCommand, source_code: &str) -> Command {
     assert!(
-        sitter.args().len() > 0,
+        !sitter.args().is_empty(),
         "Close always takes at least one argument"
     );
     Command::Close(PostCondition {
@@ -19,7 +19,7 @@ pub fn new(sitter: &CloseCommand, source_code: &str) -> Command {
             .args()
             .iter()
             .map(|x| Expression::new(x, source_code))
-            .map(|x| Close(x))
+            .map(Close)
             .collect(),
     })
 }

@@ -191,14 +191,15 @@ impl FileConfig {
 
         file.write_all(unsafe { any_as_u8_slice(&mgrblk) })?;
 
-        //TODO this is vary messy fix this. We should not be reaching into a CSTRING every time I need to make one.
+        let global = b"$GLOBAL";
+        //NOTE: I think this may represent a key from the table format
         let block_identifier = CSTRING {
             len: 24,
             buf: {
                 let mut buf = [0; 65535];
                 buf[1] = 9;
-                buf[2] = 128; // "\200" from the C code.
-                buf[3..3 + 7].copy_from_slice("$GLOBAL".as_bytes());
+                buf[2] = 128; // "\200" from the C code. Could be the string marker from Key.
+                buf[3..3 + global.len()].copy_from_slice(global);
                 buf[4 * 4 - 2..5 * 4 - 2].copy_from_slice(&1_i32.to_le_bytes());
                 buf
             },

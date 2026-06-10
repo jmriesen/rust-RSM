@@ -30,7 +30,6 @@
 #![feature(int_roundings)]
 #![feature(slice_from_ptr_range)]
 #![warn(clippy::all, clippy::pedantic)]
-#![feature(array_windows)]
 //TODO remove these allows.
 #![allow(
     clippy::cast_possible_truncation,

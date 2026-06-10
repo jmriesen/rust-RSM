@@ -47,12 +47,12 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for VarFunction<REQUIRED, OPTIONAL> {
     type Context = (VarContext, FunctionCodes);
     fn compile(&self, comp: &mut BiteCode, (context, fn_code_base): &Self::Context) {
-        self.variable.compile(comp, &context);
-        self.function.compile(comp, &fn_code_base);
+        self.variable.compile(comp, context);
+        self.function.compile(comp, fn_code_base);
     }
 }
 const ERROR_CODE_OP: u8 = 2;
-const NO_TRUE_CONDITION_IN_SELECT: i16 = 4 as i16;
+const NO_TRUE_CONDITION_IN_SELECT: i16 = 4_i16;
 
 impl Compile for IntrinsicFunction {
     type Context = ();
@@ -70,7 +70,7 @@ impl Compile for IntrinsicFunction {
                     .collect();
                 comp.push(ERROR_CODE_OP);
                 let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
-                comp.extend(errm4.into_iter());
+                comp.extend(errm4);
 
                 for jump_to_end in jump_indexs {
                     comp.write_jump(jump_to_end, comp.current_location());

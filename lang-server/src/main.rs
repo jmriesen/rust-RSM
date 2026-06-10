@@ -27,7 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-#![feature(array_windows)]
 #![warn(clippy::pedantic)]
 use lang_model::{commandChildren, BlockChildren};
 use std::{fs, sync::RwLock};

@@ -54,6 +54,7 @@ pub enum CreattionError {
 
 impl VariableName {
     /// Intrinsics start with a '$' and are built in variables.
+    #[must_use]
     pub fn is_intrinsic(&self) -> bool {
         self.contents()[0] == b'$'
     }
@@ -61,6 +62,7 @@ impl VariableName {
     /// Returns the raw representation.
     ///
     /// This should only be used inside of self, or from the ffi crate.
+    #[must_use]
     pub fn contents(&self) -> &[u8] {
         &self.0[..]
     }
@@ -84,7 +86,7 @@ impl VariableName {
 
 impl fmt::Display for VariableName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", std::str::from_utf8(&self.0[..]).unwrap(),)
+        write!(f, "{}", std::str::from_utf8(&self.0[..]).unwrap())
     }
 }
 
