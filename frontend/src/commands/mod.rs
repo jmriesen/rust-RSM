@@ -20,7 +20,7 @@ pub fn new(
             Command::For(r#for::new(&command, source_code, line_tail))
         }
         lang_model::commandChildren::NewCommand(_) => todo!(),
-        lang_model::commandChildren::QUITCommand(_) => todo!(),
+        lang_model::commandChildren::QuitCommand(_) => todo!(),
         lang_model::commandChildren::WriteCommand(command) => write::new(&command, source_code),
     }
 }
