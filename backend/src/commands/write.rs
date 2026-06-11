@@ -2,6 +2,7 @@ use ir::{Expression, commands::Write};
 
 use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext};
 
+#[derive(Debug)]
 pub enum WriteCodes {
     Bang = 53,
     Clear = 54,

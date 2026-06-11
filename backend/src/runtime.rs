@@ -1,41 +1,83 @@
+use value::Value;
+
+use crate::{commands::write::WriteCodes, value::STRING_OP};
+
 #[derive(Default)]
 struct JobState {
     //Replace with a proper output device later.
     buffer: String,
     address_stack: Vec<value::Value>,
 }
+
+//What are the primitives of the stack based language?
+
+#[derive(Debug)]
+enum StackLangItem {
+    Value(Value),
+    WriteCode(WriteCodes),
+    BinaryOpCodeAdd,
+    NoOp,
+}
+
+#[derive(Debug)]
+struct ByteCode<'a>(&'a [u8]);
+impl<'a> ByteCode<'a> {
+    fn next(&mut self) -> StackLangItem {
+        let code = self.0[0];
+        self.0 = &self.0[1..];
+        match code {
+            x if x == WriteCodes::Expression as u8 => {
+                StackLangItem::WriteCode(WriteCodes::Expression)
+            }
+            x if x == STRING_OP => {
+                let (value, tail) = Value::from_bytes(self.0);
+                self.0 = &tail[1..];
+                StackLangItem::Value(value)
+            }
+            10 => StackLangItem::BinaryOpCodeAdd,
+            x => {
+                dbg!(x);
+                StackLangItem::NoOp
+            }
+        }
+    }
+    fn end(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use frontend::wrap_command_in_routine;
     use value::{Number, Value};
 
     use crate::{
-        commands::write::WriteCodes, runtime::JobState, test::compile_routine, value::STRING_OP,
+        runtime::{ByteCode, JobState},
+        test::compile_routine,
     };
-    fn run_code(job_state: &mut JobState, mut byte_code: &[u8]) {
-        while !dbg!(byte_code).is_empty() {
-            let code = byte_code[0];
-            byte_code = &byte_code[1..];
-            match dbg!(code) {
-                x if x == WriteCodes::Expression as u8 => {
+
+    use super::StackLangItem;
+    fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
+        let mut byte_code = ByteCode(byte_code);
+        while !byte_code.end() {
+            match dbg!(byte_code.next()) {
+                StackLangItem::Value(value) => {
+                    job_state.address_stack.push(value);
+                }
+                StackLangItem::WriteCode(_write_codes) => {
                     let value = job_state.address_stack.pop().unwrap();
                     job_state
                         .buffer
                         .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
                 }
-                x if x == STRING_OP => {
-                    let (value, tail) = Value::from_bytes(byte_code);
-                    job_state.address_stack.push(value);
-                    byte_code = &tail[1..];
-                }
-                10 /*add op code*/ =>{
+                StackLangItem::BinaryOpCodeAdd => {
                     let second = job_state.address_stack.pop().unwrap();
-                    let first= job_state.address_stack.pop().unwrap();
-                    job_state.address_stack.push(Value::from(Number::from(first) +Number::from(second)));
+                    let first = job_state.address_stack.pop().unwrap();
+                    job_state
+                        .address_stack
+                        .push(Value::from(Number::from(first) + Number::from(second)));
                 }
-                x => {
-                    dbg!(x);
-                }
+                StackLangItem::NoOp => {}
             }
         }
     }
