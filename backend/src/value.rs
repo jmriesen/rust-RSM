@@ -1,6 +1,6 @@
 use value::Value;
 
-const STRING_OP: u8 = 60;
+pub const STRING_OP: u8 = 60;
 use crate::{Compile, bite_code::BiteCode};
 impl Compile for Value {
     type Context = ();

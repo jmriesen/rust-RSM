@@ -2,7 +2,7 @@ use ir::{Expression, commands::Write};
 
 use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext};
 
-enum WriteCodes {
+pub enum WriteCodes {
     Bang = 53,
     Clear = 54,
     Tab = 55,
