@@ -5,7 +5,7 @@ pub enum Unary {
     Not,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Binary {
     Add,
     Sub,

@@ -33,30 +33,23 @@ impl<'a> ByteCode<'a> {
         }
     }
     fn next(&mut self) -> StackAssembally {
-        let code = self.0[0];
-        self.0 = &self.0[1..];
-        match code {
-            x if let Some((value, tail)) = WriteCodes::decode(x, self.0) => {
-                self.0 = tail;
-                StackAssembally::WriteCode(value)
-            }
-            x if let Some((value, tail)) = Value::decode(x, self.0) => {
-                self.0 = tail;
-                StackAssembally::Literal(value)
-            }
-            x if let Some((opcode, tail)) = Unary::decode(x, self.0) => {
-                self.0 = tail;
-                StackAssembally::UnaryOp(opcode)
-            }
-            x if let Some((value, tail)) = Binary::decode(x, self.0) => {
-                self.0 = tail;
-                StackAssembally::BinaryOpCode(value)
-            }
-            x => {
-                dbg!(x);
-                StackAssembally::NoOp
-            }
-        }
+        //Starting with none to get nice vertical alignment
+        //Trusting that the compiler will optimize it away.
+        None.or_else(|| self.try_decode().map(StackAssembally::WriteCode))
+            .or_else(|| self.try_decode().map(StackAssembally::Literal))
+            .or_else(|| self.try_decode().map(StackAssembally::UnaryOp))
+            .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
+            .or_else(|| {
+                // Pulling off whatever is at the front and treating it as a no-op.
+                // This is here so that the while let Some( ) = self.next loops are
+                // guaranteed to make progress.
+                // TODO: Remove once all cases are covered.
+                let code = self.0[0];
+                self.0 = &self.0[1..];
+                dbg!(code);
+                Some(StackAssembally::NoOp)
+            })
+            .expect("due to the last noop clause this value will always be some.")
     }
     fn end(&self) -> bool {
         self.0.is_empty()
@@ -85,12 +78,17 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                     .buffer
                     .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
             }
-            StackAssembally::BinaryOpCodeAdd => {
+            StackAssembally::BinaryOpCode(op) => {
                 let second = job_state.address_stack.pop().unwrap();
                 let first = job_state.address_stack.pop().unwrap();
-                job_state
-                    .address_stack
-                    .push(Value::from(Number::from(first) + Number::from(second)));
+                let result: Value = match op {
+                    Binary::Add => (Number::from(first) + Number::from(second)).into(),
+                    Binary::Sub => (Number::from(first) - Number::from(second)).into(),
+                    _ => {
+                        todo!()
+                    }
+                };
+                job_state.address_stack.push(result);
             }
             StackAssembally::NoOp => {}
             StackAssembally::UnaryOp(op) => match op {
@@ -115,8 +113,6 @@ mod test {
     };
     use frontend::wrap_command_in_routine;
 
-    use super::StackAssembally;
-
     #[test]
     fn write() {
         let source = "w 5";
@@ -134,6 +130,15 @@ mod test {
         let byte_code = compile_routine(routine);
         run_code(&mut job_state, &byte_code);
         assert_eq!(job_state.buffer, "15");
+    }
+    #[test]
+    fn sub() {
+        let source = "w 5-10";
+        let mut job_state = JobState::default();
+        let routine = wrap_command_in_routine(source);
+        let byte_code = compile_routine(routine);
+        run_code(&mut job_state, &byte_code);
+        assert_eq!(job_state.buffer, "-5");
     }
     #[test]
     fn unary_minues() {
