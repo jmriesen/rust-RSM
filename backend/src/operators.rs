@@ -13,6 +13,21 @@ impl Compile for Unary {
     }
 }
 
+pub trait decode: Sized {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
+}
+impl decode for Unary {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        match code {
+            19 => Some(Self::Minus),
+            18 => Some(Self::Plus),
+            3 => Some(Self::Not),
+            _ => None,
+        }
+        .map(|x| (x, tail))
+    }
+}
+
 impl Compile for Binary {
     type Context = ();
     fn compile(&self, bite_code: &mut BiteCode, _: &()) {

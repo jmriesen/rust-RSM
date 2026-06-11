@@ -156,7 +156,7 @@ impl Number {
         self.mantissa[0] == 9
     }
 
-    fn negate(&mut self) {
+    pub fn negate(&mut self) {
         self.mantissa = self.mantissa.iter().map(|x| 9 - x).collect();
         *self
             .mantissa
