@@ -1,7 +1,7 @@
 use ir::operators::Unary;
 use value::{Number, Value};
 
-use crate::{commands::write::WriteCodes, operators::decode, value::STRING_OP};
+use crate::{commands::write::WriteCodes, operators::Decode, value::STRING_OP};
 
 #[derive(Default)]
 struct JobState {

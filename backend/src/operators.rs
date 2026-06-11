@@ -13,10 +13,10 @@ impl Compile for Unary {
     }
 }
 
-pub trait decode: Sized {
+pub trait Decode: Sized {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
 }
-impl decode for Unary {
+impl Decode for Unary {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
         match code {
             19 => Some(Self::Minus),

@@ -1,7 +1,7 @@
 use value::Value;
 
 pub const STRING_OP: u8 = 60;
-use crate::{Compile, bite_code::BiteCode, operators::decode};
+use crate::{Compile, bite_code::BiteCode, operators::Decode};
 impl Compile for Value {
     type Context = ();
 
@@ -11,7 +11,7 @@ impl Compile for Value {
         bite_code.push(0);
     }
 }
-impl decode for Value {
+impl Decode for Value {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
         if code == STRING_OP {
             let (value, new_tail) = Value::from_bytes(tail);
