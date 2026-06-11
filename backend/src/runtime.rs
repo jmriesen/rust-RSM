@@ -49,6 +49,8 @@ impl<'a> ByteCode<'a> {
     fn end(&self) -> bool {
         self.0.is_empty()
     }
+
+    #[allow(unused)]
     fn print_all(mut self) {
         let mut vec = vec![];
         while !self.end() {
@@ -57,6 +59,7 @@ impl<'a> ByteCode<'a> {
         dbg!(vec);
     }
 }
+#[allow(unused)]
 fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
     let mut byte_code = ByteCode(byte_code);
     while !byte_code.end() {
