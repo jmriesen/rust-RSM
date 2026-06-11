@@ -1,4 +1,4 @@
-use ir::operators::Unary;
+use ir::operators::{Binary, Unary};
 use value::{Number, Value};
 
 use crate::{commands::write::WriteCodes, operators::Decode, value::STRING_OP};
@@ -16,7 +16,7 @@ struct JobState {
 enum StackAssembally {
     Literal(Value),
     WriteCode(WriteCodes),
-    BinaryOpCodeAdd,
+    BinaryOpCode(Binary),
     UnaryOp(Unary),
     NoOp,
 }
@@ -24,12 +24,21 @@ enum StackAssembally {
 #[derive(Debug)]
 struct ByteCode<'a>(&'a [u8]);
 impl<'a> ByteCode<'a> {
+    fn try_decode<T: Decode>(&mut self) -> Option<T> {
+        if let Some((value, tail)) = T::decode(self.0[0], &self.0[1..]) {
+            self.0 = tail;
+            Some(value)
+        } else {
+            None
+        }
+    }
     fn next(&mut self) -> StackAssembally {
         let code = self.0[0];
         self.0 = &self.0[1..];
         match code {
-            x if x == WriteCodes::Expression as u8 => {
-                StackAssembally::WriteCode(WriteCodes::Expression)
+            x if let Some((value, tail)) = WriteCodes::decode(x, self.0) => {
+                self.0 = tail;
+                StackAssembally::WriteCode(value)
             }
             x if let Some((value, tail)) = Value::decode(x, self.0) => {
                 self.0 = tail;
@@ -39,7 +48,10 @@ impl<'a> ByteCode<'a> {
                 self.0 = tail;
                 StackAssembally::UnaryOp(opcode)
             }
-            10 => StackAssembally::BinaryOpCodeAdd,
+            x if let Some((value, tail)) = Binary::decode(x, self.0) => {
+                self.0 = tail;
+                StackAssembally::BinaryOpCode(value)
+            }
             x => {
                 dbg!(x);
                 StackAssembally::NoOp

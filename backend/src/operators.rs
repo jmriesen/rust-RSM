@@ -60,3 +60,13 @@ impl Compile for Binary {
         });
     }
 }
+impl Decode for Binary {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        match code {
+            10 => Some(Self::Add),
+            //TODO: Implement the rest
+            _ => None,
+        }
+        .map(|x| (x, tail))
+    }
+}
