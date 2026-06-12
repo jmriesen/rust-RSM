@@ -112,6 +112,7 @@ mod test {
         test::compile_routine,
     };
     use frontend::wrap_command_in_routine;
+    use rstest::rstest;
 
     #[test]
     fn write() {
@@ -122,32 +123,16 @@ mod test {
         run_code(&mut job_state, &byte_code);
         assert_eq!(job_state.buffer, "5");
     }
-    #[test]
-    fn add() {
-        let source = "w 5+10";
+    #[rstest]
+    #[case("w 5+10", "15")]
+    #[case("w 5-10", "-5")]
+    #[case("w --10", "10")]
+    #[case("w 10-(5+4)", "1")]
+    fn basic_math(#[case] source: &str, #[case] output: &str) {
         let mut job_state = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
         run_code(&mut job_state, &byte_code);
-        assert_eq!(job_state.buffer, "15");
-    }
-    #[test]
-    fn sub() {
-        let source = "w 5-10";
-        let mut job_state = JobState::default();
-        let routine = wrap_command_in_routine(source);
-        let byte_code = compile_routine(routine);
-        run_code(&mut job_state, &byte_code);
-        assert_eq!(job_state.buffer, "-5");
-    }
-    #[test]
-    fn unary_minues() {
-        let source = "w --10";
-        let mut job_state = JobState::default();
-        let routine = wrap_command_in_routine(source);
-        let byte_code = compile_routine(routine);
-        ByteCode(&byte_code).print_all();
-        run_code(&mut job_state, &byte_code);
-        assert_eq!(job_state.buffer, "10");
+        assert_eq!(job_state.buffer, output);
     }
 }
