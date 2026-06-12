@@ -1,7 +1,13 @@
 use ir::operators::{Binary, Unary};
 use value::{Number, Value};
 
-use crate::{commands::write::WriteCodes, operators::Decode, value::STRING_OP};
+use crate::{
+    commands::{
+        r#for::{ForEnd, ForSet, ForStart, NoOpCode},
+        write::WriteCodes,
+    },
+    operators::Decode,
+};
 
 #[derive(Default)]
 struct JobState {
@@ -28,6 +34,15 @@ impl Decode for EndCommand {
 }
 
 #[derive(Debug)]
+struct TEMP(u8);
+impl Decode for TEMP {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        //Always accept remove before productino but helps durring testing adding new types
+        Some((Self(code), tail))
+    }
+}
+
+#[derive(Debug)]
 enum StackAssembally {
     Literal(Value),
     WriteCode(WriteCodes),
@@ -35,6 +50,11 @@ enum StackAssembally {
     UnaryOp(Unary),
     EndLine(EndLine),
     EndCommand(EndCommand),
+    ForSet(ForSet),
+    ForStart(ForStart),
+    ForEnd(ForEnd),
+    TEMP(TEMP),
+    NoOpCode(NoOpCode),
 }
 
 #[derive(Debug)]
@@ -57,6 +77,11 @@ impl<'a> ByteCode<'a> {
             .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
             .or_else(|| self.try_decode().map(StackAssembally::EndLine))
             .or_else(|| self.try_decode().map(StackAssembally::EndCommand))
+            .or_else(|| self.try_decode().map(StackAssembally::ForSet))
+            .or_else(|| self.try_decode().map(StackAssembally::ForStart))
+            .or_else(|| self.try_decode().map(StackAssembally::ForEnd))
+            .or_else(|| self.try_decode().map(StackAssembally::NoOpCode))
+            .or_else(|| self.try_decode().map(StackAssembally::TEMP))
             .expect("Provided source was invalid/corruped")
     }
     fn end(&self) -> bool {
@@ -76,7 +101,7 @@ impl<'a> ByteCode<'a> {
 fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
     let mut byte_code = ByteCode(byte_code);
     while !byte_code.end() {
-        match dbg!(dbg!(&mut byte_code).next()) {
+        match byte_code.next() {
             StackAssembally::Literal(value) => {
                 job_state.address_stack.push(value);
             }
@@ -109,6 +134,11 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                 Unary::Not => todo!(),
             },
             StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
+            StackAssembally::ForSet(for_command) => todo!(),
+            StackAssembally::TEMP(_) => {}
+            StackAssembally::ForStart(for_start) => todo!(),
+            StackAssembally::ForEnd(for_start) => todo!(),
+            StackAssembally::NoOpCode(no_op_code) => {}
         }
     }
 }
@@ -116,7 +146,7 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
 #[cfg(test)]
 mod test {
     use crate::{
-        runtime::{ByteCode, JobState, run_code},
+        runtime::{JobState, run_code},
         test::compile_routine,
     };
     use frontend::wrap_command_in_routine;
@@ -136,10 +166,13 @@ mod test {
     #[case("w 5-10", "-5")]
     #[case("w --10", "10")]
     #[case("w 10-(5+4)", "1")]
+    #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
+    #[case("f i=1:1+5:5 w \"foo \"", "foo foo foo foo foo ")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
         let mut job_state = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
+        super::ByteCode(&byte_code).print_all();
         run_code(&mut job_state, &byte_code);
         assert_eq!(job_state.buffer, output);
     }

@@ -80,10 +80,13 @@ impl Compile for Variable {
         } as u8;
 
         //Use a slightly more compact format if all we have to worry about is subscripts
-        if matches!(self.var_type, E::Named {
-            globle_ident: None | Some(GlobleIdent { user_class: None }),
-            ..
-        }) {
+        if matches!(
+            self.var_type,
+            E::Named {
+                globle_ident: None | Some(GlobleIdent { user_class: None }),
+                ..
+            }
+        ) {
             comp.push(op_code + self.subscripts.len() as u8);
         } else {
             comp.push(op_code);

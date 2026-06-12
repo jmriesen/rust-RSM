@@ -1,18 +1,58 @@
 use ir::commands::r#for::{For, ForKind};
+use symbol_table::VariableName;
 
 use crate::{
     Compile, NO_OP_CODE,
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
+    operators::Decode,
     variable::VarContext,
 };
 
-enum ForCodes {
+#[derive(Debug)]
+pub enum ForStart {
     One = 174,
     Two = 175,
     Three = 176,
+}
+impl Decode for ForStart {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        match code {
+            174 => Some(Self::One),
+            175 => Some(Self::Two),
+            176 => Some(Self::Three),
+            _ => None,
+        }
+        .map(|x| (x, tail))
+    }
+}
+#[derive(Debug)]
+pub enum ForEnd {
     End = 178,
+}
+impl Decode for ForEnd {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        match code {
+            178 => Some(Self::End),
+            _ => None,
+        }
+        .map(|x| (x, tail))
+    }
+}
+
+#[derive(Debug)]
+pub enum NoOpCode {
+    Value = 179,
+}
+impl Decode for NoOpCode {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        match code {
+            179 => Some(Self::Value),
+            _ => None,
+        }
+        .map(|x| (x, tail))
+    }
 }
 
 impl Compile for For {
@@ -52,9 +92,9 @@ impl Compile for For {
                         }
 
                         bite_code.push(match args.increment_end {
-                            None => ForCodes::One,
-                            Some((_, None)) => ForCodes::Two,
-                            Some((_, Some(_))) => ForCodes::Three,
+                            None => ForStart::One,
+                            Some((_, None)) => ForStart::Two,
+                            Some((_, Some(_))) => ForStart::Three,
                         } as u8);
                     }
 
@@ -82,11 +122,44 @@ impl Compile for For {
                 let jump = bite_code.unconditional_jump();
                 bite_code.write_jump(jump, location);
             } else {
-                bite_code.push(ForCodes::End as u8);
+                bite_code.push(ForEnd::End as u8);
             }
             // Jump out of for loop
             bite_code.write_jump(break_jump, bite_code.current_location());
             bite_code.push(NO_OP_CODE);
         };
+    }
+}
+#[derive(Debug)]
+pub struct ForSet {
+    var_name: VariableName,
+    jump_to_content: i16,
+    break_jump: i16,
+}
+impl Decode for ForSet {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        if code == VarContext::For as u8 {
+            let (_type, tail) = tail.split_at(1);
+            let (variable_string, tail) = tail.split_at(32);
+            let (jump_to_content, tail) = tail.split_at(2);
+            let (break_jump, tail) = tail.split_at(2);
+
+            let variable_string: Vec<_> = variable_string
+                .iter()
+                .take_while(|x| **x != 0)
+                .cloned()
+                .collect();
+
+            Some((
+                Self {
+                    var_name: VariableName::new(&variable_string).unwrap(),
+                    jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()),
+                    break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
+                },
+                &tail,
+            ))
+        } else {
+            None
+        }
     }
 }
