@@ -11,6 +11,21 @@ struct JobState {
 }
 
 //What are the primitives of the stack based language?
+#[derive(Debug)]
+pub struct EndLine;
+impl Decode for EndLine {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        if code == 0 { Some((Self, tail)) } else { None }
+    }
+}
+
+#[derive(Debug)]
+pub struct EndCommand;
+impl Decode for EndCommand {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+        if code == 4 { Some((Self, tail)) } else { None }
+    }
+}
 
 #[derive(Debug)]
 enum StackAssembally {
@@ -18,7 +33,8 @@ enum StackAssembally {
     WriteCode(WriteCodes),
     BinaryOpCode(Binary),
     UnaryOp(Unary),
-    NoOp,
+    EndLine(EndLine),
+    EndCommand(EndCommand),
 }
 
 #[derive(Debug)]
@@ -39,17 +55,9 @@ impl<'a> ByteCode<'a> {
             .or_else(|| self.try_decode().map(StackAssembally::Literal))
             .or_else(|| self.try_decode().map(StackAssembally::UnaryOp))
             .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
-            .or_else(|| {
-                // Pulling off whatever is at the front and treating it as a no-op.
-                // This is here so that the while let Some( ) = self.next loops are
-                // guaranteed to make progress.
-                // TODO: Remove once all cases are covered.
-                let code = self.0[0];
-                self.0 = &self.0[1..];
-                dbg!(code);
-                Some(StackAssembally::NoOp)
-            })
-            .expect("due to the last noop clause this value will always be some.")
+            .or_else(|| self.try_decode().map(StackAssembally::EndLine))
+            .or_else(|| self.try_decode().map(StackAssembally::EndCommand))
+            .expect("Provided source was invalid/corruped")
     }
     fn end(&self) -> bool {
         self.0.is_empty()
@@ -90,7 +98,6 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                 };
                 job_state.address_stack.push(result);
             }
-            StackAssembally::NoOp => {}
             StackAssembally::UnaryOp(op) => match op {
                 Unary::Minus => {
                     let first = job_state.address_stack.pop().unwrap();
@@ -101,6 +108,7 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                 Unary::Plus => todo!(),
                 Unary::Not => todo!(),
             },
+            StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
         }
     }
 }
