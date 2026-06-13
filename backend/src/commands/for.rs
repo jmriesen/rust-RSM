@@ -7,6 +7,7 @@ use crate::{
     commands::COMAND_END,
     expression::ExpressionContext,
     operators::Decode,
+    runtime::OpCode,
     variable::VarContext,
 };
 
@@ -27,33 +28,7 @@ impl Decode for ForStart {
         .map(|x| (x, tail))
     }
 }
-#[derive(Debug)]
-pub enum ForEnd {
-    End = 178,
-}
-impl Decode for ForEnd {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        match code {
-            178 => Some(Self::End),
-            _ => None,
-        }
-        .map(|x| (x, tail))
-    }
-}
-
-#[derive(Debug)]
-pub enum NoOpCode {
-    Value = 179,
-}
-impl Decode for NoOpCode {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        match code {
-            179 => Some(Self::Value),
-            _ => None,
-        }
-        .map(|x| (x, tail))
-    }
-}
+OpCode! {ForEnd =178}
 
 impl Compile for For {
     type Context = ();
@@ -122,7 +97,7 @@ impl Compile for For {
                 let jump = bite_code.unconditional_jump();
                 bite_code.write_jump(jump, location);
             } else {
-                bite_code.push(ForEnd::End as u8);
+                bite_code.push(ForEnd.encode());
             }
             // Jump out of for loop
             bite_code.write_jump(break_jump, bite_code.current_location());

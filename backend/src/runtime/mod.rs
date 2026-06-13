@@ -8,7 +8,7 @@ use value::{Number, Value};
 
 use crate::{
     commands::{
-        r#for::{ForEnd, ForSet, ForStart, NoOpCode},
+        r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
     operators::Decode,
@@ -36,26 +36,33 @@ struct JobState {
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
 }
-
-//What are the primitives of the stack based language?
-#[derive(Debug)]
-pub struct EndLine;
-impl Decode for EndLine {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        if code == 0 { Some((Self, tail)) } else { None }
-    }
+macro_rules! OpCode {
+    ($name:ident=$code:expr) => {
+        #[derive(Debug)]
+        pub struct $name;
+        impl Decode for $name {
+            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+                if code == $code {
+                    Some((Self, tail))
+                } else {
+                    None
+                }
+            }
+        }
+        impl $name {
+            fn encode(self) -> u8 {
+                $code
+            }
+        }
+    };
 }
+pub(crate) use OpCode;
+OpCode! {EndLine=0}
+OpCode! {EndCommand=4}
+OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
-pub struct EndCommand;
-impl Decode for EndCommand {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        if code == 4 { Some((Self, tail)) } else { None }
-    }
-}
-
-#[derive(Debug)]
-struct TEMP(u8);
+pub struct TEMP(u8);
 impl Decode for TEMP {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
         //Always accept remove before productino but helps durring testing adding new types
