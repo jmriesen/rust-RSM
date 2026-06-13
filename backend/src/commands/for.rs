@@ -6,27 +6,17 @@ use crate::{
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
-    runtime::{Decode, OpCode},
+    runtime::{Decode, OpCode, OpCodes},
     variable::VarContext,
 };
 
-#[derive(Debug)]
-pub enum ForStart {
+OpCodes! {
+ForStart {
     One = 174,
     Two = 175,
     Three = 176,
-}
-impl Decode for ForStart {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        match code {
-            174 => Some(Self::One),
-            175 => Some(Self::Two),
-            176 => Some(Self::Three),
-            _ => None,
-        }
-        .map(|x| (x, tail))
-    }
-}
+}}
+
 OpCode! {ForEnd =178}
 
 impl Compile for For {
@@ -134,7 +124,7 @@ impl Decode for ForSet {
                     //Jumps are encoded relative to the address the jump is stored in.
                     //However, I want these both to logically have the same base.
                     //This subtraction offsets the fact that these jumps are stored in different
-                    //physical locations of the bytecode
+                    //physical locations of the bytecode.
                     jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()) - 2,
                     break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
                 },
