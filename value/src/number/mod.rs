@@ -49,7 +49,7 @@ use std::iter;
 /// assert_eq!("1".parse::<Value>().unwrap(),number.into());
 /// ```
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Eq)]
 pub struct Number {
     exponent: usize,
     ///Note due to 9's complement
@@ -245,6 +245,19 @@ impl std::str::FromStr for Number {
     }
 }
 
+impl Ord for Number {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let diff = other.clone() - self.clone();
+        if diff == "0".parse().unwrap() {
+            std::cmp::Ordering::Equal
+        } else if diff.is_negative() {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
@@ -348,5 +361,15 @@ mod test {
         let mut negitive = number.clone();
         negitive.negate();
         assert_ne!(number, negitive)
+    }
+
+    #[test]
+    fn ordering() {
+        let five = "5".parse::<Number>().unwrap();
+        let six = "6".parse::<Number>().unwrap();
+        assert_eq!(five, five.clone());
+        assert!(five < six);
+        assert!(six > five);
+        assert!(five >= five);
     }
 }
