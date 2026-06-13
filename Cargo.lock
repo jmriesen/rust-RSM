@@ -135,6 +135,7 @@ dependencies = [
  "frontend",
  "ir",
  "rstest",
+ "symbol_table",
  "value",
 ]
 

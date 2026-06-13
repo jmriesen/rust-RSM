@@ -40,7 +40,7 @@ use thiserror::Error;
 ///
 /// Any variable who's name starts with $ is considered an intrinsic.
 /// The maximum length of a variable name is `MAX_VAR_NAME_SIZE`
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VariableName(ArrayVec<c_uchar, MAX_VAR_NAME_SIZE>);
 
 /// All the ways in we can fail to build a variable name.
@@ -87,6 +87,15 @@ impl VariableName {
 impl fmt::Display for VariableName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", std::str::from_utf8(&self.0[..]).unwrap())
+    }
+}
+
+impl fmt::Debug for VariableName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VariableName")
+            .field("utf8", &std::str::from_utf8(&self.0[..]))
+            .field("raw", &self.0)
+            .finish()
     }
 }
 

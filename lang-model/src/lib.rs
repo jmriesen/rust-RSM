@@ -61,7 +61,7 @@ impl<'a> command<'a> {
             E::DoCommand(command) => command.args().is_empty(),
             E::ElseCommand(_) => true,
             E::NewCommand(_) => true,
-            E::QUITCommand(_) => true,
+            E::QuitCommand(_) => true,
         }
     }
 }

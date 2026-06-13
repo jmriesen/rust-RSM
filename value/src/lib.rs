@@ -98,6 +98,17 @@ impl Value {
             .chain(iter::once(second))
             .chain(self.content().iter().cloned())
     }
+    pub fn from_bytes(source: &[u8]) -> (Self, &[u8]) {
+        let [first, second] = source[0..2]
+            .try_into()
+            .expect("There should always be at least two elements");
+        let len = u16::from_le_bytes([first, second]);
+        let content = &source[2..2 + len as usize];
+        (
+            Self(content.iter().cloned().collect()),
+            &source[2 + len as usize..],
+        )
+    }
 }
 
 impl Default for Value {

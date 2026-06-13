@@ -49,7 +49,7 @@ use std::iter;
 /// assert_eq!("1".parse::<Value>().unwrap(),number.into());
 /// ```
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Eq)]
 pub struct Number {
     exponent: usize,
     ///Note due to 9's complement
@@ -156,7 +156,7 @@ impl Number {
         self.mantissa[0] == 9
     }
 
-    fn negate(&mut self) {
+    pub fn negate(&mut self) {
         self.mantissa = self.mantissa.iter().map(|x| 9 - x).collect();
         *self
             .mantissa
@@ -242,6 +242,19 @@ impl std::str::FromStr for Number {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = Value::from_str(s)?;
         Ok(Self::from(value))
+    }
+}
+
+impl Ord for Number {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let diff = other.clone() - self.clone();
+        if diff == "0".parse().unwrap() {
+            std::cmp::Ordering::Equal
+        } else if diff.is_negative() {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
     }
 }
 
@@ -348,5 +361,15 @@ mod test {
         let mut negitive = number.clone();
         negitive.negate();
         assert_ne!(number, negitive)
+    }
+
+    #[test]
+    fn ordering() {
+        let five = "5".parse::<Number>().unwrap();
+        let six = "6".parse::<Number>().unwrap();
+        assert_eq!(five, five.clone());
+        assert!(five < six);
+        assert!(six > five);
+        assert!(five >= five);
     }
 }
