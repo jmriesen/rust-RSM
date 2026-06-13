@@ -152,10 +152,8 @@ impl<'a> ByteCode<'a> {
     fn jump_absolute(&mut self, location: usize) {
         self.program_counter = location
     }
-    fn jump_relative(&mut self, location: i16) {
-        self.program_counter = dbg!((self.program_counter as isize) + (location as isize)) as usize;
-    }
 }
+
 #[allow(unused)]
 fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
     let mut byte_code = ByteCode::new(byte_code);
@@ -207,7 +205,7 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                         Number::from(job_state.address_stack.pop().unwrap()),
                         Number::from(job_state.address_stack.pop().unwrap()),
                         job_state.address_stack.pop().unwrap(),
-                        //TODO: check if the comparesent happens as a number or a value
+                        //TODO: check if the comparison happens as a number or a value
                     ),
                 };
                 let (start_location, for_set) = job_state
