@@ -151,7 +151,7 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                     .set(&for_frame.var, &next_i.clone().into())
                     .unwrap();
 
-                if dbg!(next_i.clone()) <= dbg!(for_frame.end_value.clone()) {
+                if next_i.clone() <= for_frame.end_value.clone() {
                     byte_code.jump_absolute(for_frame.loop_body - 2);
                 } else {
                     byte_code.jump_absolute(for_frame.break_jump);
