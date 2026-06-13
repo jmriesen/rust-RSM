@@ -113,7 +113,7 @@ impl Document {
                     BlockChildren::line(line) => {
                         let commands = line.children();
                         let command = commands.last().unwrap().children();
-                        if matches!(command, commandChildren::QUITCommand(_)) {
+                        if matches!(command, commandChildren::QuitCommand(_)) {
                             None
                         } else {
                             Some(*line.node())
@@ -168,7 +168,7 @@ impl Document {
                             //.take_while(|x| !matches!(x, E::IfCommand(_)))
                             .take_while(|x| !matches!(x, E::ElseCommand(_)))
                             .take_while(|x| !matches!(x, E::For(_)))
-                            .any(|x| matches!(x, E::QUITCommand(_)))
+                            .any(|x| matches!(x, E::QuitCommand(_)))
                     }
                 })
                 //Skip over the quit.
