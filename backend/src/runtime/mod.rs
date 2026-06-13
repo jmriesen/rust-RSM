@@ -118,11 +118,9 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                     ForStart::One => todo!(),
                     ForStart::Two => todo!(),
                     ForStart::Three => (
-                        //TODO: add test about if number conversion is automatic
                         Number::from(job_state.address_stack.pop().unwrap()),
                         Number::from(job_state.address_stack.pop().unwrap()),
                         job_state.address_stack.pop().unwrap(),
-                        //TODO: check if the comparison happens as a number or a value
                     ),
                 };
                 let (start_location, for_set) = job_state
