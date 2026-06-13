@@ -58,11 +58,23 @@ enum StackAssembally {
 }
 
 #[derive(Debug)]
-struct ByteCode<'a>(&'a [u8]);
+struct ByteCode<'a> {
+    source: &'a [u8],
+    program_counter: usize,
+}
 impl<'a> ByteCode<'a> {
+    fn new(source: &'a [u8]) -> Self {
+        Self {
+            source,
+            program_counter: 0,
+        }
+    }
     fn try_decode<T: Decode>(&mut self) -> Option<T> {
-        if let Some((value, tail)) = T::decode(self.0[0], &self.0[1..]) {
-            self.0 = tail;
+        if let Some((value, tail)) = T::decode(
+            self.source[self.program_counter],
+            &self.source[self.program_counter + 1..],
+        ) {
+            self.program_counter = self.source.len() - tail.len();
             Some(value)
         } else {
             None
@@ -85,7 +97,7 @@ impl<'a> ByteCode<'a> {
             .expect("Provided source was invalid/corruped")
     }
     fn end(&self) -> bool {
-        self.0.is_empty()
+        self.program_counter == self.source.len()
     }
 
     #[allow(unused)]
@@ -96,10 +108,14 @@ impl<'a> ByteCode<'a> {
         }
         dbg!(vec);
     }
+
+    fn jump(&mut self, jump_to_content: i16) {
+        todo!()
+    }
 }
 #[allow(unused)]
 fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
-    let mut byte_code = ByteCode(byte_code);
+    let mut byte_code = ByteCode::new(byte_code);
     while !byte_code.end() {
         match byte_code.next() {
             StackAssembally::Literal(value) => {
@@ -172,7 +188,7 @@ mod test {
         let mut job_state = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
-        super::ByteCode(&byte_code).print_all();
+        super::ByteCode::new(&byte_code).print_all();
         run_code(&mut job_state, &byte_code);
         assert_eq!(job_state.buffer, output);
     }
