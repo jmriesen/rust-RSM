@@ -1,5 +1,5 @@
 use ir::commands::r#for::{For, ForKind};
-use symbol_table::VariableName;
+use symbol_table::{MVar, VariableName, key::Path};
 
 use crate::{
     Compile, NO_OP_CODE,
@@ -132,9 +132,9 @@ impl Compile for For {
 }
 #[derive(Debug)]
 pub struct ForSet {
-    var_name: VariableName,
-    jump_to_content: i16,
-    break_jump: i16,
+    pub var: MVar<Path>,
+    pub jump_to_content: i16,
+    pub break_jump: i16,
 }
 impl Decode for ForSet {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
@@ -152,7 +152,11 @@ impl Decode for ForSet {
 
             Some((
                 Self {
-                    var_name: VariableName::new(&variable_string).unwrap(),
+                    var: MVar::new(
+                        //TODO: handle other cases
+                        VariableName::new(&variable_string).unwrap(),
+                        Path::new([]).unwrap(),
+                    ),
                     jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()),
                     break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
                 },
