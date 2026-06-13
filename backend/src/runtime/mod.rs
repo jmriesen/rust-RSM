@@ -39,8 +39,11 @@ struct JobState {
 pub trait Decode: Sized {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
 }
+pub trait Encode: Sized {
+    fn encode(&self) -> u8;
+}
 
-pub(crate) use macros::OpCode;
+pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {EndLine=0}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}

@@ -1,27 +1,18 @@
 use ir::{Expression, commands::Write};
 
-use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, runtime::Decode};
+use crate::{
+    Compile,
+    bite_code::BiteCode,
+    expression::ExpressionContext,
+    runtime::{Decode, OpCodes},
+};
 
-#[derive(Debug)]
-pub enum WriteCodes {
+OpCodes! {WriteCodes {
     Bang = 53,
     Clear = 54,
     Tab = 55,
     Expression = 56,
-}
-impl Decode for WriteCodes {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        match code {
-            53 => Some(Self::Bang),
-            54 => Some(Self::Clear),
-            55 => Some(Self::Tab),
-            56 => Some(Self::Expression),
-            _ => None,
-        }
-        .map(|x| (x, tail))
-    }
-}
-
+}}
 impl Compile for Write {
     type Context = ();
     fn compile(&self, comp: &mut BiteCode, _: &()) {
