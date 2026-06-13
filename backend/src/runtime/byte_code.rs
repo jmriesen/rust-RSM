@@ -1,5 +1,9 @@
+use std::{fmt::Debug, ops::Range};
+
+use crate::{operators::Decode, runtime::StackAssembally};
+
 #[derive(Clone)]
-struct ByteCode<'a> {
+pub struct ByteCode<'a> {
     source: &'a [u8],
     program_counter: usize,
 }
@@ -12,7 +16,7 @@ impl<'a> Debug for ByteCode<'a> {
     }
 }
 impl<'a> ByteCode<'a> {
-    fn new(source: &'a [u8]) -> Self {
+    pub fn new(source: &'a [u8]) -> Self {
         Self {
             source,
             program_counter: 0,
@@ -29,7 +33,7 @@ impl<'a> ByteCode<'a> {
             None
         }
     }
-    fn next(&mut self) -> StackAssembally {
+    pub fn next(&mut self) -> StackAssembally {
         //Starting with none to get nice vertical alignment
         //Trusting that the compiler will optimize it away.
         None.or_else(|| self.try_decode().map(StackAssembally::WriteCode))
@@ -50,7 +54,7 @@ impl<'a> ByteCode<'a> {
             .or_else(|| self.try_decode().map(StackAssembally::TEMP))
             .expect("Provided source was invalid/corruped")
     }
-    fn end(&self) -> bool {
+    pub fn end(&self) -> bool {
         self.program_counter == self.source.len()
     }
 
@@ -72,7 +76,7 @@ impl<'a> ByteCode<'a> {
         vec
     }
 
-    fn jump_absolute(&mut self, location: usize) {
+    pub fn jump_absolute(&mut self, location: usize) {
         self.program_counter = location
     }
 }
