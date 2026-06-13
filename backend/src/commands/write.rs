@@ -1,6 +1,6 @@
 use ir::{Expression, commands::Write};
 
-use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, operators::Decode};
+use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, runtime::Decode};
 
 #[derive(Debug)]
 pub enum WriteCodes {

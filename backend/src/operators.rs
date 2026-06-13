@@ -1,6 +1,6 @@
 use ir::operators::{Binary, Unary};
 
-use crate::{Compile, bite_code::BiteCode};
+use crate::{Compile, bite_code::BiteCode, runtime::Decode};
 
 impl Compile for Unary {
     type Context = ();
@@ -13,9 +13,6 @@ impl Compile for Unary {
     }
 }
 
-pub trait Decode: Sized {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
-}
 impl Decode for Unary {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
         match code {

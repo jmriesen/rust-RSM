@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ops::Range};
 
-use crate::{operators::Decode, runtime::StackAssembally};
+use crate::runtime::{Decode, StackAssembally};
 
 #[derive(Clone)]
 pub struct ByteCode<'a> {

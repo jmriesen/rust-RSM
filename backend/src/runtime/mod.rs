@@ -1,6 +1,6 @@
 mod byte_code;
 
-use std::{fmt::Debug, ops::Range};
+use std::fmt::Debug;
 
 use ir::operators::{Binary, Unary};
 use symbol_table::{MVar, SymbolTable, key::Path};
@@ -11,7 +11,6 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
-    operators::Decode,
     runtime::byte_code::ByteCode,
 };
 
@@ -35,6 +34,9 @@ struct JobState {
     for_preample: Option<(usize, ForSet)>,
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
+}
+pub trait Decode: Sized {
+    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
 }
 macro_rules! OpCode {
     ($name:ident=$code:expr) => {
@@ -65,7 +67,7 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 impl Decode for TEMP {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        //Always accept remove before productino but helps durring testing adding new types
+        //Always accept remove before production but helps during testing adding new types
         Some((Self(code), tail))
     }
 }

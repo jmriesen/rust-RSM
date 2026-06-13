@@ -1,7 +1,7 @@
 use value::Value;
 
 pub const STRING_OP: u8 = 60;
-use crate::{Compile, bite_code::BiteCode, operators::Decode};
+use crate::{Compile, bite_code::BiteCode, runtime::Decode};
 impl Compile for Value {
     type Context = ();
 

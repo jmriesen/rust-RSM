@@ -6,8 +6,7 @@ use crate::{
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
-    operators::Decode,
-    runtime::OpCode,
+    runtime::{Decode, OpCode},
     variable::VarContext,
 };
 
