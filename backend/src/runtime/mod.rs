@@ -154,7 +154,7 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                     .unwrap();
 
                 if &next_loop_var <= &for_frame.end_value {
-                    byte_code.jump_absolute(for_frame.loop_body - 2);
+                    byte_code.jump_absolute(for_frame.loop_body);
                 } else {
                     byte_code.jump_absolute(for_frame.break_jump);
                     job_state.for_stack.pop();

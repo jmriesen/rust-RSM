@@ -131,7 +131,11 @@ impl Decode for ForSet {
                         VariableName::new(&variable_string).unwrap(),
                         Path::new([]).unwrap(),
                     ),
-                    jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()),
+                    //Jumps are encoded relative to the address the jump is stored in.
+                    //However, I want these both to logically have the same base.
+                    //This subtraction offsets the fact that these jumps are stored in different
+                    //physical locations of the bytecode
+                    jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()) - 2,
                     break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
                 },
                 &tail,
