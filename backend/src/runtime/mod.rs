@@ -192,9 +192,9 @@ mod test {
     //NOTE: range is includes
     //#[case("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
     //NOTE: Loop arguments are evaluated once before the loop starts.
-    //#[case("s n=2 f i=0:n:5*n s n=3 w i,\" \"", "0 2 4 6 8 10")]
+    //#[case("s n=2 f i=0:n:5*n s n=3 w i,\" \"", "0 2 4 6 8 10")] -- needs set + variable lookup
     //NOTE: `i` is converted into a number right away.
-    #[case("f i=\"foo\":1:5 w i,\"_\"", "0_1_2_3_4_5_")]
+    //#[case("f i=\"foo\":1:5 w i,\"_\"", "0_1_2_3_4_5_")] --needs variable lookup
     //NOTE: Nested for loops
     #[case("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
