@@ -13,6 +13,7 @@ use crate::{
     },
     runtime::byte_code::ByteCode,
 };
+mod macros;
 
 #[derive(Debug)]
 struct ForFrame {
@@ -38,27 +39,8 @@ struct JobState {
 pub trait Decode: Sized {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
 }
-macro_rules! OpCode {
-    ($name:ident=$code:expr) => {
-        #[derive(Debug)]
-        pub struct $name;
-        impl Decode for $name {
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                if code == $code {
-                    Some((Self, tail))
-                } else {
-                    None
-                }
-            }
-        }
-        impl $name {
-            fn encode(self) -> u8 {
-                $code
-            }
-        }
-    };
-}
-pub(crate) use OpCode;
+
+pub(crate) use macros::OpCode;
 OpCode! {EndLine=0}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
