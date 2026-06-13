@@ -75,7 +75,6 @@ enum StackAssembally {
 #[allow(unused)]
 fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
     let mut byte_code = ByteCode::new(byte_code);
-    dbg!(&byte_code);
     while !byte_code.end() {
         match byte_code.next() {
             StackAssembally::Literal(value) => {
@@ -147,14 +146,14 @@ fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
                 let for_frame = job_state.for_stack.last().unwrap();
                 //TODO : Check if this should be unwrap or default requires kill interaction to
                 //test
-                let i = job_state.symbole_table.get(&for_frame.var).unwrap();
-                let next_i = Number::from(i.clone()) + for_frame.increment.clone();
+                let loop_var = job_state.symbole_table.get(&for_frame.var).unwrap().clone();
+                let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
                 job_state
                     .symbole_table
-                    .set(&for_frame.var, &next_i.clone().into())
+                    .set(&for_frame.var, &next_loop_var.clone().into())
                     .unwrap();
 
-                if next_i.clone() <= for_frame.end_value.clone() {
+                if &next_loop_var <= &for_frame.end_value {
                     byte_code.jump_absolute(for_frame.loop_body - 2);
                 } else {
                     byte_code.jump_absolute(for_frame.break_jump);
@@ -190,8 +189,14 @@ mod test {
     #[case("w --10", "10")]
     #[case("w 10-(5+4)", "1")]
     #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
-    //#[case("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")] // Note range is includes
-    //#[case("f i=1:1+5:5 w \"foo \"", "foo foo foo foo foo ")]
+    //NOTE: range is includes
+    //#[case("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
+    //NOTE: Loop arguments are evaluated once before the loop starts.
+    //#[case("s n=2 f i=0:n:5*n s n=3 w i,\" \"", "0 2 4 6 8 10")]
+    //NOTE: `i` is converted into a number right away.
+    #[case("f i=\"foo\":1:5 w i,\"_\"", "0_1_2_3_4_5_")]
+    //NOTE: Nested for loops
+    #[case("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
         let mut job_state = JobState::default();
         let routine = wrap_command_in_routine(source);
