@@ -53,6 +53,7 @@ OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
+#[cfg_attr(test, mutants::skip)]
 pub struct TEMP(u8);
 impl Decode for TEMP {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
