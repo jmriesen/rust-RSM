@@ -58,7 +58,7 @@ u_short prompt_len = 8;                                                         
 fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
     use std::os::fd::AsRawFd;
     unsafe {
-        partab.jobtab = std::ptr::null::<JOBTAB>().cast_mut();
+        partab.jobtab = std::ptr::null_mut::<JOBTAB>();
     }
     let start_type = TYPE_RUN;
     let cfile = CString::new(file.to_string()).unwrap();
@@ -69,12 +69,10 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
             .ok_or("RSM environment is not initialized.".to_string())?;
 
         let vol = unsafe { (*systab).vol[0] };
-        (vol != std::ptr::null::<VOL_DEF>().cast_mut())
-            .then_some(0)
-            .ok_or(
-                "Error occurred in process - Environment does not match runtime image version."
-                    .to_string(),
-            )?;
+        (!vol.is_null()).then_some(0).ok_or(
+            "Error occurred in process - Environment does not match runtime image version."
+                .to_string(),
+        )?;
         //TODO exit
 
         let env_num = env
@@ -229,8 +227,8 @@ fn run(file: &str, env: Option<&str>, _command: &str) -> Result<(), String> {
         unsafe {
             partab.debug = 0;
         }
-        unsafe { partab.strstk_start = strstk.as_mut_ptr() }; // address of strstk
-        unsafe { partab.strstk_last = strstk.as_mut_ptr().add(MAX_SSTK as usize) };
+        unsafe { partab.strstk_start = (&raw mut strstk).cast() }; // address of strstk
+        unsafe { partab.strstk_last = (&raw mut strstk).byte_add(MAX_SSTK as usize).cast() };
         unsafe { partab.varlst = std::ptr::null_mut() }; // used by compiler
         unsafe { partab.vol_fds[0] = file.as_raw_fd() }; // make sure fd is right
                                                          //ST_Init();

@@ -28,8 +28,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![feature(btree_cursors)]
-#![feature(slice_split_once)]
-#![feature(array_windows)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::missing_errors_doc)]
 //I disagree with how this lint handles expects.

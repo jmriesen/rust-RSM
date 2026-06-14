@@ -36,7 +36,7 @@ use super::{Path, PathBound, PathCreationError, SegmentIterator, format};
 
 use super::IntermediateRepresentation;
 
-impl<'a> IntermediateRepresentation<'a> {
+impl IntermediateRepresentation<'_> {
     pub fn external_fmt(self, quote_strings: bool) -> Vec<u8> {
         let mut tmp = Vec::new();
         self.push_external_fmt(&mut tmp, quote_strings);

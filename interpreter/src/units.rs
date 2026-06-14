@@ -82,7 +82,7 @@ impl TryFrom<Bytes> for Words {
     type Error = ();
     /// Currently panics on error case
     fn try_from(bytes: Bytes) -> Result<Self, ()> {
-        assert!(bytes.0 % 4 == 0);
+        assert!(bytes.0.is_multiple_of(4));
         Ok(Self(bytes.0 / 4))
     }
 }
@@ -116,13 +116,13 @@ impl Bytes {
 
 impl std::fmt::Display for Kibibytes {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}KiB)", self.0,)
+        write!(f, "{}KiB)", self.0)
     }
 }
 
 impl std::fmt::Display for Megbibytes {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}MiB)", self.0,)
+        write!(f, "{}MiB)", self.0)
     }
 }
 

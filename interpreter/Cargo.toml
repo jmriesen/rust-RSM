@@ -13,6 +13,7 @@ libc = "0.2.158"
 uname = "0.1.1"
 thiserror = "1.0.63"
 ffi = { path = "../ffi"}
+value = { path = "../value"}
 ref-cast = "1.0.23"
 # Note I am currently enabling all the derive more features for conveniences.
 # If compile times become an issue strip this back to just what is needed.
@@ -26,7 +27,7 @@ serde = { version = "1", features = ["derive"] }
 uuid = { version = "1.10.0", features = ["v4"] }
 rstest = "0.22.0"
 pretty_assertions = "1.4.0"
-rand = "0.8.5"
+rand = "0.8.6"
 mutants = "0.0.3"
 
 [build-dependencies]

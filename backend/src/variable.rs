@@ -6,10 +6,10 @@ use ir::{
 
 #[derive(Clone, Copy)]
 pub enum VarContext {
-    Eval = 61 as isize,
-    Build = 62 as isize,
-    BuildNullable = 63 as isize,
-    For = 177 as isize,
+    Eval = 61_isize,
+    Build = 62_isize,
+    BuildNullable = 63_isize,
+    For = 177_isize,
 }
 
 pub enum VarCodes {

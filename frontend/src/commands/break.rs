@@ -18,7 +18,7 @@ pub fn new(sitter: &BrakeCommand<'_>, source_code: &str) -> Command {
                 sitter
                     .args()
                     .iter()
-                    .map(|x| Expression::new(&x, source_code))
+                    .map(|x| Expression::new(x, source_code))
                     .collect(),
             )
         },

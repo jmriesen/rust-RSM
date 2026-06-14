@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use crate::key::{self, Path, PathBound};
+use crate::key::{Path, PathBound};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::BTreeMap, ops::Bound};
 use value::{self, Value};
