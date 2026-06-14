@@ -27,12 +27,16 @@ struct ForFrame {
 }
 
 #[derive(Default)]
-struct JobState {
+pub struct JobState {
     //Replace with a proper output device later.
     buffer: String,
     address_stack: Vec<value::Value>,
-    //Read metadata for a for loop
+    //Temporarily store loop metadata
+    //This is needed since for loops are encoded as
+    //Metadata expression expression expression loop body
+    //so we need a place to put the metadata while evaluating the expressions
     for_preample: Option<(usize, ForSet)>,
+    // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
 }
