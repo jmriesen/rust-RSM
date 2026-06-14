@@ -146,8 +146,6 @@ impl JobState {
                 }
                 StackAssembally::ForEnd(_for_end) => {
                     let for_frame = self.for_stack.last().unwrap();
-                    //TODO : Check if this should be unwrap or default requires kill interaction to
-                    //test
                     let loop_var = self.symbole_table.get(&for_frame.var).unwrap().clone();
                     let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
                     self.symbole_table
