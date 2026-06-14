@@ -187,12 +187,12 @@ mod test {
     #[case("w 5+10", "15")]
     #[case("w 5-10", "-5")]
     #[case("w --10", "10")]
+    #[case("w 10-(5+4)", "1")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 
     #[rstest]
-    #[case("w 10-(5+4)", "1")]
     #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
     #[case::nested_for_loops("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
     fn for_loops(#[case] source: &str, #[case] output: &str) {
