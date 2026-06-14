@@ -76,114 +76,110 @@ enum StackAssembally {
     NoOpCode(NoOpCode),
 }
 
-#[allow(unused)]
-fn run_code(job_state: &mut JobState, byte_code: &[u8]) {
-    let mut byte_code = ByteCode::new(byte_code);
-    while !byte_code.end() {
-        match byte_code.next() {
-            StackAssembally::Literal(value) => {
-                job_state.address_stack.push(value);
-            }
-            StackAssembally::WriteCode(_write_codes) => {
-                let value = job_state.address_stack.pop().unwrap();
-                job_state
-                    .buffer
-                    .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
-            }
-            StackAssembally::BinaryOpCode(op) => {
-                let second = job_state.address_stack.pop().unwrap();
-                let first = job_state.address_stack.pop().unwrap();
-                let result: Value = match op {
-                    Binary::Add => (Number::from(first) + Number::from(second)).into(),
-                    Binary::Sub => (Number::from(first) - Number::from(second)).into(),
-                    _ => {
-                        todo!()
+impl JobState {
+    pub fn run_code(&mut self, byte_code: &[u8]) {
+        let mut byte_code = ByteCode::new(byte_code);
+        while !byte_code.end() {
+            match byte_code.next() {
+                StackAssembally::Literal(value) => {
+                    self.address_stack.push(value);
+                }
+                StackAssembally::WriteCode(_write_codes) => {
+                    let value = self.address_stack.pop().unwrap();
+                    self.buffer
+                        .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
+                }
+                StackAssembally::BinaryOpCode(op) => {
+                    let second = self.address_stack.pop().unwrap();
+                    let first = self.address_stack.pop().unwrap();
+                    let result: Value = match op {
+                        Binary::Add => (Number::from(first) + Number::from(second)).into(),
+                        Binary::Sub => (Number::from(first) - Number::from(second)).into(),
+                        _ => {
+                            todo!()
+                        }
+                    };
+                    self.address_stack.push(result);
+                }
+                StackAssembally::UnaryOp(op) => match op {
+                    Unary::Minus => {
+                        let first = self.address_stack.pop().unwrap();
+                        let mut first = Number::from(first);
+                        first.negate();
+                        self.address_stack.push(first.into());
                     }
-                };
-                job_state.address_stack.push(result);
-            }
-            StackAssembally::UnaryOp(op) => match op {
-                Unary::Minus => {
-                    let first = job_state.address_stack.pop().unwrap();
-                    let mut first = Number::from(first);
-                    first.negate();
-                    job_state.address_stack.push(first.into());
+                    Unary::Plus => todo!(),
+                    Unary::Not => todo!(),
+                },
+                StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
+                StackAssembally::ForSet { start_address, set } => {
+                    self.for_preample = Some((start_address, set))
                 }
-                Unary::Plus => todo!(),
-                Unary::Not => todo!(),
-            },
-            StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-            StackAssembally::ForSet { start_address, set } => {
-                job_state.for_preample = Some((start_address, set))
-            }
-            StackAssembally::TEMP(_) => {}
-            StackAssembally::ForStart(for_start) => {
-                let (end_value, increment, start_value) = match for_start {
-                    ForStart::One => todo!(),
-                    ForStart::Two => todo!(),
-                    ForStart::Three => (
-                        Number::from(job_state.address_stack.pop().unwrap()),
-                        Number::from(job_state.address_stack.pop().unwrap()),
-                        job_state.address_stack.pop().unwrap(),
-                    ),
-                };
-                let (start_location, for_set) = job_state
-                    .for_preample
-                    .take()
-                    .expect("preamble must come before set");
-                let new_frame = ForFrame {
-                    start_value,
-                    increment,
-                    end_value,
-                    var: for_set.var,
-                    loop_body: start_location + for_set.jump_to_content as usize,
-                    break_jump: start_location + for_set.break_jump as usize,
-                };
-                job_state
-                    .symbole_table
-                    .set(&new_frame.var, &new_frame.start_value);
-                job_state.for_stack.push(new_frame);
-            }
-            StackAssembally::ForEnd(for_end) => {
-                let for_frame = job_state.for_stack.last().unwrap();
-                //TODO : Check if this should be unwrap or default requires kill interaction to
-                //test
-                let loop_var = job_state.symbole_table.get(&for_frame.var).unwrap().clone();
-                let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
-                job_state
-                    .symbole_table
-                    .set(&for_frame.var, &next_loop_var.clone().into())
-                    .unwrap();
+                StackAssembally::TEMP(_) => {}
+                StackAssembally::ForStart(for_start) => {
+                    let (end_value, increment, start_value) = match for_start {
+                        ForStart::One => todo!(),
+                        ForStart::Two => todo!(),
+                        ForStart::Three => (
+                            Number::from(self.address_stack.pop().unwrap()),
+                            Number::from(self.address_stack.pop().unwrap()),
+                            self.address_stack.pop().unwrap(),
+                        ),
+                    };
+                    let (start_location, for_set) = self
+                        .for_preample
+                        .take()
+                        .expect("preamble must come before set");
+                    let new_frame = ForFrame {
+                        start_value,
+                        increment,
+                        end_value,
+                        var: for_set.var,
+                        loop_body: start_location + for_set.jump_to_content as usize,
+                        break_jump: start_location + for_set.break_jump as usize,
+                    };
+                    self.symbole_table
+                        .set(&new_frame.var, &new_frame.start_value)
+                        .unwrap();
+                    self.for_stack.push(new_frame);
+                }
+                StackAssembally::ForEnd(_for_end) => {
+                    let for_frame = self.for_stack.last().unwrap();
+                    //self : Check if this should be unwrap or default requires kill interaction to
+                    //test
+                    let loop_var = self.symbole_table.get(&for_frame.var).unwrap().clone();
+                    let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
+                    self.symbole_table
+                        .set(&for_frame.var, &next_loop_var.clone().into())
+                        .unwrap();
 
-                if &next_loop_var <= &for_frame.end_value {
-                    byte_code.jump_absolute(for_frame.loop_body);
-                } else {
-                    byte_code.jump_absolute(for_frame.break_jump);
-                    job_state.for_stack.pop();
+                    if &next_loop_var <= &for_frame.end_value {
+                        byte_code.jump_absolute(for_frame.loop_body);
+                    } else {
+                        byte_code.jump_absolute(for_frame.break_jump);
+                        self.for_stack.pop();
+                    }
                 }
+                StackAssembally::NoOpCode(_no_op_code) => {}
             }
-            StackAssembally::NoOpCode(no_op_code) => {}
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        runtime::{JobState, run_code},
-        test::compile_routine,
-    };
+    use crate::{runtime::JobState, test::compile_routine};
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
 
     #[test]
     fn write() {
         let source = "w 5";
-        let mut job_state = JobState::default();
+        let mut job = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
-        run_code(&mut job_state, &byte_code);
-        assert_eq!(job_state.buffer, "5");
+        job.run_code(&byte_code);
+        assert_eq!(job.buffer, "5");
     }
     #[rstest]
     #[case("w 5+10", "15")]
@@ -200,10 +196,10 @@ mod test {
     //NOTE: Nested for loops
     #[case("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
-        let mut job_state = JobState::default();
+        let mut job = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
-        run_code(&mut job_state, &byte_code);
-        assert_eq!(job_state.buffer, output);
+        job.run_code(&byte_code);
+        assert_eq!(job.buffer, output);
     }
 }
