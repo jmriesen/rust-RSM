@@ -145,7 +145,7 @@ impl JobState {
                 }
                 StackAssembally::ForEnd(_for_end) => {
                     let for_frame = self.for_stack.last().unwrap();
-                    //self : Check if this should be unwrap or default requires kill interaction to
+                    //TODO : Check if this should be unwrap or default requires kill interaction to
                     //test
                     let loop_var = self.symbole_table.get(&for_frame.var).unwrap().clone();
                     let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
@@ -172,34 +172,52 @@ mod test {
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
 
-    #[test]
-    fn write() {
-        let source = "w 5";
-        let mut job = JobState::default();
-        let routine = wrap_command_in_routine(source);
-        let byte_code = compile_routine(routine);
-        job.run_code(&byte_code);
-        assert_eq!(job.buffer, "5");
-    }
-    #[rstest]
-    #[case("w 5+10", "15")]
-    #[case("w 5-10", "-5")]
-    #[case("w --10", "10")]
-    #[case("w 10-(5+4)", "1")]
-    #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
-    //NOTE: range is includes
-    //#[case("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
-    //NOTE: Loop arguments are evaluated once before the loop starts.
-    //#[case("s n=2 f i=0:n:8+n s n=4 w i,\" \"", "0 2 4 6 8 10")] -- needs set + variable lookup
-    //NOTE: `i` is converted into a number right away.
-    //#[case("f i=\"foo\":1:5 w i,\"_\"", "0_1_2_3_4_5_")] --needs variable lookup
-    //NOTE: Nested for loops
-    #[case("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
-    fn basic_math(#[case] source: &str, #[case] output: &str) {
+    fn run_code_check_output(source: &str, output: &str) {
         let mut job = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
         job.run_code(&byte_code);
         assert_eq!(job.buffer, output);
+    }
+
+    #[test]
+    fn write() {
+        run_code_check_output("w 5", "5");
+    }
+    #[rstest]
+    #[case("w 5+10", "15")]
+    #[case("w 5-10", "-5")]
+    #[case("w --10", "10")]
+    fn basic_math(#[case] source: &str, #[case] output: &str) {
+        run_code_check_output(source, output);
+    }
+
+    #[rstest]
+    #[case("w 10-(5+4)", "1")]
+    #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
+    #[case::nested_for_loops("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
+    fn for_loops(#[case] source: &str, #[case] output: &str) {
+        run_code_check_output(source, output);
+    }
+
+    #[rstest]
+    #[case::range_is_inclusive("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
+    #[case::loop_arguments_are_evaluated_once_before_the_loop_starts(
+        "s n=2 f i=0:n:8+n s n=4 w i,\" \"",
+        "0 2 4 6 8 10"
+    )]
+    #[case::loop_var_is_converted_into_a_number_right_away(
+        "f i=\"foo\":1:5 w i,\"_\"",
+        "0_1_2_3_4_5_"
+    )]
+    #[case::killing_the_index_variable_is_an_error(
+        "f i=1:1:5 w \"k\" k i,",
+        "$ECODE=,M15,\nUndefined index variable"
+    )]
+    #[case::interacting_with_variable_is_ok("f i=1:1:5 s i=10 w \"foo\"", "foo")]
+    fn todo(#[case] _source: &str, #[case] _output: &str) {
+        //These are tests that should pass, but don't currently work since they rely on functionally
+        //that has not been implemented.
+        //They should be moved to the for_loop once the required functionality has ben added
     }
 }
