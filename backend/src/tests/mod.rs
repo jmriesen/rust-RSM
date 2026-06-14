@@ -27,9 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-#![feature(array_chunks)]
 
-use crate::{BiteCode, Compile};
 mod command;
 mod dollar;
 mod expression;
