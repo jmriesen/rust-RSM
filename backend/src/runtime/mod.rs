@@ -40,6 +40,7 @@ pub struct JobState {
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
 }
+// Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
     fn decode(bytes: &[u8]) -> Option<(Self, &[u8])>;
 }
@@ -85,6 +86,19 @@ enum StackAssembally {
     },
     NoOpCode(NoOpCode),
 }
+/// Marks something as a whole assembly instruction
+pub(crate) trait StackAssemballyTrait: Decode {}
+impl StackAssemballyTrait for Value {}
+impl StackAssemballyTrait for WriteCodes {}
+impl StackAssemballyTrait for Binary {}
+impl StackAssemballyTrait for Unary {}
+impl StackAssemballyTrait for EndLine {}
+impl StackAssemballyTrait for EndCommand {}
+impl StackAssemballyTrait for ForSet {}
+impl StackAssemballyTrait for ForStart {}
+impl StackAssemballyTrait for ForEnd {}
+impl StackAssemballyTrait for NoOpCode {}
+impl StackAssemballyTrait for TEMP {}
 
 impl JobState {
     pub fn run_code(&mut self, byte_code: &[u8]) {

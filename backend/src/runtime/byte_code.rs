@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ops::Range};
 
-use crate::runtime::{Decode, StackAssembally};
+use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Location(pub usize);
@@ -36,6 +36,24 @@ impl<'a> Debug for ByteCode<'a> {
             .finish()
     }
 }
+
+/// Responsible for parsing assembly instruction.
+/// This **is allowed** to decode partial instructions.
+pub struct AssemballyDecoder<'a> {
+    source: &'a [u8],
+    program_counter: Location,
+}
+impl<'a> AssemballyDecoder<'a> {
+    fn decode<T: Decode>(&mut self) -> Option<T> {
+        if let Some((value, tail)) = T::decode(&self.source[self.program_counter.0..]) {
+            self.program_counter.0 = self.source.len() - tail.len();
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
 impl<'a> ByteCode<'a> {
     pub fn new(source: &'a [u8]) -> Self {
         Self {
@@ -43,9 +61,17 @@ impl<'a> ByteCode<'a> {
             program_counter: Location(0),
         }
     }
-    fn try_decode<T: Decode>(&mut self) -> Option<T> {
-        if let Some((value, tail)) = T::decode(&self.source[self.program_counter.0..]) {
-            self.program_counter.0 = self.source.len() - tail.len();
+
+    /// Responsible for parsing **full** assembly instruction.
+    /// This is atomic it will decode a full instruction and update the program counter,
+    /// Or it will fail without modifying self's internal state.
+    fn try_decode<T: StackAssemballyTrait>(&mut self) -> Option<T> {
+        let mut decoder = AssemballyDecoder {
+            source: self.source,
+            program_counter: self.program_counter,
+        };
+        if let Some(value) = decoder.decode::<T>() {
+            self.program_counter = decoder.program_counter;
             Some(value)
         } else {
             None
