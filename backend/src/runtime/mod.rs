@@ -80,7 +80,9 @@ enum StackAssembally {
     },
     ForStart(ForStart),
     ForEnd(ForEnd),
-    TEMP(TEMP),
+    TEMP {
+        _inner: TEMP,
+    },
     NoOpCode(NoOpCode),
 }
 
@@ -123,7 +125,7 @@ impl JobState {
                 StackAssembally::ForSet { start_address, set } => {
                     self.for_preample = Some((start_address, set))
                 }
-                StackAssembally::TEMP(_) => {}
+                StackAssembally::TEMP { .. } => {}
                 StackAssembally::ForStart(for_start) => {
                     let (end_value, increment, start_value) = match for_start {
                         ForStart::One => todo!(),

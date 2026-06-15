@@ -69,7 +69,10 @@ impl<'a> ByteCode<'a> {
             .or_else(|| self.try_decode().map(StackAssembally::ForStart))
             .or_else(|| self.try_decode().map(StackAssembally::ForEnd))
             .or_else(|| self.try_decode().map(StackAssembally::NoOpCode))
-            .or_else(|| self.try_decode().map(StackAssembally::TEMP))
+            .or_else(|| {
+                self.try_decode()
+                    .map(|x| StackAssembally::TEMP { _inner: x })
+            })
             .expect("Provided source was invalid/corruped")
     }
     pub fn end(&self) -> bool {
