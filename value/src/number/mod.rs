@@ -77,12 +77,19 @@ fn extract_normalized_representation(number: &Number) -> (&[i8], usize) {
         let mantissa = &number.mantissa[start..end];
         let order_of_magnituide = number.exponent - start;
         (mantissa, order_of_magnituide)
-    } else if sign_char == 0 {
-        //zero
-        (&[0], 0)
     } else {
-        //-1
-        (&[9], 0)
+        // NOTE: So long as the order of magnitude is 0 they will not collide
+        // with any other number representation.
+        // I have chosen 0 and 9 respectively since they follow the pattern of 10's complement
+        // encoding. But this was largely an arbitrary chose,
+        // however I am asserting this encoding in the unit tests satisfy the mutation tester.
+        if sign_char == 0 {
+            //zero
+            (&[0], 0)
+        } else {
+            //-1
+            (&[9], 0)
+        }
     }
 }
 
@@ -266,7 +273,10 @@ impl Ord for Number {
 mod test {
     use std::{cmp::Ordering, str::FromStr};
 
-    use crate::{Value, number::Number};
+    use crate::{
+        Value,
+        number::{Number, extract_normalized_representation},
+    };
     use rstest::rstest;
 
     #[rstest]
@@ -390,5 +400,8 @@ mod test {
         assert_ne!(zero, neg_one);
         assert_eq!(zero, zero);
         assert_eq!(neg_one, neg_one);
+
+        assert_eq!(extract_normalized_representation(&zero), (&[0][..], 0));
+        assert_eq!(extract_normalized_representation(&neg_one), (&[9][..], 0));
     }
 }
