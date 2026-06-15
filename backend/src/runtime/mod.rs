@@ -35,7 +35,7 @@ pub struct JobState {
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
-    for_preample: Option<(Location, ForSet)>,
+    for_preample: Option<ForSet>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
@@ -72,15 +72,10 @@ enum StackAssembally {
     UnaryOp(Unary),
     EndLine(EndLine),
     EndCommand(EndCommand),
-    ForSet {
-        start_address: Location,
-        set: ForSet,
-    },
+    ForSet(ForSet),
     ForStart(ForStart),
     ForEnd(ForEnd),
-    TEMP {
-        _inner: TEMP,
-    },
+    TEMP { _inner: TEMP },
     NoOpCode(NoOpCode),
 }
 /// Marks something as a whole assembly instruction
@@ -133,9 +128,7 @@ impl JobState {
                     Unary::Not => todo!(),
                 },
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-                StackAssembally::ForSet { start_address, set } => {
-                    self.for_preample = Some((start_address, set))
-                }
+                StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::ForStart(for_start) => {
                     let (end_value, increment, start_value) = match for_start {
@@ -147,7 +140,7 @@ impl JobState {
                             self.address_stack.pop().unwrap(),
                         ),
                     };
-                    let (start_location, for_set) = self
+                    let for_set = self
                         .for_preample
                         .take()
                         .expect("preamble must come before set");
@@ -156,8 +149,8 @@ impl JobState {
                         increment,
                         end_value,
                         var: for_set.var,
-                        loop_body: Location(start_location.0 + for_set.jump_to_content.0 as usize),
-                        break_jump: Location(start_location.0 + for_set.break_jump.0 as usize),
+                        loop_body: for_set.jump_to_content.0,
+                        break_jump: for_set.break_jump.0,
                     };
                     self.symbole_table
                         .set(&new_frame.var, &new_frame.start_value)

@@ -5,16 +5,15 @@ use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
 #[derive(Clone, Copy, Debug)]
 pub struct Location(pub usize);
 #[derive(Clone, Copy, Debug)]
-pub struct ReletiveJump(pub i16);
-impl Decode for ReletiveJump {
+pub struct Jump(pub Location);
+impl Decode for Jump {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        Some(Self(i16::from_le_bytes(decoder.consume_n())))
-    }
-}
-
-impl ReletiveJump {
-    pub fn adjust(&mut self, offset: i16) {
-        self.0 += offset
+        let jump_distance = i16::from_le_bytes(decoder.consume_n());
+        let Location(here) = decoder.program_counter;
+        Some(Self(Location(
+            here + usize::try_from(jump_distance)
+                .expect("all supored currently supported jumps go forward"),
+        )))
     }
 }
 
@@ -98,12 +97,7 @@ impl<'a> ByteCode<'a> {
             .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
             .or_else(|| self.try_decode().map(StackAssembally::EndLine))
             .or_else(|| self.try_decode().map(StackAssembally::EndCommand))
-            .or_else(|| {
-                self.try_decode().map(|set| StackAssembally::ForSet {
-                    set: set,
-                    start_address: self.program_counter,
-                })
-            })
+            .or_else(|| self.try_decode().map(StackAssembally::ForSet))
             .or_else(|| self.try_decode().map(StackAssembally::ForStart))
             .or_else(|| self.try_decode().map(StackAssembally::ForEnd))
             .or_else(|| self.try_decode().map(StackAssembally::NoOpCode))

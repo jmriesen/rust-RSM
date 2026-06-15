@@ -8,7 +8,7 @@ use crate::{
     expression::ExpressionContext,
     runtime::{
         Decode, OpCode, OpCodes,
-        byte_code::{AssemballyDecoder, ReletiveJump},
+        byte_code::{AssemballyDecoder, Jump},
     },
     variable::VarContext,
 };
@@ -101,8 +101,8 @@ impl Compile for For {
 #[derive(Debug)]
 pub struct ForSet {
     pub var: MVar<Path>,
-    pub jump_to_content: ReletiveJump,
-    pub break_jump: ReletiveJump,
+    pub jump_to_content: Jump,
+    pub break_jump: Jump,
 }
 impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
@@ -113,15 +113,9 @@ impl Decode for ForSet {
             // Decode variable
             let [_type] = decoder.consume_n();
             let variable_string = decoder.consume_n::<32>();
-            let mut jump_to_content =
-                ReletiveJump::decode(decoder).expect("allready verifyed we are in forset");
-            //Jumps are encoded relative to the address the jump is stored in.
-            //However, I want these both to logically have the same base.
-            //This subtraction offsets the fact that these jumps are stored in different
-            //physical locations of the bytecode.
-            jump_to_content.adjust(-2);
-            let break_jump =
-                ReletiveJump::decode(decoder).expect("allready verifyed we are in forset");
+            let jump_to_content =
+                Jump::decode(decoder).expect("allready verifyed we are in forset");
+            let break_jump = Jump::decode(decoder).expect("allready verifyed we are in forset");
 
             let variable_string: Vec<_> = variable_string
                 .iter()
