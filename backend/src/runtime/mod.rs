@@ -41,7 +41,7 @@ pub struct JobState {
     symbole_table: SymbolTable,
 }
 pub trait Decode: Sized {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
+    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])>;
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -56,9 +56,13 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        //Always accept remove before production but helps during testing adding new types
-        Some((Self(code), tail))
+    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+        if let ([code], tail) = bytes.split_at(1) {
+            //Always accept remove before production but helps during testing adding new types
+            Some((Self(*code), tail))
+        } else {
+            None
+        }
     }
 }
 

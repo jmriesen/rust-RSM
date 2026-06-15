@@ -12,8 +12,8 @@ impl Compile for Value {
     }
 }
 impl Decode for Value {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        if code == STRING_OP {
+    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+        if let ([STRING_OP], tail) = bytes.split_at(1) {
             let (value, new_tail) = Value::from_bytes(tail);
             Some((value, &new_tail[1..]))
         } else {

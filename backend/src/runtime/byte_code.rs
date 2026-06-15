@@ -24,10 +24,7 @@ impl<'a> ByteCode<'a> {
         }
     }
     fn try_decode<T: Decode>(&mut self) -> Option<T> {
-        if let Some((value, tail)) = T::decode(
-            self.source[self.program_counter],
-            &self.source[self.program_counter + 1..],
-        ) {
+        if let Some((value, tail)) = T::decode(&self.source[self.program_counter..]) {
             self.program_counter = self.source.len() - tail.len();
             Some(value)
         } else {

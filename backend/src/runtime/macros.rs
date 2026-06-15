@@ -3,8 +3,8 @@ macro_rules! OpCode {
         #[derive(Debug)]
         pub struct $name;
         impl Decode for $name {
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                if code == $code {
+            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+                if let ([$code], tail) = bytes.split_at(1) {
                     Some((Self, tail))
                 } else {
                     None
@@ -20,23 +20,29 @@ macro_rules! OpCode {
 }
 pub(crate) use OpCode;
 macro_rules! OpCodes {
-    ($name:ident{
-        $($var:ident=$code:expr,)*
-}) => {
+    (
+$name:ident{
+    $($var:ident=$code:expr,)*
+}
+) => {
         #[derive(Debug)]
         pub enum $name {
             $($var = $code,)*
         }
         impl Decode for $name{
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                match code {
-                $($code => Some(Self::$var),)*
-                    _ => None,
+            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+                if let ([code], tail) = bytes.split_at(1) {
+                    match code {
+                        $($code => Some(Self::$var),)*
+                        _ => None,
+                    }
+                    .map(|x| (x, tail))
+                }else{
+                    None
                 }
-                .map(|x| (x, tail))
             }
-        }
-    };
+    }
+}
 }
 pub(crate) use OpCodes;
 
@@ -44,15 +50,19 @@ macro_rules! OpCodesForeign {
     ($name:ident{
         $($var:ident=>$code:expr,)*
 }) => {
-        impl Decode for $name{
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                match code {
-                $($code => Some(Self::$var),)*
-                    _ => None,
+         impl Decode for $name{
+            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+                if let ([code], tail) = bytes.split_at(1) {
+                    match code {
+                        $($code => Some(Self::$var),)*
+                        _ => None,
+                    }
+                    .map(|x| (x, tail))
+                }else{
+                    None
                 }
-                .map(|x| (x, tail))
             }
-        }
+    }
         impl Encode for $name{
             fn encode(&self) -> u8 {
                 match self{

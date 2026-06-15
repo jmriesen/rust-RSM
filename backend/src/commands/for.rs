@@ -101,8 +101,9 @@ pub struct ForSet {
     pub break_jump: i16,
 }
 impl Decode for ForSet {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        if code == VarContext::For as u8 {
+    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+        const CODE: u8 = VarContext::For as u8;
+        if let ([CODE], tail) = bytes.split_at(1) {
             let (_type, tail) = tail.split_at(1);
             let (variable_string, tail) = tail.split_at(32);
             let (jump_to_content, tail) = tail.split_at(2);
