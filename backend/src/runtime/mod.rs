@@ -1,4 +1,4 @@
-mod byte_code;
+pub mod byte_code;
 
 use std::fmt::Debug;
 
@@ -11,15 +11,15 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
-    runtime::byte_code::ByteCode,
+    runtime::byte_code::{ByteCode, Location},
 };
 mod macros;
 
 #[derive(Debug)]
 struct ForFrame {
     var: MVar<Path>,
-    loop_body: usize,
-    break_jump: usize,
+    loop_body: Location,
+    break_jump: Location,
     start_value: Value,
     increment: Number,
     end_value: Number,
@@ -35,7 +35,7 @@ pub struct JobState {
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
-    for_preample: Option<(usize, ForSet)>,
+    for_preample: Option<(Location, ForSet)>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
@@ -74,7 +74,10 @@ enum StackAssembally {
     UnaryOp(Unary),
     EndLine(EndLine),
     EndCommand(EndCommand),
-    ForSet { start_address: usize, set: ForSet },
+    ForSet {
+        start_address: Location,
+        set: ForSet,
+    },
     ForStart(ForStart),
     ForEnd(ForEnd),
     TEMP(TEMP),
@@ -140,8 +143,8 @@ impl JobState {
                         increment,
                         end_value,
                         var: for_set.var,
-                        loop_body: start_location + for_set.jump_to_content as usize,
-                        break_jump: start_location + for_set.break_jump as usize,
+                        loop_body: Location(start_location.0 + for_set.jump_to_content.0 as usize),
+                        break_jump: Location(start_location.0 + for_set.break_jump.0 as usize),
                     };
                     self.symbole_table
                         .set(&new_frame.var, &new_frame.start_value)

@@ -6,7 +6,7 @@ use crate::{
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
-    runtime::{Decode, OpCode, OpCodes},
+    runtime::{Decode, OpCode, OpCodes, byte_code::ReletiveJump},
     variable::VarContext,
 };
 
@@ -94,20 +94,31 @@ impl Compile for For {
         };
     }
 }
+
 #[derive(Debug)]
 pub struct ForSet {
     pub var: MVar<Path>,
-    pub jump_to_content: i16,
-    pub break_jump: i16,
+    pub jump_to_content: ReletiveJump,
+    pub break_jump: ReletiveJump,
 }
 impl Decode for ForSet {
     fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
         const CODE: u8 = VarContext::For as u8;
+        //Decodes opcode
+        //At this point it is ok or malformed
         if let ([CODE], tail) = bytes.split_at(1) {
+            // Decode variable
             let (_type, tail) = tail.split_at(1);
             let (variable_string, tail) = tail.split_at(32);
-            let (jump_to_content, tail) = tail.split_at(2);
-            let (break_jump, tail) = tail.split_at(2);
+            let (mut jump_to_content, tail) =
+                ReletiveJump::decode(tail).expect("allready verifyed we are in forset");
+            //Jumps are encoded relative to the address the jump is stored in.
+            //However, I want these both to logically have the same base.
+            //This subtraction offsets the fact that these jumps are stored in different
+            //physical locations of the bytecode.
+            jump_to_content.adjust(-2);
+            let (break_jump, tail) =
+                ReletiveJump::decode(tail).expect("allready verifyed we are in forset");
 
             let variable_string: Vec<_> = variable_string
                 .iter()
@@ -122,12 +133,8 @@ impl Decode for ForSet {
                         VariableName::new(&variable_string).unwrap(),
                         Path::new([]).unwrap(),
                     ),
-                    //Jumps are encoded relative to the address the jump is stored in.
-                    //However, I want these both to logically have the same base.
-                    //This subtraction offsets the fact that these jumps are stored in different
-                    //physical locations of the bytecode.
-                    jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()) - 2,
-                    break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
+                    jump_to_content,
+                    break_jump,
                 },
                 &tail,
             ))
