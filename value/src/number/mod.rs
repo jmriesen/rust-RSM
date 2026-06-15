@@ -49,7 +49,7 @@ use std::iter;
 /// assert_eq!("1".parse::<Value>().unwrap(),number.into());
 /// ```
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Eq)]
 pub struct Number {
     exponent: usize,
     ///Note due to 9's complement
@@ -72,13 +72,24 @@ fn extract_normalized_representation(number: &Number) -> (&[i8], usize) {
         .position(|x| *x != sign_char)
         .map(|x| number.mantissa.len() - x);
 
-    //If non-zero
+    //If normal case (not 0 or -1)
     if let (Some(start), Some(end)) = (start, end) {
         let mantissa = &number.mantissa[start..end];
         let order_of_magnituide = number.exponent - start;
         (mantissa, order_of_magnituide)
     } else {
-        (&[0], 0)
+        // NOTE: So long as the order of magnitude is 0 they will not collide
+        // with any other number representation.
+        // I have chosen 0 and 9 respectively since they follow the pattern of 10's complement
+        // encoding. But this was largely an arbitrary chose,
+        // however I am asserting this encoding in the unit tests satisfy the mutation tester.
+        if sign_char == 0 {
+            //zero
+            (&[0], 0)
+        } else {
+            //-1
+            (&[9], 0)
+        }
     }
 }
 
@@ -90,8 +101,8 @@ impl PartialEq for Number {
 
 // Handles propagating the carry bit.
 // This should be called after any operation that could result in a carry.
-// Note this is specifically NOT a method on Number since since it is invalid
-// to have a "number" that contains digits other then 0-9
+// Note this is specifically NOT a method on Number since it is invalid
+// to have a "number" that contains digits other than 0-9
 fn carry_logic(mut mantissa: Vec<i8>, mut exponent: usize) -> Number {
     for i in (1..mantissa.len()).rev() {
         if mantissa[i] > 9 {
@@ -156,7 +167,7 @@ impl Number {
         self.mantissa[0] == 9
     }
 
-    fn negate(&mut self) {
+    pub fn negate(&mut self) {
         self.mantissa = self.mantissa.iter().map(|x| 9 - x).collect();
         *self
             .mantissa
@@ -245,11 +256,27 @@ impl std::str::FromStr for Number {
     }
 }
 
+impl Ord for Number {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let diff = self.clone() - other.clone();
+        if diff == "0".parse().unwrap() {
+            std::cmp::Ordering::Equal
+        } else if diff.is_negative() {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
+    use std::{cmp::Ordering, str::FromStr};
 
-    use crate::{Value, number::Number};
+    use crate::{
+        Value,
+        number::{Number, extract_normalized_representation},
+    };
     use rstest::rstest;
 
     #[rstest]
@@ -348,5 +375,33 @@ mod test {
         let mut negitive = number.clone();
         negitive.negate();
         assert_ne!(number, negitive)
+    }
+
+    #[rstest]
+    #[case("5", Ordering::Equal, "5")]
+    #[case("5", Ordering::Less, "6")]
+    #[case("6", Ordering::Greater, "5")]
+    fn ordering(#[case] first: Number, #[case] expected: Ordering, #[case] second: Number) {
+        assert_eq!(first.cmp(&second), expected);
+    }
+    #[test]
+    fn equal() {
+        let five = "5".parse::<Number>().unwrap();
+        let six = "6".parse::<Number>().unwrap();
+        assert_eq!(five, five);
+        assert_ne!(six, five);
+        assert_ne!(five, six);
+    }
+    #[test]
+    fn equal_edge_cases() {
+        let neg_one = "-1".parse::<Number>().unwrap();
+        let zero = "0".parse::<Number>().unwrap();
+        assert_ne!(neg_one, zero);
+        assert_ne!(zero, neg_one);
+        assert_eq!(zero, zero);
+        assert_eq!(neg_one, neg_one);
+
+        assert_eq!(extract_normalized_representation(&zero), (&[0][..], 0));
+        assert_eq!(extract_normalized_representation(&neg_one), (&[9][..], 0));
     }
 }

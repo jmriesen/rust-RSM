@@ -37,6 +37,12 @@ jobs:
       run: |
             git branch -av
             git diff origin/${{ github.base_ref }}.. | tee git.diff
+
     - name: Mutants
       run: |
-            cargo mutants --no-shuffle -vV --in-diff git.diff
+          # using tee to echo to both file and standered out. Or with true to insure first command never fails
+            cargo mutants --no-shuffle -vV --in-diff git.diff 2>&1 | tee mutants.log || true
+            if grep -q "MISSED" mutants.log; then
+              echo "❌ Mutants missed!"
+              exit 1
+            fi

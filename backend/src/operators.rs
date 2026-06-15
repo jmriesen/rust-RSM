@@ -1,23 +1,34 @@
 use ir::operators::{Binary, Unary};
 
-use crate::{Compile, bite_code::BiteCode};
+use crate::{
+    Compile,
+    bite_code::BiteCode,
+    runtime::{Decode, Encode, OpCodesForeign},
+};
+
+OpCodesForeign! {
+    Unary {
+        Minus => 19,
+        Plus => 18,
+        Not => 3,
+    }
+}
 
 impl Compile for Unary {
     type Context = ();
     fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        bite_code.push(match self {
-            Self::Minus => 19,
-            Self::Plus => 18,
-            Self::Not => 3,
-        });
+        bite_code.push(self.encode());
     }
 }
-
 impl Compile for Binary {
     type Context = ();
     fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        use Binary::*;
-        bite_code.push(match self {
+        bite_code.push(self.encode());
+    }
+}
+
+OpCodesForeign! {
+    Binary{
             Add => 10,
             Sub => 11,
             Multiply => 12,
@@ -42,6 +53,5 @@ impl Compile for Binary {
             SortsAfter => 27,
             Pattern => 28,
             NotPattern => 38,
-        });
-    }
+        }
 }

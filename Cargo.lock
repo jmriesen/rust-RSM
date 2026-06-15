@@ -134,7 +134,9 @@ dependencies = [
  "ffi",
  "frontend",
  "ir",
+ "mutants",
  "rstest",
+ "symbol_table",
  "value",
 ]
 

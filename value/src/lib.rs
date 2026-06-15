@@ -98,6 +98,17 @@ impl Value {
             .chain(iter::once(second))
             .chain(self.content().iter().cloned())
     }
+    pub fn from_bytes(source: &[u8]) -> (Self, &[u8]) {
+        let [first, second] = source[0..2]
+            .try_into()
+            .expect("There should always be at least two elements");
+        let len = u16::from_le_bytes([first, second]);
+        let content = &source[2..2 + len as usize];
+        (
+            Self(content.iter().cloned().collect()),
+            &source[2 + len as usize..],
+        )
+    }
 }
 
 impl Default for Value {
@@ -123,6 +134,7 @@ impl std::fmt::Debug for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn as_bytes() {
         let content: Vec<u8> = (10..15).collect();
@@ -136,5 +148,12 @@ mod tests {
 
         let bytes: Vec<_> = value.as_bytes().collect();
         assert_eq!(bytes, expected);
+    }
+    #[test]
+    fn to_from_bytes() {
+        let orignal: Value = "some test value".parse().unwrap();
+        let bytes: Vec<_> = orignal.as_bytes().collect();
+        let decoded = Value::from_bytes(&bytes[..]);
+        assert_eq!(decoded, (orignal, &[0u8; 0][..]));
     }
 }
