@@ -8,6 +8,7 @@ pub struct ByteCode<'a> {
     program_counter: usize,
 }
 impl<'a> Debug for ByteCode<'a> {
+    #[cfg_attr(test, mutants::skip)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ByteCode")
             .field("program_counter", &self.program_counter)
@@ -58,6 +59,7 @@ impl<'a> ByteCode<'a> {
         self.program_counter == self.source.len()
     }
 
+    #[cfg_attr(test, mutants::skip)]
     fn dbg_helper(&self) -> Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> {
         let mut scrach = self.clone();
         scrach.program_counter = 0;

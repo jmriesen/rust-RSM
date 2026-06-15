@@ -53,8 +53,8 @@ OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
-#[cfg_attr(test, mutants::skip)]
 pub struct TEMP(u8);
+#[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
     fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
         //Always accept remove before production but helps during testing adding new types
