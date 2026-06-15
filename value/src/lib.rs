@@ -134,6 +134,7 @@ impl std::fmt::Debug for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn as_bytes() {
         let content: Vec<u8> = (10..15).collect();
@@ -147,5 +148,12 @@ mod tests {
 
         let bytes: Vec<_> = value.as_bytes().collect();
         assert_eq!(bytes, expected);
+    }
+    #[test]
+    fn to_from_bytes() {
+        let orignal: Value = "some test value".parse().unwrap();
+        let bytes: Vec<_> = orignal.as_bytes().collect();
+        let decoded = Value::from_bytes(&bytes[..]);
+        assert_eq!(decoded, (orignal, &[0u8; 0][..]));
     }
 }
