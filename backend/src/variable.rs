@@ -105,6 +105,8 @@ impl Compile for Variable {
 }
 impl Decode for VariableName {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        //TODO: handle other types
+        let [_type] = decoder.consume_n();
         let variable_string = decoder.consume_n::<32>();
         let variable_string: Vec<_> = variable_string
             .iter()
@@ -112,5 +114,22 @@ impl Decode for VariableName {
             .cloned()
             .collect();
         Some(VariableName::new(&variable_string).unwrap())
+    }
+}
+
+#[derive(Debug)]
+pub struct LoadVar {
+    pub name: VariableName,
+}
+impl Decode for LoadVar {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        const CODE: u8 = VarContext::Eval as u8;
+        if let [CODE] = decoder.consume_n() {
+            Some(Self {
+                name: Decode::decode(decoder).unwrap(),
+            })
+        } else {
+            None
+        }
     }
 }

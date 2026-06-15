@@ -100,7 +100,7 @@ impl Compile for For {
 
 #[derive(Debug)]
 pub struct ForSet {
-    pub var: MVar<Path>,
+    pub loop_variable: VariableName,
     pub jump_to_content: Jump,
     pub break_jump: Jump,
 }
@@ -108,15 +108,13 @@ impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::For as u8;
         if let [CODE] = decoder.consume_n() {
-            //TODO: handle other types
-            let [_type] = decoder.consume_n();
-            let variable_name =
+            let loop_variable =
                 VariableName::decode(decoder).expect("already verifyed we are in forset");
             let jump_to_content = Jump::decode(decoder).expect("already verifyed we are in forset");
             let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
 
             Some(Self {
-                var: MVar::new(variable_name, Path::new([]).unwrap()),
+                loop_variable,
                 jump_to_content,
                 break_jump,
             })
