@@ -11,7 +11,7 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
-    runtime::byte_code::{ByteCode, Location},
+    runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
 };
 mod macros;
 
@@ -42,7 +42,7 @@ pub struct JobState {
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
-    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])>;
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self>;
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -57,13 +57,10 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
-    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
-        if let ([code], tail) = bytes.split_at(1) {
-            //Always accept remove before production but helps during testing adding new types
-            Some((Self(*code), tail))
-        } else {
-            None
-        }
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        let [code] = decoder.consume_n();
+        //Always accept remove before production but helps during testing adding new types
+        Some(Self(code))
     }
 }
 

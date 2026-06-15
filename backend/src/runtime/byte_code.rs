@@ -7,12 +7,8 @@ pub struct Location(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct ReletiveJump(pub i16);
 impl Decode for ReletiveJump {
-    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
-        if let ([first, second], tail) = bytes.split_at(2) {
-            Some((Self(i16::from_le_bytes([*first, *second])), tail))
-        } else {
-            None
-        }
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        Some(Self(i16::from_le_bytes(decoder.consume_n())))
     }
 }
 
@@ -45,12 +41,28 @@ pub struct AssemballyDecoder<'a> {
 }
 impl<'a> AssemballyDecoder<'a> {
     fn decode<T: Decode>(&mut self) -> Option<T> {
-        if let Some((value, tail)) = T::decode(&self.source[self.program_counter.0..]) {
-            self.program_counter.0 = self.source.len() - tail.len();
+        if let Some(value) = T::decode(self) {
             Some(value)
         } else {
             None
         }
+    }
+    pub fn tail(&self) -> &'a [u8] {
+        &self.source[self.program_counter.0..]
+    }
+    pub fn consume(&mut self, bytes: usize) -> &'a [u8] {
+        let tail = self.tail();
+        assert!(tail.len() >= bytes);
+        self.program_counter.0 += bytes;
+        &tail[..bytes]
+    }
+    pub fn consume_n<const BYTES: usize>(&mut self) -> [u8; BYTES] {
+        let tail = &self.source[self.program_counter.0..];
+        assert!(tail.len() >= BYTES);
+        self.program_counter.0 += BYTES;
+        tail[..BYTES]
+            .try_into()
+            .expect("bounds have already ben checked")
     }
 }
 

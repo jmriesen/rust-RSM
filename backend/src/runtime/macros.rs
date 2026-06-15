@@ -3,9 +3,11 @@ macro_rules! OpCode {
         #[derive(Debug)]
         pub struct $name;
         impl Decode for $name {
-            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
-                if let ([$code], tail) = bytes.split_at(1) {
-                    Some((Self, tail))
+            fn decode(
+                decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>,
+            ) -> Option<Self> {
+                if let [$code] = decoder.consume_n() {
+                    Some(Self)
                 } else {
                     None
                 }
@@ -30,16 +32,12 @@ $name:ident{
             $($var = $code,)*
         }
         impl Decode for $name{
-            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
-                if let ([code], tail) = bytes.split_at(1) {
+            fn decode(decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>) -> Option<Self > {
+                let [code] = decoder.consume_n();
                     match code {
                         $($code => Some(Self::$var),)*
                         _ => None,
                     }
-                    .map(|x| (x, tail))
-                }else{
-                    None
-                }
             }
     }
 }
@@ -50,19 +48,16 @@ macro_rules! OpCodesForeign {
     ($name:ident{
         $($var:ident=>$code:expr,)*
 }) => {
-         impl Decode for $name{
-            fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
-                if let ([code], tail) = bytes.split_at(1) {
+        impl Decode for $name{
+            fn decode(decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>) -> Option<Self > {
+                let [code] = decoder.consume_n();
                     match code {
                         $($code => Some(Self::$var),)*
                         _ => None,
                     }
-                    .map(|x| (x, tail))
-                }else{
-                    None
-                }
             }
     }
+
         impl Encode for $name{
             fn encode(&self) -> u8 {
                 match self{

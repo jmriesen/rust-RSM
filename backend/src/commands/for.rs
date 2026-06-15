@@ -6,7 +6,10 @@ use crate::{
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
-    runtime::{Decode, OpCode, OpCodes, byte_code::ReletiveJump},
+    runtime::{
+        Decode, OpCode, OpCodes,
+        byte_code::{AssemballyDecoder, ReletiveJump},
+    },
     variable::VarContext,
 };
 
@@ -102,23 +105,23 @@ pub struct ForSet {
     pub break_jump: ReletiveJump,
 }
 impl Decode for ForSet {
-    fn decode(bytes: &[u8]) -> Option<(Self, &[u8])> {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::For as u8;
         //Decodes opcode
         //At this point it is ok or malformed
-        if let ([CODE], tail) = bytes.split_at(1) {
+        if let [CODE] = decoder.consume_n() {
             // Decode variable
-            let (_type, tail) = tail.split_at(1);
-            let (variable_string, tail) = tail.split_at(32);
-            let (mut jump_to_content, tail) =
-                ReletiveJump::decode(tail).expect("allready verifyed we are in forset");
+            let [_type] = decoder.consume_n();
+            let variable_string = decoder.consume_n::<32>();
+            let mut jump_to_content =
+                ReletiveJump::decode(decoder).expect("allready verifyed we are in forset");
             //Jumps are encoded relative to the address the jump is stored in.
             //However, I want these both to logically have the same base.
             //This subtraction offsets the fact that these jumps are stored in different
             //physical locations of the bytecode.
             jump_to_content.adjust(-2);
-            let (break_jump, tail) =
-                ReletiveJump::decode(tail).expect("allready verifyed we are in forset");
+            let break_jump =
+                ReletiveJump::decode(decoder).expect("allready verifyed we are in forset");
 
             let variable_string: Vec<_> = variable_string
                 .iter()
@@ -126,18 +129,15 @@ impl Decode for ForSet {
                 .cloned()
                 .collect();
 
-            Some((
-                Self {
-                    var: MVar::new(
-                        //TODO: handle other cases
-                        VariableName::new(&variable_string).unwrap(),
-                        Path::new([]).unwrap(),
-                    ),
-                    jump_to_content,
-                    break_jump,
-                },
-                &tail,
-            ))
+            Some(Self {
+                var: MVar::new(
+                    //TODO: handle other cases
+                    VariableName::new(&variable_string).unwrap(),
+                    Path::new([]).unwrap(),
+                ),
+                jump_to_content,
+                break_jump,
+            })
         } else {
             None
         }
