@@ -107,28 +107,16 @@ pub struct ForSet {
 impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::For as u8;
-        //Decodes opcode
-        //At this point it is ok or malformed
         if let [CODE] = decoder.consume_n() {
-            // Decode variable
+            //TODO: handle other types
             let [_type] = decoder.consume_n();
-            let variable_string = decoder.consume_n::<32>();
-            let jump_to_content =
-                Jump::decode(decoder).expect("allready verifyed we are in forset");
-            let break_jump = Jump::decode(decoder).expect("allready verifyed we are in forset");
-
-            let variable_string: Vec<_> = variable_string
-                .iter()
-                .take_while(|x| **x != 0)
-                .cloned()
-                .collect();
+            let variable_name =
+                VariableName::decode(decoder).expect("already verifyed we are in forset");
+            let jump_to_content = Jump::decode(decoder).expect("already verifyed we are in forset");
+            let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
 
             Some(Self {
-                var: MVar::new(
-                    //TODO: handle other cases
-                    VariableName::new(&variable_string).unwrap(),
-                    Path::new([]).unwrap(),
-                ),
+                var: MVar::new(variable_name, Path::new([]).unwrap()),
                 jump_to_content,
                 break_jump,
             })

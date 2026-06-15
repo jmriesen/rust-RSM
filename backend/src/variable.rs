@@ -1,8 +1,13 @@
-use crate::{Compile, bite_code::BiteCode};
+use crate::{
+    Compile,
+    bite_code::BiteCode,
+    runtime::{Decode, byte_code::AssemballyDecoder},
+};
 use ir::{
     Variable,
     variable::{Env, GlobleIdent, VariableType},
 };
+use symbol_table::VariableName;
 
 #[derive(Clone, Copy)]
 pub enum VarContext {
@@ -96,5 +101,16 @@ impl Compile for Variable {
         if let E::Named { name, .. } = &self.var_type {
             name.as_str().compile(comp, &());
         }
+    }
+}
+impl Decode for VariableName {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        let variable_string = decoder.consume_n::<32>();
+        let variable_string: Vec<_> = variable_string
+            .iter()
+            .take_while(|x| **x != 0)
+            .cloned()
+            .collect();
+        Some(VariableName::new(&variable_string).unwrap())
     }
 }
