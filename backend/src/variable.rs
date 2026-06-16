@@ -106,11 +106,11 @@ impl Compile for Variable {
 }
 
 #[derive(Debug)]
-pub struct BuildVar {
+pub struct BuildVarInstructions {
     pub name: VariableName,
     pub subscripts: usize,
 }
-impl Decode for BuildVar {
+impl Decode for BuildVarInstructions {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         //TODO: handle other types
         let [code_num_subscriptions] = decoder.consume_n();
@@ -130,14 +130,14 @@ impl Decode for BuildVar {
 
 #[derive(Debug)]
 pub struct LoadVar {
-    pub builder: BuildVar,
+    pub var: BuildVarInstructions,
 }
 impl Decode for LoadVar {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::Eval as u8;
         if let [CODE] = decoder.consume_n() {
             Some(Self {
-                builder: Decode::decode(decoder).unwrap(),
+                var: Decode::decode(decoder).unwrap(),
             })
         } else {
             None
@@ -147,7 +147,7 @@ impl Decode for LoadVar {
 
 #[derive(Debug)]
 pub struct StoreVar {
-    pub builder: BuildVar,
+    pub var: BuildVarInstructions,
 }
 impl Decode for StoreVar {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
@@ -156,7 +156,7 @@ impl Decode for StoreVar {
             let name = Decode::decode(decoder).unwrap();
             const SET_CODE: u8 = SetCodes::Var as u8;
             if let [SET_CODE] = decoder.consume_n() {
-                Some(Self { builder: name })
+                Some(Self { var: name })
             } else {
                 None
             }

@@ -10,7 +10,7 @@ use crate::{
         Decode, OpCode, OpCodes,
         byte_code::{AssemballyDecoder, Jump},
     },
-    variable::{BuildVar, VarContext},
+    variable::{BuildVarInstructions, VarContext},
 };
 
 OpCodes! {
@@ -100,7 +100,7 @@ impl Compile for For {
 
 #[derive(Debug)]
 pub struct ForSet {
-    pub loop_variable: BuildVar,
+    pub loop_variable: BuildVarInstructions,
     pub jump_to_content: Jump,
     pub break_jump: Jump,
 }
@@ -109,7 +109,7 @@ impl Decode for ForSet {
         const CODE: u8 = VarContext::For as u8;
         if let [CODE] = decoder.consume_n() {
             let loop_variable =
-                BuildVar::decode(decoder).expect("already verifyed we are in forset");
+                BuildVarInstructions::decode(decoder).expect("already verifyed we are in forset");
             let jump_to_content = Jump::decode(decoder).expect("already verifyed we are in forset");
             let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
 

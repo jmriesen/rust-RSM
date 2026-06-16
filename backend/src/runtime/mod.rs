@@ -12,7 +12,7 @@ use crate::{
         write::WriteCodes,
     },
     runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
-    variable::{BuildVar, LoadVar, StoreVar},
+    variable::{BuildVarInstructions, LoadVar, StoreVar},
 };
 mod macros;
 
@@ -182,12 +182,12 @@ impl JobState {
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let var = self.build_var(load_var.builder);
+                    let var = self.build_var(load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
                     self.address_stack.push(val);
                 }
                 StackAssembally::StoreVar(store_var) => {
-                    let var = self.build_var(store_var.builder);
+                    let var = self.build_var(store_var.var);
                     let val = self
                         .address_stack
                         .pop()
@@ -197,7 +197,7 @@ impl JobState {
             }
         }
     }
-    fn build_var(&mut self, var: BuildVar) -> MVar<Path> {
+    fn build_var(&mut self, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
             subscripts.push(self.address_stack.pop().unwrap());
