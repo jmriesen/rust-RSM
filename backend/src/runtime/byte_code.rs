@@ -11,8 +11,9 @@ impl Decode for Jump {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
         let Location(here) = decoder.program_counter;
         Some(Self(Location(
-            here + usize::try_from(jump_distance)
-                .expect("all supored currently supported jumps go forward"),
+            here + usize::try_from(jump_distance).expect(
+                "Currently only supporting forward jumps. May change if new funcionality needs it.",
+            ),
         )))
     }
 }
