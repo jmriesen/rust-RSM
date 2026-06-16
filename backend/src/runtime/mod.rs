@@ -12,7 +12,7 @@ use crate::{
         write::WriteCodes,
     },
     runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
-    variable::{LoadVar, StoreVar},
+    variable::{BuildVar, LoadVar, StoreVar},
 };
 mod macros;
 
@@ -151,15 +151,7 @@ impl JobState {
                         .for_preample
                         .take()
                         .expect("preamble must come before set");
-                    let mut subscripts = vec![];
-                    for _ in 0..for_set.loop_variable.subscripts {
-                        subscripts.push(self.address_stack.pop().unwrap());
-                    }
-                    let var = MVar::new(
-                        for_set.loop_variable.name,
-                        Path::new(subscripts.iter()).unwrap(),
-                    );
-
+                    let var = self.build_var(for_set.loop_variable);
                     let new_frame = ForFrame {
                         start_value,
                         increment,
@@ -190,24 +182,12 @@ impl JobState {
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let mut subscripts = vec![];
-                    for _ in 0..load_var.builder.subscripts {
-                        subscripts.push(self.address_stack.pop().unwrap());
-                    }
-                    let var =
-                        MVar::new(load_var.builder.name, Path::new(subscripts.iter()).unwrap());
+                    let var = self.build_var(load_var.builder);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
                     self.address_stack.push(val);
                 }
                 StackAssembally::StoreVar(store_var) => {
-                    let mut subscripts = vec![];
-                    for _ in 0..store_var.builder.subscripts {
-                        subscripts.push(self.address_stack.pop().unwrap());
-                    }
-                    let var = MVar::new(
-                        store_var.builder.name,
-                        Path::new(subscripts.iter()).unwrap(),
-                    );
+                    let var = self.build_var(store_var.builder);
                     let val = self
                         .address_stack
                         .pop()
@@ -216,6 +196,13 @@ impl JobState {
                 }
             }
         }
+    }
+    fn build_var(&mut self, var: BuildVar) -> MVar<Path> {
+        let mut subscripts = vec![];
+        for _ in 0..var.subscripts {
+            subscripts.push(self.address_stack.pop().unwrap());
+        }
+        MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
 }
 
@@ -251,7 +238,7 @@ mod test {
     //#[case("w i", "")] -- undefined local variable
     #[case("s i=5 w i", "5")]
     #[case("s i(\"foo\")=5 w i(\"foo\")", "5")]
-    #[case("s i(\"foo\")=1 s i(\"bar\")=5 w i(\"bar\"),i(\"foo\")", "21")]
+    #[case("s i(\"foo\")=1 s i(\"bar\")=2 w i(\"bar\"),i(\"foo\")", "21")]
     fn load_store(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
