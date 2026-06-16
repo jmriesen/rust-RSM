@@ -241,20 +241,20 @@ mod test {
         "f i=\"foo\":1:5 w i,\"_\"",
         "0_1_2_3_4_5_"
     )]
+    #[case::loop_arguments_are_evaluated_once_before_the_loop_starts(
+        "s n=2 f i=0:n:8+n s n=4 w i,\" \"",
+        "0 2 4 6 8 10 "
+    )]
+    #[case::interacting_with_variable_is_ok("f i=1:1:5 s i=10 w \"foo\"", "foo")]
     fn for_loops(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 
     #[rstest]
-    #[case::loop_arguments_are_evaluated_once_before_the_loop_starts(
-        "s n=2 f i=0:n:8+n s n=4 w i,\" \"",
-        "0 2 4 6 8 10"
-    )]
     #[case::killing_the_index_variable_is_an_error(
         "f i=1:1:5 w \"k\" k i,",
         "$ECODE=,M15,\nUndefined index variable"
     )]
-    #[case::interacting_with_variable_is_ok("f i=1:1:5 s i=10 w \"foo\"", "foo")]
     fn todo(#[case] _source: &str, #[case] _output: &str) {
         //These are tests that should pass, but don't currently work since they rely on functionally
         //that has not been implemented.
