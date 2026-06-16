@@ -23,7 +23,7 @@ mod macros;
 struct ForFrame {
     var: MVar<Path>,
     loop_body: Location,
-    break_jump: Location,
+    r#break: Location,
     start_value: Number,
     increment: Number,
     end_value: Number,
@@ -34,7 +34,7 @@ struct ForFrame {
 pub struct JobState {
     //Replace with a proper output device later.
     buffer: String,
-    address_stack: Vec<value::Value>,
+    stack: Vec<value::Value>,
     //Temporarily store loop metadata
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
@@ -95,16 +95,16 @@ impl JobState {
         while !byte_code.end() {
             match byte_code.next() {
                 StackAssembally::Value(value) => {
-                    self.address_stack.push(value);
+                    self.stack.push(value);
                 }
                 StackAssembally::WriteCodes(_write_codes) => {
-                    let value = self.address_stack.pop().unwrap();
+                    let value = self.stack.pop().unwrap();
                     self.buffer
                         .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
                 }
                 StackAssembally::Binary(op) => {
-                    let second = self.address_stack.pop().unwrap();
-                    let first = self.address_stack.pop().unwrap();
+                    let second = self.stack.pop().unwrap();
+                    let first = self.stack.pop().unwrap();
                     let result: Value = match op {
                         Binary::Add => (Number::from(first) + Number::from(second)).into(),
                         Binary::Sub => (Number::from(first) - Number::from(second)).into(),
@@ -112,43 +112,46 @@ impl JobState {
                             todo!()
                         }
                     };
-                    self.address_stack.push(result);
+                    self.stack.push(result);
                 }
                 StackAssembally::Unary(op) => match op {
                     Unary::Minus => {
-                        let first = self.address_stack.pop().unwrap();
+                        let first = self.stack.pop().unwrap();
                         let mut first = Number::from(first);
                         first.negate();
-                        self.address_stack.push(first.into());
+                        self.stack.push(first.into());
                     }
                     Unary::Plus => todo!(),
                     Unary::Not => todo!(),
                 },
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
-                StackAssembally::TEMP { .. } => {}
                 StackAssembally::ForStart(for_start) => {
                     let (end_value, increment, start_value) = match for_start {
                         ForStart::One => todo!(),
                         ForStart::Two => todo!(),
                         ForStart::Three => (
-                            Number::from(self.address_stack.pop().unwrap()),
-                            Number::from(self.address_stack.pop().unwrap()),
-                            Number::from(self.address_stack.pop().unwrap()),
+                            Number::from(self.stack.pop().unwrap()),
+                            Number::from(self.stack.pop().unwrap()),
+                            Number::from(self.stack.pop().unwrap()),
                         ),
                     };
-                    let for_set = self
+                    let ForSet {
+                        loop_variable,
+                        loop_body,
+                        r#break,
+                    } = self
                         .for_preample
                         .take()
                         .expect("preamble must come before set");
-                    let var = self.build_var(for_set.loop_variable);
+                    let var = self.build_var(loop_variable);
                     let new_frame = ForFrame {
                         start_value,
                         increment,
                         end_value,
                         var,
-                        loop_body: for_set.jump_to_content.0,
-                        break_jump: for_set.break_jump.0,
+                        loop_body: loop_body.0,
+                        r#break: r#break.0,
                     };
                     self.symbole_table
                         .set(&new_frame.var, &new_frame.start_value.clone().into())
@@ -166,7 +169,7 @@ impl JobState {
                     if &next_loop_var <= &for_frame.end_value {
                         byte_code.jump_absolute(for_frame.loop_body);
                     } else {
-                        byte_code.jump_absolute(for_frame.break_jump);
+                        byte_code.jump_absolute(for_frame.r#break);
                         self.for_stack.pop();
                     }
                 }
@@ -174,23 +177,21 @@ impl JobState {
                 StackAssembally::LoadVar(load_var) => {
                     let var = self.build_var(load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
-                    self.address_stack.push(val);
+                    self.stack.push(val);
                 }
                 StackAssembally::StoreVar(store_var) => {
                     let var = self.build_var(store_var.var);
-                    let val = self
-                        .address_stack
-                        .pop()
-                        .expect("Value to store on the stack");
+                    let val = self.stack.pop().expect("Value to store on the stack");
                     self.symbole_table.set(&var, &val).unwrap();
                 }
+                StackAssembally::TEMP { .. } => {}
             }
         }
     }
     fn build_var(&mut self, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
-            subscripts.push(self.address_stack.pop().unwrap());
+            subscripts.push(self.stack.pop().unwrap());
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
