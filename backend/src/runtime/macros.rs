@@ -68,3 +68,26 @@ macro_rules! OpCodesForeign {
     };
 }
 pub(crate) use OpCodesForeign;
+
+macro_rules! StackAssembally{
+    (
+        $($instruction:ident,)*
+) => {
+#[derive(Debug)]
+pub enum StackAssembally {
+    $($instruction($instruction),)*
+    }
+
+$(impl StackAssemballyTrait for $instruction{})*
+
+impl<'a> ByteCode<'a> {
+    pub fn next(&mut self) -> StackAssembally {
+        //Starting with none so that everything follows the same pattern.
+        None
+        $(.or_else(|| self.try_decode().map(StackAssembally::$instruction)))*
+            .expect("Provided source was invalid/corruped")
+    }
+}
+}
+}
+pub(crate) use StackAssembally;

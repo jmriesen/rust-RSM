@@ -11,7 +11,10 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
-    runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
+    runtime::{
+        byte_code::{AssemballyDecoder, ByteCode, Location},
+        macros::StackAssembally,
+    },
     variable::{BuildVarInstructions, LoadVar, StoreVar},
 };
 mod macros;
@@ -65,37 +68,24 @@ impl Decode for TEMP {
     }
 }
 
-#[derive(Debug)]
-enum StackAssembally {
-    LoadVar(LoadVar),
-    StoreVar(StoreVar),
-    Literal(Value),
-    WriteCode(WriteCodes),
-    BinaryOpCode(Binary),
-    UnaryOp(Unary),
-    EndLine(EndLine),
-    EndCommand(EndCommand),
-    ForSet(ForSet),
-    ForStart(ForStart),
-    ForEnd(ForEnd),
-    TEMP { _inner: TEMP },
-    NoOpCode(NoOpCode),
+pub(crate) trait StackAssemballyTrait: Decode {}
+StackAssembally! {
+    LoadVar,
+    StoreVar,
+    Value,
+    WriteCodes,
+    Binary,
+    Unary,
+    EndLine,
+    EndCommand,
+    ForSet,
+    ForStart,
+    ForEnd,
+    TEMP,
+    NoOpCode,
+
 }
 /// Marks something as a whole assembly instruction
-pub(crate) trait StackAssemballyTrait: Decode {}
-impl StackAssemballyTrait for Value {}
-impl StackAssemballyTrait for LoadVar {}
-impl StackAssemballyTrait for StoreVar {}
-impl StackAssemballyTrait for WriteCodes {}
-impl StackAssemballyTrait for Binary {}
-impl StackAssemballyTrait for Unary {}
-impl StackAssemballyTrait for EndLine {}
-impl StackAssemballyTrait for EndCommand {}
-impl StackAssemballyTrait for ForSet {}
-impl StackAssemballyTrait for ForStart {}
-impl StackAssemballyTrait for ForEnd {}
-impl StackAssemballyTrait for NoOpCode {}
-impl StackAssemballyTrait for TEMP {}
 
 impl JobState {
     pub fn run_code(&mut self, byte_code: &[u8]) {
@@ -104,15 +94,15 @@ impl JobState {
         dbg!(&byte_code);
         while !byte_code.end() {
             match byte_code.next() {
-                StackAssembally::Literal(value) => {
+                StackAssembally::Value(value) => {
                     self.address_stack.push(value);
                 }
-                StackAssembally::WriteCode(_write_codes) => {
+                StackAssembally::WriteCodes(_write_codes) => {
                     let value = self.address_stack.pop().unwrap();
                     self.buffer
                         .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
                 }
-                StackAssembally::BinaryOpCode(op) => {
+                StackAssembally::Binary(op) => {
                     let second = self.address_stack.pop().unwrap();
                     let first = self.address_stack.pop().unwrap();
                     let result: Value = match op {
@@ -124,7 +114,7 @@ impl JobState {
                     };
                     self.address_stack.push(result);
                 }
-                StackAssembally::UnaryOp(op) => match op {
+                StackAssembally::Unary(op) => match op {
                     Unary::Minus => {
                         let first = self.address_stack.pop().unwrap();
                         let mut first = Number::from(first);

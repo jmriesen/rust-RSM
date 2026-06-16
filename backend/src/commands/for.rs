@@ -1,5 +1,4 @@
 use ir::commands::r#for::{For, ForKind};
-use symbol_table::{MVar, VariableName, key::Path};
 
 use crate::{
     Compile, NO_OP_CODE,
