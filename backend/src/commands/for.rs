@@ -6,7 +6,10 @@ use crate::{
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     commands::COMAND_END,
     expression::ExpressionContext,
-    runtime::{Decode, OpCode, OpCodes},
+    runtime::{
+        Decode, OpCode, OpCodes,
+        byte_code::{AssemballyDecoder, Jump},
+    },
     variable::VarContext,
 };
 
@@ -94,42 +97,27 @@ impl Compile for For {
         };
     }
 }
+
 #[derive(Debug)]
 pub struct ForSet {
-    pub var: MVar<Path>,
-    pub jump_to_content: i16,
-    pub break_jump: i16,
+    pub loop_variable: VariableName,
+    pub jump_to_content: Jump,
+    pub break_jump: Jump,
 }
 impl Decode for ForSet {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-        if code == VarContext::For as u8 {
-            let (_type, tail) = tail.split_at(1);
-            let (variable_string, tail) = tail.split_at(32);
-            let (jump_to_content, tail) = tail.split_at(2);
-            let (break_jump, tail) = tail.split_at(2);
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        const CODE: u8 = VarContext::For as u8;
+        if let [CODE] = decoder.consume_n() {
+            let loop_variable =
+                VariableName::decode(decoder).expect("already verifyed we are in forset");
+            let jump_to_content = Jump::decode(decoder).expect("already verifyed we are in forset");
+            let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
 
-            let variable_string: Vec<_> = variable_string
-                .iter()
-                .take_while(|x| **x != 0)
-                .cloned()
-                .collect();
-
-            Some((
-                Self {
-                    var: MVar::new(
-                        //TODO: handle other cases
-                        VariableName::new(&variable_string).unwrap(),
-                        Path::new([]).unwrap(),
-                    ),
-                    //Jumps are encoded relative to the address the jump is stored in.
-                    //However, I want these both to logically have the same base.
-                    //This subtraction offsets the fact that these jumps are stored in different
-                    //physical locations of the bytecode.
-                    jump_to_content: i16::from_le_bytes(jump_to_content.try_into().unwrap()) - 2,
-                    break_jump: i16::from_le_bytes(break_jump.try_into().unwrap()),
-                },
-                &tail,
-            ))
+            Some(Self {
+                loop_variable,
+                jump_to_content,
+                break_jump,
+            })
         } else {
             None
         }

@@ -1,4 +1,4 @@
-mod byte_code;
+pub mod byte_code;
 
 use std::fmt::Debug;
 
@@ -11,16 +11,17 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         write::WriteCodes,
     },
-    runtime::byte_code::ByteCode,
+    runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
+    variable::LoadVar,
 };
 mod macros;
 
 #[derive(Debug)]
 struct ForFrame {
     var: MVar<Path>,
-    loop_body: usize,
-    break_jump: usize,
-    start_value: Value,
+    loop_body: Location,
+    break_jump: Location,
+    start_value: Number,
     increment: Number,
     end_value: Number,
     //TODO: Direction
@@ -35,13 +36,14 @@ pub struct JobState {
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
-    for_preample: Option<(usize, ForSet)>,
+    for_preample: Option<ForSet>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
 }
+// Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])>;
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self>;
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -56,26 +58,42 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
-    fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
-        Some((Self(code), tail))
+        Some(Self(code))
     }
 }
 
 #[derive(Debug)]
 enum StackAssembally {
+    LoadVar(LoadVar),
     Literal(Value),
     WriteCode(WriteCodes),
     BinaryOpCode(Binary),
     UnaryOp(Unary),
     EndLine(EndLine),
     EndCommand(EndCommand),
-    ForSet { start_address: usize, set: ForSet },
+    ForSet(ForSet),
     ForStart(ForStart),
     ForEnd(ForEnd),
-    TEMP(TEMP),
+    TEMP { _inner: TEMP },
     NoOpCode(NoOpCode),
 }
+/// Marks something as a whole assembly instruction
+pub(crate) trait StackAssemballyTrait: Decode {}
+impl StackAssemballyTrait for Value {}
+impl StackAssemballyTrait for LoadVar {}
+impl StackAssemballyTrait for WriteCodes {}
+impl StackAssemballyTrait for Binary {}
+impl StackAssemballyTrait for Unary {}
+impl StackAssemballyTrait for EndLine {}
+impl StackAssemballyTrait for EndCommand {}
+impl StackAssemballyTrait for ForSet {}
+impl StackAssemballyTrait for ForStart {}
+impl StackAssemballyTrait for ForEnd {}
+impl StackAssemballyTrait for NoOpCode {}
+impl StackAssemballyTrait for TEMP {}
 
 impl JobState {
     pub fn run_code(&mut self, byte_code: &[u8]) {
@@ -113,10 +131,8 @@ impl JobState {
                     Unary::Not => todo!(),
                 },
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-                StackAssembally::ForSet { start_address, set } => {
-                    self.for_preample = Some((start_address, set))
-                }
-                StackAssembally::TEMP(_) => {}
+                StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
+                StackAssembally::TEMP { .. } => {}
                 StackAssembally::ForStart(for_start) => {
                     let (end_value, increment, start_value) = match for_start {
                         ForStart::One => todo!(),
@@ -124,10 +140,10 @@ impl JobState {
                         ForStart::Three => (
                             Number::from(self.address_stack.pop().unwrap()),
                             Number::from(self.address_stack.pop().unwrap()),
-                            self.address_stack.pop().unwrap(),
+                            Number::from(self.address_stack.pop().unwrap()),
                         ),
                     };
-                    let (start_location, for_set) = self
+                    let for_set = self
                         .for_preample
                         .take()
                         .expect("preamble must come before set");
@@ -135,12 +151,12 @@ impl JobState {
                         start_value,
                         increment,
                         end_value,
-                        var: for_set.var,
-                        loop_body: start_location + for_set.jump_to_content as usize,
-                        break_jump: start_location + for_set.break_jump as usize,
+                        var: MVar::new(for_set.loop_variable, Path::new(&[]).unwrap()),
+                        loop_body: for_set.jump_to_content.0,
+                        break_jump: for_set.break_jump.0,
                     };
                     self.symbole_table
-                        .set(&new_frame.var, &new_frame.start_value)
+                        .set(&new_frame.var, &new_frame.start_value.clone().into())
                         .unwrap();
                     self.for_stack.push(new_frame);
                 }
@@ -160,6 +176,11 @@ impl JobState {
                     }
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
+                StackAssembally::LoadVar(load_var) => {
+                    let var = MVar::new(load_var.name, Path::new(&[]).unwrap());
+                    let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
+                    self.address_stack.push(val);
+                }
             }
         }
     }
@@ -188,26 +209,27 @@ mod test {
     #[case("w 5-10", "-5")]
     #[case("w --10", "10")]
     #[case("w 10-(5+4)", "1")]
+    #[case("w i", "")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 
     #[rstest]
     #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
+    #[case::range_is_inclusive("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
     #[case::nested_for_loops("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
+    #[case::loop_var_is_converted_into_a_number_right_away(
+        "f i=\"foo\":1:5 w i,\"_\"",
+        "0_1_2_3_4_5_"
+    )]
     fn for_loops(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 
     #[rstest]
-    #[case::range_is_inclusive("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
     #[case::loop_arguments_are_evaluated_once_before_the_loop_starts(
         "s n=2 f i=0:n:8+n s n=4 w i,\" \"",
         "0 2 4 6 8 10"
-    )]
-    #[case::loop_var_is_converted_into_a_number_right_away(
-        "f i=\"foo\":1:5 w i,\"_\"",
-        "0_1_2_3_4_5_"
     )]
     #[case::killing_the_index_variable_is_an_error(
         "f i=1:1:5 w \"k\" k i,",

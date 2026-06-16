@@ -3,9 +3,11 @@ macro_rules! OpCode {
         #[derive(Debug)]
         pub struct $name;
         impl Decode for $name {
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                if code == $code {
-                    Some((Self, tail))
+            fn decode(
+                decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>,
+            ) -> Option<Self> {
+                if let [$code] = decoder.consume_n() {
+                    Some(Self)
                 } else {
                     None
                 }
@@ -20,23 +22,25 @@ macro_rules! OpCode {
 }
 pub(crate) use OpCode;
 macro_rules! OpCodes {
-    ($name:ident{
-        $($var:ident=$code:expr,)*
-}) => {
+    (
+$name:ident{
+    $($var:ident=$code:expr,)*
+}
+) => {
         #[derive(Debug)]
         pub enum $name {
             $($var = $code,)*
         }
         impl Decode for $name{
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                match code {
-                $($code => Some(Self::$var),)*
-                    _ => None,
-                }
-                .map(|x| (x, tail))
+            fn decode(decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>) -> Option<Self > {
+                let [code] = decoder.consume_n();
+                    match code {
+                        $($code => Some(Self::$var),)*
+                        _ => None,
+                    }
             }
-        }
-    };
+    }
+}
 }
 pub(crate) use OpCodes;
 
@@ -45,14 +49,15 @@ macro_rules! OpCodesForeign {
         $($var:ident=>$code:expr,)*
 }) => {
         impl Decode for $name{
-            fn decode(code: u8, tail: &[u8]) -> Option<(Self, &[u8])> {
-                match code {
-                $($code => Some(Self::$var),)*
-                    _ => None,
-                }
-                .map(|x| (x, tail))
+            fn decode(decoder: &mut crate::runtime::byte_code::AssemballyDecoder<'_>) -> Option<Self > {
+                let [code] = decoder.consume_n();
+                    match code {
+                        $($code => Some(Self::$var),)*
+                        _ => None,
+                    }
             }
-        }
+    }
+
         impl Encode for $name{
             fn encode(&self) -> u8 {
                 match self{
