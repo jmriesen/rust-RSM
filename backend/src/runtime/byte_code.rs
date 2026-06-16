@@ -40,13 +40,6 @@ pub struct AssemballyDecoder<'a> {
     program_counter: Location,
 }
 impl<'a> AssemballyDecoder<'a> {
-    fn decode<T: Decode>(&mut self) -> Option<T> {
-        if let Some(value) = T::decode(self) {
-            Some(value)
-        } else {
-            None
-        }
-    }
     pub fn tail(&self) -> &'a [u8] {
         &self.source[self.program_counter.0..]
     }
@@ -82,7 +75,7 @@ impl<'a> ByteCode<'a> {
             source: self.source,
             program_counter: self.program_counter,
         };
-        if let Some(value) = decoder.decode::<T>() {
+        if let Some(value) = T::decode(&mut decoder) {
             self.program_counter = decoder.program_counter;
             Some(value)
         } else {
