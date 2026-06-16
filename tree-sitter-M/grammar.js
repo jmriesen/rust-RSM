@@ -420,8 +420,16 @@ mumps_grammer.rules["For"] = $ => seq(
     ),
   ),
 )
+mumps_grammer.rules["Set"] = $ => seq(
+  fn_regex("Set", 1),
+  " ",
+  field('variable', $.Variable),
+  "=",
+  field('expression', $.Expression),
+)
 mumps_grammer.rules["command"] = $ => choice(
   $.For,
+  $.Set,
   ...commandTypes.map(x => $[x[0] + "Command"])
 );
 

@@ -4,6 +4,7 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
+pub mod set;
 pub mod write;
 
 pub fn new(
@@ -11,16 +12,16 @@ pub fn new(
     source_code: &str,
     line_tail: &mut dyn Iterator<Item = lang_model::command>,
 ) -> Command {
+    use lang_model::commandChildren as E;
     match sitter.children() {
-        lang_model::commandChildren::BrakeCommand(command) => r#break::new(&command, source_code),
-        lang_model::commandChildren::CloseCommand(command) => close::new(&command, source_code),
-        lang_model::commandChildren::DoCommand(command) => r#do::new(&command, source_code),
-        lang_model::commandChildren::ElseCommand(_) => Command::Else,
-        lang_model::commandChildren::For(command) => {
-            Command::For(r#for::new(&command, source_code, line_tail))
-        }
-        lang_model::commandChildren::NewCommand(_) => todo!(),
-        lang_model::commandChildren::QuitCommand(_) => todo!(),
-        lang_model::commandChildren::WriteCommand(command) => write::new(&command, source_code),
+        E::BrakeCommand(command) => r#break::new(&command, source_code),
+        E::CloseCommand(command) => close::new(&command, source_code),
+        E::DoCommand(command) => r#do::new(&command, source_code),
+        E::ElseCommand(_) => Command::Else,
+        E::For(command) => Command::For(r#for::new(&command, source_code, line_tail)),
+        E::NewCommand(_) => todo!(),
+        E::QuitCommand(_) => todo!(),
+        E::WriteCommand(command) => write::new(&command, source_code),
+        E::Set(command) => set::new(&command, source_code),
     }
 }

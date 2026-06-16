@@ -88,6 +88,7 @@ impl<'a> ByteCode<'a> {
         None.or_else(|| self.try_decode().map(StackAssembally::WriteCode))
             .or_else(|| self.try_decode().map(StackAssembally::Literal))
             .or_else(|| self.try_decode().map(StackAssembally::LoadVar))
+            .or_else(|| self.try_decode().map(StackAssembally::StoreVar))
             .or_else(|| self.try_decode().map(StackAssembally::UnaryOp))
             .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
             .or_else(|| self.try_decode().map(StackAssembally::EndLine))

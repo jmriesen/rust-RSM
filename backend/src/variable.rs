@@ -1,6 +1,7 @@
 use crate::{
     Compile,
     bite_code::BiteCode,
+    commands::set::SetCodes,
     runtime::{Decode, byte_code::AssemballyDecoder},
 };
 use ir::{
@@ -128,6 +129,27 @@ impl Decode for LoadVar {
             Some(Self {
                 name: Decode::decode(decoder).unwrap(),
             })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct StoreVar {
+    pub name: VariableName,
+}
+impl Decode for StoreVar {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        const BUILD: u8 = VarContext::Build as u8;
+        if let [BUILD] = decoder.consume_n() {
+            let name = Decode::decode(decoder).unwrap();
+            const SET_CODE: u8 = SetCodes::Var as u8;
+            if let [SET_CODE] = decoder.consume_n() {
+                Some(Self { name })
+            } else {
+                None
+            }
         } else {
             None
         }

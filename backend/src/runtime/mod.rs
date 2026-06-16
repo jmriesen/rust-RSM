@@ -12,7 +12,7 @@ use crate::{
         write::WriteCodes,
     },
     runtime::byte_code::{AssemballyDecoder, ByteCode, Location},
-    variable::LoadVar,
+    variable::{LoadVar, StoreVar},
 };
 mod macros;
 
@@ -68,6 +68,7 @@ impl Decode for TEMP {
 #[derive(Debug)]
 enum StackAssembally {
     LoadVar(LoadVar),
+    StoreVar(StoreVar),
     Literal(Value),
     WriteCode(WriteCodes),
     BinaryOpCode(Binary),
@@ -84,6 +85,7 @@ enum StackAssembally {
 pub(crate) trait StackAssemballyTrait: Decode {}
 impl StackAssemballyTrait for Value {}
 impl StackAssemballyTrait for LoadVar {}
+impl StackAssemballyTrait for StoreVar {}
 impl StackAssemballyTrait for WriteCodes {}
 impl StackAssemballyTrait for Binary {}
 impl StackAssemballyTrait for Unary {}
@@ -98,6 +100,8 @@ impl StackAssemballyTrait for TEMP {}
 impl JobState {
     pub fn run_code(&mut self, byte_code: &[u8]) {
         let mut byte_code = ByteCode::new(byte_code);
+        #[cfg(test)]
+        dbg!(&byte_code);
         while !byte_code.end() {
             match byte_code.next() {
                 StackAssembally::Literal(value) => {
@@ -181,6 +185,14 @@ impl JobState {
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
                     self.address_stack.push(val);
                 }
+                StackAssembally::StoreVar(store_var) => {
+                    let var = MVar::new(store_var.name, Path::new(&[]).unwrap());
+                    let val = self
+                        .address_stack
+                        .pop()
+                        .expect("Value to store on the stack");
+                    self.symbole_table.set(&var, &val).unwrap();
+                }
             }
         }
     }
@@ -211,6 +223,13 @@ mod test {
     #[case("w 10-(5+4)", "1")]
     #[case("w i", "")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
+        run_code_check_output(source, output);
+    }
+
+    #[rstest]
+    #[case("w i", "")]
+    #[case("s i=5 w i", "5")]
+    fn load_store(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 
