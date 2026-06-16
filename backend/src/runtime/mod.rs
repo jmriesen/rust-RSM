@@ -151,11 +151,20 @@ impl JobState {
                         .for_preample
                         .take()
                         .expect("preamble must come before set");
+                    let mut subscripts = vec![];
+                    for _ in 0..for_set.loop_variable.subscripts {
+                        subscripts.push(self.address_stack.pop().unwrap());
+                    }
+                    let var = MVar::new(
+                        for_set.loop_variable.name,
+                        Path::new(subscripts.iter()).unwrap(),
+                    );
+
                     let new_frame = ForFrame {
                         start_value,
                         increment,
                         end_value,
-                        var: MVar::new(for_set.loop_variable, Path::new(&[]).unwrap()),
+                        var,
                         loop_body: for_set.jump_to_content.0,
                         break_jump: for_set.break_jump.0,
                     };
@@ -181,12 +190,24 @@ impl JobState {
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let var = MVar::new(load_var.name, Path::new(&[]).unwrap());
+                    let mut subscripts = vec![];
+                    for _ in 0..load_var.builder.subscripts {
+                        subscripts.push(self.address_stack.pop().unwrap());
+                    }
+                    let var =
+                        MVar::new(load_var.builder.name, Path::new(subscripts.iter()).unwrap());
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
                     self.address_stack.push(val);
                 }
                 StackAssembally::StoreVar(store_var) => {
-                    let var = MVar::new(store_var.name, Path::new(&[]).unwrap());
+                    let mut subscripts = vec![];
+                    for _ in 0..store_var.builder.subscripts {
+                        subscripts.push(self.address_stack.pop().unwrap());
+                    }
+                    let var = MVar::new(
+                        store_var.builder.name,
+                        Path::new(subscripts.iter()).unwrap(),
+                    );
                     let val = self
                         .address_stack
                         .pop()
@@ -227,8 +248,10 @@ mod test {
     }
 
     #[rstest]
-    #[case("w i", "")]
+    //#[case("w i", "")] -- undefined local variable
     #[case("s i=5 w i", "5")]
+    #[case("s i(\"foo\")=5 w i(\"foo\")", "5")]
+    #[case("s i(\"foo\")=1 s i(\"bar\")=5 w i(\"bar\"),i(\"foo\")", "21")]
     fn load_store(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
