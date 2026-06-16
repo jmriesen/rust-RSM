@@ -2,12 +2,14 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
+pub mod set;
 pub mod write;
 
 use r#break::Break;
 use close::Close;
 use r#do::Do;
 use r#for::For;
+use set::Set;
 pub use write::Write;
 
 use super::Expression;
@@ -24,4 +26,5 @@ pub enum Command {
     Break(PostCondition<Break>),
     Else,
     For(For),
+    Set(Set),
 }

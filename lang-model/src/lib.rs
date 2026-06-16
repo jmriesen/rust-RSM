@@ -62,6 +62,7 @@ impl<'a> command<'a> {
             E::ElseCommand(_) => true,
             E::NewCommand(_) => true,
             E::QuitCommand(_) => true,
+            E::Set(_) => false,
         }
     }
 }

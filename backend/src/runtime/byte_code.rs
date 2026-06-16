@@ -70,7 +70,7 @@ impl<'a> ByteCode<'a> {
     /// Responsible for parsing **full** assembly instruction.
     /// This is atomic it will decode a full instruction and update the program counter,
     /// Or it will fail without modifying self's internal state.
-    fn try_decode<T: StackAssemballyTrait>(&mut self) -> Option<T> {
+    pub(crate) fn try_decode<T: StackAssemballyTrait>(&mut self) -> Option<T> {
         let mut decoder = AssemballyDecoder {
             source: self.source,
             program_counter: self.program_counter,
@@ -82,26 +82,7 @@ impl<'a> ByteCode<'a> {
             None
         }
     }
-    pub fn next(&mut self) -> StackAssembally {
-        //Starting with none to get nice vertical alignment
-        //Trusting that the compiler will optimize it away.
-        None.or_else(|| self.try_decode().map(StackAssembally::WriteCode))
-            .or_else(|| self.try_decode().map(StackAssembally::Literal))
-            .or_else(|| self.try_decode().map(StackAssembally::LoadVar))
-            .or_else(|| self.try_decode().map(StackAssembally::UnaryOp))
-            .or_else(|| self.try_decode().map(StackAssembally::BinaryOpCode))
-            .or_else(|| self.try_decode().map(StackAssembally::EndLine))
-            .or_else(|| self.try_decode().map(StackAssembally::EndCommand))
-            .or_else(|| self.try_decode().map(StackAssembally::ForSet))
-            .or_else(|| self.try_decode().map(StackAssembally::ForStart))
-            .or_else(|| self.try_decode().map(StackAssembally::ForEnd))
-            .or_else(|| self.try_decode().map(StackAssembally::NoOpCode))
-            .or_else(|| {
-                self.try_decode()
-                    .map(|x| StackAssembally::TEMP { _inner: x })
-            })
-            .expect("Provided source was invalid/corruped")
-    }
+
     pub fn end(&self) -> bool {
         self.program_counter.0 == self.source.len()
     }

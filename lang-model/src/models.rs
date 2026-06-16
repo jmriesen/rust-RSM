@@ -52,18 +52,6 @@ impl<'a> BinaryExpression<'a> {
     }
 }
 impl<'a> BinaryExpression<'a> {
-    pub fn exp_left(&self) -> Expression<'a> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("exp_left", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next().unwrap()
-    }
-}
-impl<'a> BinaryExpression<'a> {
     pub fn exp_right(&self) -> Expression<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -84,6 +72,18 @@ impl<'a> BinaryExpression<'a> {
             .children_by_field_name("opp", &mut cursur)
             .filter(|x| x.is_named())
             .map(BinaryOpp::create);
+        children.next().unwrap()
+    }
+}
+impl<'a> BinaryExpression<'a> {
+    pub fn exp_left(&self) -> Expression<'a> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("exp_left", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
         children.next().unwrap()
     }
 }
@@ -346,18 +346,6 @@ impl<'a> CloseCommand<'a> {
     }
 }
 impl<'a> CloseCommand<'a> {
-    pub fn post_condition(&self) -> Option<Expression<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("post_condition", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next()
-    }
-}
-impl<'a> CloseCommand<'a> {
     pub fn args(&self) -> Vec<Expression<'a>> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -367,6 +355,18 @@ impl<'a> CloseCommand<'a> {
             .filter(|x| x.is_named())
             .map(Expression::create);
         children.collect()
+    }
+}
+impl<'a> CloseCommand<'a> {
+    pub fn post_condition(&self) -> Option<Expression<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("post_condition", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.next()
     }
 }
 #[derive(Clone)]
@@ -758,14 +758,14 @@ impl<'a> ExtrinsicFunction<'a> {
     }
 }
 impl<'a> ExtrinsicFunction<'a> {
-    pub fn tag(&self) -> Option<TagName<'a>> {
+    pub fn routine(&self) -> Option<identifier<'a>> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
         let mut children = self
             .node
-            .children_by_field_name("tag", &mut cursur)
+            .children_by_field_name("routine", &mut cursur)
             .filter(|x| x.is_named())
-            .map(TagName::create);
+            .map(identifier::create);
         children.next()
     }
 }
@@ -798,14 +798,14 @@ impl<'a> ExtrinsicFunction<'a> {
     }
 }
 impl<'a> ExtrinsicFunction<'a> {
-    pub fn routine(&self) -> Option<identifier<'a>> {
+    pub fn tag(&self) -> Option<TagName<'a>> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
         let mut children = self
             .node
-            .children_by_field_name("routine", &mut cursur)
+            .children_by_field_name("tag", &mut cursur)
             .filter(|x| x.is_named())
-            .map(identifier::create);
+            .map(TagName::create);
         children.next()
     }
 }
@@ -1379,18 +1379,6 @@ impl<'a> Name<'a> {
     }
 }
 impl<'a> Name<'a> {
-    pub fn args(&self) -> Option<Expression<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("args", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next()
-    }
-}
-impl<'a> Name<'a> {
     pub fn var(&self) -> Variable<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -1400,6 +1388,18 @@ impl<'a> Name<'a> {
             .filter(|x| x.is_named())
             .map(Variable::create);
         children.next().unwrap()
+    }
+}
+impl<'a> Name<'a> {
+    pub fn args(&self) -> Option<Expression<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("args", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.next()
     }
 }
 #[derive(Clone)]
@@ -1898,18 +1898,6 @@ impl<'a> Qsubscript<'a> {
     }
 }
 impl<'a> Qsubscript<'a> {
-    pub fn args(&self) -> Expression<'a> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("args", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next().unwrap()
-    }
-}
-impl<'a> Qsubscript<'a> {
     pub fn var(&self) -> Variable<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -1918,6 +1906,18 @@ impl<'a> Qsubscript<'a> {
             .children_by_field_name("var", &mut cursur)
             .filter(|x| x.is_named())
             .map(Variable::create);
+        children.next().unwrap()
+    }
+}
+impl<'a> Qsubscript<'a> {
+    pub fn args(&self) -> Expression<'a> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("args", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
         children.next().unwrap()
     }
 }
@@ -1934,18 +1934,6 @@ impl<'a> Query<'a> {
     }
 }
 impl<'a> Query<'a> {
-    pub fn args(&self) -> Option<Expression<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("args", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next()
-    }
-}
-impl<'a> Query<'a> {
     pub fn var(&self) -> Variable<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -1955,6 +1943,18 @@ impl<'a> Query<'a> {
             .filter(|x| x.is_named())
             .map(Variable::create);
         children.next().unwrap()
+    }
+}
+impl<'a> Query<'a> {
+    pub fn args(&self) -> Option<Expression<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("args", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.next()
     }
 }
 #[derive(Clone)]
@@ -1990,18 +1990,6 @@ impl<'a> QuitCommand<'a> {
     }
 }
 impl<'a> QuitCommand<'a> {
-    pub fn post_condition(&self) -> Option<Expression<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("post_condition", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.next()
-    }
-}
-impl<'a> QuitCommand<'a> {
     pub fn args(&self) -> Vec<Expression<'a>> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -2011,6 +1999,18 @@ impl<'a> QuitCommand<'a> {
             .filter(|x| x.is_named())
             .map(Expression::create);
         children.collect()
+    }
+}
+impl<'a> QuitCommand<'a> {
+    pub fn post_condition(&self) -> Option<Expression<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("post_condition", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.next()
     }
 }
 #[derive(Clone)]
@@ -2106,6 +2106,42 @@ impl<'a> Select<'a> {
             .named_children(&mut cursur)
             .map(Expression::create);
         children.collect()
+    }
+}
+#[derive(Clone)]
+pub struct Set<'a> {
+    node: Node<'a>,
+}
+impl<'a> Set<'a> {
+    fn create(node: Node<'a>) -> Self {
+        Self { node }
+    }
+    pub fn node(&self) -> &Node<'a> {
+        &self.node
+    }
+}
+impl<'a> Set<'a> {
+    pub fn expression(&self) -> Expression<'a> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("expression", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.next().unwrap()
+    }
+}
+impl<'a> Set<'a> {
+    pub fn variable(&self) -> Variable<'a> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("variable", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Variable::create);
+        children.next().unwrap()
     }
 }
 #[derive(Clone)]
@@ -2240,18 +2276,6 @@ impl<'a> Tag<'a> {
     }
 }
 impl<'a> Tag<'a> {
-    pub fn block(&self) -> Option<Block<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("block", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Block::create);
-        children.next()
-    }
-}
-impl<'a> Tag<'a> {
     pub fn name(&self) -> TagName<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -2261,6 +2285,18 @@ impl<'a> Tag<'a> {
             .filter(|x| x.is_named())
             .map(TagName::create);
         children.next().unwrap()
+    }
+}
+impl<'a> Tag<'a> {
+    pub fn block(&self) -> Option<Block<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("block", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Block::create);
+        children.next()
     }
 }
 #[derive(Clone)]
@@ -2373,18 +2409,6 @@ impl<'a> UnaryExpression<'a> {
     }
 }
 impl<'a> UnaryExpression<'a> {
-    pub fn opp(&self) -> UnaryOpp<'a> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("opp", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(UnaryOpp::create);
-        children.next().unwrap()
-    }
-}
-impl<'a> UnaryExpression<'a> {
     pub fn exp(&self) -> Expression<'a> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -2393,6 +2417,18 @@ impl<'a> UnaryExpression<'a> {
             .children_by_field_name("exp", &mut cursur)
             .filter(|x| x.is_named())
             .map(Expression::create);
+        children.next().unwrap()
+    }
+}
+impl<'a> UnaryExpression<'a> {
+    pub fn opp(&self) -> UnaryOpp<'a> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("opp", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(UnaryOpp::create);
         children.next().unwrap()
     }
 }
@@ -2498,18 +2534,6 @@ impl<'a> Variable<'a> {
         &self.node
     }
 }
-impl<'a> Variable<'a> {
-    pub fn subs(&self) -> Vec<Expression<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("subs", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(Expression::create);
-        children.collect()
-    }
-}
 #[derive(Clone)]
 pub enum VariableHeading<'a> {
     GlobalUciEnvVariable(GlobalUciEnvVariable<'a>),
@@ -2554,6 +2578,18 @@ impl<'a> Variable<'a> {
             .filter(|x| x.is_named())
             .map(identifier::create);
         children.next()
+    }
+}
+impl<'a> Variable<'a> {
+    pub fn subs(&self) -> Vec<Expression<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("subs", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(Expression::create);
+        children.collect()
     }
 }
 #[derive(Clone)]
@@ -2678,18 +2714,6 @@ impl<'a> WriteCommand<'a> {
     }
 }
 impl<'a> WriteCommand<'a> {
-    pub fn args(&self) -> Vec<WriteArg<'a>> {
-        let mut cursur = self.node.walk();
-        #[allow(unused_mut)]
-        let mut children = self
-            .node
-            .children_by_field_name("args", &mut cursur)
-            .filter(|x| x.is_named())
-            .map(WriteArg::create);
-        children.collect()
-    }
-}
-impl<'a> WriteCommand<'a> {
     pub fn post_condition(&self) -> Option<Expression<'a>> {
         let mut cursur = self.node.walk();
         #[allow(unused_mut)]
@@ -2699,6 +2723,18 @@ impl<'a> WriteCommand<'a> {
             .filter(|x| x.is_named())
             .map(Expression::create);
         children.next()
+    }
+}
+impl<'a> WriteCommand<'a> {
+    pub fn args(&self) -> Vec<WriteArg<'a>> {
+        let mut cursur = self.node.walk();
+        #[allow(unused_mut)]
+        let mut children = self
+            .node
+            .children_by_field_name("args", &mut cursur)
+            .filter(|x| x.is_named())
+            .map(WriteArg::create);
+        children.collect()
     }
 }
 #[derive(Clone)]
@@ -2848,6 +2884,7 @@ pub enum commandChildren<'a> {
     For(For<'a>),
     NewCommand(NewCommand<'a>),
     QuitCommand(QuitCommand<'a>),
+    Set(Set<'a>),
     WriteCommand(WriteCommand<'a>),
 }
 impl<'a> commandChildren<'a> {
@@ -2860,6 +2897,7 @@ impl<'a> commandChildren<'a> {
             "For" => Self::For(For::create(node)),
             "NewCommand" => Self::NewCommand(NewCommand::create(node)),
             "QuitCommand" => Self::QuitCommand(QuitCommand::create(node)),
+            "Set" => Self::Set(Set::create(node)),
             "WriteCommand" => Self::WriteCommand(WriteCommand::create(node)),
             _ => unreachable!(),
         }

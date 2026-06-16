@@ -1,6 +1,7 @@
 use crate::{
     Compile,
     bite_code::BiteCode,
+    commands::set::SetCodes,
     runtime::{Decode, byte_code::AssemballyDecoder},
 };
 use ir::{
@@ -103,31 +104,62 @@ impl Compile for Variable {
         }
     }
 }
-impl Decode for VariableName {
+
+#[derive(Debug)]
+pub struct BuildVarInstructions {
+    pub name: VariableName,
+    pub subscripts: usize,
+}
+impl Decode for BuildVarInstructions {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         //TODO: handle other types
-        let [_type] = decoder.consume_n();
+        let [code_num_subscriptions] = decoder.consume_n();
         let variable_string = decoder.consume_n::<32>();
         let variable_string: Vec<_> = variable_string
             .iter()
             .take_while(|x| **x != 0)
             .cloned()
             .collect();
-        Some(VariableName::new(&variable_string).unwrap())
+        Some(Self {
+            name: VariableName::new(&variable_string).unwrap(),
+            //TODO: handle parsing different types of variables.
+            subscripts: code_num_subscriptions as usize,
+        })
     }
 }
 
 #[derive(Debug)]
 pub struct LoadVar {
-    pub name: VariableName,
+    pub var: BuildVarInstructions,
 }
 impl Decode for LoadVar {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::Eval as u8;
         if let [CODE] = decoder.consume_n() {
             Some(Self {
-                name: Decode::decode(decoder).unwrap(),
+                var: Decode::decode(decoder).unwrap(),
             })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct StoreVar {
+    pub var: BuildVarInstructions,
+}
+impl Decode for StoreVar {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        const BUILD: u8 = VarContext::Build as u8;
+        if let [BUILD] = decoder.consume_n() {
+            let name = Decode::decode(decoder).unwrap();
+            const SET_CODE: u8 = SetCodes::Var as u8;
+            if let [SET_CODE] = decoder.consume_n() {
+                Some(Self { var: name })
+            } else {
+                None
+            }
         } else {
             None
         }

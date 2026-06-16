@@ -1,5 +1,4 @@
 use ir::commands::r#for::{For, ForKind};
-use symbol_table::{MVar, VariableName, key::Path};
 
 use crate::{
     Compile, NO_OP_CODE,
@@ -10,7 +9,7 @@ use crate::{
         Decode, OpCode, OpCodes,
         byte_code::{AssemballyDecoder, Jump},
     },
-    variable::VarContext,
+    variable::{BuildVarInstructions, VarContext},
 };
 
 OpCodes! {
@@ -100,23 +99,23 @@ impl Compile for For {
 
 #[derive(Debug)]
 pub struct ForSet {
-    pub loop_variable: VariableName,
-    pub jump_to_content: Jump,
-    pub break_jump: Jump,
+    pub loop_variable: BuildVarInstructions,
+    pub loop_body: Jump,
+    pub r#break: Jump,
 }
 impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::For as u8;
         if let [CODE] = decoder.consume_n() {
             let loop_variable =
-                VariableName::decode(decoder).expect("already verifyed we are in forset");
-            let jump_to_content = Jump::decode(decoder).expect("already verifyed we are in forset");
+                BuildVarInstructions::decode(decoder).expect("already verifyed we are in forset");
+            let loop_body = Jump::decode(decoder).expect("already verifyed we are in forset");
             let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
 
             Some(Self {
                 loop_variable,
-                jump_to_content,
-                break_jump,
+                loop_body,
+                r#break: break_jump,
             })
         } else {
             None
