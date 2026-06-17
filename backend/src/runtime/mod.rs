@@ -97,11 +97,16 @@ impl JobState {
                 StackAssembally::Value(value) => {
                     self.stack.push(value);
                 }
-                StackAssembally::WriteCodes(_write_codes) => {
-                    let value = self.stack.pop().unwrap();
-                    self.buffer
-                        .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
-                }
+                StackAssembally::WriteCodes(write_codes) => match write_codes {
+                    WriteCodes::Bang => self.buffer.push_str("\n"),
+                    WriteCodes::Clear => todo!(),
+                    WriteCodes::Tab => todo!(),
+                    WriteCodes::Expression => {
+                        let value = self.stack.pop().unwrap();
+                        self.buffer
+                            .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
+                    }
+                },
                 StackAssembally::Binary(op) => {
                     let second = self.stack.pop().unwrap();
                     let first = self.stack.pop().unwrap();
