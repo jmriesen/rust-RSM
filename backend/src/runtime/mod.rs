@@ -1,6 +1,6 @@
 pub mod byte_code;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 
 use ir::operators::{Binary, Unary};
 use symbol_table::{MVar, SymbolTable, key::Path};
@@ -82,9 +82,9 @@ StackAssembally! {
     ForSet,
     ForStart,
     ForEnd,
-    TEMP,
     NoOpCode,
     IfOp,
+    TEMP,
 
 }
 /// Marks something as a whole assembly instruction
@@ -188,7 +188,21 @@ impl JobState {
                 }
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
-                    todo!()
+                    let val: Number = self
+                        .stack
+                        .pop()
+                        .expect("Value to store on the stack")
+                        .into();
+                    if dbg!(val != Number::from_str("0").expect("hard coded string is a number")) {
+                        // false
+                    } else {
+                        // Skip to end of the line.
+                        loop {
+                            if let StackAssembally::EndLine(EndLine) = dbg!(byte_code.next()) {
+                                break;
+                            };
+                        }
+                    }
                 }
             }
         }

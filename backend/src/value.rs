@@ -24,7 +24,7 @@ impl Decode for Value {
                 let after_parsing_len = new_tail.len();
                 (value, original_len - after_parsing_len)
             };
-            decoder.consume(amount_to_consume);
+            decoder.consume(amount_to_consume + 1);
             Some(value)
         } else {
             None
