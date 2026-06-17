@@ -199,6 +199,12 @@ impl JobState {
 
 #[cfg(test)]
 mod test {
+    use std::{
+        fs::{self, File},
+        io::Read,
+        path::{Path, PathBuf},
+    };
+
     use crate::{runtime::JobState, test::compile_routine};
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
@@ -211,54 +217,18 @@ mod test {
         assert_eq!(job.buffer, output);
     }
 
-    #[test]
-    fn write() {
-        run_code_check_output("w 5", "5");
-    }
     #[rstest]
-    #[case("w 5+10", "15")]
-    #[case("w 5-10", "-5")]
-    #[case("w --10", "10")]
-    #[case("w 10-(5+4)", "1")]
-    #[case("w i", "")]
-    fn basic_math(#[case] source: &str, #[case] output: &str) {
-        run_code_check_output(source, output);
-    }
-
-    #[rstest]
-    //#[case("w i", "")] -- undefined local variable
-    #[case("s i=5 w i", "5")]
-    #[case("s i(\"foo\")=5 w i(\"foo\")", "5")]
-    #[case("s i(\"foo\")=1 s i(\"bar\")=2 w i(\"bar\"),i(\"foo\")", "21")]
-    fn load_store(#[case] source: &str, #[case] output: &str) {
-        run_code_check_output(source, output);
-    }
-
-    #[rstest]
-    #[case("f i=1:1:5 w \"foo \"", "foo foo foo foo foo ")]
-    #[case::range_is_inclusive("f i=1:2:11 w i,\" \"", "1 3 5 7 9 11 ")]
-    #[case::nested_for_loops("f i=1:1:2 f j=1:1:3 w \"foo \"", "foo foo foo foo foo foo ")]
-    #[case::loop_var_is_converted_into_a_number_right_away(
-        "f i=\"foo\":1:5 w i,\"_\"",
-        "0_1_2_3_4_5_"
-    )]
-    #[case::loop_arguments_are_evaluated_once_before_the_loop_starts(
-        "s n=2 f i=0:n:8+n s n=4 w i,\" \"",
-        "0 2 4 6 8 10 "
-    )]
-    #[case::interacting_with_variable_is_ok("f i=1:1:5 s i=10 w \"foo\"", "foo")]
-    fn for_loops(#[case] source: &str, #[case] output: &str) {
-        run_code_check_output(source, output);
-    }
-
-    #[rstest]
-    #[case::killing_the_index_variable_is_an_error(
-        "f i=1:1:5 w \"k\" k i,",
-        "$ECODE=,M15,\nUndefined index variable"
-    )]
-    fn todo(#[case] _source: &str, #[case] _output: &str) {
-        //These are tests that should pass, but don't currently work since they rely on functionally
-        //that has not been implemented.
-        //They should be moved to the for_loop once the required functionality has ben added
+    fn runtime_tests(#[files("tests/*/*.test")] file: PathBuf) {
+        let content = fs::read_to_string(file).unwrap();
+        let [src, output] = content
+            // Remove trailing newline that is automatically added by my text editor.
+            .strip_suffix("\n")
+            .unwrap()
+            // src vs expected output separator
+            .split("\n---\n")
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        run_code_check_output(src, output);
     }
 }
