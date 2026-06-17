@@ -98,11 +98,11 @@ bool tree_sitter_mumps_external_scanner_scan(void *payload, TSLexer *lexer,
     //------------------------------------------------
     int count = 0;
 
-    // indentation must start with space or TODO tab.
+    // Indentation must start with space or TODO tab.
     if (lexer->lookahead == ' ') {
       count++;
       while (lexer->lookahead == '.' || lexer->lookahead == ' ') {
-        //after the initial indentation only . count
+        //After the initial indentation only '.' count
         if (lexer->lookahead == '.') {
           count++;
         }
