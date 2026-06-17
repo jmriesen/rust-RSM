@@ -9,7 +9,7 @@ use value::{Number, Value};
 use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
-        r#if::IfOp,
+        r#if::{ElseOp, IfOp},
         write::WriteCodes,
     },
     runtime::{
@@ -44,6 +44,10 @@ pub struct JobState {
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
+
+    /// Stores the last result of the most resent if predicate.
+    /// Used by else.
+    test: bool,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -84,6 +88,7 @@ StackAssembally! {
     ForEnd,
     NoOpCode,
     IfOp,
+    ElseOp,
     TEMP,
 
 }
@@ -198,15 +203,15 @@ impl JobState {
                         .pop()
                         .expect("Value to store on the stack")
                         .into();
-                    if dbg!(val != Number::from_str("0").expect("hard coded string is a number")) {
-                        // false
-                    } else {
-                        // Skip to end of the line.
-                        loop {
-                            if let StackAssembally::EndLine(EndLine) = dbg!(byte_code.next()) {
-                                break;
-                            };
-                        }
+                    self.test =
+                        val != Number::from_str("0").expect("hard coded string is a number");
+                    if !self.test {
+                        byte_code.advance_to_next_line();
+                    }
+                }
+                StackAssembally::ElseOp(_) => {
+                    if self.test {
+                        byte_code.advance_to_next_line();
                     }
                 }
             }

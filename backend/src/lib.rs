@@ -13,8 +13,6 @@ pub mod value;
 pub mod var_u;
 pub mod variable;
 
-const NO_OP_CODE: u8 = 179;
-
 pub trait Compile {
     type Context;
     fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context);

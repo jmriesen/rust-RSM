@@ -7,6 +7,7 @@ use crate::{
 };
 
 OpCode! {IfOp = 7}
+OpCode! {ElseOp = 9}
 
 impl Compile for If {
     type Context = ();

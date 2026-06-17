@@ -1,6 +1,6 @@
 use ir::commands::{Command, PostCondition};
 
-use crate::{Compile, bite_code::BiteCode};
+use crate::{Compile, bite_code::BiteCode, commands::r#if::ElseOp, runtime::EndCommand};
 
 pub mod r#break;
 pub mod close;
@@ -9,8 +9,6 @@ pub mod r#for;
 pub mod r#if;
 pub mod set;
 pub mod write;
-const COMAND_END: u8 = 4;
-const ELSE: u8 = 9;
 
 impl<T, C> Compile for PostCondition<T>
 where
@@ -35,11 +33,11 @@ impl Compile for Command {
             Command::Close(x) => x.compile(bite_code, &()),
             Command::Do(x) => x.compile(bite_code, &()),
             Command::Break(x) => x.compile(bite_code, &()),
-            Command::Else => bite_code.push(ELSE),
+            Command::Else => bite_code.push(ElseOp.encode()),
             Command::For(x) => x.compile(bite_code, &()),
             Command::Set(x) => x.compile(bite_code, &()),
             Command::If(x) => x.compile(bite_code, &()),
         }
-        bite_code.push(COMAND_END);
+        bite_code.push(EndCommand.encode());
     }
 }

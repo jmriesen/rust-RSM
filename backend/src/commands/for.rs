@@ -1,12 +1,11 @@
 use ir::commands::r#for::{For, ForKind};
 
 use crate::{
-    Compile, NO_OP_CODE,
+    Compile,
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
-    commands::COMAND_END,
     expression::ExpressionContext,
     runtime::{
-        Decode, OpCode, OpCodes,
+        Decode, EndCommand, NoOpCode, OpCode, OpCodes,
         byte_code::{AssemballyDecoder, Jump},
     },
     variable::{BuildVarInstructions, VarContext},
@@ -75,7 +74,7 @@ impl Compile for For {
         // Inserting loop body
         self.commands.compile(bite_code, &());
         //Inserting an extra OPENDC command (probably not needed)
-        bite_code.push(COMAND_END);
+        bite_code.push(EndCommand.encode());
 
         //Insert end off loop logic
         {
@@ -92,7 +91,7 @@ impl Compile for For {
             }
             // Jump out of for loop
             bite_code.write_jump(break_jump, bite_code.current_location());
-            bite_code.push(NO_OP_CODE);
+            bite_code.push(NoOpCode.encode());
         };
     }
 }
