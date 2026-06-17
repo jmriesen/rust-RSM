@@ -205,9 +205,8 @@ impl JobState {
 #[cfg(test)]
 mod test {
     use std::{
-        fs::{self, File},
-        io::Read,
-        path::{Path, PathBuf},
+        fs::{self},
+        path::PathBuf,
     };
 
     use crate::{runtime::JobState, test::compile_routine};
