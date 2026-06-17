@@ -40,6 +40,9 @@ var mumps_grammer = {
       $.Tab,
       $.Expression
     ),
+    Bang: $ => "!",
+    Clear: $ => "#",
+    Tab: $ => seq("?", $.Expression),
     ForArg: $ => seq(
       $.Expression,
       optional(
@@ -50,9 +53,6 @@ var mumps_grammer = {
         )
       )
     ),
-    Bang: $ => "!",
-    Clear: $ => "#",
-    Tab: $ => seq("?", $.Expression),
     DoArg: $ => seq(
       field('function', $.ExtrinsicFunction),
       optional(seq(":", field('post_condition', $.Expression)))
