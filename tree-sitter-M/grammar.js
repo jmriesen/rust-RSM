@@ -57,7 +57,12 @@ var mumps_grammer = {
       field('function', $.ExtrinsicFunction),
       optional(seq(":", field('post_condition', $.Expression)))
     ),
-
+    KillArg: $ => choice(
+      $.KillExclusive,
+      $.KillInclusive
+    ),
+    KillExclusive: $ => seq("(", $.Variable, ")"),
+    KillInclusive: $ => $.Variable,
     line: $ => seq(repeatDel($.command, " "), repeat(" ")),
     TagName: $ => choice($.identifier, $.NumericIdentifier),
     NumericIdentifier: $ => /\d{1,32}/,
@@ -379,6 +384,7 @@ let commandTypes =
     ["New", "identifier", true],
     ["Quit", "Expression", true],
     ["If", "Expression", false],
+    ["Kill", "KillArg", false]
   ];
 
 commandTypes.forEach(
