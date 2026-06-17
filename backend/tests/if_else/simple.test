@@ -1,0 +1,4 @@
+i 1 w "will be printed"
+i 0 w "will NOT be printed"
+---
+will be printed
