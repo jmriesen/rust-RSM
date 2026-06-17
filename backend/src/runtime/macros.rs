@@ -14,7 +14,7 @@ macro_rules! OpCode {
             }
         }
         impl $name {
-            fn encode(self) -> u8 {
+            pub fn encode(self) -> u8 {
                 $code
             }
         }

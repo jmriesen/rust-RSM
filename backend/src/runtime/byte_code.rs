@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Range};
 
 use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Location(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct Jump(pub Location);
@@ -28,7 +28,16 @@ impl<'a> Debug for ByteCode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ByteCode")
             .field("program_counter", &self.program_counter.0)
-            .field("parsed", &self.dbg_helper())
+            .field(
+                "parsed",
+                &self
+                    .dbg_helper()
+                    .into_iter()
+                    //Pulling out just what is useful for the current debugging
+                    //session.
+                    .map(|x| x.2)
+                    .collect::<Vec<_>>(),
+            )
             .finish()
     }
 }
@@ -108,5 +117,12 @@ impl<'a> ByteCode<'a> {
 
     pub fn jump_absolute(&mut self, location: Location) {
         self.program_counter = location
+    }
+    pub fn advance_to_next_line(&mut self) {
+        loop {
+            if let StackAssembally::EndLine(_) = self.next() {
+                break;
+            };
+        }
     }
 }

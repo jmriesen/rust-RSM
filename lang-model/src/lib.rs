@@ -62,7 +62,9 @@ impl<'a> command<'a> {
             E::ElseCommand(_) => true,
             E::NewCommand(_) => true,
             E::QuitCommand(_) => true,
+            //TODO: check where this is used and if the correct computation.
             E::Set(_) => false,
+            E::IfCommand(_) => false,
         }
     }
 }

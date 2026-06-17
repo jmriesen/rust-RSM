@@ -1,6 +1,6 @@
 pub mod byte_code;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 
 use ir::operators::{Binary, Unary};
 use symbol_table::{MVar, SymbolTable, key::Path};
@@ -9,6 +9,7 @@ use value::{Number, Value};
 use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
+        r#if::{ElseOp, IfOp},
         write::WriteCodes,
     },
     runtime::{
@@ -19,7 +20,7 @@ use crate::{
 };
 mod macros;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct ForFrame {
     var: MVar<Path>,
     loop_body: Location,
@@ -43,6 +44,10 @@ pub struct JobState {
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbole_table: SymbolTable,
+
+    /// Stores the last result of the most resent if predicate.
+    /// Used by else.
+    test: bool,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -81,8 +86,10 @@ StackAssembally! {
     ForSet,
     ForStart,
     ForEnd,
-    TEMP,
     NoOpCode,
+    IfOp,
+    ElseOp,
+    TEMP,
 
 }
 /// Marks something as a whole assembly instruction
@@ -190,6 +197,23 @@ impl JobState {
                     self.symbole_table.set(&var, &val).unwrap();
                 }
                 StackAssembally::TEMP { .. } => {}
+                StackAssembally::IfOp(_) => {
+                    let val: Number = self
+                        .stack
+                        .pop()
+                        .expect("Value to store on the stack")
+                        .into();
+                    self.test =
+                        val != Number::from_str("0").expect("hard coded string is a number");
+                    if !self.test {
+                        byte_code.advance_to_next_line();
+                    }
+                }
+                StackAssembally::ElseOp(_) => {
+                    if self.test {
+                        byte_code.advance_to_next_line();
+                    }
+                }
             }
         }
     }
@@ -219,6 +243,10 @@ mod test {
         let byte_code = compile_routine(routine);
         job.run_code(&byte_code);
         assert_eq!(job.buffer, output);
+        // All values must be used if they were added
+        assert_eq!(job.stack, vec![]);
+        // We should exit all the for lops
+        assert_eq!(job.for_stack, vec![]);
     }
 
     #[rstest]
