@@ -378,6 +378,7 @@ let commandTypes =
     ["Do", "DoArg", true],
     ["New", "identifier", true],
     ["Quit", "Expression", true],
+    ["If", "Expression", false],
   ];
 
 commandTypes.forEach(

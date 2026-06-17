@@ -3,7 +3,7 @@ pub mod byte_code;
 use std::fmt::Debug;
 
 use ir::operators::{Binary, Unary};
-use symbol_table::{MVar, SymbolTable, key::Path};
+use symbol_table::{key::Path, MVar, SymbolTable};
 use value::{Number, Value};
 
 use crate::{
