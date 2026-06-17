@@ -1,0 +1,10 @@
+s i("foo")=1
+s i("bar")=2
+s i("foo","bar")=3
+w "foo=",i("foo"),!
+w "bar=",i("bar"),!
+w "foo_bar=",i("foo","bar")
+---
+foo=1
+bar=2
+foo_bar=3

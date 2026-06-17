@@ -23,11 +23,10 @@ pub fn parse_routine(source_code: &str) -> Routine {
     let tags = tree.children();
     let block = tags[0].block().unwrap();
     let mut lines = vec![];
-    assert_eq!(block.children().len(), 1, "unimplemented");
     for line in block.children() {
         let line = match line {
             lang_model::BlockChildren::line(line) => line,
-            lang_model::BlockChildren::Block(_line) => unimplemented!(),
+            lang_model::BlockChildren::Block(_block) => todo!("nested blocks not yet implemented"),
         };
         let mut commands = vec![];
         let mut line_tail = line.children().into_iter();
