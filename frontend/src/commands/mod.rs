@@ -5,6 +5,7 @@ pub mod close;
 pub mod r#do;
 pub mod r#for;
 pub mod r#if;
+pub mod kill;
 pub mod set;
 pub mod write;
 
@@ -25,5 +26,6 @@ pub fn new(
         E::WriteCommand(command) => write::new(&command, source_code),
         E::Set(command) => set::new(&command, source_code),
         E::IfCommand(command) => r#if::new(&command, source_code),
+        E::KillCommand(command) => kill::new(&command, source_code),
     }
 }

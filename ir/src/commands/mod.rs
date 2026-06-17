@@ -2,7 +2,11 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
+<<<<<<< HEAD
 pub mod r#if;
+=======
+pub mod kill;
+>>>>>>> 0d1a182 (Mapping kill into ir representation)
 pub mod set;
 pub mod write;
 
@@ -13,6 +17,8 @@ use r#for::For;
 use r#if::If;
 use set::Set;
 pub use write::Write;
+
+use crate::commands::kill::Kill;
 
 use super::Expression;
 
@@ -30,4 +36,5 @@ pub enum Command {
     For(For),
     Set(Set),
     If(Vec<If>),
+    Kill(Vec<Kill>),
 }
