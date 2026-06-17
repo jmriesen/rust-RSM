@@ -3,12 +3,13 @@ pub mod byte_code;
 use std::fmt::Debug;
 
 use ir::operators::{Binary, Unary};
-use symbol_table::{key::Path, MVar, SymbolTable};
+use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
 use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
+        r#if::IfOp,
         write::WriteCodes,
     },
     runtime::{
@@ -19,7 +20,7 @@ use crate::{
 };
 mod macros;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct ForFrame {
     var: MVar<Path>,
     loop_body: Location,
@@ -83,6 +84,7 @@ StackAssembally! {
     ForEnd,
     TEMP,
     NoOpCode,
+    IfOp,
 
 }
 /// Marks something as a whole assembly instruction
@@ -185,6 +187,9 @@ impl JobState {
                     self.symbole_table.set(&var, &val).unwrap();
                 }
                 StackAssembally::TEMP { .. } => {}
+                StackAssembally::IfOp(_) => {
+                    todo!()
+                }
             }
         }
     }
@@ -209,6 +214,10 @@ mod test {
         let byte_code = compile_routine(routine);
         job.run_code(&byte_code);
         assert_eq!(job.buffer, output);
+        // All values must be used if they were added
+        assert_eq!(job.stack, vec![]);
+        // We should exit all the for lops
+        assert_eq!(job.for_stack, vec![]);
     }
 
     #[test]
@@ -222,6 +231,13 @@ mod test {
     #[case("w 10-(5+4)", "1")]
     #[case("w i", "")]
     fn basic_math(#[case] source: &str, #[case] output: &str) {
+        run_code_check_output(source, output);
+    }
+
+    #[rstest]
+    #[case("i 0 w \"foo\"", "")]
+    #[case("i 1 w \"foo\"", "foo")]
+    fn if_else(#[case] source: &str, #[case] output: &str) {
         run_code_check_output(source, output);
     }
 

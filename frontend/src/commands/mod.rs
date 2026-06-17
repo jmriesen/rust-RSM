@@ -4,6 +4,7 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
+pub mod r#if;
 pub mod set;
 pub mod write;
 
@@ -23,5 +24,6 @@ pub fn new(
         E::QuitCommand(_) => todo!(),
         E::WriteCommand(command) => write::new(&command, source_code),
         E::Set(command) => set::new(&command, source_code),
+        E::IfCommand(command) => r#if::new(&command, source_code),
     }
 }

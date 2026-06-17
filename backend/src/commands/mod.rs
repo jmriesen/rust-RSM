@@ -6,6 +6,7 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
+pub mod r#if;
 pub mod set;
 pub mod write;
 const COMAND_END: u8 = 4;
@@ -37,6 +38,7 @@ impl Compile for Command {
             Command::Else => bite_code.push(ELSE),
             Command::For(x) => x.compile(bite_code, &()),
             Command::Set(x) => x.compile(bite_code, &()),
+            Command::If(x) => x.compile(bite_code, &()),
         }
         bite_code.push(COMAND_END);
     }

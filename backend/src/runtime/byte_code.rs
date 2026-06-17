@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Range};
 
 use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Location(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct Jump(pub Location);
