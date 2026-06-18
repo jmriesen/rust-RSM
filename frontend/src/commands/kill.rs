@@ -20,12 +20,9 @@ pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
     let mut groupings = vec![];
     while args.peek_mut().is_some() {
         groupings.extend(
-            extract_grouping(
-                source_code,
-                &mut args,
-                |x| matches!(x, KillArgChildren::KillExclusive(_)),
-                //|x| Kill::Exclusive(KillExclusive(x)),
-            )
+            extract_grouping(source_code, &mut args, |x| {
+                matches!(x, KillArgChildren::KillExclusive(_))
+            })
             .map(|variables| {
                 if variables.iter().all(|x| {
                     x.subscripts.is_empty()
@@ -49,12 +46,9 @@ pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
             }),
         );
         groupings.extend(
-            extract_grouping(
-                source_code,
-                &mut args,
-                |x| matches!(x, KillArgChildren::KillInclusive(_)),
-                //|x| Kill::Inclusive(KillInclusive(x)),
-            )
+            extract_grouping(source_code, &mut args, |x| {
+                matches!(x, KillArgChildren::KillInclusive(_))
+            })
             .map(|variables| Kill {
                 r#type: KillType::Inclusive,
                 variables,
