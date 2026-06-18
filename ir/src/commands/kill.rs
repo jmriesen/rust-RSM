@@ -1,9 +1,11 @@
 use crate::Variable;
 
-pub struct KillInclusive(pub Vec<Variable>);
-pub struct KillExclusive(pub Vec<Variable>);
+pub enum KillType {
+    Inclusive,
+    Exclusive,
+}
 
-pub enum Kill {
-    Inclusive(KillInclusive),
-    Exclusive(KillExclusive),
+pub struct Kill {
+    pub r#type: KillType,
+    pub variables: Vec<Variable>,
 }

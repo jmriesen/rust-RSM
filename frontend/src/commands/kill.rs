@@ -2,7 +2,7 @@ use ir::{
     Variable,
     commands::{
         Command,
-        kill::{Kill, KillExclusive, KillInclusive},
+        kill::{Kill, KillType},
     },
 };
 use lang_model::{KillArgChildren, KillCommand};
@@ -18,18 +18,30 @@ pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
     let mut args = sitter.args().into_iter().map(|x| x.children()).peekable();
     let mut groupings = vec![];
     while args.peek_mut().is_some() {
-        groupings.extend(extract_grouping(
-            source_code,
-            &mut args,
-            |x| matches!(x, KillArgChildren::KillExclusive(_)),
-            |x| Kill::Exclusive(KillExclusive(x)),
-        ));
-        groupings.extend(extract_grouping(
-            source_code,
-            &mut args,
-            |x| matches!(x, KillArgChildren::KillInclusive(_)),
-            |x| Kill::Inclusive(KillInclusive(x)),
-        ));
+        groupings.extend(
+            extract_grouping(
+                source_code,
+                &mut args,
+                |x| matches!(x, KillArgChildren::KillExclusive(_)),
+                //|x| Kill::Exclusive(KillExclusive(x)),
+            )
+            .map(|variables| Kill {
+                r#type: KillType::Exclusive,
+                variables,
+            }),
+        );
+        groupings.extend(
+            extract_grouping(
+                source_code,
+                &mut args,
+                |x| matches!(x, KillArgChildren::KillInclusive(_)),
+                //|x| Kill::Inclusive(KillInclusive(x)),
+            )
+            .map(|variables| Kill {
+                r#type: KillType::Inclusive,
+                variables,
+            }),
+        );
     }
     Command::Kill(groupings)
 }
@@ -39,8 +51,7 @@ fn extract_grouping<'a>(
     source_code: &str,
     args: &mut Peekable<impl Iterator<Item = KillArgChildren<'a>>>,
     predicate: impl Copy + Fn(&mut KillArgChildren<'a>) -> bool,
-    map: impl Fn(Vec<Variable>) -> Kill,
-) -> Option<Kill> {
+) -> Option<Vec<Variable>> {
     let mut variables = vec![];
     while args.peek_mut().is_some_and(predicate) {
         let var = extract_var(args.next().expect("prechecked in loop condition"));
@@ -49,7 +60,7 @@ fn extract_grouping<'a>(
     if variables.is_empty() {
         None
     } else {
-        Some(map(variables))
+        Some(variables)
     }
 }
 
@@ -59,4 +70,3 @@ fn extract_var(killarg: KillArgChildren<'_>) -> lang_model::Variable<'_> {
         KillArgChildren::KillInclusive(kill_inclusive) => kill_inclusive.children(),
     }
 }
-
