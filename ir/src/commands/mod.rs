@@ -2,11 +2,8 @@ pub mod r#break;
 pub mod close;
 pub mod r#do;
 pub mod r#for;
-<<<<<<< HEAD
 pub mod r#if;
-=======
 pub mod kill;
->>>>>>> 0d1a182 (Mapping kill into ir representation)
 pub mod set;
 pub mod write;
 

@@ -37,11 +37,8 @@ impl Compile for Command {
             Command::Else => bite_code.push(ElseOp.encode()),
             Command::For(x) => x.compile(bite_code, &()),
             Command::Set(x) => x.compile(bite_code, &()),
-<<<<<<< HEAD
             Command::If(x) => x.compile(bite_code, &()),
-=======
             Command::Kill(x) => x.compile(bite_code, &()),
->>>>>>> b5616dc (Implementing kill compile)
         }
         bite_code.push(EndCommand.encode());
     }
