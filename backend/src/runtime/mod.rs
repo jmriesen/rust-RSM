@@ -234,7 +234,10 @@ impl JobState {
                                 self.symbole_table.kill(&var);
                             }
                         }
-                        E::Exclusive => todo!(),
+                        E::Exclusive => {
+                            let names: Vec<_> = l_values.into_iter().map(|x| x.name).collect();
+                            self.symbole_table.keep(&names);
+                        }
                     }
                 }
                 StackAssembally::PushVar(push_var) => {

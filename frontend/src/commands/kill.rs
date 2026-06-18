@@ -4,6 +4,7 @@ use ir::{
         Command,
         kill::{Kill, KillType},
     },
+    variable::VariableType,
 };
 use lang_model::{KillArgChildren, KillCommand};
 use std::iter::Peekable;
@@ -25,9 +26,26 @@ pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
                 |x| matches!(x, KillArgChildren::KillExclusive(_)),
                 //|x| Kill::Exclusive(KillExclusive(x)),
             )
-            .map(|variables| Kill {
-                r#type: KillType::Exclusive,
-                variables,
+            .map(|variables| {
+                if variables.iter().all(|x| {
+                    x.subscripts.is_empty()
+                        && matches!(
+                            &x.var_type,
+                            VariableType::Named {
+                                globle_ident: None,
+                                name: _
+                            }
+                        )
+                }) {
+                    Kill {
+                        r#type: KillType::Exclusive,
+                        variables,
+                    }
+                } else {
+                    panic!(
+                        "kill exclusive is only supported for local variables with no subscripts"
+                    )
+                }
             }),
         );
         groupings.extend(
