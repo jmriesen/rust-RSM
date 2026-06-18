@@ -376,6 +376,7 @@ mumps_grammer.rules["XCall"] = $ => seq(
 
 let commandTypes =
   [
+    //Name, argument type, post condition
     ["Write", "WriteArg", true],
     ["Brake", "Expression", true],
     ["Else", null, false],
