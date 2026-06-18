@@ -11,13 +11,14 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
+        set::SetCodes,
         write::WriteCodes,
     },
     runtime::{
         byte_code::{AssemballyDecoder, ByteCode, Location},
         macros::StackAssembally,
     },
-    variable::{BuildVarInstructions, LoadVar, StoreVar},
+    variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 mod macros;
 
@@ -36,8 +37,11 @@ struct ForFrame {
 pub struct JobState {
     //Replace with a proper output device later.
     buffer: String,
-    stack: Vec<value::Value>,
+    /// Stack of values
+    values: Vec<value::Value>,
+    /// Stack of L-values (things that can be assigned to).
     //Temporarily store loop metadata
+    l_values: Vec<MVar<Path>>,
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
@@ -77,7 +81,7 @@ impl Decode for TEMP {
 pub(crate) trait StackAssemballyTrait: Decode {}
 StackAssembally! {
     LoadVar,
-    StoreVar,
+    SetCodes,
     Value,
     WriteCodes,
     Binary,
@@ -91,6 +95,7 @@ StackAssembally! {
     IfOp,
     ElseOp,
     KillInstruction,
+    PushVar,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -103,21 +108,21 @@ impl JobState {
         while !byte_code.end() {
             match byte_code.next() {
                 StackAssembally::Value(value) => {
-                    self.stack.push(value);
+                    self.values.push(value);
                 }
                 StackAssembally::WriteCodes(write_codes) => match write_codes {
                     WriteCodes::Bang => self.buffer.push_str("\n"),
                     WriteCodes::Clear => todo!(),
                     WriteCodes::Tab => todo!(),
                     WriteCodes::Expression => {
-                        let value = self.stack.pop().unwrap();
+                        let value = self.values.pop().unwrap();
                         self.buffer
                             .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
                     }
                 },
                 StackAssembally::Binary(op) => {
-                    let second = self.stack.pop().unwrap();
-                    let first = self.stack.pop().unwrap();
+                    let second = self.values.pop().unwrap();
+                    let first = self.values.pop().unwrap();
                     let result: Value = match op {
                         Binary::Add => (Number::from(first) + Number::from(second)).into(),
                         Binary::Sub => (Number::from(first) - Number::from(second)).into(),
@@ -125,14 +130,14 @@ impl JobState {
                             todo!()
                         }
                     };
-                    self.stack.push(result);
+                    self.values.push(result);
                 }
                 StackAssembally::Unary(op) => match op {
                     Unary::Minus => {
-                        let first = self.stack.pop().unwrap();
+                        let first = self.values.pop().unwrap();
                         let mut first = Number::from(first);
                         first.negate();
-                        self.stack.push(first.into());
+                        self.values.push(first.into());
                     }
                     Unary::Plus => todo!(),
                     Unary::Not => todo!(),
@@ -144,9 +149,9 @@ impl JobState {
                         ForStart::One => todo!(),
                         ForStart::Two => todo!(),
                         ForStart::Three => (
-                            Number::from(self.stack.pop().unwrap()),
-                            Number::from(self.stack.pop().unwrap()),
-                            Number::from(self.stack.pop().unwrap()),
+                            Number::from(self.values.pop().unwrap()),
+                            Number::from(self.values.pop().unwrap()),
+                            Number::from(self.values.pop().unwrap()),
                         ),
                     };
                     let ForSet {
@@ -190,17 +195,19 @@ impl JobState {
                 StackAssembally::LoadVar(load_var) => {
                     let var = self.build_var(load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
-                    self.stack.push(val);
+                    self.values.push(val);
                 }
-                StackAssembally::StoreVar(store_var) => {
-                    let var = self.build_var(store_var.var);
-                    let val = self.stack.pop().expect("Value to store on the stack");
-                    self.symbole_table.set(&var, &val).unwrap();
-                }
+                StackAssembally::SetCodes(code) => match code {
+                    SetCodes::Var => {
+                        let val = self.values.pop().expect("Value to store on the stack");
+                        let var = self.l_values.pop().unwrap();
+                        self.symbole_table.set(&var, &val).unwrap();
+                    }
+                },
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
                     let val: Number = self
-                        .stack
+                        .values
                         .pop()
                         .expect("Value to store on the stack")
                         .into();
@@ -215,14 +222,32 @@ impl JobState {
                         byte_code.advance_to_next_line();
                     }
                 }
-                StackAssembally::KillInstruction(_) => todo!(),
+                StackAssembally::KillInstruction(kill) => {
+                    use ir::commands::kill::KillType as E;
+                    let mut l_values = vec![];
+                    for _ in 0..kill.number_of_variables {
+                        l_values.push(self.l_values.pop().unwrap());
+                    }
+                    match kill.r#type {
+                        E::Inclusive => {
+                            for var in l_values {
+                                self.symbole_table.kill(&var);
+                            }
+                        }
+                        E::Exclusive => todo!(),
+                    }
+                }
+                StackAssembally::PushVar(push_var) => {
+                    let l_value = self.build_var(push_var.var);
+                    self.l_values.push(l_value);
+                }
             }
         }
     }
     fn build_var(&mut self, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
-            subscripts.push(self.stack.pop().unwrap());
+            subscripts.push(self.values.pop().unwrap());
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
@@ -246,7 +271,7 @@ mod test {
         job.run_code(&byte_code);
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
-        assert_eq!(job.stack, vec![]);
+        assert_eq!(job.values, vec![]);
         // We should exit all the for lops
         assert_eq!(job.for_stack, vec![]);
     }

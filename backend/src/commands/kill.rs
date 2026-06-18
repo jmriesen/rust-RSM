@@ -28,8 +28,8 @@ impl Compile for Kill {
 
 #[derive(Debug)]
 pub struct KillInstruction {
-    r#type: KillType,
-    number_of_variables: u8,
+    pub r#type: KillType,
+    pub number_of_variables: u8,
 }
 impl Compile for KillInstruction {
     type Context = ();
