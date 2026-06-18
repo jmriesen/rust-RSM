@@ -178,7 +178,11 @@ impl JobState {
                 }
                 StackAssembally::ForEnd(_for_end) => {
                     let for_frame = self.for_stack.last().unwrap();
-                    let loop_var = self.symbole_table.get(&for_frame.var).unwrap().clone();
+                    let loop_var = self
+                        .symbole_table
+                        .get(&for_frame.var)
+                        .expect("Loop variable must exist otherwise this is a runtime error")
+                        .clone();
                     let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
                     self.symbole_table
                         .set(&for_frame.var, &next_loop_var.clone().into())
@@ -292,6 +296,23 @@ mod test {
             .try_into()
             .unwrap();
         println!("Test Case:\nsrc:\n{}\nexpected:\n{}", src, output);
+        run_code_check_output(src, output);
+    }
+
+    #[rstest]
+    #[should_panic]
+    fn errors(#[files("tests/*/errors/*.test")] file: PathBuf) {
+        let content = fs::read_to_string(file).unwrap();
+        let [src, output] = content
+            // Remove trailing newline that is automatically added by my text editor.
+            .strip_suffix("\n")
+            .unwrap()
+            // src vs expected output separator
+            .split("\n---\n")
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        println!("Test Case:\nsrc:\n{}", src,);
         run_code_check_output(src, output);
     }
 }
