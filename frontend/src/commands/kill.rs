@@ -12,14 +12,16 @@ use std::iter::Peekable;
 use crate::TreeSitterParser;
 
 pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
-    assert!(
-        !sitter.args().is_empty(),
-        "Close always takes at least one argument"
-    );
-    let mut args = sitter.args().into_iter().map(|x| x.children()).peekable();
-    let mut groupings = vec![];
-    while args.peek_mut().is_some() {
-        groupings.extend(
+    if sitter.args().is_empty() {
+        Command::Kill(vec![Kill {
+            r#type: KillType::Exclusive,
+            variables: vec![],
+        }])
+    } else {
+        let mut args = sitter.args().into_iter().map(|x| x.children()).peekable();
+        let mut groupings = vec![];
+        while args.peek_mut().is_some() {
+            groupings.extend(
             extract_grouping(source_code, &mut args, |x| {
                 matches!(x, KillArgChildren::KillExclusive(_))
             })
@@ -45,17 +47,18 @@ pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
                 }
             }),
         );
-        groupings.extend(
-            extract_grouping(source_code, &mut args, |x| {
-                matches!(x, KillArgChildren::KillInclusive(_))
-            })
-            .map(|variables| Kill {
-                r#type: KillType::Inclusive,
-                variables,
-            }),
-        );
+            groupings.extend(
+                extract_grouping(source_code, &mut args, |x| {
+                    matches!(x, KillArgChildren::KillInclusive(_))
+                })
+                .map(|variables| Kill {
+                    r#type: KillType::Inclusive,
+                    variables,
+                }),
+            );
+        }
+        Command::Kill(groupings)
     }
-    Command::Kill(groupings)
 }
 
 /// Extract a group of exclusive or inclusive kills
