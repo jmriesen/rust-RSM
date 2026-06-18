@@ -1,0 +1,12 @@
+s i="foo"
+s j="bar"
+w "i is ={",i,"}",! 
+w "j is ={",j,"}",!
+k i,j
+w "i is ={",i,"}",! 
+w "j is ={",j,"}" 
+---
+i is ={foo}
+j is ={bar}
+i is ={}
+j is ={}
