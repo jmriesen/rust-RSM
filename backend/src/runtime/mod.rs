@@ -10,6 +10,7 @@ use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
+        kill::KillInstruction,
         write::WriteCodes,
     },
     runtime::{
@@ -89,8 +90,8 @@ StackAssembally! {
     NoOpCode,
     IfOp,
     ElseOp,
+    KillInstruction,
     TEMP,
-
 }
 /// Marks something as a whole assembly instruction
 
@@ -214,6 +215,7 @@ impl JobState {
                         byte_code.advance_to_next_line();
                     }
                 }
+                StackAssembally::KillInstruction(_) => todo!(),
             }
         }
     }
@@ -261,6 +263,7 @@ mod test {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+        println!("Test Case:\nsrc:\n{}\nexpected:\n{}", src, output);
         run_code_check_output(src, output);
     }
 }

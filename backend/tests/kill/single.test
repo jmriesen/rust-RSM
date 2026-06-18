@@ -1,5 +1,6 @@
-s i=9
-k i
+s i="foo"
 w i
+k i
+w !,i
 ---
-
+foo

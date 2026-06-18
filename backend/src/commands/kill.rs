@@ -1,27 +1,49 @@
-use ir::{
-    commands::kill::{Kill, KillType},
-    variable::VariableType,
-};
+use ir::commands::kill::{Kill, KillType};
 
 use crate::{
     Compile,
-    runtime::{Decode, Encode, OpCodesForeign},
+    runtime::{Decode, Encode, OpCodesForeign, byte_code::AssemballyDecoder},
     variable::VarContext,
 };
 
 OpCodesForeign! {
     KillType{
-        Inclusive => 0,
-        Exclusive => 0,
+        Inclusive => 166,
+        Exclusive => 167,
     }
 }
 
 impl Compile for Kill {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
         self.variables.compile(bite_code, &VarContext::Build);
+        KillInstruction {
+            r#type: self.r#type,
+            number_of_variables: self.variables.len() as u8,
+        }
+        .compile(bite_code, &());
+    }
+}
+
+#[derive(Debug)]
+pub struct KillInstruction {
+    r#type: KillType,
+    number_of_variables: u8,
+}
+impl Compile for KillInstruction {
+    type Context = ();
+
+    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
         bite_code.push(self.r#type.encode());
-        bite_code.push(self.variables.len() as u8);
+        bite_code.push(self.number_of_variables as u8);
+    }
+}
+impl Decode for KillInstruction {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        Some(Self {
+            r#type: KillType::decode(decoder)?,
+            number_of_variables: decoder.consume_n::<1>()[0],
+        })
     }
 }

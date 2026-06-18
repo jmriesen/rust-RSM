@@ -1,5 +1,6 @@
 use crate::Variable;
 
+#[derive(Clone, Copy, Debug)]
 pub enum KillType {
     Inclusive,
     Exclusive,
