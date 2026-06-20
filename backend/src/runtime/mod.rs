@@ -18,10 +18,12 @@ use crate::{
     runtime::{
         byte_code::{AssemballyDecoder, ByteCode, Location},
         macros::StackAssembally,
+        operators::{BinaryApply, UnaryApply},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 mod macros;
+mod operators;
 
 #[derive(Debug, PartialEq)]
 struct ForFrame {
@@ -142,26 +144,12 @@ impl JobState {
                 StackAssembally::Binary(op) => {
                     let second = self.values.pop().unwrap();
                     let first = self.values.pop().unwrap();
-                    let result: Value = match op {
-                        Binary::Add => (Number::from(first) + Number::from(second)).into(),
-                        Binary::Sub => (Number::from(first) - Number::from(second)).into(),
-                        Binary::Equal => (first == second).into(),
-                        _ => {
-                            todo!()
-                        }
-                    };
-                    self.values.push(result);
+                    self.values.push(op.apply(first, second));
                 }
-                StackAssembally::Unary(op) => match op {
-                    Unary::Minus => {
-                        let first = self.values.pop().unwrap();
-                        let mut first = Number::from(first);
-                        first.negate();
-                        self.values.push(first.into());
-                    }
-                    Unary::Plus => todo!(),
-                    Unary::Not => todo!(),
-                },
+                StackAssembally::Unary(op) => {
+                    let value = self.values.pop().unwrap();
+                    self.values.push(op.apply(value));
+                }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
                 StackAssembally::ForStart(for_start) => {

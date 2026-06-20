@@ -1,0 +1,17 @@
+w "casting to num"
+w !,+"12a"
+w !,+"a"
+w !,+8
+w !,"Not operator"
+w !,'5
+w !,'0
+w !,'1
+---
+casting to num
+12
+0
+8
+Not operator
+0
+1
+0
