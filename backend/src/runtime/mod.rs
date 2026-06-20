@@ -1,13 +1,12 @@
 pub mod byte_code;
 
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
 
 use ir::operators::{Binary, Unary};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
 use crate::{
-    bite_code::JumpLocation,
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
@@ -131,13 +130,13 @@ impl JobState {
                     self.values.push(value);
                 }
                 StackAssembally::WriteCodes(write_codes) => match write_codes {
-                    WriteCodes::Bang => self.buffer.push_str("\n"),
+                    WriteCodes::Bang => self.buffer.push('\n'),
                     WriteCodes::Clear => todo!(),
                     WriteCodes::Tab => todo!(),
                     WriteCodes::Expression => {
                         let value = self.values.pop().unwrap();
                         self.buffer
-                            .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
+                            .push_str(core::str::from_utf8(value.content()).unwrap());
                     }
                 },
                 StackAssembally::Binary(op) => {
@@ -209,7 +208,7 @@ impl JobState {
                         .set(&for_frame.var, &next_loop_var.clone().into())
                         .unwrap();
 
-                    if &next_loop_var <= &for_frame.end_value {
+                    if next_loop_var <= for_frame.end_value {
                         byte_code.jump_absolute(for_frame.loop_body);
                     } else {
                         byte_code.jump_absolute(for_frame.r#break);

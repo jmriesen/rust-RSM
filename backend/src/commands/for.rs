@@ -6,7 +6,7 @@ use crate::{
     expression::ExpressionContext,
     runtime::{
         Decode, EndCommand, NoOpCode, OpCode, OpCodes,
-        byte_code::{AssemballyDecoder, Jump},
+        byte_code::AssemballyDecoder,
     },
     variable::{BuildVarInstructions, VarContext},
 };

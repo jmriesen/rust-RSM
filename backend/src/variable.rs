@@ -1,8 +1,7 @@
 use crate::{
     Compile,
     bite_code::BiteCode,
-    commands::set::SetCodes,
-    runtime::{Decode, OpCode, byte_code::AssemballyDecoder},
+    runtime::{Decode, byte_code::AssemballyDecoder},
 };
 use ir::{
     Variable,

@@ -9,14 +9,14 @@ impl Value {
             "0".parse()
                 .expect("hard coded string litteral should not panic")
         });
-        &*FALSE
+        &FALSE
     }
     pub fn true_v() -> &'static Self {
         static TRUE: LazyLock<Value> = LazyLock::new(|| {
             "1".parse()
                 .expect("hard coded string litteral should not panic")
         });
-        &*TRUE
+        &TRUE
     }
 }
 impl From<Value> for bool {
@@ -45,7 +45,7 @@ impl Number {
             "0".parse()
                 .expect("hard coded string litteral should not panic")
         });
-        &*ZERO
+        &ZERO
     }
 }
 impl From<&Number> for bool {
