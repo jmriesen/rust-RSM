@@ -36,16 +36,13 @@ impl std::str::FromStr for Value {
         Self::try_from(s)
     }
 }
+
 impl From<Value> for bool {
     fn from(value: Value) -> Self {
-        (&Number::from(value)).into()
+        Number::from(value).into()
     }
 }
-impl From<&Value> for bool {
-    fn from(value: &Value) -> Self {
-        (&Number::from(value.clone())).into()
-    }
-}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         if value {
@@ -60,5 +57,10 @@ impl From<bool> for Value {
 impl From<&Number> for bool {
     fn from(value: &Number) -> Self {
         value != Number::zero()
+    }
+}
+impl From<Number> for bool {
+    fn from(value: Number) -> Self {
+        (&value).into()
     }
 }
