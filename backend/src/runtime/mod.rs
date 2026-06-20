@@ -40,8 +40,8 @@ pub struct JobState {
     /// Stack of values
     values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).
-    //Temporarily store loop metadata
     l_values: Vec<MVar<Path>>,
+    //Temporarily store loop metadata
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
