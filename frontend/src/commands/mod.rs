@@ -6,6 +6,7 @@ pub mod r#do;
 pub mod r#for;
 pub mod r#if;
 pub mod kill;
+pub mod quit;
 pub mod set;
 pub mod write;
 
@@ -22,7 +23,7 @@ pub fn new(
         E::ElseCommand(_) => Command::Else,
         E::For(command) => Command::For(r#for::new(&command, source_code, line_tail)),
         E::NewCommand(_) => todo!(),
-        E::QuitCommand(_) => todo!(),
+        E::QuitCommand(command) => quit::new(&command, source_code),
         E::WriteCommand(command) => write::new(&command, source_code),
         E::Set(command) => set::new(&command, source_code),
         E::IfCommand(command) => r#if::new(&command, source_code),

@@ -99,8 +99,8 @@ impl Compile for For {
 #[derive(Debug)]
 pub struct ForSet {
     pub loop_variable: BuildVarInstructions,
-    pub loop_body: Jump,
-    pub r#break: Jump,
+    pub loop_body: crate::runtime::byte_code::Location,
+    pub r#break: crate::runtime::byte_code::Location,
 }
 impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
@@ -108,8 +108,8 @@ impl Decode for ForSet {
         if let [CODE] = decoder.consume_n() {
             let loop_variable =
                 BuildVarInstructions::decode(decoder).expect("already verifyed we are in forset");
-            let loop_body = Jump::decode(decoder).expect("already verifyed we are in forset");
-            let break_jump = Jump::decode(decoder).expect("already verifyed we are in forset");
+            let loop_body = Decode::decode(decoder).expect("already verifyed we are in forset");
+            let break_jump = Decode::decode(decoder).expect("already verifyed we are in forset");
 
             Some(Self {
                 loop_variable,

@@ -7,10 +7,12 @@ use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
 use crate::{
+    bite_code::JumpLocation,
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
+        quit::QuitCodes,
         set::SetCodes,
         write::WriteCodes,
     },
@@ -68,6 +70,22 @@ OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
+struct Jump {
+    target: byte_code::Location,
+}
+impl Decode for Jump {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        if [5] == decoder.consume_n() {
+            Some(Self {
+                target: Decode::decode(decoder)?,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
@@ -96,6 +114,8 @@ StackAssembally! {
     ElseOp,
     KillInstruction,
     PushVar,
+    QuitCodes,
+    Jump,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -126,6 +146,13 @@ impl JobState {
                     let result: Value = match op {
                         Binary::Add => (Number::from(first) + Number::from(second)).into(),
                         Binary::Sub => (Number::from(first) - Number::from(second)).into(),
+                        Binary::Equal => {
+                            if first == second {
+                                "1".parse().unwrap()
+                            } else {
+                                "0".parse().unwrap()
+                            }
+                        }
                         _ => {
                             todo!()
                         }
@@ -168,8 +195,8 @@ impl JobState {
                         increment,
                         end_value,
                         var,
-                        loop_body: loop_body.0,
-                        r#break: r#break.0,
+                        loop_body,
+                        r#break,
                     };
                     self.symbole_table
                         .set(&new_frame.var, &new_frame.start_value.clone().into())
@@ -247,6 +274,26 @@ impl JobState {
                 StackAssembally::PushVar(push_var) => {
                     let l_value = self.build_var(push_var.var);
                     self.l_values.push(l_value);
+                }
+                StackAssembally::QuitCodes(quit_codes) => match quit_codes {
+                    QuitCodes::WithoutArg => {
+                        let for_stack = self
+                            .for_stack
+                            .pop()
+                            .expect("Quits are currnly only supported in for loops");
+                        byte_code.jump_absolute(for_stack.r#break);
+                    }
+                    QuitCodes::WithArg => todo!(),
+                },
+                StackAssembally::Jump(jump) => {
+                    let val: Number = self
+                        .values
+                        .pop()
+                        .expect("Value to store on the stack")
+                        .into();
+                    if val == Number::from_str("0").expect("hard coded string is a number") {
+                        byte_code.jump_absolute(jump.target)
+                    }
                 }
             }
         }
