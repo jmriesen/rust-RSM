@@ -1,4 +1,0 @@
-#killing_the_index_variable_is_an_error.test
-f i=1:1:5 w "k" k 
----
-,"$ECODE=,M15,\nUndefined index variable

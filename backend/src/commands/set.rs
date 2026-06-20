@@ -11,8 +11,8 @@ use crate::{
 OpCodes! {
     SetCodes{
         Var = 41,
-        EXTRACT = 42,
-        PIECE = 43 ,
+        //EXTRACT = 42,
+        //PIECE = 43 ,
     }
 }
 

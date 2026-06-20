@@ -29,7 +29,7 @@
  */
 mod models;
 pub use models::*;
-//Remove to seporate repo.
+//Remove to separate repo.
 pub fn create_tree(source_code: &str) -> tree_sitter::Tree {
     use tree_sitter::Parser;
     let mut parser = Parser::new();
@@ -65,6 +65,7 @@ impl<'a> command<'a> {
             //TODO: check where this is used and if the correct computation.
             E::Set(_) => false,
             E::IfCommand(_) => false,
+            E::KillCommand(command) => command.args().is_empty(),
         }
     }
 }

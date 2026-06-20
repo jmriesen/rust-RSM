@@ -40,6 +40,9 @@ var mumps_grammer = {
       $.Tab,
       $.Expression
     ),
+    Bang: $ => "!",
+    Clear: $ => "#",
+    Tab: $ => seq("?", $.Expression),
     ForArg: $ => seq(
       $.Expression,
       optional(
@@ -50,14 +53,16 @@ var mumps_grammer = {
         )
       )
     ),
-    Bang: $ => "!",
-    Clear: $ => "#",
-    Tab: $ => seq("?", $.Expression),
     DoArg: $ => seq(
       field('function', $.ExtrinsicFunction),
       optional(seq(":", field('post_condition', $.Expression)))
     ),
-
+    KillArg: $ => choice(
+      $.KillExclusive,
+      $.KillInclusive
+    ),
+    KillExclusive: $ => seq("(", $.Variable, ")"),
+    KillInclusive: $ => $.Variable,
     line: $ => seq(repeatDel($.command, " "), repeat(" ")),
     TagName: $ => choice($.identifier, $.NumericIdentifier),
     NumericIdentifier: $ => /\d{1,32}/,
@@ -371,6 +376,7 @@ mumps_grammer.rules["XCall"] = $ => seq(
 
 let commandTypes =
   [
+    //Name, argument type, post condition
     ["Write", "WriteArg", true],
     ["Brake", "Expression", true],
     ["Else", null, false],
@@ -379,6 +385,7 @@ let commandTypes =
     ["New", "identifier", true],
     ["Quit", "Expression", true],
     ["If", "Expression", false],
+    ["Kill", "KillArg", false]
   ];
 
 commandTypes.forEach(

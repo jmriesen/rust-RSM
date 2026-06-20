@@ -41,7 +41,7 @@ jobs:
     - name: Mutants
       run: |
           # using tee to echo to both file and standered out. Or with true to insure first command never fails
-            cargo mutants --no-shuffle -vV --in-diff git.diff 2>&1 | tee mutants.log || true
+            cargo mutants --test-workspace true --no-shuffle -vV --in-diff git.diff 2>&1 | tee mutants.log || true
             if grep -q "MISSED" mutants.log; then
               echo "❌ Mutants missed!"
               exit 1
