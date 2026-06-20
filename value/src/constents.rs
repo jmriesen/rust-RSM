@@ -19,26 +19,6 @@ impl Value {
         &TRUE
     }
 }
-impl From<Value> for bool {
-    fn from(value: Value) -> Self {
-        (&Number::from(value)).into()
-    }
-}
-impl From<&Value> for bool {
-    fn from(value: &Value) -> Self {
-        (&Number::from(value.clone())).into()
-    }
-}
-impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        if value {
-            Value::true_v()
-        } else {
-            Value::false_v()
-        }
-        .clone()
-    }
-}
 impl Number {
     pub fn zero() -> &'static Self {
         static ZERO: LazyLock<Number> = LazyLock::new(|| {
@@ -48,21 +28,16 @@ impl Number {
         &ZERO
     }
 }
-impl From<&Number> for bool {
-    fn from(value: &Number) -> Self {
-        value != Number::zero()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::{Number, Value};
 
     #[test]
     fn truth_values() {
-        assert_eq!(true, Value::true_v().into());
-        assert_eq!(false, Value::false_v().into());
+        assert_eq!("1".parse::<Value>().unwrap(), true.into());
+        assert_eq!("0".parse::<Value>().unwrap(), false.into());
+        assert_eq!(Number::zero().clone(), Value::false_v().clone().into());
+        assert_eq!(true, (&"5".parse::<Number>().unwrap()).into());
         assert_eq!(false, Number::zero().into());
-        assert_eq!(true, (&Number::from(Value::true_v().clone())).into());
     }
 }
