@@ -36,7 +36,7 @@ impl Compile for KillInstruction {
 
     fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
         bite_code.push(self.r#type.encode());
-        bite_code.push(self.number_of_variables as u8);
+        bite_code.push(self.number_of_variables);
     }
 }
 impl Decode for KillInstruction {

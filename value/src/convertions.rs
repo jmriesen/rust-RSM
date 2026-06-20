@@ -1,4 +1,4 @@
-use crate::{MAX_STR_LEN, Value};
+use crate::{MAX_STR_LEN, Number, Value};
 use thiserror::Error;
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum CreationError {
@@ -34,5 +34,33 @@ impl std::str::FromStr for Value {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::try_from(s)
+    }
+}
+
+impl From<Value> for bool {
+    fn from(value: Value) -> Self {
+        Number::from(value).into()
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        if value {
+            Value::true_v()
+        } else {
+            Value::false_v()
+        }
+        .clone()
+    }
+}
+
+impl From<&Number> for bool {
+    fn from(value: &Number) -> Self {
+        value != Number::zero()
+    }
+}
+impl From<Number> for bool {
+    fn from(value: Number) -> Self {
+        (&value).into()
     }
 }

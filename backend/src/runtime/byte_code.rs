@@ -6,15 +6,15 @@ use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
 pub struct Location(pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct Jump(pub Location);
-impl Decode for Jump {
+impl Decode for Location {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
         let Location(here) = decoder.program_counter;
-        Some(Self(Location(
+        Some(Self(
             here + usize::try_from(jump_distance).expect(
                 "Currently only supporting forward jumps. May change if new funcionality needs it.",
             ),
-        )))
+        ))
     }
 }
 

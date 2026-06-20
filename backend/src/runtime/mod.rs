@@ -1,6 +1,6 @@
 pub mod byte_code;
 
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
 
 use ir::operators::{Binary, Unary};
 use symbol_table::{MVar, SymbolTable, key::Path};
@@ -11,6 +11,7 @@ use crate::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
+        quit::QuitCodes,
         set::SetCodes,
         write::WriteCodes,
     },
@@ -68,6 +69,22 @@ OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
+pub struct JumpIfFalse {
+    target: byte_code::Location,
+}
+impl Decode for JumpIfFalse {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        if [5] == decoder.consume_n() {
+            Some(Self {
+                target: Decode::decode(decoder)?,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
@@ -96,6 +113,8 @@ StackAssembally! {
     ElseOp,
     KillInstruction,
     PushVar,
+    QuitCodes,
+    JumpIfFalse,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -111,13 +130,13 @@ impl JobState {
                     self.values.push(value);
                 }
                 StackAssembally::WriteCodes(write_codes) => match write_codes {
-                    WriteCodes::Bang => self.buffer.push_str("\n"),
+                    WriteCodes::Bang => self.buffer.push('\n'),
                     WriteCodes::Clear => todo!(),
                     WriteCodes::Tab => todo!(),
                     WriteCodes::Expression => {
                         let value = self.values.pop().unwrap();
                         self.buffer
-                            .push_str(&String::from_utf8(value.content().to_vec()).unwrap());
+                            .push_str(core::str::from_utf8(value.content()).unwrap());
                     }
                 },
                 StackAssembally::Binary(op) => {
@@ -126,6 +145,7 @@ impl JobState {
                     let result: Value = match op {
                         Binary::Add => (Number::from(first) + Number::from(second)).into(),
                         Binary::Sub => (Number::from(first) - Number::from(second)).into(),
+                        Binary::Equal => (first == second).into(),
                         _ => {
                             todo!()
                         }
@@ -168,8 +188,8 @@ impl JobState {
                         increment,
                         end_value,
                         var,
-                        loop_body: loop_body.0,
-                        r#break: r#break.0,
+                        loop_body,
+                        r#break,
                     };
                     self.symbole_table
                         .set(&new_frame.var, &new_frame.start_value.clone().into())
@@ -188,7 +208,7 @@ impl JobState {
                         .set(&for_frame.var, &next_loop_var.clone().into())
                         .unwrap();
 
-                    if &next_loop_var <= &for_frame.end_value {
+                    if next_loop_var <= for_frame.end_value {
                         byte_code.jump_absolute(for_frame.loop_body);
                     } else {
                         byte_code.jump_absolute(for_frame.r#break);
@@ -210,13 +230,8 @@ impl JobState {
                 },
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
-                    let val: Number = self
-                        .values
-                        .pop()
-                        .expect("Value to store on the stack")
-                        .into();
-                    self.test =
-                        val != Number::from_str("0").expect("hard coded string is a number");
+                    let condition = self.values.pop().expect("Value to store on the stack");
+                    self.test = bool::from(condition);
                     if !self.test {
                         byte_code.advance_to_next_line();
                     }
@@ -247,6 +262,22 @@ impl JobState {
                 StackAssembally::PushVar(push_var) => {
                     let l_value = self.build_var(push_var.var);
                     self.l_values.push(l_value);
+                }
+                StackAssembally::QuitCodes(quit_codes) => match quit_codes {
+                    QuitCodes::WithoutArg => {
+                        let for_stack = self
+                            .for_stack
+                            .pop()
+                            .expect("Quits are currnly only supported in for loops");
+                        byte_code.jump_absolute(for_stack.r#break);
+                    }
+                    QuitCodes::WithArg => todo!(),
+                },
+                StackAssembally::JumpIfFalse(jump) => {
+                    let condition = self.values.pop().expect("Value to store on the stack");
+                    if !bool::from(condition) {
+                        byte_code.jump_absolute(jump.target)
+                    }
                 }
             }
         }

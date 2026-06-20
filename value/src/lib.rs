@@ -35,6 +35,7 @@ pub use convertions::CreationError;
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
+mod constents;
 mod number;
 pub use number::Number;
 /// An M Value.
@@ -105,7 +106,7 @@ impl Value {
         let len = u16::from_le_bytes([first, second]);
         let content = &source[2..2 + len as usize];
         (
-            Self(content.iter().cloned().collect()),
+            Self(content.to_vec()),
             &source[2 + len as usize..],
         )
     }

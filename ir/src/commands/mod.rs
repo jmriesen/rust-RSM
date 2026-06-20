@@ -34,4 +34,7 @@ pub enum Command {
     Set(Set),
     If(Vec<If>),
     Kill(Vec<Kill>),
+    Quit(PostCondition<Quit>),
 }
+
+pub struct Quit(pub Option<Expression>);

@@ -4,7 +4,9 @@ use crate::Compile;
 
 pub struct BiteCode(Vec<u8>);
 
+#[derive(Debug)]
 pub struct JumpLocation(usize);
+#[derive(Debug)]
 pub struct Location(usize);
 
 pub enum JumpCodes {
