@@ -70,10 +70,10 @@ OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
-struct Jump {
+pub struct JumpIfFalse {
     target: byte_code::Location,
 }
-impl Decode for Jump {
+impl Decode for JumpIfFalse {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         if [5] == decoder.consume_n() {
             Some(Self {
@@ -115,7 +115,7 @@ StackAssembally! {
     KillInstruction,
     PushVar,
     QuitCodes,
-    Jump,
+    JumpIfFalse,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -146,13 +146,7 @@ impl JobState {
                     let result: Value = match op {
                         Binary::Add => (Number::from(first) + Number::from(second)).into(),
                         Binary::Sub => (Number::from(first) - Number::from(second)).into(),
-                        Binary::Equal => {
-                            if first == second {
-                                "1".parse().unwrap()
-                            } else {
-                                "0".parse().unwrap()
-                            }
-                        }
+                        Binary::Equal => (first == second).into(),
                         _ => {
                             todo!()
                         }
@@ -237,13 +231,8 @@ impl JobState {
                 },
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
-                    let val: Number = self
-                        .values
-                        .pop()
-                        .expect("Value to store on the stack")
-                        .into();
-                    self.test =
-                        val != Number::from_str("0").expect("hard coded string is a number");
+                    let condition = self.values.pop().expect("Value to store on the stack");
+                    self.test = bool::from(condition);
                     if !self.test {
                         byte_code.advance_to_next_line();
                     }
@@ -285,13 +274,9 @@ impl JobState {
                     }
                     QuitCodes::WithArg => todo!(),
                 },
-                StackAssembally::Jump(jump) => {
-                    let val: Number = self
-                        .values
-                        .pop()
-                        .expect("Value to store on the stack")
-                        .into();
-                    if val == Number::from_str("0").expect("hard coded string is a number") {
+                StackAssembally::JumpIfFalse(jump) => {
+                    let condition = self.values.pop().expect("Value to store on the stack");
+                    if !bool::from(condition) {
                         byte_code.jump_absolute(jump.target)
                     }
                 }
