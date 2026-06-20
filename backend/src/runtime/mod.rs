@@ -1,4 +1,4 @@
-pub mod byte_code;
+pub mod program_counter;
 
 use std::fmt::Debug;
 
@@ -16,9 +16,9 @@ use crate::{
         write::WriteCodes,
     },
     runtime::{
-        byte_code::{AssemballyDecoder, ByteCode, Location},
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
+        program_counter::{AssemballyDecoder, Location, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
@@ -36,8 +36,7 @@ struct ForFrame {
     //TODO: Direction
 }
 
-#[derive(Default)]
-pub struct JobState {
+pub struct Job<'a> {
     //Replace with a proper output device later.
     buffer: String,
     /// Stack of values
@@ -56,6 +55,7 @@ pub struct JobState {
     /// Stores the last result of the most resent if predicate.
     /// Used by else.
     test: bool,
+    pc: ProgramCounter<'a>,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -72,7 +72,7 @@ OpCode! {NoOpCode=179}
 
 #[derive(Debug)]
 pub struct JumpIfFalse {
-    target: byte_code::Location,
+    target: program_counter::Location,
 }
 impl Decode for JumpIfFalse {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
@@ -121,13 +121,22 @@ StackAssembally! {
 }
 /// Marks something as a whole assembly instruction
 
-impl JobState {
-    pub fn run_code(&mut self, byte_code: &[u8]) {
-        let mut byte_code = ByteCode::new(byte_code);
-        #[cfg(test)]
-        dbg!(&byte_code);
-        while !byte_code.end() {
-            match byte_code.next() {
+impl<'a> Job<'a> {
+    pub fn new(byte_code: &'a [u8]) -> Self {
+        Self {
+            buffer: String::new(),
+            values: vec![],
+            l_values: vec![],
+            for_preample: None,
+            for_stack: vec![],
+            symbole_table: SymbolTable::default(),
+            test: false,
+            pc: ProgramCounter::new(byte_code),
+        }
+    }
+    pub fn run(&mut self) {
+        while !self.pc.end() {
+            match self.pc.next() {
                 StackAssembally::Value(value) => {
                     self.values.push(value);
                 }
@@ -197,9 +206,9 @@ impl JobState {
                         .unwrap();
 
                     if next_loop_var <= for_frame.end_value {
-                        byte_code.jump_absolute(for_frame.loop_body);
+                        self.pc.jump(for_frame.loop_body);
                     } else {
-                        byte_code.jump_absolute(for_frame.r#break);
+                        self.pc.jump(for_frame.r#break);
                         self.for_stack.pop();
                     }
                 }
@@ -221,12 +230,12 @@ impl JobState {
                     let condition = self.values.pop().expect("Value to store on the stack");
                     self.test = bool::from(condition);
                     if !self.test {
-                        byte_code.advance_to_next_line();
+                        self.pc.advance_to_next_line();
                     }
                 }
                 StackAssembally::ElseOp(_) => {
                     if self.test {
-                        byte_code.advance_to_next_line();
+                        self.pc.advance_to_next_line();
                     }
                 }
                 StackAssembally::KillInstruction(kill) => {
@@ -257,14 +266,14 @@ impl JobState {
                             .for_stack
                             .pop()
                             .expect("Quits are currnly only supported in for loops");
-                        byte_code.jump_absolute(for_stack.r#break);
+                        self.pc.jump(for_stack.r#break);
                     }
                     QuitCodes::WithArg => todo!(),
                 },
                 StackAssembally::JumpIfFalse(jump) => {
                     let condition = self.values.pop().expect("Value to store on the stack");
                     if !bool::from(condition) {
-                        byte_code.jump_absolute(jump.target)
+                        self.pc.jump(jump.target)
                     }
                 }
             }
@@ -286,15 +295,16 @@ mod test {
         path::PathBuf,
     };
 
-    use crate::{runtime::JobState, test::compile_routine};
+    use crate::{runtime::Job, test::compile_routine};
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
 
     fn run_code_check_output(source: &str, output: &str) {
-        let mut job = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
-        job.run_code(&byte_code);
+
+        let mut job = Job::new(&byte_code);
+        job.run();
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
         assert_eq!(job.values, vec![]);

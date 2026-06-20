@@ -1,13 +1,11 @@
 use ir::commands::r#for::{For, ForKind};
+use value::Number;
 
 use crate::{
     Compile,
     bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
     expression::ExpressionContext,
-    runtime::{
-        Decode, EndCommand, NoOpCode, OpCode, OpCodes,
-        byte_code::AssemballyDecoder,
-    },
+    runtime::{Decode, EndCommand, NoOpCode, OpCode, OpCodes, program_counter::AssemballyDecoder},
     variable::{BuildVarInstructions, VarContext},
 };
 
@@ -99,8 +97,8 @@ impl Compile for For {
 #[derive(Debug)]
 pub struct ForSet {
     pub loop_variable: BuildVarInstructions,
-    pub loop_body: crate::runtime::byte_code::Location,
-    pub r#break: crate::runtime::byte_code::Location,
+    pub loop_body: crate::runtime::program_counter::Location,
+    pub r#break: crate::runtime::program_counter::Location,
 }
 impl Decode for ForSet {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
