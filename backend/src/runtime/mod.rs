@@ -28,7 +28,7 @@ pub struct Job<'a> {
     //Replace with a proper output device later.
     buffer: String,
     /// Stack of values
-    values: Vec<value::Value>,
+    r_values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).
     l_values: Vec<MVar<Path>>,
     //Temporarily store loop metadata
@@ -111,7 +111,7 @@ impl<'a> Job<'a> {
     pub fn new(byte_code: &'a [u8]) -> Self {
         Self {
             buffer: String::new(),
-            values: vec![],
+            r_values: vec![],
             l_values: vec![],
             for_preample: None,
             for_stack: vec![],
@@ -124,33 +124,33 @@ impl<'a> Job<'a> {
         while !self.pc.end() {
             match self.pc.next() {
                 StackAssembally::Value(value) => {
-                    self.values.push(value);
+                    self.r_values.push(value);
                 }
                 StackAssembally::WriteCodes(write_codes) => match write_codes {
                     WriteCodes::Bang => self.buffer.push('\n'),
                     WriteCodes::Clear => todo!(),
                     WriteCodes::Tab => todo!(),
                     WriteCodes::Expression => {
-                        let value = self.values.pop().unwrap();
+                        let value = self.r_values.pop().unwrap();
                         self.buffer
                             .push_str(core::str::from_utf8(value.content()).unwrap());
                     }
                 },
                 StackAssembally::Binary(op) => {
-                    let second = self.values.pop().unwrap();
-                    let first = self.values.pop().unwrap();
-                    self.values.push(op.apply(first, second));
+                    let second = self.r_values.pop().unwrap();
+                    let first = self.r_values.pop().unwrap();
+                    self.r_values.push(op.apply(first, second));
                 }
                 StackAssembally::Unary(op) => {
-                    let value = self.values.pop().unwrap();
-                    self.values.push(op.apply(value));
+                    let value = self.r_values.pop().unwrap();
+                    self.r_values.push(op.apply(value));
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
                 StackAssembally::ForStart(for_start) => {
                     Self::init_for_loop(
                         &mut self.for_stack,
-                        &mut self.values,
+                        &mut self.r_values,
                         &mut self.for_preample,
                         &mut self.symbole_table,
                         for_start,
@@ -165,20 +165,20 @@ impl<'a> Job<'a> {
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let var = Self::build_var(&mut self.values, load_var.var);
+                    let var = Self::build_var(&mut self.r_values, load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
-                    self.values.push(val);
+                    self.r_values.push(val);
                 }
                 StackAssembally::SetCodes(code) => match code {
                     SetCodes::Var => {
-                        let val = self.values.pop().expect("Value to store on the stack");
+                        let val = self.r_values.pop().expect("Value to store on the stack");
                         let var = self.l_values.pop().unwrap();
                         self.symbole_table.set(&var, &val).unwrap();
                     }
                 },
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
-                    let condition = self.values.pop().expect("Value to store on the stack");
+                    let condition = self.r_values.pop().expect("Value to store on the stack");
                     self.test = bool::from(condition);
                     if !self.test {
                         self.pc.advance_to_next_line();
@@ -208,7 +208,7 @@ impl<'a> Job<'a> {
                     }
                 }
                 StackAssembally::PushVar(push_var) => {
-                    let l_value = Self::build_var(&mut self.values, push_var.var);
+                    let l_value = Self::build_var(&mut self.r_values, push_var.var);
                     self.l_values.push(l_value);
                 }
                 StackAssembally::QuitCodes(quit_codes) => match quit_codes {
@@ -222,7 +222,7 @@ impl<'a> Job<'a> {
                     QuitCodes::WithArg => todo!(),
                 },
                 StackAssembally::JumpIfFalse(jump) => {
-                    let condition = self.values.pop().expect("Value to store on the stack");
+                    let condition = self.r_values.pop().expect("Value to store on the stack");
                     if !bool::from(condition) {
                         self.pc.jump(jump.target)
                     }
@@ -259,7 +259,7 @@ mod test {
         job.run();
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
-        assert_eq!(job.values, vec![]);
+        assert_eq!(job.r_values, vec![]);
         // We should exit all the for lops
         assert_eq!(job.for_stack, vec![]);
     }
