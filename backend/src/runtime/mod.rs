@@ -57,6 +57,7 @@ pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {EndLine=0}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
+OpCode! {JumpIfFalseCode=5}
 
 #[derive(Debug)]
 pub struct JumpIfFalse {
@@ -64,13 +65,10 @@ pub struct JumpIfFalse {
 }
 impl Decode for JumpIfFalse {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        if [5] == decoder.consume_n() {
-            Some(Self {
-                target: Decode::decode(decoder)?,
-            })
-        } else {
-            None
-        }
+        JumpIfFalseCode::decode(decoder)?;
+        Some(Self {
+            target: Decode::decode(decoder)?,
+        })
     }
 }
 
