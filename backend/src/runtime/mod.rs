@@ -1,11 +1,3 @@
-pub mod program_counter;
-
-use std::fmt::Debug;
-
-use ir::operators::{Binary, Unary};
-use symbol_table::{MVar, SymbolTable, key::Path};
-use value::{Number, Value};
-
 use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
@@ -16,25 +8,21 @@ use crate::{
         write::WriteCodes,
     },
     runtime::{
+        r#for::ForFrame,
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemballyDecoder, Location, ProgramCounter},
+        program_counter::{AssemballyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
+use ir::operators::{Binary, Unary};
+use std::fmt::Debug;
+use symbol_table::{MVar, SymbolTable, key::Path};
+use value::Value;
+mod r#for;
 mod macros;
 mod operators;
-
-#[derive(Debug, PartialEq)]
-struct ForFrame {
-    var: MVar<Path>,
-    loop_body: Location,
-    r#break: Location,
-    start_value: Number,
-    increment: Number,
-    end_value: Number,
-    //TODO: Direction
-}
+pub mod program_counter;
 
 pub struct Job<'a> {
     //Replace with a proper output device later.
@@ -162,59 +150,24 @@ impl<'a> Job<'a> {
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
                 StackAssembally::ForStart(for_start) => {
-                    let (end_value, increment, start_value) = match for_start {
-                        ForStart::One => todo!(),
-                        ForStart::Two => todo!(),
-                        ForStart::Three => (
-                            Number::from(self.values.pop().unwrap()),
-                            Number::from(self.values.pop().unwrap()),
-                            Number::from(self.values.pop().unwrap()),
-                        ),
-                    };
-                    let ForSet {
-                        loop_variable,
-                        loop_body,
-                        r#break,
-                    } = self
-                        .for_preample
-                        .take()
-                        .expect("preamble must come before set");
-                    let var = self.build_var(loop_variable);
-                    let new_frame = ForFrame {
-                        start_value,
-                        increment,
-                        end_value,
-                        var,
-                        loop_body,
-                        r#break,
-                    };
-                    self.symbole_table
-                        .set(&new_frame.var, &new_frame.start_value.clone().into())
-                        .unwrap();
-                    self.for_stack.push(new_frame);
+                    Self::init_for_loop(
+                        &mut self.for_stack,
+                        &mut self.values,
+                        &mut self.for_preample,
+                        &mut self.symbole_table,
+                        for_start,
+                    );
                 }
                 StackAssembally::ForEnd(_for_end) => {
-                    let for_frame = self.for_stack.last().unwrap();
-                    let loop_var = self
-                        .symbole_table
-                        .get(&for_frame.var)
-                        .expect("Loop variable must exist otherwise this is a runtime error")
-                        .clone();
-                    let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
-                    self.symbole_table
-                        .set(&for_frame.var, &next_loop_var.clone().into())
-                        .unwrap();
-
-                    if next_loop_var <= for_frame.end_value {
-                        self.pc.jump(for_frame.loop_body);
-                    } else {
-                        self.pc.jump(for_frame.r#break);
-                        self.for_stack.pop();
-                    }
+                    Self::handel_for_preamble(
+                        &mut self.for_stack,
+                        &mut self.symbole_table,
+                        &mut self.pc,
+                    );
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let var = self.build_var(load_var.var);
+                    let var = Self::build_var(&mut self.values, load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
                     self.values.push(val);
                 }
@@ -257,7 +210,7 @@ impl<'a> Job<'a> {
                     }
                 }
                 StackAssembally::PushVar(push_var) => {
-                    let l_value = self.build_var(push_var.var);
+                    let l_value = Self::build_var(&mut self.values, push_var.var);
                     self.l_values.push(l_value);
                 }
                 StackAssembally::QuitCodes(quit_codes) => match quit_codes {
@@ -279,10 +232,11 @@ impl<'a> Job<'a> {
             }
         }
     }
-    fn build_var(&mut self, var: BuildVarInstructions) -> MVar<Path> {
+
+    fn build_var(r_values: &mut Vec<Value>, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
-            subscripts.push(self.values.pop().unwrap());
+            subscripts.push(r_values.pop().unwrap());
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
