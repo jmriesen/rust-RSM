@@ -583,6 +583,7 @@ version = "0.1.0"
 dependencies = [
  "ir",
  "lang-model",
+ "thiserror 1.0.69",
  "value",
 ]
 
@@ -1472,6 +1473,15 @@ dependencies = [
  "bitflags 2.6.0",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "rsm-backend-fuzz"
+version = "0.0.0"
+dependencies = [
+ "backend",
+ "frontend",
+ "libfuzzer-sys",
 ]
 
 [[package]]

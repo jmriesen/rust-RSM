@@ -1,5 +1,7 @@
 pub use bite_code::BiteCode;
 
+use crate::runtime::EndLine;
+
 pub mod bite_code;
 pub mod commands;
 pub mod expression;
@@ -43,6 +45,14 @@ where
         }
     }
 }
+pub fn compile_routine(routine: ir::Routine) -> Vec<u8> {
+    let mut comp = BiteCode::new();
+    for line in routine {
+        line.compile(&mut comp, &());
+        comp.push(EndLine.encode());
+    }
+    comp.get_raw()
+}
 
 #[cfg(test)]
 mod tests;
@@ -50,25 +60,14 @@ mod tests;
 pub mod test {
     use ir::commands::Command;
 
-    use crate::{BiteCode, Compile};
-
+    use crate::compile_routine;
     pub fn test_compile_command(source_code: &str) -> Vec<u8> {
         use frontend::wrap_command_in_routine;
-
         let commands = wrap_command_in_routine(source_code);
         compile_routine(commands)
     }
 
     pub fn parse_routine(source_code: &str) -> Vec<Vec<Command>> {
-        frontend::parse_routine(source_code)
-    }
-
-    pub fn compile_routine(routine: frontend::Routine) -> Vec<u8> {
-        let mut comp = BiteCode::new();
-        for line in routine {
-            line.compile(&mut comp, &());
-            comp.push(ffi::ENDLIN);
-        }
-        comp.get_raw()
+        frontend::parse_routine(source_code).unwrap()
     }
 }

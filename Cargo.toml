@@ -6,5 +6,6 @@ members=[
 	"lang-model",
 	"interpreter",
 	"symbol_table/fuzz",
+	"backend/fuzz",
 	"ffi", "symbol_table", "value", "ir", "backend", "frontend"]
 

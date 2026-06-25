@@ -29,6 +29,7 @@
  */
 mod models;
 pub use models::*;
+pub use tree_sitter::Range;
 //Remove to separate repo.
 pub fn create_tree(source_code: &str) -> tree_sitter::Tree {
     use tree_sitter::Parser;

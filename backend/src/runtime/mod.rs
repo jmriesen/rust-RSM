@@ -247,7 +247,7 @@ mod test {
         path::PathBuf,
     };
 
-    use crate::{runtime::Job, test::compile_routine};
+    use crate::{compile_routine, runtime::Job};
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
 

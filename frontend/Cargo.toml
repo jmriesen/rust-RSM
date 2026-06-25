@@ -7,3 +7,4 @@ edition = "2024"
 lang-model = {path = "../lang-model/"}
 value = {path = "../value/"}
 ir = {path = "../ir/"}
+thiserror = "1.0.63"
