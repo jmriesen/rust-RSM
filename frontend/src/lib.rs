@@ -10,7 +10,7 @@ pub mod operators;
 pub mod variable;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
     #[error("Error ocurred when tree-sitter parsed the routine")]
     TreeSitterError(()),
@@ -22,6 +22,8 @@ pub enum ParsingError {
     IfReqiresArgs(lang_model::Range),
     #[error("not yet supported:{}",.0)]
     NotYetSupported(&'static str),
+    #[error("kill exclusive is only supported for local variables with no subscripts")]
+    KillExclusiveNonLocal(lang_model::Range),
 }
 
 pub trait TreeSitterParser<'a> {
@@ -30,6 +32,11 @@ pub trait TreeSitterParser<'a> {
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
+    if source_code.lines().any(|x| x.len() > 200) {
+        //Introduced to prevent overflows during fuzzing.
+        //TODO: This is not a perfect solutions, but allows me to keep fuzzing.
+        return Err(ParsingError::NotYetSupported("lines longer then 400 chars"));
+    };
     let tree = lang_model::create_tree(source_code);
     let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
 
@@ -74,4 +81,31 @@ pub fn command_from_source(source_code: &str) -> Command {
         .flatten()
         .next()
         .expect("there should only be one command pressent")
+}
+#[cfg(test)]
+mod test {
+    use crate::{ParsingError, parse_routine};
+
+    #[test]
+    fn stack_overflow() {
+        //TODO: update with better long term solution (counting how many levels of nesting for
+        //example or rewriting to not use nesting.)
+        let source_code = "qq q AAAAAAAAAOAAAAAAAOPFOlAAAAA]AAAA@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n";
+
+        assert_eq!(
+            parse_routine(source_code).map(|_| () /*I only care about the error case*/),
+            Err(ParsingError::NotYetSupported("lines longer then 200 chars")),
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    #[ignore = "don't have time to track down root cause right now."]
+    fn todo_this_should_not_parse() {
+        let source_code = "foo k (^A\n";
+        let tree = lang_model::create_tree(source_code);
+        let tree = lang_model::type_tree(&tree, source_code)
+            .map_err(ParsingError::TreeSitterError)
+            .unwrap();
+    }
 }

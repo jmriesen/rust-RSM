@@ -52,6 +52,12 @@ fn main() {
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-but-set-variable")
         .flag_if_supported("-Wno-trigraphs");
+    if std::env::var("CARGO_CFG_SANITIZE").unwrap_or_default() == "address" {
+        c_config.flag("-fsanitize=address");
+        c_config.flag("-fno-omit-frame-pointer");
+        // Optional: Reduces optimization just enough to make stack traces crystal clear
+        c_config.flag("-O1");
+    }
     #[cfg(target_env = "msvc")]
     c_config.flag("-utf-8");
 

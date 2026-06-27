@@ -24,11 +24,11 @@ pub fn new(
         E::DoCommand(command) => r#do::new(&command, source_code),
         E::ElseCommand(_) => Command::Else,
         E::For(command) => Command::For(r#for::new(&command, source_code, line_tail)?),
-        E::NewCommand(_) => todo!(),
+        E::NewCommand(_) => Err(ParsingError::NotYetSupported("new command"))?,
         E::QuitCommand(command) => quit::new(&command, source_code)?,
         E::WriteCommand(command) => write::new(&command, source_code),
         E::Set(command) => set::new(&command, source_code),
         E::IfCommand(command) => r#if::new(&command, source_code)?,
-        E::KillCommand(command) => kill::new(&command, source_code),
+        E::KillCommand(command) => kill::new(&command, source_code)?,
     })
 }
