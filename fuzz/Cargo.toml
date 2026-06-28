@@ -1,5 +1,5 @@
 [package]
-name = "rsm-fuzz"
+name = "rsm-backend-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
@@ -11,9 +11,19 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 serde = { version = "1.0.210", features = ["derive"] }
-value = { path = "../../value"  }
-symbol_table = { path = "..", features = ["arbitrary"] }
-ffi = {path = "../../ffi"}
+ffi = {path = "../ffi"}
+value = { path = "../value"  }
+symbol_table = { path = "../symbol_table", features = ["arbitrary"] }
+frontend = {path = "../frontend"}
+backend = {path = "../backend"}
+
+
+[[bin]]
+name = "front_end"
+path = "./fuzz_targets/front_end.rs/"
+test = false
+doc = false
+bench = false
 
 [[bin]]
 name = "symbol_table"

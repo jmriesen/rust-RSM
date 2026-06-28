@@ -1479,9 +1479,14 @@ dependencies = [
 name = "rsm-backend-fuzz"
 version = "0.0.0"
 dependencies = [
+ "arbitrary",
  "backend",
+ "ffi",
  "frontend",
  "libfuzzer-sys",
+ "serde",
+ "symbol_table",
+ "value",
 ]
 
 [[package]]
