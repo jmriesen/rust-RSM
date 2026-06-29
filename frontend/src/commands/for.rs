@@ -3,7 +3,7 @@ use ir::{
     commands::r#for::{Argument, For, ForKind},
 };
 
-use crate::TreeSitterParser;
+use crate::{ParsingError, TreeSitterParser};
 
 impl<'a> TreeSitterParser<'a> for ForKind {
     type NodeType = lang_model::For<'a>;
@@ -36,11 +36,11 @@ pub fn new(
     sitter: &lang_model::For,
     source_code: &str,
     line_tail: &mut dyn Iterator<Item = lang_model::command>,
-) -> For {
+) -> Result<For, ParsingError> {
     let kind = ForKind::new(sitter, source_code);
     let mut commands = vec![];
     while let Some(command) = line_tail.next() {
-        commands.push(super::new(&command, source_code, line_tail));
+        commands.push(super::new(&command, source_code, line_tail)?);
     }
-    For { kind, commands }
+    Ok(For { kind, commands })
 }

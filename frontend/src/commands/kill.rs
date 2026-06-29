@@ -9,55 +9,57 @@ use ir::{
 use lang_model::{KillArgChildren, KillCommand};
 use std::iter::Peekable;
 
-use crate::TreeSitterParser;
+use crate::{ParsingError, TreeSitterParser};
 
-pub fn new(sitter: &KillCommand, source_code: &str) -> Command {
+pub fn new(sitter: &KillCommand, source_code: &str) -> Result<Command, ParsingError> {
     if sitter.args().is_empty() {
-        Command::Kill(vec![Kill {
+        Ok(Command::Kill(vec![Kill {
             r#type: KillType::Exclusive,
             variables: vec![],
-        }])
+        }]))
     } else {
         let mut args = sitter.args().into_iter().map(|x| x.children()).peekable();
         let mut groupings = vec![];
         while args.peek_mut().is_some() {
             groupings.extend(
-            extract_grouping(source_code, &mut args, |x| {
-                matches!(x, KillArgChildren::KillExclusive(_))
-            })
-            .map(|variables| {
-                if variables.iter().all(|x| {
-                    x.subscripts.is_empty()
-                        && matches!(
-                            &x.var_type,
-                            VariableType::Named {
-                                globle_ident: None,
-                                name: _
-                            }
-                        )
-                }) {
-                    Kill {
-                        r#type: KillType::Exclusive,
-                        variables,
+                extract_grouping(source_code, &mut args, |x| {
+                    matches!(x, KillArgChildren::KillExclusive(_))
+                })
+                .map(|variables| {
+                    if variables.iter().all(|x| {
+                        x.subscripts.is_empty()
+                            && matches!(
+                                &x.var_type,
+                                VariableType::Named {
+                                    globle_ident: None,
+                                    name: _
+                                }
+                            )
+                    }) {
+                        Ok(Kill {
+                            r#type: KillType::Exclusive,
+                            variables,
+                        })
+                    } else {
+                        Err(ParsingError::KillExclusiveNonLocal(sitter.node().range()))
                     }
-                } else {
-                    panic!(
-                        "kill exclusive is only supported for local variables with no subscripts"
-                    )
-                }
-            }),
-        );
+                }),
+            );
             groupings.extend(
                 extract_grouping(source_code, &mut args, |x| {
                     matches!(x, KillArgChildren::KillInclusive(_))
                 })
-                .map(|variables| Kill {
-                    r#type: KillType::Inclusive,
-                    variables,
+                .map(|variables| {
+                    Ok(Kill {
+                        r#type: KillType::Inclusive,
+                        variables,
+                    })
                 }),
             );
         }
-        Command::Kill(groupings)
+        Ok(Command::Kill(
+            groupings.into_iter().collect::<Result<_, _>>()?,
+        ))
     }
 }
 

@@ -12,3 +12,7 @@ pub use intrinsic_var::IntrinsicVar;
 pub mod operators;
 pub mod variable;
 pub use variable::Variable;
+
+use crate::commands::Command;
+
+pub type Routine = Vec<Vec<Command>>;

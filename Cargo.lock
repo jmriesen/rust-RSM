@@ -583,6 +583,7 @@ version = "0.1.0"
 dependencies = [
  "ir",
  "lang-model",
+ "thiserror 1.0.69",
  "value",
 ]
 
@@ -1475,11 +1476,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "rsm-fuzz"
+name = "rsm-backend-fuzz"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
+ "backend",
  "ffi",
+ "frontend",
  "libfuzzer-sys",
  "serde",
  "symbol_table",

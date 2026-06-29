@@ -4,19 +4,19 @@ use ir::{
 };
 use lang_model::IfCommand;
 
-use crate::TreeSitterParser;
+use crate::{ParsingError, TreeSitterParser};
 
-pub fn new(sitter: &IfCommand, source_code: &str) -> Command {
-    assert!(
-        !sitter.args().is_empty(),
-        "If always takes at least one argument"
-    );
-    Command::If(
-        sitter
-            .args()
-            .iter()
-            .map(|x| Expression::new(x, source_code))
-            .map(If)
-            .collect(),
-    )
+pub fn new(sitter: &IfCommand, source_code: &str) -> Result<Command, ParsingError> {
+    if sitter.args().is_empty() {
+        Err(ParsingError::IfReqiresArgs(sitter.node().range()))
+    } else {
+        Ok(Command::If(
+            sitter
+                .args()
+                .iter()
+                .map(|x| Expression::new(x, source_code))
+                .map(If)
+                .collect(),
+        ))
+    }
 }

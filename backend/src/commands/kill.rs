@@ -2,7 +2,7 @@ use ir::commands::kill::{Kill, KillType};
 
 use crate::{
     Compile,
-    runtime::{Decode, Encode, OpCodesForeign, byte_code::AssemballyDecoder},
+    runtime::{Decode, Encode, OpCodesForeign, program_counter::AssemballyDecoder},
     variable::VarContext,
 };
 
@@ -36,7 +36,7 @@ impl Compile for KillInstruction {
 
     fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
         bite_code.push(self.r#type.encode());
-        bite_code.push(self.number_of_variables);
+        bite_code.push(self.number_of_variables as u8);
     }
 }
 impl Decode for KillInstruction {

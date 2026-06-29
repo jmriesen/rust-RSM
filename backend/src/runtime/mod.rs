@@ -1,11 +1,3 @@
-pub mod byte_code;
-
-use std::fmt::Debug;
-
-use ir::operators::{Binary, Unary};
-use symbol_table::{MVar, SymbolTable, key::Path};
-use value::{Number, Value};
-
 use crate::{
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
@@ -16,30 +8,27 @@ use crate::{
         write::WriteCodes,
     },
     runtime::{
-        byte_code::{AssemballyDecoder, ByteCode, Location},
+        r#for::ForFrame,
         macros::StackAssembally,
+        operators::{BinaryApply, UnaryApply},
+        program_counter::{AssemballyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
+use ir::operators::{Binary, Unary};
+use std::fmt::Debug;
+use symbol_table::{MVar, SymbolTable, key::Path};
+use value::Value;
+mod r#for;
 mod macros;
+mod operators;
+pub mod program_counter;
 
-#[derive(Debug, PartialEq)]
-struct ForFrame {
-    var: MVar<Path>,
-    loop_body: Location,
-    r#break: Location,
-    start_value: Number,
-    increment: Number,
-    end_value: Number,
-    //TODO: Direction
-}
-
-#[derive(Default)]
-pub struct JobState {
+pub struct Job<'a> {
     //Replace with a proper output device later.
     buffer: String,
     /// Stack of values
-    values: Vec<value::Value>,
+    r_values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).
     l_values: Vec<MVar<Path>>,
     //Temporarily store loop metadata
@@ -54,6 +43,7 @@ pub struct JobState {
     /// Stores the last result of the most resent if predicate.
     /// Used by else.
     test: bool,
+    pc: ProgramCounter<'a>,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -67,20 +57,18 @@ pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {EndLine=0}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
+OpCode! {JumpIfFalseCode=5}
 
 #[derive(Debug)]
 pub struct JumpIfFalse {
-    target: byte_code::Location,
+    target: program_counter::Location,
 }
 impl Decode for JumpIfFalse {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        if [5] == decoder.consume_n() {
-            Some(Self {
-                target: Decode::decode(decoder)?,
-            })
-        } else {
-            None
-        }
+        JumpIfFalseCode::decode(decoder)?;
+        Some(Self {
+            target: Decode::decode(decoder)?,
+        })
     }
 }
 
@@ -119,126 +107,86 @@ StackAssembally! {
 }
 /// Marks something as a whole assembly instruction
 
-impl JobState {
-    pub fn run_code(&mut self, byte_code: &[u8]) {
-        let mut byte_code = ByteCode::new(byte_code);
-        #[cfg(test)]
-        dbg!(&byte_code);
-        while !byte_code.end() {
-            match byte_code.next() {
+impl<'a> Job<'a> {
+    pub fn new(byte_code: &'a [u8]) -> Self {
+        Self {
+            buffer: String::new(),
+            r_values: vec![],
+            l_values: vec![],
+            for_preample: None,
+            for_stack: vec![],
+            symbole_table: SymbolTable::default(),
+            test: false,
+            pc: ProgramCounter::new(byte_code),
+        }
+    }
+    pub fn run(&mut self) {
+        while !self.pc.end() {
+            match self.pc.next() {
                 StackAssembally::Value(value) => {
-                    self.values.push(value);
+                    self.r_values.push(value);
                 }
                 StackAssembally::WriteCodes(write_codes) => match write_codes {
                     WriteCodes::Bang => self.buffer.push('\n'),
                     WriteCodes::Clear => todo!(),
                     WriteCodes::Tab => todo!(),
                     WriteCodes::Expression => {
-                        let value = self.values.pop().unwrap();
+                        let value = self.r_values.pop().unwrap();
                         self.buffer
                             .push_str(core::str::from_utf8(value.content()).unwrap());
                     }
                 },
                 StackAssembally::Binary(op) => {
-                    let second = self.values.pop().unwrap();
-                    let first = self.values.pop().unwrap();
-                    let result: Value = match op {
-                        Binary::Add => (Number::from(first) + Number::from(second)).into(),
-                        Binary::Sub => (Number::from(first) - Number::from(second)).into(),
-                        Binary::Equal => (first == second).into(),
-                        _ => {
-                            todo!()
-                        }
-                    };
-                    self.values.push(result);
+                    let second = self.r_values.pop().unwrap();
+                    let first = self.r_values.pop().unwrap();
+                    self.r_values.push(op.apply(first, second));
                 }
-                StackAssembally::Unary(op) => match op {
-                    Unary::Minus => {
-                        let first = self.values.pop().unwrap();
-                        let mut first = Number::from(first);
-                        first.negate();
-                        self.values.push(first.into());
-                    }
-                    Unary::Plus => todo!(),
-                    Unary::Not => todo!(),
-                },
+                StackAssembally::Unary(op) => {
+                    let value = self.r_values.pop().unwrap();
+                    self.r_values.push(op.apply(value));
+                }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
                 StackAssembally::ForStart(for_start) => {
-                    let (end_value, increment, start_value) = match for_start {
-                        ForStart::One => todo!(),
-                        ForStart::Two => todo!(),
-                        ForStart::Three => (
-                            Number::from(self.values.pop().unwrap()),
-                            Number::from(self.values.pop().unwrap()),
-                            Number::from(self.values.pop().unwrap()),
-                        ),
-                    };
-                    let ForSet {
-                        loop_variable,
-                        loop_body,
-                        r#break,
-                    } = self
-                        .for_preample
-                        .take()
-                        .expect("preamble must come before set");
-                    let var = self.build_var(loop_variable);
-                    let new_frame = ForFrame {
-                        start_value,
-                        increment,
-                        end_value,
-                        var,
-                        loop_body,
-                        r#break,
-                    };
-                    self.symbole_table
-                        .set(&new_frame.var, &new_frame.start_value.clone().into())
-                        .unwrap();
-                    self.for_stack.push(new_frame);
+                    Self::init_for_loop(
+                        &mut self.for_stack,
+                        &mut self.r_values,
+                        &mut self.for_preample,
+                        &mut self.symbole_table,
+                        for_start,
+                    );
                 }
                 StackAssembally::ForEnd(_for_end) => {
-                    let for_frame = self.for_stack.last().unwrap();
-                    let loop_var = self
-                        .symbole_table
-                        .get(&for_frame.var)
-                        .expect("Loop variable must exist otherwise this is a runtime error")
-                        .clone();
-                    let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
-                    self.symbole_table
-                        .set(&for_frame.var, &next_loop_var.clone().into())
-                        .unwrap();
-
-                    if next_loop_var <= for_frame.end_value {
-                        byte_code.jump_absolute(for_frame.loop_body);
-                    } else {
-                        byte_code.jump_absolute(for_frame.r#break);
-                        self.for_stack.pop();
-                    }
+                    Self::handel_for_preamble(
+                        &mut self.for_stack,
+                        &mut self.symbole_table,
+                        &mut self.pc,
+                    );
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
-                    let var = self.build_var(load_var.var);
+                    let var = Self::build_var(&mut self.r_values, load_var.var);
                     let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
-                    self.values.push(val);
+                    self.r_values.push(val);
                 }
                 StackAssembally::SetCodes(code) => match code {
                     SetCodes::Var => {
-                        let val = self.values.pop().expect("Value to store on the stack");
+                        let val = self.r_values.pop().expect("Value to store on the stack");
                         let var = self.l_values.pop().unwrap();
                         self.symbole_table.set(&var, &val).unwrap();
                     }
                 },
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
-                    let condition = self.values.pop().expect("Value to store on the stack");
+                    let condition = self.r_values.pop().expect("Value to store on the stack");
                     self.test = bool::from(condition);
                     if !self.test {
-                        byte_code.advance_to_next_line();
+                        self.pc.advance_to_next_line();
                     }
                 }
                 StackAssembally::ElseOp(_) => {
                     if self.test {
-                        byte_code.advance_to_next_line();
+                        self.pc.advance_to_next_line();
                     }
                 }
                 StackAssembally::KillInstruction(kill) => {
@@ -260,7 +208,7 @@ impl JobState {
                     }
                 }
                 StackAssembally::PushVar(push_var) => {
-                    let l_value = self.build_var(push_var.var);
+                    let l_value = Self::build_var(&mut self.r_values, push_var.var);
                     self.l_values.push(l_value);
                 }
                 StackAssembally::QuitCodes(quit_codes) => match quit_codes {
@@ -269,23 +217,24 @@ impl JobState {
                             .for_stack
                             .pop()
                             .expect("Quits are currnly only supported in for loops");
-                        byte_code.jump_absolute(for_stack.r#break);
+                        self.pc.jump(for_stack.r#break);
                     }
                     QuitCodes::WithArg => todo!(),
                 },
                 StackAssembally::JumpIfFalse(jump) => {
-                    let condition = self.values.pop().expect("Value to store on the stack");
+                    let condition = self.r_values.pop().expect("Value to store on the stack");
                     if !bool::from(condition) {
-                        byte_code.jump_absolute(jump.target)
+                        self.pc.jump(jump.target)
                     }
                 }
             }
         }
     }
-    fn build_var(&mut self, var: BuildVarInstructions) -> MVar<Path> {
+
+    fn build_var(r_values: &mut Vec<Value>, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
-            subscripts.push(self.values.pop().unwrap());
+            subscripts.push(r_values.pop().unwrap());
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
@@ -298,18 +247,19 @@ mod test {
         path::PathBuf,
     };
 
-    use crate::{runtime::JobState, test::compile_routine};
+    use crate::{compile_routine, runtime::Job};
     use frontend::wrap_command_in_routine;
     use rstest::rstest;
 
     fn run_code_check_output(source: &str, output: &str) {
-        let mut job = JobState::default();
         let routine = wrap_command_in_routine(source);
         let byte_code = compile_routine(routine);
-        job.run_code(&byte_code);
+
+        let mut job = Job::new(&byte_code);
+        job.run();
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
-        assert_eq!(job.values, vec![]);
+        assert_eq!(job.r_values, vec![]);
         // We should exit all the for lops
         assert_eq!(job.for_stack, vec![]);
     }
