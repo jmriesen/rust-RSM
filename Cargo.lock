@@ -1490,18 +1490,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rsm-fuzz"
-version = "0.0.0"
-dependencies = [
- "arbitrary",
- "ffi",
- "libfuzzer-sys",
- "serde",
- "symbol_table",
- "value",
-]
-
-[[package]]
 name = "rstest"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

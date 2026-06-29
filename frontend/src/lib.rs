@@ -9,6 +9,9 @@ pub mod intrinsic_var;
 pub mod operators;
 pub mod variable;
 use thiserror::Error;
+//Introduced to prevent overflows during fuzzing.
+//TODO: This is not a perfect solutions, but allows me to keep fuzzing.
+const MAX_LINE_LENGTH: usize = 200;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
@@ -24,6 +27,10 @@ pub enum ParsingError {
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
     KillExclusiveNonLocal(lang_model::Range),
+    #[error(
+        "Excided max line length {MAX_LINE_LENGTH} TODO: this constratint should be eventually remove. Currently here to prevent stack overflows durring fuzzing"
+    )]
+    HitMaxLineLength,
 }
 
 pub trait TreeSitterParser<'a> {
@@ -32,10 +39,8 @@ pub trait TreeSitterParser<'a> {
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
-    if source_code.lines().any(|x| x.len() > 200) {
-        //Introduced to prevent overflows during fuzzing.
-        //TODO: This is not a perfect solutions, but allows me to keep fuzzing.
-        return Err(ParsingError::NotYetSupported("lines longer then 400 chars"));
+    if source_code.lines().any(|x| x.len() > MAX_LINE_LENGTH) {
+        return Err(ParsingError::HitMaxLineLength);
     };
     let tree = lang_model::create_tree(source_code);
     let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
@@ -94,7 +99,7 @@ mod test {
 
         assert_eq!(
             parse_routine(source_code).map(|_| () /*I only care about the error case*/),
-            Err(ParsingError::NotYetSupported("lines longer then 200 chars")),
+            Err(ParsingError::HitMaxLineLength),
         )
     }
 
