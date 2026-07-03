@@ -137,6 +137,7 @@ dependencies = [
  "mutants",
  "rstest",
  "symbol_table",
+ "thiserror 1.0.69",
  "value",
 ]
 
@@ -583,6 +584,8 @@ version = "0.1.0"
 dependencies = [
  "ir",
  "lang-model",
+ "mutants",
+ "thiserror 1.0.69",
  "value",
 ]
 
@@ -1479,7 +1482,9 @@ name = "rsm-fuzz"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
+ "backend",
  "ffi",
+ "frontend",
  "libfuzzer-sys",
  "serde",
  "symbol_table",

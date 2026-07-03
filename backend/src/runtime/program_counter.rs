@@ -19,11 +19,11 @@ impl Decode for Location {
 }
 
 #[derive(Clone)]
-pub struct ByteCode<'a> {
+pub struct ProgramCounter<'a> {
     source: &'a [u8],
     program_counter: Location,
 }
-impl<'a> Debug for ByteCode<'a> {
+impl<'a> Debug for ProgramCounter<'a> {
     #[cfg_attr(test, mutants::skip)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ByteCode")
@@ -68,7 +68,7 @@ impl<'a> AssemballyDecoder<'a> {
     }
 }
 
-impl<'a> ByteCode<'a> {
+impl<'a> ProgramCounter<'a> {
     pub fn new(source: &'a [u8]) -> Self {
         Self {
             source,
@@ -115,7 +115,7 @@ impl<'a> ByteCode<'a> {
         vec
     }
 
-    pub fn jump_absolute(&mut self, location: Location) {
+    pub fn jump(&mut self, location: Location) {
         self.program_counter = location
     }
     pub fn advance_to_next_line(&mut self) {

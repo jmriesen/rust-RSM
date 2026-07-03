@@ -56,7 +56,7 @@ impl VariableName {
     /// Intrinsics start with a '$' and are built in variables.
     #[must_use]
     pub fn is_intrinsic(&self) -> bool {
-        self.contents()[0] == b'$'
+        self.contents().get(0) == Some(&b'$')
     }
 
     /// Returns the raw representation.
@@ -120,14 +120,21 @@ pub mod helpers {
     impl<'a> Arbitrary<'a> for VariableName {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
             let len = u.int_in_range(1..=MAX_VAR_NAME_SIZE)?;
-            Ok(VariableName(
+            let name = VariableName(
                 u.arbitrary_iter()?
                     //TODO figure out if these constraints are accurate
                     .filter(|x| x.is_ok_and(|x: u8| x.is_ascii()))
                     .filter(|x| x.is_ok_and(|x: u8| x != 0))
                     .take(len)
                     .collect::<Result<_, _>>()?,
-            ))
+            );
+            // Intrinsic variables and naked varialbes are special.
+            // Fuzzing over them is not yet supported.
+            if name.is_intrinsic() || name.0.is_empty() {
+                Err(arbitrary::Error::IncorrectFormat)
+            } else {
+                Ok(name)
+            }
         }
     }
 }

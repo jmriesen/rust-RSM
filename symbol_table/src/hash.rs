@@ -304,6 +304,7 @@ mod tests {
         assert_eq!(table.get(&Normal(0)), Some(&5));
     }
 
+    #[allow(non_snake_case)]
     #[test]
     fn slots_reused_in_a_FILO_order() {
         //The original C code reuses slots in a FILO manor.

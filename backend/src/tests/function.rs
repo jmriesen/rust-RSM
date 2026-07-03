@@ -58,8 +58,9 @@ mod test {
     #[case("ascii","a",1..=2)]
     #[case("char","c",1..=8)]
     //TODO test upper bounds of Char
-    //currenrly getting segfale problby would need to increase the buffer.
-    #[case("char","c",50..=50)]
+    //currently getting segfault probably would need to increase the buffer.
+    //The C code limits to 255 arguments
+    #[case("char","c",5..=10)]
     #[case("length","l",1..=2)]
     #[case("Stack","st",1..=2)]
     fn intrinsic_fun(

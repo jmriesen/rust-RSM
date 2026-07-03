@@ -1,18 +1,18 @@
 use super::Expression;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GlobleIdent {
     pub user_class: Option<Box<UserClassIdentifiers>>,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UserClassIdentifiers {
     pub uci: Expression,
     pub env: Option<Env>,
 }
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Env(pub Expression);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VariableType {
     Named {
         name: String,
@@ -24,7 +24,7 @@ pub enum VariableType {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Variable {
     pub var_type: VariableType,
     pub subscripts: Vec<Expression>,

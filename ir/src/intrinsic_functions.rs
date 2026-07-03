@@ -1,12 +1,12 @@
 use super::expression::Expression;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SelectTerm {
     pub condition: Expression,
     pub value: Expression,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
     pub required: [Expression; REQUIRED],
     //Note this should really be thought of as a Vec with a fixed capacity but... whatever, this
@@ -14,13 +14,13 @@ pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
     pub optional: [Option<Expression>; OPTIONAL],
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct VarFunction<const REQUIRED: usize, const OPTIONAL: usize> {
     pub variable: super::Variable,
     pub function: Function<REQUIRED, OPTIONAL>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum IntrinsicFunction {
     Select {
         terms: Vec<SelectTerm>,

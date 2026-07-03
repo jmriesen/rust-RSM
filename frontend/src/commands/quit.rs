@@ -4,21 +4,23 @@ use ir::{
 };
 use lang_model::QuitCommand;
 
-use crate::TreeSitterParser;
-pub(crate) fn new(sitter: &QuitCommand<'_>, source_code: &str) -> Command {
-    assert!(sitter.args().len() <= 1, "quit can only have one arg");
-    Command::Quit(PostCondition {
-        condition: sitter
-            .post_condition()
-            .map(|x| Expression::new(&x, source_code)),
+use crate::{ParsingError, TreeSitterParser};
+pub(crate) fn new(sitter: &QuitCommand<'_>, source_code: &str) -> Result<Command, ParsingError> {
+    if sitter.args().len() > 1 {
+        Err(ParsingError::QuitExtraArgs(sitter.node().range()))
+    } else {
+        Ok(Command::Quit(PostCondition {
+            condition: sitter
+                .post_condition()
+                .map(|x| Expression::new(&x, source_code)),
 
-        value: Quit(
-            sitter
-                .args()
-                .iter()
-                .map(|x| Expression::new(x, source_code))
-                .next(),
-        ),
-    })
+            value: Quit(
+                sitter
+                    .args()
+                    .iter()
+                    .map(|x| Expression::new(x, source_code))
+                    .next(),
+            ),
+        }))
+    }
 }
-
