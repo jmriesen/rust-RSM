@@ -15,7 +15,16 @@ const MAX_LINE_LENGTH: usize = 200;
 // NOTE: This was pulled out as a function specifically so I could add the mutation skip attribute.
 // This should be remove when a long term solution to overflows is found.
 #[mutants::skip]
-fn check_line_lengths(tags: &Vec<lang_model::Tag<'_>>) -> Result<(), ParsingError> {
+fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
+    if source_code.lines().any(|x| x.len() > MAX_LINE_LENGTH) {
+        Err(ParsingError::HitMaxLineLength)
+    } else {
+        Ok(())
+    }
+}
+//TODO: remove with multiple tags in a file become supported.
+#[mutants::skip]
+fn check_number_of_tags(tags: &Vec<lang_model::Tag<'_>>) -> Result<(), ParsingError> {
     if tags.len() != 1 {
         return Err(ParsingError::NotYetSupported(
             "Only exacly one tag per routine is currenly supported",
@@ -24,7 +33,6 @@ fn check_line_lengths(tags: &Vec<lang_model::Tag<'_>>) -> Result<(), ParsingErro
         Ok(())
     }
 }
-
 #[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
     #[error("Error ocurred when tree-sitter parsed the routine")]
@@ -51,14 +59,12 @@ pub trait TreeSitterParser<'a> {
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
-    if source_code.lines().any(|x| x.len() > MAX_LINE_LENGTH) {
-        return Err(ParsingError::HitMaxLineLength);
-    };
+    check_line_lengths(source_code)?;
     let tree = lang_model::create_tree(source_code);
     let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
 
     let tags = tree.children();
-    check_line_lengths(&tags)?;
+    check_number_of_tags(&tags)?;
     let block = tags[0]
         .block()
         .ok_or(ParsingError::NotYetSupported("Multiple blocks in one tag"))?;
