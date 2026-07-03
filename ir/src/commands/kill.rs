@@ -6,6 +6,7 @@ pub enum KillType {
     Exclusive,
 }
 
+#[derive(Debug)]
 pub struct Kill {
     pub r#type: KillType,
     pub variables: Vec<Variable>,

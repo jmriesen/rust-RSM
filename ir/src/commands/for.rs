@@ -2,11 +2,13 @@ use crate::{Expression, Variable};
 
 use super::Command;
 
+#[derive(Debug)]
 pub struct Argument {
     pub start: Expression,
     pub increment_end: Option<(Expression, Option<Expression>)>,
 }
 
+#[derive(Debug)]
 pub enum ForKind {
     Infinite,
     VarLoop {
@@ -15,6 +17,7 @@ pub enum ForKind {
         arguments: Vec<Argument>,
     },
 }
+#[derive(Debug)]
 pub struct For {
     pub kind: ForKind,
     pub commands: Vec<Command>,

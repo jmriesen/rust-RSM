@@ -72,15 +72,15 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
     Ok(lines)
 }
 
-pub fn wrap_command_in_routine(source_code: &str) -> Routine {
+pub fn wrap_in_routine(source_code: &str) -> Result<Routine, ParsingError> {
     let source_code = source_code.replace('\n', "\n ");
     let source_code = &format!("tag {source_code}\n");
-    parse_routine(source_code).unwrap()
+    parse_routine(source_code)
 }
 
 pub fn command_from_source(source_code: &str) -> Command {
     //TODO what is this doing?
-    let commands = wrap_command_in_routine(source_code);
+    let commands = wrap_in_routine(source_code).unwrap();
     commands
         .into_iter()
         .flatten()

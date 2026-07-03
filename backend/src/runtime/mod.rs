@@ -248,11 +248,11 @@ mod test {
     };
 
     use crate::{compile_routine, runtime::Job};
-    use frontend::wrap_command_in_routine;
+    use frontend::wrap_in_routine;
     use rstest::rstest;
 
     fn run_code_check_output(source: &str, output: &str) {
-        let routine = wrap_command_in_routine(source);
+        let routine = wrap_in_routine(source).unwrap();
         let byte_code = compile_routine(routine);
 
         let mut job = Job::new(&byte_code);
@@ -282,7 +282,7 @@ mod test {
 
     #[rstest]
     #[should_panic]
-    fn errors(#[files("tests/*/errors/*.test")] file: PathBuf) {
+    fn runtime_errors(#[files("tests/*/runtime_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
         let [src, output] = content
             // Remove trailing newline that is automatically added by my text editor.
@@ -295,5 +295,22 @@ mod test {
             .unwrap();
         println!("Test Case:\nsrc:\n{}", src,);
         run_code_check_output(src, output);
+    }
+
+    #[rstest]
+    fn syntax_errors(#[files("tests/*/syntax_errors/*.test")] file: PathBuf) {
+        let content = fs::read_to_string(file).unwrap();
+        let [src, output] = content
+            // Remove trailing newline that is automatically added by my text editor.
+            .strip_suffix("\n")
+            .unwrap()
+            // src vs expected output separator
+            .split("\n---\n")
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        println!("Test Case:\nsrc:\n{}", src,);
+        let err = wrap_in_routine(src).unwrap_err();
+        assert_eq!(err.to_string(), output);
     }
 }
