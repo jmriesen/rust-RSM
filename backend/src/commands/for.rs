@@ -1,5 +1,4 @@
 use ir::commands::r#for::{For, ForKind};
-use value::Number;
 
 use crate::{
     Compile,

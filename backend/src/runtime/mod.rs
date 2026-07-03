@@ -26,8 +26,6 @@ mod operators;
 pub mod program_counter;
 #[derive(Error, PartialEq, Debug)]
 pub(crate) enum RuntimeError {
-    #[error("Undefined local variable")]
-    UndefinedLocalVariable,
     #[error("Undefined Index variable")]
     UndefinedIndexVariable,
     #[error("Not yet supported {}",.0)]
@@ -85,6 +83,7 @@ impl Decode for JumpIfFalse {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {

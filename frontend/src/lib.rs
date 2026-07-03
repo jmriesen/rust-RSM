@@ -118,7 +118,7 @@ mod test {
     fn todo_this_should_not_parse() {
         let source_code = "foo k (^A\n";
         let tree = lang_model::create_tree(source_code);
-        let tree = lang_model::type_tree(&tree, source_code)
+        let _tree = lang_model::type_tree(&tree, source_code)
             .map_err(ParsingError::TreeSitterError)
             .unwrap();
     }
