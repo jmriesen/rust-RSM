@@ -93,7 +93,6 @@ pub fn wrap_in_routine(source_code: &str) -> Result<Routine, ParsingError> {
 }
 
 pub fn command_from_source(source_code: &str) -> Command {
-    //TODO what is this doing?
     let commands = wrap_in_routine(source_code).unwrap();
     commands
         .into_iter()
