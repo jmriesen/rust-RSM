@@ -2,7 +2,10 @@ use super::{
     Job,
     program_counter::{Location, ProgramCounter},
 };
-use crate::commands::r#for::{ForSet, ForStart};
+use crate::{
+    commands::r#for::{ForSet, ForStart},
+    runtime::RuntimeError,
+};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
@@ -58,20 +61,24 @@ impl<'a> Job<'a> {
         for_stack: &mut Vec<ForFrame>,
         symbole_table: &mut SymbolTable,
         pc: &mut ProgramCounter<'_>,
+        error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        let loop_var = symbole_table
-            .get(&for_frame.var)
-            .expect("Loop variable must exist otherwise this is a runtime error")
-            .clone();
-        let next_loop_var = Number::from(loop_var) + for_frame.increment.clone();
-        symbole_table
-            .set(&for_frame.var, &next_loop_var.clone().into())
-            .unwrap();
+        if let Some(loop_var) = symbole_table.get(&for_frame.var) {
+            let next_loop_var = Number::from(loop_var.clone()) + for_frame.increment.clone();
+            symbole_table
+                .set(&for_frame.var, &next_loop_var.clone().into())
+                .unwrap();
 
-        if next_loop_var <= for_frame.end_value {
-            pc.jump(for_frame.loop_body);
+            if next_loop_var <= for_frame.end_value {
+                pc.jump(for_frame.loop_body);
+            } else {
+                pc.jump(for_frame.r#break);
+                for_stack.pop();
+            }
         } else {
+            *error = Some(RuntimeError::UndefinedIndexVariable);
+            // Error handling is not fully fleshed out yet.
             pc.jump(for_frame.r#break);
             for_stack.pop();
         }

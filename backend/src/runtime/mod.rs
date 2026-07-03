@@ -18,11 +18,21 @@ use crate::{
 use ir::operators::{Binary, Unary};
 use std::fmt::Debug;
 use symbol_table::{MVar, SymbolTable, key::Path};
+use thiserror::Error;
 use value::Value;
 mod r#for;
 mod macros;
 mod operators;
 pub mod program_counter;
+#[derive(Error, PartialEq, Debug)]
+pub(crate) enum RuntimeError {
+    #[error("Undefined local variable")]
+    UndefinedLocalVariable,
+    #[error("Undefined Index variable")]
+    UndefinedIndexVariable,
+    #[error("Not yet supported {}",.0)]
+    NotYetSupported(&'static str),
+}
 
 pub struct Job<'a> {
     //Replace with a proper output device later.
@@ -44,6 +54,8 @@ pub struct Job<'a> {
     /// Used by else.
     test: bool,
     pc: ProgramCounter<'a>,
+
+    error: Option<RuntimeError>,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -118,6 +130,7 @@ impl<'a> Job<'a> {
             symbole_table: SymbolTable::default(),
             test: false,
             pc: ProgramCounter::new(byte_code),
+            error: None,
         }
     }
     pub fn run(&mut self) {
@@ -161,6 +174,7 @@ impl<'a> Job<'a> {
                         &mut self.for_stack,
                         &mut self.symbole_table,
                         &mut self.pc,
+                        &mut self.error,
                     );
                 }
                 StackAssembally::NoOpCode(_no_op_code) => {}
@@ -219,7 +233,10 @@ impl<'a> Job<'a> {
                             .expect("Quits are currnly only supported in for loops");
                         self.pc.jump(for_stack.r#break);
                     }
-                    QuitCodes::WithArg => todo!(),
+                    QuitCodes::WithArg => {
+                        let _ = self.r_values.pop().unwrap();
+                        self.error = Some(RuntimeError::NotYetSupported("quit with args"))
+                    }
                 },
                 StackAssembally::JumpIfFalse(jump) => {
                     let condition = self.r_values.pop().expect("Value to store on the stack");
@@ -251,7 +268,7 @@ mod test {
     use frontend::wrap_in_routine;
     use rstest::rstest;
 
-    fn run_code_check_output(source: &str, output: &str) {
+    fn run_code_check_output(source: &str, output: &str, error: &str) {
         let routine = wrap_in_routine(source).unwrap();
         let byte_code = compile_routine(routine);
 
@@ -262,12 +279,15 @@ mod test {
         assert_eq!(job.r_values, vec![]);
         // We should exit all the for lops
         assert_eq!(job.for_stack, vec![]);
+
+        let error_mesage = job.error.map(|x| x.to_string()).unwrap_or(String::new());
+        assert_eq!(error_mesage, error);
     }
 
     #[rstest]
     fn runtime_tests(#[files("tests/*/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        let [src, output] = content
+        let [src, output, error] = content
             // Remove trailing newline that is automatically added by my text editor.
             .strip_suffix("\n")
             .unwrap()
@@ -277,14 +297,13 @@ mod test {
             .try_into()
             .unwrap();
         println!("Test Case:\nsrc:\n{}\nexpected:\n{}", src, output);
-        run_code_check_output(src, output);
+        run_code_check_output(src, output, error);
     }
 
     #[rstest]
-    #[should_panic]
     fn runtime_errors(#[files("tests/*/runtime_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        let [src, output] = content
+        let [src, output, error] = content
             // Remove trailing newline that is automatically added by my text editor.
             .strip_suffix("\n")
             .unwrap()
@@ -294,7 +313,7 @@ mod test {
             .try_into()
             .unwrap();
         println!("Test Case:\nsrc:\n{}", src,);
-        run_code_check_output(src, output);
+        run_code_check_output(src, output, error);
     }
 
     #[rstest]

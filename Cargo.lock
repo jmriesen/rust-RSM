@@ -137,6 +137,7 @@ dependencies = [
  "mutants",
  "rstest",
  "symbol_table",
+ "thiserror 1.0.69",
  "value",
 ]
 

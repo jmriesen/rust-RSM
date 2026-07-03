@@ -8,3 +8,5 @@ w "foo_bar=",i("foo","bar")
 foo=1
 bar=2
 foo_bar=3
+---
+
