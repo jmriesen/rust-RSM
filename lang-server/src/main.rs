@@ -28,217 +28,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![warn(clippy::pedantic)]
-use lang_model::{commandChildren, BlockChildren};
 use std::{collections::HashMap, fs, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-fn to_lsp_int(num: usize) -> u32 {
-    num.try_into().expect("The LSP protical only allows for specifying position using 32 bit integers. If you somehow have overflowed a i32::max, sorry, please restrucutre your program.")
-}
+use crate::{document::Document, util::to_lsp_int};
+
+mod document;
+mod util;
 
 struct ServerState {
     client: Client,
     documents: RwLock<HashMap<Url, Document>>,
-}
-
-struct Document {
-    ///Note the document and tree must always stay in sync.
-    source: String,
-    tree: tree_sitter::Tree,
-}
-
-impl Document {
-    fn new(source: String) -> Self {
-        Self {
-            tree: lang_model::create_tree(&source),
-            source,
-        }
-    }
-
-    fn query<'a>(
-        &'a self,
-        query: &'a tree_sitter::Query,
-        query_cursor: &'a mut tree_sitter::QueryCursor,
-    ) -> tree_sitter::QueryMatches<'a, 'a, &'a [u8]> {
-        query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
-    }
-
-    fn update(&mut self, mut changes: Vec<TextDocumentContentChangeEvent>) {
-        let line_index: Vec<_> = std::iter::once(0)
-            .chain(self.source.match_indices('\n').map(|(x, _)| x + 1))
-            .collect();
-
-        changes.sort_by_key(|x| {
-            let pos = x
-                .range
-                .expect("LSP is configured for incremental changes & they always provide a range")
-                .start;
-            (pos.line, pos.character)
-        });
-
-        //Go from back to front prevents indexes from changing underneath us.
-        //NOTE I have not tested with two concurrent changes
-        for change in changes.iter().rev() {
-            let get_index = |position: Position| {
-                line_index[position.line as usize] + position.character as usize
-            };
-            let start = get_index(change.range.unwrap().start);
-            let end = get_index(change.range.unwrap().end);
-
-            self.source.replace_range(start..end, &change.text);
-        }
-
-        //TODO: tree sitter supports updating the tree based on edits.
-        //If I figure out the api I could make this more efficient.
-        self.tree = lang_model::create_tree(&self.source);
-    }
-
-    fn lint_tags_end_in_quit(&self) -> Vec<Diagnostic> {
-        //Linting warnings for quits in a tag.
-        //TODO: unconditional quits before the last line of a routine.
-        //TODO: early return should be QUIT.
-        //TODO: all tags should end with a quit.
-        //TODO: either all quits should return a value, or non should.
-
-        if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
-            routine
-                .children()
-                .iter()
-                //Pull out last line of each tag if it exists.
-                .filter_map(|x| x.block().and_then(|x| x.children().last().cloned()))
-                .filter_map(|x| match x {
-                    BlockChildren::Block(block) => Some(*block.node()),
-                    BlockChildren::line(line) => {
-                        let commands = line.children();
-                        let command = commands.last().unwrap().children();
-                        if matches!(command, commandChildren::QuitCommand(_)) {
-                            None
-                        } else {
-                            Some(*line.node())
-                        }
-                    }
-                })
-                .map(|node| {
-                    dbg!(node.to_sexp());
-                    Diagnostic {
-                        code_description: None,
-                        code: None,
-                        message: "tags should end with a quit command".to_string(),
-                        source: None,
-                        tags: None,
-                        data: None,
-                        related_information: None,
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        range: Range {
-                            start: node.start_position().to_position(),
-                            end: node.end_position().to_position(),
-                        },
-                    }
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn lines_after_unconditional_quit(&self) -> Vec<Diagnostic> {
-        //TODO: unconditional quits before the last line of a routine.
-        //TODO: this should really apply to blocks.
-
-        if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
-            routine
-                .children()
-                .iter()
-                //Grab all lines
-                .filter_map(|x| x.block().map(|x| x.children()))
-                .flatten()
-                .skip_while(|x| !match x {
-                    BlockChildren::Block(_) => false, //TODO: deal with nested blocks
-                    BlockChildren::line(line) => {
-                        //Look for unconditional quit.
-                        use lang_model::commandChildren as E;
-                        line
-                            //commands
-                            .children()
-                            .into_iter()
-                            .map(|x| x.children())
-                            //Ignore anything after control flow command
-                            //.take_while(|x| !matches!(x, E::IfCommand(_)))
-                            .take_while(|x| !matches!(x, E::ElseCommand(_)))
-                            .take_while(|x| !matches!(x, E::For(_)))
-                            .any(|x| matches!(x, E::QuitCommand(_)))
-                    }
-                })
-                //Skip over the quit.
-                .skip(1)
-                .map(|x| match x {
-                    BlockChildren::Block(block) => *block.node(), //TODO: deal with nested blocks
-                    BlockChildren::line(line) => *line.node(),
-                })
-                .map(|node| {
-                    dbg!(node.to_sexp());
-                    Diagnostic {
-                        code_description: None,
-                        code: None,
-                        message: "Lines after an unconditional quite will be ignored.".to_string(),
-                        source: None,
-                        tags: None,
-                        data: None,
-                        related_information: None,
-                        severity: Some(DiagnosticSeverity::ERROR),
-                        range: Range {
-                            start: node.start_position().to_position(),
-                            end: node.end_position().to_position(),
-                        },
-                    }
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn validate(&self) -> Vec<Diagnostic> {
-        use tree_sitter::{Query, QueryCursor};
-        let mut query_cursor = QueryCursor::new();
-        let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)@error").unwrap();
-        let expressions = self.query(&error_query, &mut query_cursor);
-
-        expressions
-            .map(|exp| {
-                let node = exp.captures[0].node;
-                dbg!(node.to_sexp());
-                Diagnostic {
-                    code_description: None,
-                    code: None,
-                    message: node.to_sexp(),
-                    source: None,
-                    tags: None,
-                    data: None,
-                    related_information: None,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    range: Range {
-                        start: node.start_position().to_position(),
-                        end: node.end_position().to_position(),
-                    },
-                }
-            })
-            .collect()
-    }
-}
-
-trait PointExt {
-    fn to_position(&self) -> Position;
-}
-
-impl PointExt for tree_sitter::Point {
-    fn to_position(&self) -> Position {
-        Position {
-            line: to_lsp_int(self.row),
-            character: to_lsp_int(self.column),
-        }
-    }
 }
 
 #[tower_lsp::async_trait]
@@ -361,7 +162,6 @@ impl LanguageServer for ServerState {
                 current
             })
             .collect();
-        dbg!(&data[0]);
 
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
