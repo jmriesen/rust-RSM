@@ -1,0 +1,5 @@
+tag w "before loop",!
+ f i=1:1:5 w "foo "
+ w !,"after loop"
+ q  
+
