@@ -29,7 +29,7 @@
  */
 #![warn(clippy::pedantic)]
 use lang_model::{commandChildren, BlockChildren};
-use std::{fs, sync::RwLock};
+use std::{collections::HashMap, fs, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
@@ -39,7 +39,7 @@ fn to_lsp_int(num: usize) -> u32 {
 
 struct ServerState {
     client: Client,
-    documents: std::sync::RwLock<std::collections::HashMap<Url, Document>>,
+    documents: RwLock<HashMap<Url, Document>>,
 }
 
 struct Document {
@@ -77,7 +77,7 @@ impl Document {
             (pos.line, pos.character)
         });
 
-        //Go from back to front prevents indexes from changeing underneath us.
+        //Go from back to front prevents indexes from changing underneath us.
         //NOTE I have not tested with two concurrent changes
         for change in changes.iter().rev() {
             let get_index = |position: Position| {
@@ -89,17 +89,17 @@ impl Document {
             self.source.replace_range(start..end, &change.text);
         }
 
-        //TODO tree sitter suports updating the tree based on edits.
-        //If I figure out the api I could make this more effieciant.
+        //TODO: tree sitter supports updating the tree based on edits.
+        //If I figure out the api I could make this more efficient.
         self.tree = lang_model::create_tree(&self.source);
     }
 
     fn lint_tags_end_in_quit(&self) -> Vec<Diagnostic> {
         //Linting warnings for quits in a tag.
-        //TODO unconditional quits befor the last line of a routine.
-        //TODO earily return should be QUIT.
-        //TODO all tags should end with a quit.
-        //TODO either all quits should return a value, or non should.
+        //TODO: unconditional quits before the last line of a routine.
+        //TODO: early return should be QUIT.
+        //TODO: all tags should end with a quit.
+        //TODO: either all quits should return a value, or non should.
 
         if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
             routine
@@ -143,8 +143,8 @@ impl Document {
     }
 
     fn lines_after_unconditional_quit(&self) -> Vec<Diagnostic> {
-        //TODO unconditional quits befor the last line of a routine.
-        //TODO this should really apply to blocks.
+        //TODO: unconditional quits before the last line of a routine.
+        //TODO: this should really apply to blocks.
 
         if let Ok(routine) = lang_model::type_tree(&self.tree, &self.source) {
             routine
@@ -154,7 +154,7 @@ impl Document {
                 .filter_map(|x| x.block().map(|x| x.children()))
                 .flatten()
                 .skip_while(|x| !match x {
-                    BlockChildren::Block(_) => false, //TODO deal with nessted blocks
+                    BlockChildren::Block(_) => false, //TODO: deal with nested blocks
                     BlockChildren::line(line) => {
                         //Look for unconditional quit.
                         use lang_model::commandChildren as E;
@@ -163,7 +163,7 @@ impl Document {
                             .children()
                             .into_iter()
                             .map(|x| x.children())
-                            //ignore anything after controlflow command
+                            //Ignore anything after control flow command
                             //.take_while(|x| !matches!(x, E::IfCommand(_)))
                             .take_while(|x| !matches!(x, E::ElseCommand(_)))
                             .take_while(|x| !matches!(x, E::For(_)))
@@ -173,7 +173,7 @@ impl Document {
                 //Skip over the quit.
                 .skip(1)
                 .map(|x| match x {
-                    BlockChildren::Block(block) => *block.node(), //TODO deal with nessted blocks
+                    BlockChildren::Block(block) => *block.node(), //TODO: deal with nested blocks
                     BlockChildren::line(line) => *line.node(),
                 })
                 .map(|node| {
@@ -319,7 +319,7 @@ impl LanguageServer for ServerState {
         )
         .unwrap();
         let mut query_cursor = QueryCursor::new();
-        //when I tried to use one query I was misssing nodes. I am not sure why.
+        //When I tried to use one query I was missing nodes. I am not sure why.
         let command_query =
             Query::new(tree_sitter_mumps::language(), "(command . (_ . (_)@token))").unwrap();
         let mut command_query_cursor = QueryCursor::new();
@@ -344,15 +344,15 @@ impl LanguageServer for ServerState {
             })
             .collect();
 
-        //order matters since token location is specified using offesets.
+        //Order matters since token location is specified using offsets.
         tokens.sort_by_key(|x| (x.delta_line, x.delta_start));
 
-        //Inserting dummy inital token so that I can use windows to calculate offsets.
+        //Inserting dummy initial token so that I can use windows to calculate offsets.
 
         let data: Vec<_> = tokens
             .array_windows()
             .map(|[previuse, current]| {
-                //NOTE converting from absolute pos to deltas.
+                //NOTE converting from absolute POS to deltas.
                 let mut current = *current;
                 current.delta_line -= previuse.delta_line;
                 if current.delta_line == 0 {
@@ -408,7 +408,7 @@ impl LanguageServer for ServerState {
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
-                related_documents: None, //TODO this could change
+                related_documents: None, //TODO: this could change
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
                     items: [warnings, errors, warnings2].concat(),
                     result_id: None,
@@ -433,7 +433,7 @@ impl LanguageServer for ServerState {
             .unwrap()
             .get_mut(&change.text_document.uri)
             .expect("The document should allready be open before changes are made")
-            //It is fine to unwrap since the document must have been opend for there to be changes.
+            //It is fine to unwrap since the document must have been opened for there to be changes.
             .update(change.content_changes);
     }
 }
