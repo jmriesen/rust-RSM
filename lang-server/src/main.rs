@@ -67,15 +67,31 @@ macro_rules! tokens {
                     SemanticTokenType::KEYWORD
                 ]
             }
+            pub fn query()->tree_sitter::Query{
+            tree_sitter::Query::new(
+                tree_sitter_mumps::language(),
+                concat!(
+                    "[",
+                        $( "(",$str_rep, ") ",)*
+                    "]@token",
+                    )
+                )
+                .unwrap()
+            }
         }
+
     };
 }
 
 tokens! {
-    {Number,   "number",   SemanticTokenType::NUMBER}
-    {String,   "string",   SemanticTokenType::STRING}
-    {Variable, "Variable", SemanticTokenType::VARIABLE}
-    {TagName,  "TagName",  SemanticTokenType::METHOD}
+    {Number,       "number",       SemanticTokenType::NUMBER}
+    {String,       "string",       SemanticTokenType::STRING}
+    {Variable,     "Variable",     SemanticTokenType::VARIABLE}
+    {TagName,      "TagName",      SemanticTokenType::METHOD}
+    {Command,      "command",      SemanticTokenType::KEYWORD}
+    {Bang,         "Bang",         SemanticTokenType::OPERATOR}
+    {BinOp,        "BinaryOpp",    SemanticTokenType::OPERATOR}
+    {UnaryOpp,     "UnaryOpp",     SemanticTokenType::OPERATOR}
 }
 
 #[tower_lsp::async_trait]
@@ -132,22 +148,11 @@ impl LanguageServer for ServerState {
     ) -> Result<Option<SemanticTokensResult>> {
         let documents = self.documents.read().unwrap();
         let document = documents.get(&params.text_document.uri).unwrap();
-        use tree_sitter::{Query, QueryCursor};
+        use tree_sitter::QueryCursor;
 
-        let query = Query::new(
-            tree_sitter_mumps::language(),
-            "[(number) (string) (Variable) (TagName)]@token",
-        )
-        .unwrap();
         let mut query_cursor = QueryCursor::new();
-        //When I tried to use one query I was missing nodes. I am not sure why.
-        let command_query =
-            Query::new(tree_sitter_mumps::language(), "(command . (_ . (_)@token))").unwrap();
-        let mut command_query_cursor = QueryCursor::new();
-
         let mut tokens: Vec<_> = document
-            .query(&query, &mut query_cursor)
-            .chain(document.query(&command_query, &mut command_query_cursor))
+            .query(&TokenTypes::query(), &mut query_cursor)
             .map(|x| x.captures[0].node)
             .map(|node| {
                 let start = node.start_position();
@@ -168,7 +173,19 @@ impl LanguageServer for ServerState {
         //Order matters since token location is specified using offsets.
         tokens.sort_by_key(|x| (x.delta_line, x.delta_start));
 
-        //Inserting dummy initial token so that I can use windows to calculate offsets.
+        //Inserting dummy initial token at the start of the list.
+        //This allows me to use windows to calculate offsets, without having to handle the
+        //spacial case of "the first element has no previuse".
+        tokens.insert(
+            0,
+            SemanticToken {
+                delta_line: 0,
+                delta_start: 0,
+                length: 0,
+                token_type: TokenTypes::Other as u32,
+                token_modifiers_bitset: 0,
+            },
+        );
 
         let data: Vec<_> = tokens
             .array_windows()
