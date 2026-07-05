@@ -1,9 +1,11 @@
-s i="foo"
-s j="bar"
-w i,j
-k
-w !,"Argumentless kill kills everything"
-w i,j
+tag w ""
+ s i="foo"
+ s j="bar"
+ w i,j
+ k
+ w !,"Argumentless kill kills everything"
+ w i,j
+
 ---
 foobar
 Argumentless kill kills everything

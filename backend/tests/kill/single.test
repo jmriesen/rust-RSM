@@ -1,8 +1,10 @@
-s i="foo"
-w "i is ={",i,"}" 
-k i
-w !
-w "i is ={",i,"}" 
+tag w ""
+ s i="foo"
+ w "i is ={",i,"}" 
+ k i
+ w !
+ w "i is ={",i,"}" 
+
 ---
 i is ={foo}
 i is ={}
