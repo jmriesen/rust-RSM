@@ -1,4 +1,3 @@
-use lang_model::{commandChildren, BlockChildren};
 use tower_lsp::lsp_types::{
     Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent,
 };
@@ -27,27 +26,26 @@ impl Document {
         query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
 
-    pub fn update(&mut self, mut changes: Vec<TextDocumentContentChangeEvent>) {
-        let line_index: Vec<_> = std::iter::once(0)
-            .chain(self.source.match_indices('\n').map(|(x, _)| x + 1))
-            .collect();
+    pub fn line_start_index(&self, line_number: usize) -> Option<usize> {
+        std::iter::once(0)
+            .chain(self.source.match_indices('\n').map(
+                |(x, _)| x + 1, /*The +1 moves us to start of next line.*/
+            ))
+            .nth(line_number)
+    }
+    pub fn position_to_index(&self, position: Position) -> Option<usize> {
+        self.line_start_index(position.line as usize)
+            .map(|line_start| line_start + position.character as usize)
+    }
 
-        changes.sort_by_key(|x| {
-            let pos = x
-                .range
-                .expect("LSP is configured for incremental changes & they always provide a range")
-                .start;
-            (pos.line, pos.character)
-        });
-
-        //Go from back to front prevents indexes from changing underneath us.
-        //NOTE I have not tested with two concurrent changes
-        for change in changes.iter().rev() {
-            let get_index = |position: Position| {
-                line_index[position.line as usize] + position.character as usize
-            };
-            let start = get_index(change.range.unwrap().start);
-            let end = get_index(change.range.unwrap().end);
+    pub fn update(&mut self, changes: Vec<TextDocumentContentChangeEvent>) {
+        for change in changes.iter() {
+            let start = self
+                .position_to_index(change.range.unwrap().start)
+                .expect("Changed range must be pressent in the document");
+            let end = self
+                .position_to_index(change.range.unwrap().end)
+                .expect("Changed range must be pressent in the document");
 
             self.source.replace_range(start..end, &change.text);
         }
@@ -82,5 +80,87 @@ impl Document {
                 }
             })
             .collect()
+    }
+    pub fn text(&self) -> &str {
+        &self.source
+    }
+}
+#[cfg(test)]
+mod test {
+    use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent};
+
+    use crate::document::Document;
+
+    #[test]
+    fn debug_update_sequencal() {
+        let mut document = Document::new(
+"tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n".to_owned()
+            );
+        document.update(vec![TextDocumentContentChangeEvent {
+            range: Some(Range {
+                start: Position {
+                    line: 6,
+                    character: 9,
+                },
+                end: Position {
+                    line: 6,
+                    character: 9,
+                },
+            }),
+            range_length: Some(0),
+            text: "s".to_owned(),
+        }]);
+        document.update(vec![TextDocumentContentChangeEvent {
+            range: Some(Range {
+                start: Position {
+                    line: 6,
+                    character: 10,
+                },
+                end: Position {
+                    line: 6,
+                    character: 10,
+                },
+            }),
+            range_length: Some(0),
+            text: "t".to_owned(),
+        }]);
+        assert_eq!(document.text(), "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n")
+    }
+    #[test]
+    fn bug_update_bach() {
+        let mut document = Document::new(
+"tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n".to_owned()
+            );
+        document.update(vec![
+            TextDocumentContentChangeEvent {
+                range: Some(Range {
+                    start: Position {
+                        line: 6,
+                        character: 9,
+                    },
+                    end: Position {
+                        line: 6,
+                        character: 9,
+                    },
+                }),
+                range_length: Some(0),
+                text: "s".to_owned(),
+            },
+            TextDocumentContentChangeEvent {
+                range: Some(Range {
+                    start: Position {
+                        line: 6,
+                        character: 10,
+                    },
+                    end: Position {
+                        line: 6,
+                        character: 10,
+                    },
+                }),
+                range_length: Some(0),
+                text: "t".to_owned(),
+            },
+        ]);
+        assert_eq!(document.text(), "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n")
     }
 }
