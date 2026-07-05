@@ -42,6 +42,42 @@ struct ServerState {
     documents: RwLock<HashMap<Url, Document>>,
 }
 
+//NOTE: I am using a macro to define this type so the order of items always stays in sync.
+//The reference ordering must mach the variant ordering for the client/server to understand
+//each other.
+macro_rules! tokens {
+    ($( {$name:ident, $str_rep:expr, $semantic:expr})*) => {
+        #[repr(u32)]
+        pub enum TokenTypes {
+            $( $name, )*
+            Other,
+        }
+
+        impl TokenTypes {
+            pub fn from_node_type(node_kind: &str) -> Self {
+                match node_kind {
+                    $( $str_rep => Self::$name, )*
+                    _ => Self::Other,
+                }
+            }
+
+            pub fn reference_ordering() -> Vec<SemanticTokenType> {
+                vec![
+                    $( $semantic, )*
+                    SemanticTokenType::KEYWORD
+                ]
+            }
+        }
+    };
+}
+
+tokens! {
+    {Number,   "number",   SemanticTokenType::NUMBER}
+    {String,   "string",   SemanticTokenType::STRING}
+    {Variable, "Variable", SemanticTokenType::VARIABLE}
+    {TagName,  "TagName",  SemanticTokenType::METHOD}
+}
+
 #[tower_lsp::async_trait]
 impl LanguageServer for ServerState {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
@@ -56,13 +92,7 @@ impl LanguageServer for ServerState {
                         SemanticTokensOptions {
                             full: Some(SemanticTokensFullOptions::Bool(true)),
                             legend: SemanticTokensLegend {
-                                token_types: vec![
-                                    SemanticTokenType::NUMBER,
-                                    SemanticTokenType::STRING,
-                                    SemanticTokenType::VARIABLE,
-                                    SemanticTokenType::METHOD,
-                                    SemanticTokenType::KEYWORD,
-                                ],
+                                token_types: TokenTypes::reference_ordering(),
                                 ..Default::default()
                             },
                             ..Default::default()
@@ -104,14 +134,6 @@ impl LanguageServer for ServerState {
         let document = documents.get(&params.text_document.uri).unwrap();
         use tree_sitter::{Query, QueryCursor};
 
-        let key = |node_kind| match node_kind {
-            "number" => 0,
-            "string" => 1,
-            "Variable" => 2,
-            "TagName" => 3,
-            _ => 4,
-        };
-
         let query = Query::new(
             tree_sitter_mumps::language(),
             "[(number) (string) (Variable) (TagName)]@token",
@@ -137,7 +159,7 @@ impl LanguageServer for ServerState {
                     delta_line: to_lsp_int(start.row),
                     delta_start: to_lsp_int(start.column),
                     length: to_lsp_int(end.column - start.column),
-                    token_type: key(node.kind()), //TODO
+                    token_type: TokenTypes::from_node_type(node.kind()) as u32,
                     token_modifiers_bitset: 0,
                 }
             })
