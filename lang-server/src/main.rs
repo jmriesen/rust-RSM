@@ -176,15 +176,13 @@ impl LanguageServer for ServerState {
         let routine = documents
             .get(&params.text_document.uri)
             .expect("diagnostic can only be requested for open documents");
-        let warnings = routine.lint_tags_end_in_quit();
-        let warnings2 = routine.lines_after_unconditional_quit();
         let errors = routine.validate();
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
                 related_documents: None, //TODO: this could change
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                    items: [warnings, errors, warnings2].concat(),
+                    items: errors,
                     result_id: None,
                 },
             }),
