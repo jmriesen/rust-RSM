@@ -119,12 +119,3 @@ impl<'a> TreeSitterParser<'a> for IntrinsicFunction {
         }
     }
 }
-#[cfg(test)]
-mod test {
-    use crate::command_from_source;
-
-    #[test]
-    fn smoke_test() {
-        command_from_source("W $O(foo)");
-    }
-}

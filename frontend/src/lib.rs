@@ -86,20 +86,6 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
     Ok(lines)
 }
 
-pub fn wrap_in_routine(source_code: &str) -> Result<Routine, ParsingError> {
-    let source_code = source_code.replace('\n', "\n ");
-    let source_code = &format!("tag {source_code}\n");
-    parse_routine(source_code)
-}
-
-pub fn command_from_source(source_code: &str) -> Command {
-    let commands = wrap_in_routine(source_code).unwrap();
-    commands
-        .into_iter()
-        .flatten()
-        .next()
-        .expect("there should only be one command pressent")
-}
 #[cfg(test)]
 mod test {
     use crate::{ParsingError, parse_routine};
