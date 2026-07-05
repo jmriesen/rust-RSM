@@ -268,7 +268,7 @@ mod test {
     use rstest::rstest;
 
     fn run_code_check_output(source: &str, output: &str, error: &str) {
-        let routine = wrap_in_routine(source).unwrap();
+        let routine = frontend::parse_routine(source).unwrap();
         let byte_code = compile_routine(routine);
 
         let mut job = Job::new(&byte_code);
