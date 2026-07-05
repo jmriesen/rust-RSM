@@ -79,9 +79,7 @@ impl LanguageServer for ServerState {
                         },
                     },
                 )),
-                folding_range_provider: Some(FoldingRangeProviderCapability::FoldingProvider(
-                    FoldingProviderOptions {},
-                )),
+                folding_range_provider: None,
                 ..ServerCapabilities::default()
             },
             server_info: None,
@@ -167,30 +165,6 @@ impl LanguageServer for ServerState {
             result_id: None,
             data,
         })))
-    }
-
-    async fn folding_range(&self, params: FoldingRangeParams) -> Result<Option<Vec<FoldingRange>>> {
-        let documents = self.documents.read().unwrap();
-        let document = documents.get(&params.text_document.uri).unwrap();
-        use tree_sitter::{Query, QueryCursor};
-
-        let query = Query::new(tree_sitter_mumps::language(), "(Block)@token").unwrap();
-        let mut query_cursor = QueryCursor::new();
-
-        Ok(Some(
-            document
-                .query(&query, &mut query_cursor)
-                .map(|x| x.captures[0].node)
-                .map(|block| FoldingRange {
-                    start_line: to_lsp_int(block.start_position().row),
-                    start_character: Some(0),
-                    end_line: to_lsp_int(block.end_position().row),
-                    end_character: Some(0),
-                    kind: Some(FoldingRangeKind::Region),
-                    collapsed_text: Some(String::new()),
-                })
-                .collect(),
-        ))
     }
 
     async fn diagnostic(
