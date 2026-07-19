@@ -62,8 +62,7 @@ pub mod test {
 
     use crate::compile_routine;
     pub fn test_compile_command(source_code: &str) -> Vec<u8> {
-        use frontend::wrap_in_routine;
-        let commands = wrap_in_routine(source_code).unwrap();
+        let commands = frontend::parse_routine(&format!("tag {source_code}\n")).unwrap();
         compile_routine(commands)
     }
 
