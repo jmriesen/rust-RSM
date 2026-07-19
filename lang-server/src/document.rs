@@ -50,8 +50,7 @@ impl Document {
             self.source.replace_range(start..end, &change.text);
         }
 
-        //TODO: tree sitter supports updating the tree based on edits.
-        //If I figure out the api I could make this more efficient.
+        //OPTIMIZATION OPPORTUNITY: tree sitter supports updating the tree based on edits.
         self.tree = lang_model::create_tree(&self.source);
     }
 
