@@ -55,36 +55,38 @@ tokens! {
 /// Wrapper around a Node that is known to correspond to a Token
 pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
-/// SemanticToken but position is mesure in absolute rather then reletive terms
-pub struct AbsolutToken(SemanticToken);
+/// SemanticToken but position is measure in absolute rather than relative terms
+pub struct AbsolutToken{
+    pub line: u32,
+    pub column: u32,
+    pub length: u32,
+    pub token_type: u32,
+    pub token_modifiers_bitset: u32,
+}
 
 impl From<TokenNode<'_>> for AbsolutToken{
     fn from(TokenNode(node): TokenNode) -> Self {
         let start = node.start_position();
         let end = node.end_position();
-        AbsolutToken(
-            SemanticToken {
-                //NOTE Using absolutes position for now
-                //will convert into deltas latter.
-                delta_line: to_lsp_int(start.row),
-                delta_start: to_lsp_int(start.column),
+        AbsolutToken{
+                line: to_lsp_int(start.row),
+                column: to_lsp_int(start.column),
                 length: to_lsp_int(end.column - start.column),
                 token_type: TokenTypes::from_node_type(node.kind()) as u32,
                 token_modifiers_bitset: 0,
-            })
+            }
     }
 }
 impl AbsolutToken{
-    pub fn to_relitive(tokens:Vec<Self>)->Vec<SemanticToken>{
+    pub fn to_relitive(mut tokens:Vec<Self>)->Vec<SemanticToken>{
         // Stringing off the wrapper type
-        let mut tokens :Vec<_>= tokens.iter().map(|x| x.0).collect();
-        tokens.sort_by_key(|x| (x.delta_line, x.delta_start));
+        tokens.sort_by_key(|x| (x.line, x.column));
         // Inserting starting values.
         tokens.insert(
             0,
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 0,
+                AbsolutToken{
+                    line: 0,
+                    column: 0,
                     length: 0,
                     token_type: TokenTypes::Other as u32,
                     token_modifiers_bitset: 0,
@@ -93,13 +95,21 @@ impl AbsolutToken{
         tokens
             .array_windows()
             .map(|[previuse, current]| {
-                //NOTE: converting from absolute POS to deltas.
-                let mut current = *current;
-                current.delta_line -= previuse.delta_line;
-                if current.delta_line == 0 {
-                    current.delta_start -= previuse.delta_start;
+                SemanticToken { 
+                    delta_line: current.line-previuse.line,
+                    delta_start: 
+                    if current.line != previuse.line{
+                        //If starting a newline just use the current column.
+                        current.column
+                    }else{
+                        //Otherwise, calculate the diff.
+                        current.column- previuse.column
+                    },
+                    length: current.length,
+                    token_type: current.token_type,
+                    token_modifiers_bitset: current.token_modifiers_bitset 
                 }
-                current
+
             })
             .collect()
     }
