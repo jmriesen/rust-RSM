@@ -79,7 +79,7 @@ impl From<TokenNode<'_>> for AbsolutToken{
 }
 impl AbsolutToken{
     pub fn to_relitive(mut tokens:Vec<Self>)->Vec<SemanticToken>{
-        // Stringing off the wrapper type
+        // Tokens need to be in order for diff calculation.
         tokens.sort_by_key(|x| (x.line, x.column));
         // Inserting starting values.
         tokens.insert(
