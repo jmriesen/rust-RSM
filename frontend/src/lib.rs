@@ -1,5 +1,5 @@
 #![feature(iter_array_chunks)]
-use ir::{Routine, commands::Command};
+use ir::Routine;
 pub mod commands;
 pub mod expression;
 pub mod external_calls;

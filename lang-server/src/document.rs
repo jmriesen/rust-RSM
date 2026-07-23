@@ -1,9 +1,8 @@
 use tower_lsp::lsp_types::{
-    Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent,
+    Position, TextDocumentContentChangeEvent,
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
 
-use crate::util::PointExt;
 pub struct Document {
     ///Note the document and tree must always stay in sync.
     source: String,
@@ -54,6 +53,7 @@ impl Document {
         self.tree = lang_model::create_tree(&self.source);
     }
 
+    #[cfg(test)]
     pub fn text(&self) -> &str {
         &self.source
     }

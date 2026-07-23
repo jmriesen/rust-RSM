@@ -33,7 +33,7 @@ use std::{collections::HashMap, fs, sync::RwLock};
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 use tree_sitter::QueryCursor;
 
-use crate::{document::Document, errors::ErrorNode, tokens::{AbsolutToken, TokenNode}, util::to_lsp_int};
+use crate::{document::Document, errors::ErrorNode, tokens::{AbsolutToken, TokenNode}};
 
 mod document;
 mod util;
@@ -131,7 +131,7 @@ impl LanguageServer for ServerState {
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
-                related_documents: None, //TODO: this could change
+                related_documents: None,
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
                     items: errors,
                     result_id: None,
