@@ -86,16 +86,16 @@ impl Document {
 }
 #[cfg(test)]
 mod test {
+    use std::sync::LazyLock;
+
     use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent};
 
     use crate::document::Document;
 
-    #[test]
-    fn debug_update_sequencal() {
-        let mut document = Document::new(
-"tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n".to_owned()
-            );
-        document.update(vec![TextDocumentContentChangeEvent {
+    const DOC_BEFORE_EDIT: &str = "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n";
+    const DOC_AFTER_EDIT:  &str = "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n";
+    const FIRST_EDIT: LazyLock<TextDocumentContentChangeEvent> =
+        LazyLock::new(|| TextDocumentContentChangeEvent {
             range: Some(Range {
                 start: Position {
                     line: 6,
@@ -108,7 +108,12 @@ mod test {
             }),
             range_length: Some(0),
             text: "s".to_owned(),
-        }]);
+        });
+
+    #[test]
+    fn debug_update_sequencal() {
+        let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
+        document.update(vec![FIRST_EDIT.clone()]);
         document.update(vec![TextDocumentContentChangeEvent {
             range: Some(Range {
                 start: Position {
@@ -123,13 +128,11 @@ mod test {
             range_length: Some(0),
             text: "t".to_owned(),
         }]);
-        assert_eq!(document.text(), "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n")
+        assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
     #[test]
     fn bug_update_bach() {
-        let mut document = Document::new(
-"tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n".to_owned()
-            );
+        let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
         document.update(vec![
             TextDocumentContentChangeEvent {
                 range: Some(Range {
@@ -160,6 +163,6 @@ mod test {
                 text: "t".to_owned(),
             },
         ]);
-        assert_eq!(document.text(), "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n")
+        assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
 }
