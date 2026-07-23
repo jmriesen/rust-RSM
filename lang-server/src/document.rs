@@ -83,12 +83,8 @@ mod test {
             range_length: Some(0),
             text: "s".to_owned(),
         });
-
-    #[test]
-    fn debug_update_sequencal() {
-        let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
-        document.update(vec![FIRST_EDIT.clone()]);
-        document.update(vec![TextDocumentContentChangeEvent {
+    const SECOND_EDIT: LazyLock<TextDocumentContentChangeEvent> =
+        LazyLock::new(|| TextDocumentContentChangeEvent {
             range: Some(Range {
                 start: Position {
                     line: 6,
@@ -101,41 +97,22 @@ mod test {
             }),
             range_length: Some(0),
             text: "t".to_owned(),
-        }]);
+        });
+
+
+    #[test]
+    fn sequencal_updates() {
+        let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
+        document.update(vec![FIRST_EDIT.clone()]);
+        document.update(vec![SECOND_EDIT.clone()]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
     #[test]
-    fn bug_update_bach() {
+    fn batched_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
         document.update(vec![
-            TextDocumentContentChangeEvent {
-                range: Some(Range {
-                    start: Position {
-                        line: 6,
-                        character: 9,
-                    },
-                    end: Position {
-                        line: 6,
-                        character: 9,
-                    },
-                }),
-                range_length: Some(0),
-                text: "s".to_owned(),
-            },
-            TextDocumentContentChangeEvent {
-                range: Some(Range {
-                    start: Position {
-                        line: 6,
-                        character: 10,
-                    },
-                    end: Position {
-                        line: 6,
-                        character: 10,
-                    },
-                }),
-                range_length: Some(0),
-                text: "t".to_owned(),
-            },
+            FIRST_EDIT.clone(),
+            SECOND_EDIT.clone(),
         ]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
