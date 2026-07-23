@@ -54,32 +54,6 @@ impl Document {
         self.tree = lang_model::create_tree(&self.source);
     }
 
-    pub fn validate(&self) -> Vec<Diagnostic> {
-        use tree_sitter::{Query, QueryCursor};
-        let mut query_cursor = QueryCursor::new();
-        let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)@error").unwrap();
-        let expressions = self.query(&error_query, &mut query_cursor);
-
-        expressions
-            .map(|exp| {
-                let node = exp.captures[0].node;
-                Diagnostic {
-                    code_description: None,
-                    code: None,
-                    message: node.to_sexp(),
-                    source: None,
-                    tags: None,
-                    data: None,
-                    related_information: None,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    range: Range {
-                        start: node.start_position().to_position(),
-                        end: node.end_position().to_position(),
-                    },
-                }
-            })
-            .collect()
-    }
     pub fn text(&self) -> &str {
         &self.source
     }

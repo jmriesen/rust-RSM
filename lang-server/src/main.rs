@@ -31,12 +31,14 @@
 use std::{collections::HashMap, fs, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
+use tree_sitter::QueryCursor;
 
-use crate::{document::Document, tokens::{AbsolutToken, TokenNode}, util::to_lsp_int};
+use crate::{document::Document, errors::ErrorNode, tokens::{AbsolutToken, TokenNode}, util::to_lsp_int};
 
 mod document;
 mod util;
 mod tokens;
+mod errors;
 pub use tokens::TokenTypes;
 
 struct ServerState {
@@ -120,7 +122,12 @@ impl LanguageServer for ServerState {
         let routine = documents
             .get(&params.text_document.uri)
             .expect("diagnostic can only be requested for open documents");
-        let errors = routine.validate();
+
+        let mut query_cursor = QueryCursor::new();
+        let errors = routine.query(&errors::ERROR_QUERY, &mut query_cursor)
+            .map(|x| ErrorNode(x.captures[0].node))
+            .map(|x| x.into())
+            .collect();
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
