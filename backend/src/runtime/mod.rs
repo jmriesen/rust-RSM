@@ -264,11 +264,11 @@ mod test {
     };
 
     use crate::{compile_routine, runtime::Job};
-    use frontend::wrap_in_routine;
+    use frontend::parse_routine;
     use rstest::rstest;
 
     fn run_code_check_output(source: &str, output: &str, error: &str) {
-        let routine = wrap_in_routine(source).unwrap();
+        let routine = parse_routine(source).unwrap();
         let byte_code = compile_routine(routine);
 
         let mut job = Job::new(&byte_code);
@@ -328,7 +328,7 @@ mod test {
             .try_into()
             .unwrap();
         println!("Test Case:\nsrc:\n{}", src,);
-        let err = wrap_in_routine(src).unwrap_err();
+        let err = parse_routine(src).unwrap_err();
         assert_eq!(err.to_string(), output);
     }
 }

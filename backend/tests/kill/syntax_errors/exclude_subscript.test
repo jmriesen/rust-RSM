@@ -1,3 +1,5 @@
-k (i("a"))
+tag w ""
+ k (i("a"))
+
 ---
 kill exclusive is only supported for local variables with no subscripts

@@ -1,19 +1,21 @@
-s i="foo"
-s i("sub")="bar"
-w "root and sub exist",!
-w "i is ={",i,"}",! 
-w "i(sub) is ={",i("sub"),"}",! 
-w ""
-w "kill subscript",!
-k i("sub")
-w "i is ={",i,"}",! 
-w "i(sub) is ={",i("sub"),"}",!
-s i("sub")="bar"
-w ""
-w "kill root",!
-k i
-w "i is ={",i,"}",! 
-w "i(sub) is ={",i("sub"),"}"
+tag w ""
+ s i="foo"
+ s i("sub")="bar"
+ w "root and sub exist",!
+ w "i is ={",i,"}",! 
+ w "i(sub) is ={",i("sub"),"}",! 
+ w ""
+ w "kill subscript",!
+ k i("sub")
+ w "i is ={",i,"}",! 
+ w "i(sub) is ={",i("sub"),"}",!
+ s i("sub")="bar"
+ w ""
+ w "kill root",!
+ k i
+ w "i is ={",i,"}",! 
+ w "i(sub) is ={",i("sub"),"}"
+
 ---
 root and sub exist
 i is ={foo}

@@ -1,9 +1,11 @@
-i 1 
-w "Else does not "
-e  w !,"will NOT be printed"
-i 0 
-w "need to immediately follow if."
-e  w !,"will be printed"
+tag w ""
+ i 1 
+ w "Else does not "
+ e  w !,"will NOT be printed"
+ i 0 
+ w "need to immediately follow if."
+ e  w !,"will be printed"
+
 ---
 Else does not need to immediately follow if.
 will be printed

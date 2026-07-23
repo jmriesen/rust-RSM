@@ -1,10 +1,12 @@
-s i="foo"
-s j="bar"
-w "i is ={",i,"}",! 
-w "j is ={",j,"}",!
-k (i)
-w "i is ={",i,"}",! 
-w "j is ={",j,"}" 
+tag w ""
+ s i="foo"
+ s j="bar"
+ w "i is ={",i,"}",! 
+ w "j is ={",j,"}",!
+ k (i)
+ w "i is ={",i,"}",! 
+ w "j is ={",j,"}" 
+
 ---
 i is ={foo}
 j is ={bar}
