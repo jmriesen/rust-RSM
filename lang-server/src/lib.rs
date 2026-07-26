@@ -13,13 +13,21 @@ mod tokens;
 mod util;
 pub use tokens::TokenTypes;
 
-pub struct ServerState<Client: client::Client> {
-    pub client: Client,
-    pub documents: RwLock<HashMap<Url, Document>>,
+pub struct MumpsLsp<Client: client::Client> {
+    client: Client,
+    documents: RwLock<HashMap<Url, Document>>,
+}
+impl<Client: client::Client> MumpsLsp<Client> {
+    pub fn new(client: Client) -> Self {
+        Self {
+            client,
+            documents: RwLock::default(),
+        }
+    }
 }
 
 #[tower_lsp::async_trait]
-impl<Client: client::Client + 'static> LanguageServer for ServerState<Client> {
+impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {

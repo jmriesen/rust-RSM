@@ -32,15 +32,11 @@ use std::sync::RwLock;
 
 pub(crate) use tower_lsp::{LspService, Server};
 
-
 #[tokio::main]
 async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::new(|client| lang_server::ServerState {
-        client,
-        documents: RwLock::default(),
-    });
+    let (service, socket) = LspService::new(|client| lang_server::MumpsLsp::new(client));
     Server::new(stdin, stdout, socket).serve(service).await;
 }

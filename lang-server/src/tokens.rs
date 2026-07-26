@@ -127,7 +127,7 @@ mod test {
         LanguageServer,
     };
 
-    use crate::{test_url, ServerState};
+    use crate::{test_url, MumpsLsp};
     #[tokio::test]
     async fn test_tokenazation() {
         let uri: Url = test_url!();
@@ -138,10 +138,7 @@ mod test {
             .0
             .to_owned();
 
-        let lsp = ServerState {
-            client: (),
-            documents: Default::default(),
-        };
+        let lsp = MumpsLsp::new(());
         lsp.initialize(InitializeParams::default()).await.unwrap();
         lsp.did_open(DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
