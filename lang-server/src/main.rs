@@ -28,7 +28,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 #![warn(clippy::pedantic)]
-use std::{collections::HashMap, fs, sync::RwLock};
+use std::{collections::HashMap, fs, sync::{Arc, RwLock}};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 use tree_sitter::QueryCursor;
@@ -100,16 +100,9 @@ impl LanguageServer for ServerState {
     ) -> Result<Option<SemanticTokensResult>> {
         let documents = self.documents.read().unwrap();
         let document = documents.get(&params.text_document.uri).unwrap();
-        use tree_sitter::QueryCursor;
-
-        let mut query_cursor = QueryCursor::new();
-        let tokens: Vec<_> = document
-            .query(&TokenTypes::query(), &mut query_cursor)
-            .map(|x| TokenNode(x.captures[0].node))
-            .map(|x| AbsolutToken::from(x)).collect();
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
-            data:AbsolutToken::to_relitive(tokens),
+            data:document.tokens(),
         })))
     }
 

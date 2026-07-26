@@ -115,3 +115,17 @@ impl AbsolutToken{
     }
 }
 
+#[cfg(test)]
+mod test{
+    use std::fs;
+
+use insta::{assert_debug_snapshot};
+
+use crate::document::Document;
+    #[test]
+    fn test_tokenazation(){
+        let source = fs::read_to_string("../backend/tests/for/for_each.test").unwrap().split_once("\n---\n").unwrap().0.to_owned();
+        let document = Document::new(source);
+        assert_debug_snapshot!(document.tokens());
+    }
+}
