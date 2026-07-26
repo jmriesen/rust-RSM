@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 use std::{collections::HashMap, fs, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
-use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer};
+use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::QueryCursor;
 
 use crate::{document::Document, errors::ErrorNode};
@@ -10,15 +10,16 @@ mod document;
 mod util;
 mod tokens;
 mod errors;
+mod client;
 pub use tokens::TokenTypes;
 
-pub struct ServerState {
+pub struct ServerState<Client: client::Client> {
     pub client: Client,
     pub documents: RwLock<HashMap<Url, Document>>,
 }
 
 #[tower_lsp::async_trait]
-impl LanguageServer for ServerState {
+impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
