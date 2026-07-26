@@ -1,4 +1,4 @@
-use tower_lsp::lsp_types::* ;
+use tower_lsp::lsp_types::*;
 
 use crate::util::to_lsp_int;
 //NOTE: I am using a macro to define this type so the order of items always stays in sync.
@@ -56,7 +56,7 @@ tokens! {
 pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
 /// SemanticToken but position is measure in absolute rather than relative terms
-pub struct AbsolutToken{
+pub struct AbsolutToken {
     pub line: u32,
     pub column: u32,
     pub length: u32,
@@ -64,68 +64,110 @@ pub struct AbsolutToken{
     pub token_modifiers_bitset: u32,
 }
 
-impl From<TokenNode<'_>> for AbsolutToken{
+impl From<TokenNode<'_>> for AbsolutToken {
     fn from(TokenNode(node): TokenNode) -> Self {
         let start = node.start_position();
         let end = node.end_position();
-        AbsolutToken{
-                line: to_lsp_int(start.row),
-                column: to_lsp_int(start.column),
-                length: to_lsp_int(end.column - start.column),
-                token_type: TokenTypes::from_node_type(node.kind()) as u32,
-                token_modifiers_bitset: 0,
-            }
+        AbsolutToken {
+            line: to_lsp_int(start.row),
+            column: to_lsp_int(start.column),
+            length: to_lsp_int(end.column - start.column),
+            token_type: TokenTypes::from_node_type(node.kind()) as u32,
+            token_modifiers_bitset: 0,
+        }
     }
 }
-impl AbsolutToken{
-    pub fn to_relitive(mut tokens:Vec<Self>)->Vec<SemanticToken>{
+impl AbsolutToken {
+    pub fn to_relitive(mut tokens: Vec<Self>) -> Vec<SemanticToken> {
         // Tokens need to be in order for diff calculation.
         tokens.sort_by_key(|x| (x.line, x.column));
         // Inserting starting values.
         tokens.insert(
             0,
-                AbsolutToken{
-                    line: 0,
-                    column: 0,
-                    length: 0,
-                    token_type: TokenTypes::Other as u32,
-                    token_modifiers_bitset: 0,
-                },
+            AbsolutToken {
+                line: 0,
+                column: 0,
+                length: 0,
+                token_type: TokenTypes::Other as u32,
+                token_modifiers_bitset: 0,
+            },
         );
         tokens
             .array_windows()
             .map(|[previuse, current]| {
-                SemanticToken { 
-                    delta_line: current.line-previuse.line,
-                    delta_start: 
-                    if current.line != previuse.line{
+                SemanticToken {
+                    delta_line: current.line - previuse.line,
+                    delta_start: if current.line != previuse.line {
                         //If starting a newline just use the current column.
                         current.column
-                    }else{
+                    } else {
                         //Otherwise, calculate the diff.
-                        current.column- previuse.column
+                        current.column - previuse.column
                     },
                     length: current.length,
                     token_type: current.token_type,
-                    token_modifiers_bitset: current.token_modifiers_bitset 
+                    token_modifiers_bitset: current.token_modifiers_bitset,
                 }
-
             })
             .collect()
     }
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use std::fs;
 
-use insta::{assert_debug_snapshot};
+    use insta::assert_debug_snapshot;
+    use tower_lsp::{
+        lsp_types::{
+            DidOpenTextDocumentParams, InitializeParams, PartialResultParams, SemanticTokensParams,
+            SemanticTokensResult, TextDocumentIdentifier, TextDocumentItem, Url,
+            WorkDoneProgressParams,
+        },
+        LanguageServer,
+    };
 
-use crate::document::Document;
-    #[test]
-    fn test_tokenazation(){
-        let source = fs::read_to_string("../backend/tests/for/for_each.test").unwrap().split_once("\n---\n").unwrap().0.to_owned();
-        let document = Document::new(source);
-        assert_debug_snapshot!(document.tokens());
+    use crate::{test_url, ServerState};
+    #[tokio::test]
+    async fn test_tokenazation() {
+        let uri: Url = test_url!();
+        let source = fs::read_to_string("../backend/tests/for/for_each.test")
+            .unwrap()
+            .split_once("\n---\n")
+            .unwrap()
+            .0
+            .to_owned();
+
+        let lsp = ServerState {
+            client: (),
+            documents: Default::default(),
+        };
+        lsp.initialize(InitializeParams::default()).await.unwrap();
+        lsp.did_open(DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: uri.clone(),
+                language_id: "Mumps".to_owned(),
+                version: 0,
+                text: source,
+            },
+        })
+        .await;
+        if let Ok(Some(SemanticTokensResult::Tokens(tokens))) = lsp
+            .semantic_tokens_full(SemanticTokensParams {
+                //There is noise here from parmaiters I don't use/care about.
+                work_done_progress_params: WorkDoneProgressParams {
+                    work_done_token: None,
+                },
+                partial_result_params: PartialResultParams {
+                    partial_result_token: None,
+                },
+                text_document: TextDocumentIdentifier::new(uri),
+            })
+            .await
+        {
+            assert_debug_snapshot!(tokens.data);
+        } else {
+            panic!("tokens shoould have been generated")
+        };
     }
 }

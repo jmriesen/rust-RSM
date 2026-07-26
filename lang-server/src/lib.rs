@@ -1,16 +1,16 @@
 #![warn(clippy::pedantic)]
-use std::{collections::HashMap, fs, sync::RwLock};
+use std::{collections::HashMap, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::QueryCursor;
 
 use crate::{document::Document, errors::ErrorNode};
 
-mod document;
-mod util;
-mod tokens;
-mod errors;
 mod client;
+mod document;
+mod errors;
+mod tokens;
+mod util;
 pub use tokens::TokenTypes;
 
 pub struct ServerState<Client: client::Client> {
@@ -19,7 +19,7 @@ pub struct ServerState<Client: client::Client> {
 }
 
 #[tower_lsp::async_trait]
-impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
+impl<Client: client::Client + 'static> LanguageServer for ServerState<Client> {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
@@ -74,7 +74,7 @@ impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
         let document = documents.get(&params.text_document.uri).unwrap();
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
-            data:document.tokens(),
+            data: document.tokens(),
         })))
     }
 
@@ -89,7 +89,8 @@ impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
             .expect("diagnostic can only be requested for open documents");
 
         let mut query_cursor = QueryCursor::new();
-        let errors = routine.query(&errors::ERROR_QUERY, &mut query_cursor)
+        let errors = routine
+            .query(&errors::ERROR_QUERY, &mut query_cursor)
             .map(|x| ErrorNode(x.captures[0].node))
             .map(|x| x.into())
             .collect();
@@ -106,11 +107,10 @@ impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let source = fs::read_to_string(params.text_document.uri.to_file_path().unwrap()).unwrap();
-        self.documents
-            .write()
-            .unwrap()
-            .insert(params.text_document.uri, Document::new(source));
+        self.documents.write().unwrap().insert(
+            params.text_document.uri,
+            Document::new(params.text_document.text),
+        );
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {}
@@ -123,5 +123,18 @@ impl <Client: client::Client + 'static> LanguageServer for ServerState<Client> {
             .expect("The document should allready be open before changes are made")
             //It is fine to unwrap since the document must have been opened for there to be changes.
             .update(change.content_changes);
+    }
+}
+#[cfg(test)]
+pub mod test {
+    /// Creates a file based off the calling file+line number.
+    /// Intended as an easy way to get a unique Url for unit tests.
+    #[macro_export]
+    macro_rules! test_url {
+        () => {
+            concat!("file:///", core::file!(), ".", line!())
+                .parse()
+                .unwrap()
+        };
     }
 }
