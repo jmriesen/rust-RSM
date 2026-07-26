@@ -140,31 +140,7 @@ mod test {
 
         let lsp = MumpsLsp::new(());
         lsp.initialize(InitializeParams::default()).await.unwrap();
-        lsp.did_open(DidOpenTextDocumentParams {
-            text_document: TextDocumentItem {
-                uri: uri.clone(),
-                language_id: "Mumps".to_owned(),
-                version: 0,
-                text: source,
-            },
-        })
-        .await;
-        if let Ok(Some(SemanticTokensResult::Tokens(tokens))) = lsp
-            .semantic_tokens_full(SemanticTokensParams {
-                //There is noise here from parmaiters I don't use/care about.
-                work_done_progress_params: WorkDoneProgressParams {
-                    work_done_token: None,
-                },
-                partial_result_params: PartialResultParams {
-                    partial_result_token: None,
-                },
-                text_document: TextDocumentIdentifier::new(uri),
-            })
-            .await
-        {
-            assert_debug_snapshot!(tokens.data);
-        } else {
-            panic!("tokens shoould have been generated")
-        };
+        lsp.did_open(uri.clone(), source);
+        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
     }
 }

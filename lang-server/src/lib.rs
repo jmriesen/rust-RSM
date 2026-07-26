@@ -24,6 +24,17 @@ impl<Client: client::Client> MumpsLsp<Client> {
             documents: RwLock::default(),
         }
     }
+    pub fn did_open(&self, url: Url, text: String) {
+        self.documents
+            .write()
+            .unwrap()
+            .insert(url, Document::new(text));
+    }
+    pub fn tokens(&self, document: TextDocumentIdentifier) -> Vec<SemanticToken> {
+        let documents = self.documents.read().unwrap();
+        let document = documents.get(&document.uri).unwrap();
+        document.tokens()
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -114,11 +125,13 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         ))
     }
 
-    async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.documents.write().unwrap().insert(
-            params.text_document.uri,
-            Document::new(params.text_document.text),
-        );
+    async fn did_open(
+        &self,
+        DidOpenTextDocumentParams {
+            text_document: TextDocumentItem { uri, text, .. },
+        }: DidOpenTextDocumentParams,
+    ) {
+        Self::did_open(&self, uri, text);
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {}
