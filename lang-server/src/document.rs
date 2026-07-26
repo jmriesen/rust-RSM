@@ -1,5 +1,5 @@
 use tower_lsp::lsp_types::{
-    Position, SemanticToken, SemanticTokens, TextDocumentContentChangeEvent
+    Position, SemanticToken, TextDocumentContentChangeEvent
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
 
