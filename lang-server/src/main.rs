@@ -27,9 +27,6 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
-use std::sync::RwLock;
-
 pub(crate) use tower_lsp::{LspService, Server};
 
 #[tokio::main]

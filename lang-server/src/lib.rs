@@ -1,10 +1,15 @@
 #![warn(clippy::pedantic)]
 use std::{collections::HashMap, sync::RwLock};
+use tokio::sync::oneshot::error;
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::QueryCursor;
 
-use crate::{document::Document, errors::ErrorNode};
+use crate::{
+    document::{Document, DOCUMENT_SYNC_CAPABILITY},
+    errors::{ErrorNode, DIAGNOSTIC_CAPACITIES},
+    tokens::SEMANTIC_TOKENS_CAPABILITIES,
+};
 
 mod client;
 mod document;
@@ -42,33 +47,9 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::INCREMENTAL,
-                )),
-                definition_provider: Some(OneOf::Left(true)),
-                semantic_tokens_provider: Some(
-                    SemanticTokensServerCapabilities::SemanticTokensOptions(
-                        SemanticTokensOptions {
-                            full: Some(SemanticTokensFullOptions::Bool(true)),
-                            legend: SemanticTokensLegend {
-                                token_types: TokenTypes::reference_ordering(),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                    ),
-                ),
-                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
-                    DiagnosticOptions {
-                        identifier: None,
-                        inter_file_dependencies: true,
-                        workspace_diagnostics: false,
-                        work_done_progress_options: WorkDoneProgressOptions {
-                            work_done_progress: None,
-                        },
-                    },
-                )),
-                folding_range_provider: None,
+                text_document_sync: DOCUMENT_SYNC_CAPABILITY,
+                semantic_tokens_provider: SEMANTIC_TOKENS_CAPABILITIES.clone(),
+                diagnostic_provider: DIAGNOSTIC_CAPACITIES,
                 ..ServerCapabilities::default()
             },
             server_info: None,

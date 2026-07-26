@@ -1,9 +1,15 @@
+use crate::{
+    tokens::{AbsolutToken, TokenNode},
+    TokenTypes,
+};
 use tower_lsp::lsp_types::{
-    Position, SemanticToken, TextDocumentContentChangeEvent
+    Position, SemanticToken, TextDocumentContentChangeEvent, TextDocumentSyncCapability,
+    TextDocumentSyncKind,
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
-
-use crate::{TokenTypes, tokens::{AbsolutToken, TokenNode}};
+pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
+    TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL),
+);
 
 pub struct Document {
     ///Note the document and tree must always stay in sync.
@@ -59,12 +65,13 @@ impl Document {
     pub fn text(&self) -> &str {
         &self.source
     }
-    pub fn tokens(&self) ->Vec<SemanticToken>{
+    pub fn tokens(&self) -> Vec<SemanticToken> {
         let mut query_cursor = QueryCursor::new();
         let tokens: Vec<_> = self
             .query(&TokenTypes::query(), &mut query_cursor)
             .map(|x| TokenNode(x.captures[0].node))
-            .map(|x| AbsolutToken::from(x)).collect();
+            .map(|x| AbsolutToken::from(x))
+            .collect();
         AbsolutToken::to_relitive(tokens)
     }
 }
@@ -110,7 +117,6 @@ mod test {
             text: "t".to_owned(),
         });
 
-
     #[test]
     fn sequencal_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
@@ -121,10 +127,7 @@ mod test {
     #[test]
     fn batched_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
-        document.update(vec![
-            FIRST_EDIT.clone(),
-            SECOND_EDIT.clone(),
-        ]);
+        document.update(vec![FIRST_EDIT.clone(), SECOND_EDIT.clone()]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
 }

@@ -1,4 +1,19 @@
+use std::sync::LazyLock;
+
 use tower_lsp::lsp_types::*;
+pub const SEMANTIC_TOKENS_CAPABILITIES: LazyLock<Option<SemanticTokensServerCapabilities>> =
+    LazyLock::new(|| {
+        Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
+            SemanticTokensOptions {
+                full: Some(SemanticTokensFullOptions::Bool(true)),
+                legend: SemanticTokensLegend {
+                    token_types: TokenTypes::reference_ordering(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+    });
 
 use crate::util::to_lsp_int;
 //NOTE: I am using a macro to define this type so the order of items always stays in sync.
@@ -119,11 +134,7 @@ mod test {
 
     use insta::assert_debug_snapshot;
     use tower_lsp::{
-        lsp_types::{
-            DidOpenTextDocumentParams, InitializeParams, PartialResultParams, SemanticTokensParams,
-            SemanticTokensResult, TextDocumentIdentifier, TextDocumentItem, Url,
-            WorkDoneProgressParams,
-        },
+        lsp_types::{InitializeParams, TextDocumentIdentifier, Url},
         LanguageServer,
     };
 
