@@ -127,6 +127,16 @@ impl AbsolutToken {
             .collect()
     }
 }
+pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken> {
+    for i in 1..tokens.len() {
+        // If token is to long clip it.
+        // Only needed if overlaping tokes are not supported.
+        if tokens[i].delta_line == 0 && tokens[i - 1].length > tokens[i].delta_start {
+            tokens[i - 1].length = tokens[i].delta_start
+        }
+    }
+    tokens
+}
 
 #[cfg(test)]
 mod test {
@@ -134,13 +144,45 @@ mod test {
 
     use insta::assert_debug_snapshot;
     use tower_lsp::{
-        lsp_types::{InitializeParams, TextDocumentIdentifier, Url},
+        lsp_types::{
+            ClientCapabilities, InitializeParams, SemanticTokensClientCapabilities,
+            TextDocumentClientCapabilities, TextDocumentIdentifier, Url,
+        },
         LanguageServer,
     };
 
     use crate::{test_url, MumpsLsp};
     #[tokio::test]
-    async fn test_tokenazation() {
+    async fn overlapping() {
+        let uri: Url = test_url!();
+        let source = fs::read_to_string("../backend/tests/for/for_each.test")
+            .unwrap()
+            .split_once("\n---\n")
+            .unwrap()
+            .0
+            .to_owned();
+
+        let lsp = MumpsLsp::new(());
+        lsp.initialize(InitializeParams {
+            capabilities: ClientCapabilities {
+                text_document: Some(TextDocumentClientCapabilities {
+                    semantic_tokens: Some(SemanticTokensClientCapabilities {
+                        overlapping_token_support: Some(true),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+        lsp.did_open(uri.clone(), source);
+        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
+    }
+    #[tokio::test]
+    async fn non_overlapping() {
         let uri: Url = test_url!();
         let source = fs::read_to_string("../backend/tests/for/for_each.test")
             .unwrap()

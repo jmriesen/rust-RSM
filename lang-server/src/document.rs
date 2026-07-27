@@ -65,15 +65,6 @@ impl Document {
     pub fn text(&self) -> &str {
         &self.source
     }
-    pub fn tokens(&self) -> Vec<SemanticToken> {
-        let mut query_cursor = QueryCursor::new();
-        let tokens: Vec<_> = self
-            .query(&TokenTypes::query(), &mut query_cursor)
-            .map(|x| TokenNode(x.captures[0].node))
-            .map(|x| AbsolutToken::from(x))
-            .collect();
-        AbsolutToken::to_relitive(tokens)
-    }
 }
 
 #[cfg(test)]

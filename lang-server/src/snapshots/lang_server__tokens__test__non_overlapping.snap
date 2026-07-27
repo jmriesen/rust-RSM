@@ -1,6 +1,6 @@
 ---
 source: lang-server/src/tokens.rs
-expression: document.tokens()
+expression: "lsp.tokens(TextDocumentIdentifier::new(uri))"
 ---
 [
     SemanticToken {
@@ -13,7 +13,7 @@ expression: document.tokens()
     SemanticToken {
         delta_line: 0,
         delta_start: 4,
-        length: 4,
+        length: 2,
         token_type: 4,
         token_modifiers_bitset: 0,
     },
@@ -27,7 +27,7 @@ expression: document.tokens()
     SemanticToken {
         delta_line: 1,
         delta_start: 1,
-        length: 17,
+        length: 2,
         token_type: 4,
         token_modifiers_bitset: 0,
     },
@@ -48,7 +48,7 @@ expression: document.tokens()
     SemanticToken {
         delta_line: 1,
         delta_start: 1,
-        length: 9,
+        length: 2,
         token_type: 4,
         token_modifiers_bitset: 0,
     },
@@ -83,7 +83,7 @@ expression: document.tokens()
     SemanticToken {
         delta_line: 0,
         delta_start: 2,
-        length: 8,
+        length: 2,
         token_type: 4,
         token_modifiers_bitset: 0,
     },
@@ -97,7 +97,7 @@ expression: document.tokens()
     SemanticToken {
         delta_line: 1,
         delta_start: 1,
-        length: 16,
+        length: 2,
         token_type: 4,
         token_modifiers_bitset: 0,
     },

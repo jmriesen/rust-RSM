@@ -1,6 +1,5 @@
 #![warn(clippy::pedantic)]
 use std::{collections::HashMap, sync::RwLock};
-use tokio::sync::oneshot::error;
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::QueryCursor;
@@ -8,7 +7,7 @@ use tree_sitter::QueryCursor;
 use crate::{
     document::{Document, DOCUMENT_SYNC_CAPABILITY},
     errors::{ErrorNode, DIAGNOSTIC_CAPACITIES},
-    tokens::SEMANTIC_TOKENS_CAPABILITIES,
+    tokens::{remove_over_lapping, AbsolutToken, TokenNode, SEMANTIC_TOKENS_CAPABILITIES},
 };
 
 mod client;
@@ -21,12 +20,14 @@ pub use tokens::TokenTypes;
 pub struct MumpsLsp<Client: client::Client> {
     client: Client,
     documents: RwLock<HashMap<Url, Document>>,
+    allow_overlapping_tokens: RwLock<bool>,
 }
 impl<Client: client::Client> MumpsLsp<Client> {
     pub fn new(client: Client) -> Self {
         Self {
             client,
             documents: RwLock::default(),
+            allow_overlapping_tokens: RwLock::new(false),
         }
     }
     pub fn did_open(&self, url: Url, text: String) {
@@ -38,13 +39,34 @@ impl<Client: client::Client> MumpsLsp<Client> {
     pub fn tokens(&self, document: TextDocumentIdentifier) -> Vec<SemanticToken> {
         let documents = self.documents.read().unwrap();
         let document = documents.get(&document.uri).unwrap();
-        document.tokens()
+        let mut query_cursor = QueryCursor::new();
+        let tokens: Vec<_> = document
+            .query(&TokenTypes::query(), &mut query_cursor)
+            .map(|x| TokenNode(x.captures[0].node))
+            .map(|x| AbsolutToken::from(x))
+            .collect();
+
+        let tokens = AbsolutToken::to_relitive(tokens);
+        if *self.allow_overlapping_tokens.read().unwrap() {
+            tokens
+        } else {
+            remove_over_lapping(tokens)
+        }
     }
 }
 
 #[tower_lsp::async_trait]
 impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, client_config: InitializeParams) -> Result<InitializeResult> {
+        let supports_overlapping_tokens = client_config
+            .capabilities
+            .text_document
+            .map(|x| x.semantic_tokens.map(|x| x.overlapping_token_support))
+            .flatten()
+            .flatten()
+            .unwrap_or(false);
+        *self.allow_overlapping_tokens.write().unwrap() = supports_overlapping_tokens;
+
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: DOCUMENT_SYNC_CAPABILITY,
@@ -70,11 +92,9 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        let documents = self.documents.read().unwrap();
-        let document = documents.get(&params.text_document.uri).unwrap();
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
-            data: document.tokens(),
+            data: self.tokens(params.text_document),
         })))
     }
 
