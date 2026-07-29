@@ -151,7 +151,7 @@ mod test {
         LanguageServer,
     };
 
-    use crate::{test_url, MumpsLsp};
+    use crate::{partial, test_url, MumpsLsp};
     #[tokio::test]
     async fn overlapping() {
         let uri: Url = test_url!();
@@ -163,19 +163,15 @@ mod test {
             .to_owned();
 
         let lsp = MumpsLsp::new(());
-        lsp.initialize(InitializeParams {
+        lsp.initialize(partial!(InitializeParams {
             capabilities: ClientCapabilities {
                 text_document: Some(TextDocumentClientCapabilities {
                     semantic_tokens: Some(SemanticTokensClientCapabilities {
-                        overlapping_token_support: Some(true),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
+                        overlapping_token_support: Some(true)
+                    })
+                })
+            }
+        }))
         .await
         .unwrap();
         lsp.did_open(uri.clone(), source);
@@ -192,7 +188,17 @@ mod test {
             .to_owned();
 
         let lsp = MumpsLsp::new(());
-        lsp.initialize(InitializeParams::default()).await.unwrap();
+        lsp.initialize(partial!(InitializeParams {
+            capabilities: ClientCapabilities {
+                text_document: Some(TextDocumentClientCapabilities {
+                    semantic_tokens: Some(SemanticTokensClientCapabilities {
+                        overlapping_token_support: Some(false)
+                    })
+                })
+            }
+        }))
+        .await
+        .unwrap();
         lsp.did_open(uri.clone(), source);
         assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
     }

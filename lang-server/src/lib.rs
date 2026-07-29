@@ -11,6 +11,7 @@ use crate::{
 };
 
 mod client;
+mod config;
 mod document;
 mod errors;
 mod tokens;
