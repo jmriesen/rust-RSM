@@ -1,10 +1,5 @@
-use crate::{
-    tokens::{AbsolutToken, TokenNode},
-    TokenTypes,
-};
 use tower_lsp::lsp_types::{
-    Position, SemanticToken, TextDocumentContentChangeEvent, TextDocumentSyncCapability,
-    TextDocumentSyncKind,
+    Position, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
 pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
