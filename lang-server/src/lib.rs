@@ -2,12 +2,13 @@
 use std::{collections::HashMap, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
-use tree_sitter::QueryCursor;
+use tree_sitter::{QueryCursor, StreamingIterator};
 
 use crate::{
     document::{Document, DOCUMENT_SYNC_CAPABILITY},
     errors::{ErrorNode, DIAGNOSTIC_CAPACITIES},
     tokens::{remove_over_lapping, AbsolutToken, TokenNode, SEMANTIC_TOKENS_CAPABILITIES},
+    util::collect,
 };
 
 mod client;
@@ -41,11 +42,12 @@ impl<Client: client::Client> MumpsLsp<Client> {
         let documents = self.documents.read().unwrap();
         let document = documents.get(&document.uri).unwrap();
         let mut query_cursor = QueryCursor::new();
-        let tokens: Vec<_> = document
-            .query(&TokenTypes::query(), &mut query_cursor)
-            .map(|x| TokenNode(x.captures[0].node))
-            .map(|x| AbsolutToken::from(x))
-            .collect();
+        let tokens: Vec<_> = collect(
+            document
+                .query(&TokenTypes::query(), &mut query_cursor)
+                .map(|x| TokenNode(x.captures[0].node))
+                .map(|x| AbsolutToken::from(x)),
+        );
 
         let tokens = AbsolutToken::to_relitive(tokens);
         if *self.allow_overlapping_tokens.read().unwrap() {
@@ -110,11 +112,12 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             .expect("diagnostic can only be requested for open documents");
 
         let mut query_cursor = QueryCursor::new();
-        let errors = routine
-            .query(&errors::ERROR_QUERY, &mut query_cursor)
-            .map(|x| ErrorNode(x.captures[0].node))
-            .map(|x| x.into())
-            .collect();
+        let errors = collect(
+            routine
+                .query(&errors::ERROR_QUERY, &mut query_cursor)
+                .map(|x| ErrorNode(x.captures[0].node))
+                .map(|x| x.into()),
+        );
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {

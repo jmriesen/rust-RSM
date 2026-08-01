@@ -18,11 +18,11 @@ pub const DIAGNOSTIC_CAPACITIES: Option<DiagnosticServerCapabilities> =
 use crate::util::PointExt;
 
 pub const ERROR_QUERY: LazyLock<Query> =
-    LazyLock::new(|| Query::new(tree_sitter_mumps::language(), "(ERROR)@error").unwrap());
+    LazyLock::new(|| Query::new(&tree_sitter_mumps::language(), "(ERROR)@error").unwrap());
 pub struct ErrorNode<'a>(pub tree_sitter::Node<'a>);
 
-impl From<ErrorNode<'_>> for Diagnostic {
-    fn from(ErrorNode(node): ErrorNode<'_>) -> Self {
+impl From<&ErrorNode<'_>> for Diagnostic {
+    fn from(ErrorNode(node): &ErrorNode<'_>) -> Self {
         Diagnostic {
             code_description: None,
             code: None,

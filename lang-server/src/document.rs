@@ -20,11 +20,11 @@ impl Document {
         }
     }
 
-    pub fn query<'a>(
+    pub fn query<'a, 'query>(
         &'a self,
-        query: &'a Query,
+        query: &'query Query,
         query_cursor: &'a mut QueryCursor,
-    ) -> QueryMatches<'a, 'a, &'a [u8]> {
+    ) -> QueryMatches<'query, 'a, &'a [u8], &'a [u8]> {
         query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
 

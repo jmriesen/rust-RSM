@@ -43,7 +43,7 @@ macro_rules! tokens {
             }
             pub fn query()->tree_sitter::Query{
             tree_sitter::Query::new(
-                tree_sitter_mumps::language(),
+                &tree_sitter_mumps::language(),
                 concat!(
                     "[",
                         $( "(",$str_rep, ") ",)*
@@ -71,6 +71,7 @@ tokens! {
 pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
 /// SemanticToken but position is measure in absolute rather than relative terms
+#[derive(Clone, Copy)]
 pub struct AbsolutToken {
     pub line: u32,
     pub column: u32,
@@ -79,8 +80,8 @@ pub struct AbsolutToken {
     pub token_modifiers_bitset: u32,
 }
 
-impl From<TokenNode<'_>> for AbsolutToken {
-    fn from(TokenNode(node): TokenNode) -> Self {
+impl From<&TokenNode<'_>> for AbsolutToken {
+    fn from(TokenNode(node): &TokenNode) -> Self {
         let start = node.start_position();
         let end = node.end_position();
         AbsolutToken {

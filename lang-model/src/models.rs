@@ -1,5 +1,5 @@
 #![allow(non_camel_case_types)]
-use tree_sitter::Node;
+use tree_sitter::{Node, StreamingIterator};
 #[allow(clippy::result_unit_err)]
 pub fn type_tree<'a>(
     tree: &'a tree_sitter::Tree,
@@ -7,7 +7,7 @@ pub fn type_tree<'a>(
 ) -> Result<source_file<'a>, ()> {
     use tree_sitter::{Query, QueryCursor};
     let mut query_cursor = QueryCursor::new();
-    let error_query = Query::new(tree_sitter_mumps::language(), "(ERROR)").unwrap();
+    let error_query = Query::new(&tree_sitter_mumps::language(), "(ERROR)").unwrap();
     let errors = query_cursor.matches(&error_query, tree.root_node(), source_code.as_bytes());
     if errors.count() != 0 {
         Err(())
