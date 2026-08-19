@@ -176,7 +176,7 @@ var mumps_grammer = {
     //-------------------------------
     IndirectVariable: $ => seq("@", $.Expression, "@"),
     NakedVariable: $ => "^",
-    GlobalVariable: $ => "&",
+    GlobalVariable: $ => "^",
     GlobalUciVariable: $ => choice(
       seq("^|", $.Expression, "|"),
       //TODO check if square brackets are valid.
