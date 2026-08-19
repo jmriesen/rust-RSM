@@ -2182,14 +2182,9 @@ dependencies = [
 name = "wasm_lsp"
 version = "0.1.0"
 dependencies = [
- "js-sys",
  "lang-server",
  "monaco-tower-lsp-bridge",
- "tokio",
- "tower-lsp",
  "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
