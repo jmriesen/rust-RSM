@@ -34,7 +34,7 @@ pub use tree_sitter::Range;
 pub fn create_tree(source_code: &str) -> tree_sitter::Tree {
     use tree_sitter::Parser;
     let mut parser = Parser::new();
-    parser.set_language(tree_sitter_mumps::language()).unwrap();
+    parser.set_language(&tree_sitter_mumps::language()).unwrap();
 
     #[cfg(test)]
     let tree = parser.parse(source_code, None).unwrap();

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Rust RSM Demo </title>
+    <script type="module" src="./src/main.ts"></script>
+  </head>
+  <body style="background-color: #D0872E; display: flex; flex-direction: row; min-height: 100vh; margin: 0;">
+
+    <div id="column-1" style="flex: 1; min-width: 0;">
+      <h1>Rust RSM Demo</h1>
+      <div id="monaco-editor-root" style="height: 100%; width: 100%;"></div>
+    </div>
+
+    <div id="column-2" style="flex: 1; min-width: 0;">
+      <h1>README</h1>
+      <p>
+        This is a test site to display the current capacities of the RSM Project.
+        The at the moment the demo is only supports (limited) syntax highlighting, however I plan to expand this soon.
+      </p>
+      <h2>Demo Current Capacity</h2>
+      <ul>
+        <li>Syntax highlighting
+          <p>
+            Note: the current development has been focused on expressions, and implementing a few basic commands (set, write, for, etc). 
+            So much of the syntax regarding tags are not supported yet.
+          </p>
+        </li>
+      </ul>
+      <h2>In Development</h2>
+      <ul>
+        <li>
+          Connecting up "run code" to the web demo.
+          <br>
+          Partially supported Commands:
+          <ul>
+            <li>Set (local variable only)</li>
+            <li>Write</li>
+            <li>If/Else</li>
+            <li>For</li>
+          </ul>
+        </li>
+        <li>
+          Increasing the number of supported commands
+        </li>
+        
+      </ul>
+      <h2>Future plans</h2>
+      <ul>
+        <li>Variable renaming</li>
+        <li>Linting framework</li>
+        <li>Extract/Inline function</li>
+        <li>Testing Framework</li>
+      </ul>
+    </div>
+</html>

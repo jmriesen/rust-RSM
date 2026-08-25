@@ -1,7 +1,10 @@
 use tower_lsp::lsp_types::{
-    Position, TextDocumentContentChangeEvent,
+    Position, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
+pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
+    TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL),
+);
 
 pub struct Document {
     ///Note the document and tree must always stay in sync.
@@ -17,11 +20,11 @@ impl Document {
         }
     }
 
-    pub fn query<'a>(
+    pub fn query<'a, 'query>(
         &'a self,
-        query: &'a Query,
+        query: &'query Query,
         query_cursor: &'a mut QueryCursor,
-    ) -> QueryMatches<'a, 'a, &'a [u8]> {
+    ) -> QueryMatches<'query, 'a, &'a [u8], &'a [u8]> {
         query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
 
@@ -58,6 +61,7 @@ impl Document {
         &self.source
     }
 }
+
 #[cfg(test)]
 mod test {
     use std::sync::LazyLock;
@@ -99,7 +103,6 @@ mod test {
             text: "t".to_owned(),
         });
 
-
     #[test]
     fn sequencal_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
@@ -110,10 +113,7 @@ mod test {
     #[test]
     fn batched_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
-        document.update(vec![
-            FIRST_EDIT.clone(),
-            SECOND_EDIT.clone(),
-        ]);
+        document.update(vec![FIRST_EDIT.clone(), SECOND_EDIT.clone()]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
 }

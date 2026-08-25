@@ -1,0 +1,41 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "tree_sitter_mumps",
+      "camelcase": "TreeSitterMumps",
+      "title": "TreeSitterMumps",
+      "scope": "source.tree_sitter_mumps",
+      "file-types": [
+        "tree_sitter_mumps"
+      ],
+      "injection-regex": "^tree_sitter_mumps$",
+      "class-name": "TreeSitterTreeSitterMumps"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "TreeSitterMumps grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "Jacob Riesen",
+        "url": ""
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/tree-sitter/tree-sitter-tree_sitter_mumps",
+      "funding": ""
+    }
+  },
+  "bindings": {
+    "c": false,
+    "go": false,
+    "java": false,
+    "node": false,
+    "python": false,
+    "rust": true,
+    "swift": false,
+    "zig": false
+  }
+}

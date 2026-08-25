@@ -1,0 +1,13 @@
+[package]
+name = "wasm_lsp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2.126"
+lang-server = {path ="../../lang-server/",default-features=false}
+monaco-tower-lsp-bridge = {git = "https://github.com/jmriesen/Monaco-Tower-Lsp-Bridge", rev ="4917d43cf9e864bfd1af8936c46eecfe2c256557"}
+

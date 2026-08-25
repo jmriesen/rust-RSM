@@ -176,7 +176,7 @@ var mumps_grammer = {
     //-------------------------------
     IndirectVariable: $ => seq("@", $.Expression, "@"),
     NakedVariable: $ => "^",
-    GlobalVariable: $ => seq("^"),
+    GlobalVariable: $ => "^",
     GlobalUciVariable: $ => choice(
       seq("^|", $.Expression, "|"),
       //TODO check if square brackets are valid.
@@ -226,7 +226,11 @@ function caseInsensitive(keyword) {
 }
 
 function fn_regex(fn, abreviation_len) {
-  return choice(caseInsensitive(fn), caseInsensitive(fn.substring(0, abreviation_len)));
+  if (fn.length == abreviation_len){
+    return caseInsensitive(fn);
+  }else{
+    return choice(caseInsensitive(fn), caseInsensitive(fn.substring(0, abreviation_len)));
+  }
 }
 
 function fn_rule(grammer, fn, lower, upper, abreviation_len, variable_fn) {
@@ -404,17 +408,25 @@ commandTypes.forEach(
       if (x[1] != null) {
         args.push(optional(repeatDel(field('args', $[x[1]]), ",")));
       }
-      return seq(
-        $[x[0]],
-        ...postcondition,
-        choice(
-          seq(
-            " ",
-            ...args,
+      if (args.length ==0){
+         return seq(
+          $[x[0]],
+          ...postcondition,
+              " ",
+        );
+      }else{
+        return seq(
+          $[x[0]],
+          ...postcondition,
+          choice(
+            seq(
+              " ",
+              ...args,
+            ),
           ),
-        ),
 
-      );
+        );
+      }
     }
   }
 );

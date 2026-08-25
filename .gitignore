@@ -21,5 +21,6 @@ tags
 **/.*.sw[ponx]
 *.wasm
 *.m
-*.html
 *.DS_Store
+tarpaulin-report.html
+tree-sitter-M/log.html
