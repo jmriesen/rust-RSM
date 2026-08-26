@@ -23,11 +23,13 @@ var mumps_grammer = {
   ],
 
   rules: {
-    source_file: $ => seq(
-      field("name", $.TagName),
-      choice(
-        field("block", repeat1(seq(" ", $.line, "\n")))
-        , "\n")),
+    source_file: $ => repeat1($.line),
+    line: $=> seq(
+      optional($.TagName),
+      " ",
+      $.commands,
+      "\n"
+    ),
     WriteArg: $ => choice(
       $.Bang,
       $.Clear,
@@ -57,7 +59,7 @@ var mumps_grammer = {
     ),
     KillExclusive: $ => seq("(", $.Variable, ")"),
     KillInclusive: $ => $.Variable,
-    line: $ => seq(repeatDel($.command, " "), repeat(" ")),
+    commands: $ => seq(repeatDel($.command, " "), repeat(" ")),
     TagName: $ => choice($.identifier, $.NumericIdentifier),
     NumericIdentifier: $ => /\d{1,32}/,
     ExtrinsicFunction: $ => seq(
