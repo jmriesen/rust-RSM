@@ -27,15 +27,7 @@ var mumps_grammer = {
     Tag: $ => seq(field("name", $.TagName), choice(field("block", $.Block), "\n")),
     //TODO: Remove notion of a block M really does not have this and it is silly to pretend it does.
     //Linting for things like non continues blocks should be done later in the pipeline, after lexing and initial parsing.
-    Block: $ => seq(
-      $._indent,
-      repeat1(choice(
-        //NOTE including a newline here forces the routine to include a new line at the end.
-        seq($._line_level, $.line, "\n"),
-        $.Block
-      )),
-      $._dedent
-    ),
+    Block: $ =>repeat1(seq(" ", $.line, "\n")),
     WriteArg: $ => choice(
       $.Bang,
       $.Clear,
