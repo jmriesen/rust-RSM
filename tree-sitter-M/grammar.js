@@ -24,9 +24,10 @@ var mumps_grammer = {
 
   rules: {
     source_file: $ => repeat1($.line),
+    line_level2: $ => ".",
     line: $=> seq(
-      optional($.TagName),
-      optional(seq(" ",$.commands)),
+      optional(field('Tag',$.TagName)),
+      optional(seq(" ",repeat(field('level',$.line_level2)), field('commands',$.commands))),
       "\n"
     ),
     WriteArg: $ => choice(
