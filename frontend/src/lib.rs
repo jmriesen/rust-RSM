@@ -25,20 +25,20 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
-    #[error("Error ocurred when tree-sitter parsed the routine")]
+    #[error("Error occurred when tree-sitter parsed the routine")]
     TreeSitterError(()),
     #[error("Quit can only have zero or one argument")]
     QuitExtraArgs(lang_model::Range),
     #[error("Close always takes at least one argument")]
     CloseRequiresArgs(lang_model::Range),
     #[error("If always takes at least one argument")]
-    IfReqiresArgs(lang_model::Range),
+    IfRequireArgs(lang_model::Range),
     #[error("not yet supported:{}",.0)]
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
     KillExclusiveNonLocal(lang_model::Range),
     #[error(
-        "Excided max line length {MAX_LINE_LENGTH} TODO: this constratint should be eventually remove. Currently here to prevent stack overflows durring fuzzing"
+        "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]
     HitMaxLineLength,
 }
