@@ -21,6 +21,7 @@ use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
 mod r#for;
+mod if_else;
 mod macros;
 mod operators;
 pub mod program_counter;
@@ -194,21 +195,22 @@ impl<'a> Job<'a> {
                     let condition = self.r_values.pop().expect("Value to store on the stack");
                     self.test = bool::from(condition);
                     if !self.test {
-                        if !self.for_stack.is_empty() {
-                            Self::loop_body_post_check(
-                                &mut self.for_stack,
-                                &mut self.symbol_table,
-                                &mut self.pc,
-                                &mut self.error,
-                            );
-                        } else {
-                            self.pc.advance_to_next_line();
-                        }
+                        Self::if_jump(
+                            &mut self.for_stack,
+                            &mut self.symbol_table,
+                            &mut self.pc,
+                            &mut self.error,
+                        );
                     }
                 }
                 StackAssembally::ElseOp(_) => {
                     if self.test {
-                        self.pc.advance_to_next_line();
+                        Self::if_jump(
+                            &mut self.for_stack,
+                            &mut self.symbol_table,
+                            &mut self.pc,
+                            &mut self.error,
+                        );
                     }
                 }
                 StackAssembally::KillInstruction(kill) => {
