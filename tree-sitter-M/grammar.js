@@ -26,8 +26,7 @@ var mumps_grammer = {
     source_file: $ => repeat1($.line),
     line: $=> seq(
       optional($.TagName),
-      " ",
-      $.commands,
+      optional(seq(" ",$.commands)),
       "\n"
     ),
     WriteArg: $ => choice(
