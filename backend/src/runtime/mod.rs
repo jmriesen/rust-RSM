@@ -169,7 +169,7 @@ impl<'a> Job<'a> {
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {
-                    Self::handel_for_preamble(
+                    Self::loop_body_post_check(
                         &mut self.for_stack,
                         &mut self.symbole_table,
                         &mut self.pc,
@@ -194,7 +194,16 @@ impl<'a> Job<'a> {
                     let condition = self.r_values.pop().expect("Value to store on the stack");
                     self.test = bool::from(condition);
                     if !self.test {
-                        self.pc.advance_to_next_line();
+                        if !self.for_stack.is_empty() {
+                            Self::loop_body_post_check(
+                                &mut self.for_stack,
+                                &mut self.symbole_table,
+                                &mut self.pc,
+                                &mut self.error,
+                            );
+                        } else {
+                            self.pc.advance_to_next_line();
+                        }
                     }
                 }
                 StackAssembally::ElseOp(_) => {

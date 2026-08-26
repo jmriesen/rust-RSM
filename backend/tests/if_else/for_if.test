@@ -1,0 +1,11 @@
+tag w ""
+ for foo=1:1:3 write "foo:",foo,! if foo=2 w "bar",!
+
+---
+foo:1
+foo:2
+bar
+foo:3
+
+---
+
