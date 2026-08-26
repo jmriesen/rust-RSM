@@ -12,6 +12,25 @@ pub mod quit;
 pub mod set;
 pub mod write;
 
+/// Parses a line into a sequence of commands.
+pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Vec<Command>, ParsingError> {
+    let mut commands = vec![];
+
+    if !line.level().is_empty() {
+        return Err(ParsingError::NotYetSupported("Block indentation"));
+    }
+    let mut line_tail = line
+        .commands()
+        .map(|x| x.children())
+        .unwrap_or_default()
+        .into_iter();
+
+    while let Some(command) = line_tail.next() {
+        commands.push(new(&command, source_code, &mut line_tail)?);
+    }
+    Ok(commands)
+}
+
 pub fn new(
     sitter: &lang_model::command,
     source_code: &str,
