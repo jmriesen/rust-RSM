@@ -24,8 +24,8 @@ impl<'a> Job<'a> {
     pub(crate) fn init_for_loop(
         for_stack: &mut Vec<ForFrame>,
         r_values: &mut Vec<Value>,
-        for_preample: &mut Option<ForSet>,
-        symbole_table: &mut SymbolTable,
+        for_preamble: &mut Option<ForSet>,
+        symbol_table: &mut SymbolTable,
         for_start: ForStart,
     ) {
         let (end_value, increment, start_value) = match for_start {
@@ -41,7 +41,7 @@ impl<'a> Job<'a> {
             loop_variable,
             loop_body,
             r#break,
-        } = for_preample.take().expect("preamble must come before set");
+        } = for_preamble.take().expect("preamble must come before set");
         let var = Self::build_var(r_values, loop_variable);
         let new_frame = ForFrame {
             start_value,
@@ -51,7 +51,7 @@ impl<'a> Job<'a> {
             loop_body,
             r#break,
         };
-        symbole_table
+        symbol_table
             .set(&new_frame.var, &new_frame.start_value.clone().into())
             .unwrap();
         for_stack.push(new_frame);

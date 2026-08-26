@@ -78,7 +78,7 @@ pub enum StackAssembally {
     $($instruction($instruction),)*
     }
 
-$(impl StackAssemballyTrait for $instruction{})*
+$(impl StackAssemblyTrait for $instruction{})*
 
 impl<'a> ProgramCounter<'a> {
     pub fn next(&mut self) -> StackAssembally {
