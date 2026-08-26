@@ -43,10 +43,10 @@ pub struct Job<'a> {
     //This is needed since for loops are encoded as
     //Metadata expression expression expression loop body
     //so we need a place to put the metadata while evaluating the expressions
-    for_preample: Option<ForSet>,
+    for_preamble: Option<ForSet>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
-    symbole_table: SymbolTable,
+    symbol_table: SymbolTable,
 
     /// Stores the last result of the most resent if predicate.
     /// Used by else.
@@ -94,7 +94,7 @@ impl Decode for TEMP {
     }
 }
 
-pub(crate) trait StackAssemballyTrait: Decode {}
+pub(crate) trait StackAssemblyTrait: Decode {}
 StackAssembally! {
     LoadVar,
     SetCodes,
@@ -124,9 +124,9 @@ impl<'a> Job<'a> {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
-            for_preample: None,
+            for_preamble: None,
             for_stack: vec![],
-            symbole_table: SymbolTable::default(),
+            symbol_table: SymbolTable::default(),
             test: false,
             pc: ProgramCounter::new(byte_code),
             error: None,
@@ -158,20 +158,20 @@ impl<'a> Job<'a> {
                     self.r_values.push(op.apply(value));
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-                StackAssembally::ForSet(for_set) => self.for_preample = Some(for_set),
+                StackAssembally::ForSet(for_set) => self.for_preamble = Some(for_set),
                 StackAssembally::ForStart(for_start) => {
                     Self::init_for_loop(
                         &mut self.for_stack,
                         &mut self.r_values,
-                        &mut self.for_preample,
-                        &mut self.symbole_table,
+                        &mut self.for_preamble,
+                        &mut self.symbol_table,
                         for_start,
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {
                     Self::loop_body_post_check(
                         &mut self.for_stack,
-                        &mut self.symbole_table,
+                        &mut self.symbol_table,
                         &mut self.pc,
                         &mut self.error,
                     );
@@ -179,14 +179,14 @@ impl<'a> Job<'a> {
                 StackAssembally::NoOpCode(_no_op_code) => {}
                 StackAssembally::LoadVar(load_var) => {
                     let var = Self::build_var(&mut self.r_values, load_var.var);
-                    let val = self.symbole_table.get(&var).cloned().unwrap_or_default();
+                    let val = self.symbol_table.get(&var).cloned().unwrap_or_default();
                     self.r_values.push(val);
                 }
                 StackAssembally::SetCodes(code) => match code {
                     SetCodes::Var => {
                         let val = self.r_values.pop().expect("Value to store on the stack");
                         let var = self.l_values.pop().unwrap();
-                        self.symbole_table.set(&var, &val).unwrap();
+                        self.symbol_table.set(&var, &val).unwrap();
                     }
                 },
                 StackAssembally::TEMP { .. } => {}
@@ -197,7 +197,7 @@ impl<'a> Job<'a> {
                         if !self.for_stack.is_empty() {
                             Self::loop_body_post_check(
                                 &mut self.for_stack,
-                                &mut self.symbole_table,
+                                &mut self.symbol_table,
                                 &mut self.pc,
                                 &mut self.error,
                             );
@@ -220,12 +220,12 @@ impl<'a> Job<'a> {
                     match kill.r#type {
                         E::Inclusive => {
                             for var in l_values {
-                                self.symbole_table.kill(&var);
+                                self.symbol_table.kill(&var);
                             }
                         }
                         E::Exclusive => {
                             let names: Vec<_> = l_values.into_iter().map(|x| x.name).collect();
-                            self.symbole_table.keep(&names);
+                            self.symbol_table.keep(&names);
                         }
                     }
                 }

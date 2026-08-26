@@ -1,6 +1,6 @@
 use std::{fmt::Debug, ops::Range};
 
-use crate::runtime::{Decode, StackAssembally, StackAssemballyTrait};
+use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Location(pub usize);
@@ -12,7 +12,7 @@ impl Decode for Location {
         let Location(here) = decoder.program_counter;
         Some(Self(
             here + usize::try_from(jump_distance).expect(
-                "Currently only supporting forward jumps. May change if new funcionality needs it.",
+                "Currently only supporting forward jumps. May change if new functionality needs it.",
             ),
         ))
     }
@@ -79,7 +79,7 @@ impl<'a> ProgramCounter<'a> {
     /// Responsible for parsing **full** assembly instruction.
     /// This is atomic it will decode a full instruction and update the program counter,
     /// Or it will fail without modifying self's internal state.
-    pub(crate) fn try_decode<T: StackAssemballyTrait>(&mut self) -> Option<T> {
+    pub(crate) fn try_decode<T: StackAssemblyTrait>(&mut self) -> Option<T> {
         let mut decoder = AssemballyDecoder {
             source: self.source,
             program_counter: self.program_counter,
