@@ -57,16 +57,16 @@ impl<'a> Job<'a> {
         for_stack.push(new_frame);
     }
 
-    pub(crate) fn handel_for_preamble(
+    pub(crate) fn loop_body_post_check(
         for_stack: &mut Vec<ForFrame>,
-        symbole_table: &mut SymbolTable,
+        symbol_table: &mut SymbolTable,
         pc: &mut ProgramCounter<'_>,
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        if let Some(loop_var) = symbole_table.get(&for_frame.var) {
+        if let Some(loop_var) = symbol_table.get(&for_frame.var) {
             let next_loop_var = Number::from(loop_var.clone()) + for_frame.increment.clone();
-            symbole_table
+            symbol_table
                 .set(&for_frame.var, &next_loop_var.clone().into())
                 .unwrap();
 
