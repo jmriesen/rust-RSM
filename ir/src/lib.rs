@@ -15,4 +15,11 @@ pub use variable::Variable;
 
 use crate::commands::Command;
 
-pub type Routine = Vec<Vec<Command>>;
+#[derive(Debug)]
+pub struct Line {
+    //TODO:TAG
+    pub level: u16,
+    pub commands: Vec<Command>,
+}
+
+pub type Routine = Vec<Line>;

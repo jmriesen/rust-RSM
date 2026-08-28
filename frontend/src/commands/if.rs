@@ -8,7 +8,7 @@ use crate::{ParsingError, TreeSitterParser};
 
 pub fn new(sitter: &IfCommand, source_code: &str) -> Result<Command, ParsingError> {
     if sitter.args().is_empty() {
-        Err(ParsingError::IfReqiresArgs(sitter.node().range()))
+        Err(ParsingError::IfRequireArgs(sitter.node().range()))
     } else {
         Ok(Command::If(
             sitter

@@ -1,4 +1,5 @@
 use crate::{
+    Compile,
     commands::{
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
@@ -66,6 +67,7 @@ pub trait Encode: Sized {
 
 pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {EndLine=0}
+OpCode! {LineNum=170}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 OpCode! {JumpIfFalseCode=5}
@@ -95,6 +97,32 @@ impl Decode for TEMP {
     }
 }
 
+#[derive(Debug)]
+pub struct StartLine {
+    pub line_numb: u16,
+    pub level: u16,
+}
+
+impl Decode for StartLine {
+    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+        LineNum::decode(decoder)?;
+        Some(StartLine {
+            line_numb: u16::from_le_bytes(decoder.consume_n()),
+            level: u16::from_le_bytes(decoder.consume_n()),
+        })
+    }
+}
+
+impl Compile for StartLine {
+    type Context = ();
+
+    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
+        bite_code.push(LineNum.encode());
+        bite_code.extend(self.line_numb.to_le_bytes());
+        bite_code.extend(self.level.to_le_bytes());
+    }
+}
+
 pub(crate) trait StackAssemblyTrait: Decode {}
 StackAssembally! {
     LoadVar,
@@ -104,6 +132,7 @@ StackAssembally! {
     Binary,
     Unary,
     EndLine,
+    StartLine,
     EndCommand,
     ForSet,
     ForStart,
@@ -157,6 +186,9 @@ impl<'a> Job<'a> {
                 StackAssembally::Unary(op) => {
                     let value = self.r_values.pop().unwrap();
                     self.r_values.push(op.apply(value));
+                }
+                StackAssembally::StartLine(_) => {
+                    //TODO
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                 StackAssembally::ForSet(for_set) => self.for_preamble = Some(for_set),
@@ -290,8 +322,8 @@ mod test {
         // We should exit all the for lops
         assert_eq!(job.for_stack, vec![]);
 
-        let error_mesage = job.error.map(|x| x.to_string()).unwrap_or(String::new());
-        assert_eq!(error_mesage, error);
+        let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
+        assert_eq!(error_message, error);
     }
 
     #[rstest]

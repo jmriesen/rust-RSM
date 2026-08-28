@@ -1,4 +1,4 @@
-use ir::commands::Command;
+use ir::{Line, commands::Command};
 
 use crate::ParsingError;
 
@@ -13,12 +13,9 @@ pub mod set;
 pub mod write;
 
 /// Parses a line into a sequence of commands.
-pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Vec<Command>, ParsingError> {
+pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Line, ParsingError> {
     let mut commands = vec![];
 
-    if !line.level().is_empty() {
-        return Err(ParsingError::NotYetSupported("Block indentation"));
-    }
     let mut line_tail = line
         .commands()
         .map(|x| x.children())
@@ -28,7 +25,10 @@ pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Vec<Comman
     while let Some(command) = line_tail.next() {
         commands.push(new(&command, source_code, &mut line_tail)?);
     }
-    Ok(commands)
+    Ok(Line {
+        level: line.level().len() as u16,
+        commands,
+    })
 }
 
 pub fn new(
