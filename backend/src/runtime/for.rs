@@ -16,7 +16,7 @@ pub(crate) struct ForFrame {
     pub r#break: Location,
     start_value: Number,
     increment: Number,
-    end_value: Number,
+    end_value: Option<Number>,
     //TODO: Direction
 }
 
@@ -29,10 +29,18 @@ impl<'a> Job<'a> {
         for_start: ForStart,
     ) {
         let (end_value, increment, start_value) = match for_start {
-            ForStart::One => todo!(),
-            ForStart::Two => todo!(),
-            ForStart::Three => (
+            ForStart::One => (
+                None,
+                Number::one().clone(),
                 Number::from(r_values.pop().unwrap()),
+            ),
+            ForStart::Two => (
+                None,
+                Number::from(r_values.pop().unwrap()),
+                Number::from(r_values.pop().unwrap()),
+            ),
+            ForStart::Three => (
+                Some(Number::from(r_values.pop().unwrap())),
                 Number::from(r_values.pop().unwrap()),
                 Number::from(r_values.pop().unwrap()),
             ),
@@ -65,16 +73,19 @@ impl<'a> Job<'a> {
     ) {
         let for_frame = for_stack.last().unwrap();
         if let Some(loop_var) = symbol_table.get(&for_frame.var) {
+            //Handel increment.
             let next_loop_var = Number::from(loop_var.clone()) + for_frame.increment.clone();
             symbol_table
                 .set(&for_frame.var, &next_loop_var.clone().into())
                 .unwrap();
-
-            if next_loop_var <= for_frame.end_value {
-                pc.jump(for_frame.loop_body);
-            } else {
+            //Handle condition.
+            if let Some(end_value) = &for_frame.end_value
+                && next_loop_var > *end_value
+            {
                 pc.jump(for_frame.r#break);
                 for_stack.pop();
+            } else {
+                pc.jump(for_frame.loop_body);
             }
         } else {
             *error = Some(RuntimeError::UndefinedIndexVariable);
