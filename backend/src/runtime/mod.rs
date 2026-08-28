@@ -1,6 +1,7 @@
 use crate::{
     Compile,
     commands::{
+        r#do::DoArgLess,
         r#for::{ForEnd, ForSet, ForStart},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
@@ -144,6 +145,7 @@ StackAssembally! {
     PushVar,
     QuitCodes,
     JumpIfFalse,
+    DoArgLess,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -187,10 +189,17 @@ impl<'a> Job<'a> {
                     let value = self.r_values.pop().unwrap();
                     self.r_values.push(op.apply(value));
                 }
-                StackAssembally::StartLine(_) => {
-                    //TODO
+                StackAssembally::StartLine(line_info) => {
+                    if line_info.level != 0 {
+                        self.pc.advance_to_next_line();
+                    }
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
+                StackAssembally::DoArgLess(_) => {
+                    // Push value on the due stack.
+                    // Increment the line level.
+                    // Reset program counter.
+                }
                 StackAssembally::ForSet(for_set) => self.for_preamble = Some(for_set),
                 StackAssembally::ForStart(for_start) => {
                     Self::init_for_loop(

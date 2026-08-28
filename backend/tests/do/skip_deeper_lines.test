@@ -1,0 +1,9 @@
+tag w ""
+ write "foo",! write "bar",!
+ .write "baz",!
+---
+foo
+bar
+
+---
+
