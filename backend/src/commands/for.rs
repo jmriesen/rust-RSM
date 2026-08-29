@@ -28,6 +28,11 @@ impl Compile for For {
         let end_behavior = {
             match &self.kind {
                 ForKind::Infinite => {
+                    //  | Type | jump break | content | extra end command | Jump unconditional.
+                    //  Ok I can see why you might want to make this an unconditional jump.
+                    //  Doing the lookup is technicality not needed, but I think I would rather
+                    //  simplicity then absolute efficiently..
+                    //  so what would it look like to rewrite this.
                     bite_code.push(JumpCodes::ForUnconditional as u8);
                     EndBehavior {
                         break_jump: bite_code.reserve_jump(),
@@ -38,6 +43,8 @@ impl Compile for For {
                     variable,
                     arguments,
                 } => {
+                    //Variable | Jump to content  | jump break| Args | Type | content | extra end command | For end.
+                    //Variable | Args | Type | jump break| content | extra end command | For end.
                     variable.compile(bite_code, &VarContext::For);
                     // Jump pass the rest of the for commands arguments and strait to the loop body
                     let jump_to_content = bite_code.reserve_jump();
@@ -79,6 +86,7 @@ impl Compile for For {
                 break_jump,
                 unconditional_jump,
             } = end_behavior;
+            //This is a bit of wired ness? why is this differnt
             if let Some(location) = unconditional_jump {
                 //Jump back to start of for loop.
                 let jump = bite_code.unconditional_jump();
@@ -104,9 +112,9 @@ impl Decode for ForSet {
         const CODE: u8 = VarContext::For as u8;
         if let [CODE] = decoder.consume_n() {
             let loop_variable =
-                BuildVarInstructions::decode(decoder).expect("already verifyed we are in forset");
-            let loop_body = Decode::decode(decoder).expect("already verifyed we are in forset");
-            let break_jump = Decode::decode(decoder).expect("already verifyed we are in forset");
+                BuildVarInstructions::decode(decoder).expect("already verified we are in for set");
+            let loop_body = Decode::decode(decoder).expect("already verified we are in for set");
+            let break_jump = Decode::decode(decoder).expect("already verified we are in for set");
 
             Some(Self {
                 loop_variable,
