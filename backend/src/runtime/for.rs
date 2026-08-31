@@ -27,7 +27,7 @@ pub struct ForArgFrame {
 pub(crate) struct ForFrame {
     loop_body: Location,
     pub r#break: Location,
-    pub args: Option<ForArgFrame>, //TODO: Direction
+    pub args_frame: Option<ForArgFrame>, //TODO: Direction
 }
 
 impl<'a> Job<'a> {
@@ -52,17 +52,18 @@ impl<'a> Job<'a> {
         let new_frame = ForFrame {
             loop_body,
             r#break,
-            args,
+            args_frame: args,
         };
 
         for_stack.push(new_frame);
     }
 
     pub(crate) fn start_for_arg(
-        frame: &mut ForArgFrame,
+        frame: &mut ForFrame,
         r#type: ForArgType,
         symbol_table: &mut SymbolTable,
         r_values: &mut Vec<Value>,
+        pc: &mut ProgramCounter<'_>,
     ) {
         let (end_value, increment, initial_value) = match r#type {
             ForArgType::One => (
@@ -86,9 +87,17 @@ impl<'a> Job<'a> {
             increment,
             end_value,
         };
+        {
+            let args = &mut &mut frame
+                .args_frame
+                .as_mut()
+                .expect("For type should only be created if we are in an argument-ed for command");
 
-        frame.args = Some(arguments);
-        symbol_table.set(&frame.var, &initial_value.into()).unwrap();
+            args.args = Some(arguments);
+            symbol_table.set(&args.var, &initial_value.into()).unwrap();
+            args.pc = pc.current_location();
+        }
+        pc.jump(frame.loop_body);
     }
 
     pub(crate) fn loop_body_post_check(
@@ -98,34 +107,64 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        if let Some(args) = &for_frame.args {
-            let var = &args.var;
-            let args = args.args.as_ref().unwrap();
-            if let Some(loop_var) = symbol_table.get(&var) {
-                //Handel increment.
-                let next_loop_var = Number::from(loop_var.clone()) + args.increment.clone();
+        if let Some(args_frame) = &for_frame.args_frame {
+            let var = &args_frame.var;
+            let args = args_frame.args.as_ref().unwrap();
 
-                symbol_table
-                    .set(&var, &next_loop_var.clone().into())
-                    .unwrap();
-                //Handle condition.
-                if let Some(end_value) = &args.end_value
-                    && next_loop_var > *end_value
-                {
+            match increment_var(symbol_table, var, args.increment.clone()) {
+                Ok(new_value) => {
+                    if past_end_value(args, new_value) {
+                        if are_there_more_arguments(for_frame) {
+                            pc.jump(args_frame.pc);
+                        } else {
+                            pc.jump(for_frame.r#break);
+                            for_stack.pop();
+                        }
+                    } else {
+                        pc.jump(for_frame.loop_body);
+                    }
+                }
+                Err(err) => {
+                    *error = Some(err);
+                    // Error handling is not fully fleshed out yet.
                     pc.jump(for_frame.r#break);
                     for_stack.pop();
-                } else {
-                    pc.jump(for_frame.loop_body);
                 }
-            } else {
-                *error = Some(RuntimeError::UndefinedIndexVariable);
-                // Error handling is not fully fleshed out yet.
-                pc.jump(for_frame.r#break);
-                for_stack.pop();
             }
         } else {
             // No arguments just loop again.
             pc.jump(for_frame.loop_body);
         }
+    }
+}
+
+fn past_end_value(args: &Arguments, new_value: Number) -> bool {
+    if let Some(end_value) = &args.end_value {
+        new_value > *end_value
+    } else {
+        //No end value to go past.
+        false
+    }
+}
+fn are_there_more_arguments(frame: &ForFrame) -> bool {
+    if let Some(args) = &frame.args_frame {
+        dbg!(args.pc) != dbg!(frame.loop_body)
+    } else {
+        //This is an argument-less loop.
+        false
+    }
+}
+
+fn increment_var(
+    symbol_table: &mut SymbolTable,
+    var: &MVar<Path>,
+    increment: Number,
+) -> Result<Number, RuntimeError> {
+    if let Some(loop_var) = symbol_table.get(&var) {
+        let new_value = Number::from(loop_var.clone()) + increment;
+        symbol_table.set(&var, &new_value.clone().into()).unwrap();
+        Ok(new_value)
+    } else {
+        Err(RuntimeError::UndefinedIndexVariable)
     }
 }

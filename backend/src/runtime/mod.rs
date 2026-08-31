@@ -159,17 +159,11 @@ impl<'a> Job<'a> {
                 }
                 StackAssembally::ForArgType(r#type) => {
                     Self::start_for_arg(
-                        &mut self
-                            .for_stack
-                            .last_mut()
-                            .as_mut()
-                            .unwrap()
-                            .args
-                            .as_mut()
-                            .unwrap(),
+                        &mut self.for_stack.last_mut().as_mut().unwrap(),
                         r#type,
                         &mut self.symbol_table,
                         &mut self.r_values,
+                        &mut self.pc,
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {

@@ -128,4 +128,8 @@ impl<'a> ProgramCounter<'a> {
             };
         }
     }
+
+    pub(crate) fn current_location(&self) -> Location {
+        self.program_counter
+    }
 }
