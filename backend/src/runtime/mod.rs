@@ -157,7 +157,7 @@ impl<'a> Job<'a> {
                 StackAssembally::ForMetaData(meta_data) => {
                     Self::initialize_for_loop(&mut self.for_stack, &mut self.r_values, meta_data);
                 }
-                StackAssembally::ForArgType(r#type) => {
+                StackAssembally::ForRangeType(r#type) => {
                     Self::initialize_for_range(
                         &mut self.for_stack.last_mut().as_mut().unwrap(),
                         r#type,
