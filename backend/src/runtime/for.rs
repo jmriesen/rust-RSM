@@ -148,9 +148,11 @@ fn past_end_value(args: &Arguments, new_value: Number) -> bool {
 }
 fn are_there_more_arguments(frame: &ForFrame) -> bool {
     if let Some(args) = &frame.args_frame {
-        dbg!(args.pc) != dbg!(frame.loop_body)
+        // arguments are stored right before the loop body.
+        // If the args pc has gotten to the loop body we have read everything.
+        args.pc != frame.loop_body
     } else {
-        //This is an argument-less loop.
+        // This is an argument-less loop.
         false
     }
 }
