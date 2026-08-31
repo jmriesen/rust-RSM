@@ -1,9 +1,8 @@
 use ir::commands::r#for::{For, ForKind};
-use value::Number;
 
 use crate::{
     Compile,
-    bite_code::{BiteCode, JumpCodes, JumpLocation, Location},
+    bite_code::BiteCode,
     expression::ExpressionContext,
     runtime::{Decode, EndCommand, NoOpCode, OpCode, OpCodes, program_counter::AssemballyDecoder},
     variable::{BuildVarInstructions, VarContext},
@@ -24,13 +23,6 @@ ForStart {
     Arguments = 177,
 }}
 OpCode! {ForEnd =178}
-
-#[derive(Debug)]
-pub struct Arguments {
-    initial_value: Number,
-    increment: Number,
-    end_value: Option<Number>,
-}
 
 #[derive(Debug)]
 pub struct ForArgMetaData {

@@ -101,6 +101,7 @@ StackAssembally! {
     EndLine,
     EndCommand,
     ForMetaData,
+    ForArgType,
     ForEnd,
     NoOpCode,
     IfOp,
@@ -152,8 +153,24 @@ impl<'a> Job<'a> {
                     self.r_values.push(op.apply(value));
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
+
                 StackAssembally::ForMetaData(meta_data) => {
-                    dbg!(meta_data);
+                    Self::initialize_for_loop(&mut self.for_stack, &mut self.r_values, meta_data);
+                }
+                StackAssembally::ForArgType(r#type) => {
+                    Self::start_for_arg(
+                        &mut self
+                            .for_stack
+                            .last_mut()
+                            .as_mut()
+                            .unwrap()
+                            .args
+                            .as_mut()
+                            .unwrap(),
+                        r#type,
+                        &mut self.symbol_table,
+                        &mut self.r_values,
+                    );
                 }
                 StackAssembally::ForEnd(_for_end) => {
                     Self::loop_body_post_check(
