@@ -2,10 +2,7 @@ use super::{
     Job,
     program_counter::{Location, ProgramCounter},
 };
-use crate::{
-    commands::r#for::{ForSet, ForStart},
-    runtime::RuntimeError,
-};
+use crate::{commands::r#for::ForArgType, runtime::RuntimeError};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
@@ -21,25 +18,26 @@ pub(crate) struct ForFrame {
 }
 
 impl<'a> Job<'a> {
+    /*
     pub(crate) fn init_for_loop(
         for_stack: &mut Vec<ForFrame>,
         r_values: &mut Vec<Value>,
         for_preamble: &mut Option<ForSet>,
         symbol_table: &mut SymbolTable,
-        for_start: ForStart,
+        for_start: ForArgType,
     ) {
         let (end_value, increment, start_value) = match for_start {
-            ForStart::One => (
+            ForArgType::One => (
                 None,
                 Number::one().clone(),
                 Number::from(r_values.pop().unwrap()),
             ),
-            ForStart::Two => (
+            ForArgType::Two => (
                 None,
                 Number::from(r_values.pop().unwrap()),
                 Number::from(r_values.pop().unwrap()),
             ),
-            ForStart::Three => (
+            ForArgType::Three => (
                 Some(Number::from(r_values.pop().unwrap())),
                 Number::from(r_values.pop().unwrap()),
                 Number::from(r_values.pop().unwrap()),
@@ -64,6 +62,7 @@ impl<'a> Job<'a> {
             .unwrap();
         for_stack.push(new_frame);
     }
+    */
 
     pub(crate) fn loop_body_post_check(
         for_stack: &mut Vec<ForFrame>,
