@@ -9,7 +9,7 @@ use crate::{
 };
 
 OpCodes! {
-ForArgType {
+ForRangeType {
     One = 174,
     Two = 175,
     Three = 176,
@@ -27,8 +27,8 @@ OpCode! {ForEnd =178}
 #[derive(Debug)]
 pub struct ForArgMetaData {
     pub loop_variable: BuildVarInstructions,
-    /// tracks source code for next argument group.
-    pub argument_pc: crate::runtime::program_counter::Location,
+    /// tracks source code for next `Range` group.
+    pub range_pc: crate::runtime::program_counter::Location,
 }
 
 #[derive(Debug)]
@@ -43,7 +43,7 @@ impl Compile for For {
     /*
      * | Meta Data                                       |  Args Program Counter            | Body PC | Meta Data |
      * | ForStart::Argument_less| body_jump | break_jump | _ | _                                       | Body    | For End   |
-     * | ForStart::Arguments    | body_jump | break_jump | Variable | (Args | For Arg type argument )* | Body    | For End   |
+     * | ForStart::Arguments    | body_jump | break_jump | Variable | (Range | For Range type argument )* | Body    | For End   |
      *
      * */
     fn compile(&self, bite_code: &mut BiteCode, _: &()) {
@@ -62,10 +62,10 @@ impl Compile for For {
         {
             variable.compile(bite_code, &VarContext::For);
 
-            for args in arguments {
-                args.start.compile(bite_code, &ExpressionContext::Eval);
+            for range in arguments {
+                range.start.compile(bite_code, &ExpressionContext::Eval);
 
-                if let Some((inc, end)) = &args.increment_end {
+                if let Some((inc, end)) = &range.increment_end {
                     inc.compile(bite_code, &ExpressionContext::Eval);
 
                     if let Some(end) = end {
@@ -73,10 +73,10 @@ impl Compile for For {
                     }
                 }
 
-                bite_code.push(match args.increment_end {
-                    None => ForArgType::One,
-                    Some((_, None)) => ForArgType::Two,
-                    Some((_, Some(_))) => ForArgType::Three,
+                bite_code.push(match range.increment_end {
+                    None => ForRangeType::One,
+                    Some((_, None)) => ForRangeType::Two,
+                    Some((_, Some(_))) => ForRangeType::Three,
                 } as u8);
             }
         }
@@ -113,7 +113,7 @@ impl Decode for ForMetaData {
 
                 Some(ForArgMetaData {
                     loop_variable,
-                    argument_pc: decoder.current_location(),
+                    range_pc: decoder.current_location(),
                 })
             }
         };

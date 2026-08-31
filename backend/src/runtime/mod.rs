@@ -1,6 +1,6 @@
 use crate::{
     commands::{
-        r#for::{ForArgType, ForEnd, ForMetaData},
+        r#for::{ForEnd, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
         quit::QuitCodes,
@@ -101,7 +101,7 @@ StackAssembally! {
     EndLine,
     EndCommand,
     ForMetaData,
-    ForArgType,
+    ForRangeType,
     ForEnd,
     NoOpCode,
     IfOp,
@@ -158,7 +158,7 @@ impl<'a> Job<'a> {
                     Self::initialize_for_loop(&mut self.for_stack, &mut self.r_values, meta_data);
                 }
                 StackAssembally::ForArgType(r#type) => {
-                    Self::start_for_arg(
+                    Self::initialize_for_range(
                         &mut self.for_stack.last_mut().as_mut().unwrap(),
                         r#type,
                         &mut self.symbol_table,
@@ -167,7 +167,7 @@ impl<'a> Job<'a> {
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {
-                    Self::loop_body_post_check(
+                    Self::loop_condition_check_slash_increment(
                         &mut self.for_stack,
                         &mut self.symbol_table,
                         &mut self.pc,
