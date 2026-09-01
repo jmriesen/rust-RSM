@@ -80,14 +80,20 @@ pub enum StackAssembally {
 
 $(impl StackAssemblyTrait for $instruction{})*
 
-impl<'a> ProgramCounter<'a> {
-    pub fn next(&mut self) -> StackAssembally {
-        //Starting with none so that everything follows the same pattern.
-        None
-        $(.or_else(|| self.try_decode().map(StackAssembally::$instruction)))*
-            .expect("Provided source was invalid/corruped")
+    impl<'a> ProgramCounter<'a> {
+            pub fn next(&mut self) -> Option<StackAssembally> {
+                if self.end(){
+                    None
+                }else{
+                    Some(
+                        //Starting with none so that everything follows the same pattern.
+                        None
+                        $(.or_else(|| self.try_decode().map(StackAssembally::$instruction)))*
+                            .expect("Provided source was invalid/corrupted")
+                    )
+                }
+            }
+        }
     }
-}
-}
 }
 pub(crate) use StackAssembally;

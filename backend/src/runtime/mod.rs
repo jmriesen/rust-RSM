@@ -13,7 +13,7 @@ use crate::{
         r#for::ForFrame,
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemballyDecoder, ProgramCounter},
+        program_counter::{AssemballyDecoder, Location, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
@@ -35,21 +35,25 @@ pub(crate) enum RuntimeError {
     NotYetSupported(&'static str),
 }
 
+struct DoFrame<'a> {
+    pc: ProgramCounter<'a>,
+    // Metadata for all for loops.
+    for_stack: Vec<ForFrame>,
+    /// Stores the last result of the most resent if predicate.
+    /// Used by else.
+    test: bool,
+}
+
 pub struct Job<'a> {
-    //Replace with a proper output device later.
+    //TODO: Replace with a proper output device later.
     buffer: String,
     /// Stack of values
     r_values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).
     l_values: Vec<MVar<Path>>,
-    // Metadata for all for loops.
-    for_stack: Vec<ForFrame>,
     symbol_table: SymbolTable,
-
-    /// Stores the last result of the most resent if predicate.
-    /// Used by else.
-    test: bool,
-    pc: ProgramCounter<'a>,
+    /// Do Stack
+    stack: Vec<DoFrame<'a>>,
 
     error: Option<RuntimeError>,
 }
@@ -151,16 +155,18 @@ impl<'a> Job<'a> {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
-            for_stack: vec![],
             symbol_table: SymbolTable::default(),
-            test: false,
-            pc: ProgramCounter::new(byte_code),
             error: None,
+            stack: vec![DoFrame {
+                pc: ProgramCounter::new(byte_code),
+                for_stack: vec![],
+                test: false,
+            }],
         }
     }
     pub fn run(&mut self) {
-        while !self.pc.end() {
-            match self.pc.next() {
+        while !self.stack.last().map(|x| x.pc.end()).unwrap_or(false) {
+            match self.stack.last_mut().unwrap().pc.next() {
                 StackAssembally::Value(value) => {
                     self.r_values.push(value);
                 }
@@ -185,7 +191,7 @@ impl<'a> Job<'a> {
                 }
                 StackAssembally::StartLine(line_info) => {
                     if line_info.level != 0 {
-                        self.pc.advance_to_next_line();
+                        self.stack.last_mut().unwrap().pc.advance_to_next_line();
                     }
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
@@ -195,22 +201,28 @@ impl<'a> Job<'a> {
                     // Reset program counter.
                 }
                 StackAssembally::ForMetaData(meta_data) => {
-                    Self::initialize_for_loop(&mut self.for_stack, &mut self.r_values, meta_data);
+                    Self::initialize_for_loop(
+                        &mut self.stack.last_mut().unwrap().for_stack,
+                        &mut self.r_values,
+                        meta_data,
+                    );
                 }
                 StackAssembally::ForRangeType(r#type) => {
+                    let frame = self.stack.last_mut().unwrap();
                     Self::initialize_for_range(
-                        &mut self.for_stack.last_mut().as_mut().unwrap(),
+                        &mut frame.for_stack.last_mut().as_mut().unwrap(),
                         r#type,
                         &mut self.symbol_table,
                         &mut self.r_values,
-                        &mut self.pc,
+                        &mut frame.pc,
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {
+                    let frame = self.stack.last_mut().unwrap();
                     Self::loop_condition_check_slash_increment(
-                        &mut self.for_stack,
+                        &mut frame.for_stack,
                         &mut self.symbol_table,
-                        &mut self.pc,
+                        &mut frame.pc,
                         &mut self.error,
                     );
                 }
@@ -230,22 +242,24 @@ impl<'a> Job<'a> {
                 StackAssembally::TEMP { .. } => {}
                 StackAssembally::IfOp(_) => {
                     let condition = self.r_values.pop().expect("Value to store on the stack");
-                    self.test = bool::from(condition);
-                    if !self.test {
+                    let frame = self.stack.last_mut().unwrap();
+                    frame.test = bool::from(condition);
+                    if !frame.test {
                         Self::if_jump(
-                            &mut self.for_stack,
+                            &mut frame.for_stack,
                             &mut self.symbol_table,
-                            &mut self.pc,
+                            &mut frame.pc,
                             &mut self.error,
                         );
                     }
                 }
                 StackAssembally::ElseOp(_) => {
-                    if self.test {
+                    let frame = self.stack.last_mut().unwrap();
+                    if frame.test {
                         Self::if_jump(
-                            &mut self.for_stack,
+                            &mut frame.for_stack,
                             &mut self.symbol_table,
-                            &mut self.pc,
+                            &mut frame.pc,
                             &mut self.error,
                         );
                     }
@@ -274,11 +288,12 @@ impl<'a> Job<'a> {
                 }
                 StackAssembally::QuitCodes(quit_codes) => match quit_codes {
                     QuitCodes::WithoutArg => {
-                        let for_stack = self
+                        let frame = self.stack.last_mut().unwrap();
+                        let for_frame = frame
                             .for_stack
                             .pop()
-                            .expect("Quits are currnly only supported in for loops");
-                        self.pc.jump(for_stack.r#break);
+                            .expect("Quits are currently only supported in for loops");
+                        frame.pc.jump(for_frame.r#break);
                     }
                     QuitCodes::WithArg => {
                         let _ = self.r_values.pop().unwrap();
@@ -288,7 +303,7 @@ impl<'a> Job<'a> {
                 StackAssembally::JumpIfFalse(jump) => {
                     let condition = self.r_values.pop().expect("Value to store on the stack");
                     if !bool::from(condition) {
-                        self.pc.jump(jump.target)
+                        self.stack.last_mut().unwrap().pc.jump(jump.target)
                     }
                 }
             }
@@ -325,7 +340,7 @@ mod test {
         // All values must be used if they were added
         assert_eq!(job.r_values, vec![]);
         // We should exit all the for lops
-        assert_eq!(job.for_stack, vec![]);
+        assert_eq!(job.stack.last_mut().map(|x| &x.for_stack), Some(&vec![]));
 
         let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
         assert_eq!(error_message, error);
