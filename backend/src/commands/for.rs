@@ -17,7 +17,6 @@ ForRangeType {
 
 OpCodes! {
 ForStart {
-    // Repurposing JumpCodes::ForUnconditional
     ArgumentLess= 173,
     // Repurposing VarContext::For
     Arguments = 177,
