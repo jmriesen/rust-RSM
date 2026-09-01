@@ -7,14 +7,14 @@ impl Value {
     pub fn false_v() -> &'static Self {
         static FALSE: LazyLock<Value> = LazyLock::new(|| {
             "0".parse()
-                .expect("hard coded string litteral should not panic")
+                .expect("hard coded string literal should not panic")
         });
         &FALSE
     }
     pub fn true_v() -> &'static Self {
         static TRUE: LazyLock<Value> = LazyLock::new(|| {
             "1".parse()
-                .expect("hard coded string litteral should not panic")
+                .expect("hard coded string literal should not panic")
         });
         &TRUE
     }
@@ -23,9 +23,16 @@ impl Number {
     pub fn zero() -> &'static Self {
         static ZERO: LazyLock<Number> = LazyLock::new(|| {
             "0".parse()
-                .expect("hard coded string litteral should not panic")
+                .expect("hard coded string literal should not panic")
         });
         &ZERO
+    }
+    pub fn one() -> &'static Self {
+        static ONE: LazyLock<Number> = LazyLock::new(|| {
+            "1".parse()
+                .expect("hard coded string literal should not panic")
+        });
+        &ONE
     }
 }
 #[cfg(test)]

@@ -19,14 +19,15 @@ pub enum VarContext {
 
 pub enum VarCodes {
     Named = 0,
-    Globle = 128,
+    //Global
+    Global = 128,
     Naked = 252,
-    GlobleUci = 253,
-    GlobleUciEnv = 254,
+    GlobalUci = 253,
+    GlobalUciEnv = 254,
     IndirectVariable = 255,
 }
 
-const INDERECT_VAR: u8 = 66;
+const INDIRECT_VAR: u8 = 66;
 impl Compile for Variable {
     type Context = VarContext;
     fn compile(&self, comp: &mut BiteCode, context: &VarContext) {
@@ -52,7 +53,7 @@ impl Compile for Variable {
             E::NakedVariable => {}
             E::IndirectVariable { expression } => {
                 expression.compile(comp, &ExpressionContext::Eval);
-                comp.push(INDERECT_VAR);
+                comp.push(INDIRECT_VAR);
             }
         }
 
@@ -66,7 +67,7 @@ impl Compile for Variable {
             E::Named {
                 globle_ident: Some(GlobleIdent { user_class: None }),
                 ..
-            } => VarCodes::Globle,
+            } => VarCodes::Global,
             E::Named {
                 globle_ident:
                     Some(GlobleIdent {
@@ -75,9 +76,9 @@ impl Compile for Variable {
                 ..
             } => {
                 if user_class.env.is_none() {
-                    VarCodes::GlobleUci
+                    VarCodes::GlobalUci
                 } else {
-                    VarCodes::GlobleUciEnv
+                    VarCodes::GlobalUciEnv
                 }
             }
             E::NakedVariable => VarCodes::Naked,

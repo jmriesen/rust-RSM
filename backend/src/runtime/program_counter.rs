@@ -66,6 +66,9 @@ impl<'a> AssemballyDecoder<'a> {
             .try_into()
             .expect("bounds have already ben checked")
     }
+    pub fn current_location(&self) -> Location {
+        self.program_counter
+    }
 }
 
 impl<'a> ProgramCounter<'a> {
@@ -124,5 +127,9 @@ impl<'a> ProgramCounter<'a> {
                 break;
             };
         }
+    }
+
+    pub(crate) fn current_location(&self) -> Location {
+        self.program_counter
     }
 }

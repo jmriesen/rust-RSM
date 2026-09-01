@@ -12,7 +12,6 @@ pub struct Location(usize);
 pub enum JumpCodes {
     Conditional = 5,
     Unconditional = 172,
-    ForUnconditional = 173,
 }
 
 impl Default for BiteCode {

@@ -1,0 +1,13 @@
+tag w ""
+ set i=1
+ for  write i,! q:i=5  set i=i+1 
+
+---
+1
+2
+3
+4
+5
+
+---
+

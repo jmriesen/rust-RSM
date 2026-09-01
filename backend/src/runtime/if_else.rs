@@ -12,7 +12,7 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         if !for_stack.is_empty() {
-            Self::loop_body_post_check(for_stack, symbol_table, pc, error);
+            Self::loop_condition_check_slash_increment(for_stack, symbol_table, pc, error);
         } else {
             pc.advance_to_next_line();
         }
