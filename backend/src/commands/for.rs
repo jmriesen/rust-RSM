@@ -18,7 +18,7 @@ ForRangeType {
 OpCodes! {
 ForStart {
     ArgumentLess= 173,
-    // Repurposing VarContext::For
+    // NOTE: Same as VarContext::For IMPORTANT
     Arguments = 177,
 }}
 OpCode! {ForEnd =178}
@@ -40,27 +40,38 @@ pub struct ForMetaData {
 impl Compile for For {
     type Context = ();
     /*
-     * | Meta Data                                       |  Args Program Counter            | Body PC | Meta Data |
-     * | ForStart::Argument_less| body_jump | break_jump | _ | _                                       | Body    | For End   |
-     * | ForStart::Arguments    | body_jump | break_jump | Variable | (Range | For Range type argument )* | Body    | For End   |
-     *
+     * | Meta Data                                                                        |  Args Program Counter                | Body PC | Meta Data |
+     * |               | ForStart::Argument_less|                | body_jump | break_jump |                                      | Body    | For End   |
+     * | Variable args | ForStart::Arguments    | Variable name  | body_jump | break_jump |  (Range | For Range type argument )* | Body    | For End   |
+     * NOTE: this odd splicing the opcode inside of the variable is standard for how variables are
+     * encoded.
+     * The variable arguments **must** come before the variable (they need to be evaluated and on the
+     * stack) We could have a opcode that is just build this variable and hold onto it for a second,
+     * but that is going down the same route as for_preamble (which I am trying to get rid of, due
+     * to barrow checking/state being weird with incomplete objects.)
      * */
     fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        bite_code.push(match &self.kind {
-            ForKind::Infinite => ForStart::ArgumentLess,
-            ForKind::VarLoop { .. } => ForStart::Arguments,
-        } as u8);
+        match &self.kind {
+            ForKind::VarLoop {
+                variable,
+                arguments: _,
+            } => {
+                //TODO:
+                //VarContext is the same as `ForStart::Arguments`
+                //make them the same in the type system.
+                variable.compile(bite_code, &VarContext::For)
+            }
+            ForKind::Infinite => bite_code.push(ForStart::ArgumentLess as u8),
+        }
 
         let loop_body = bite_code.reserve_jump();
         let r#break = bite_code.reserve_jump();
 
         if let ForKind::VarLoop {
-            variable,
+            variable: _,
             arguments,
         } = &self.kind
         {
-            variable.compile(bite_code, &VarContext::For);
-
             for range in arguments {
                 range.start.compile(bite_code, &ExpressionContext::Eval);
 
@@ -97,25 +108,21 @@ impl Compile for For {
 impl Decode for ForMetaData {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         let r#type = ForStart::decode(decoder)?;
+
+        let variable = match r#type {
+            ForStart::ArgumentLess => None,
+            ForStart::Arguments => {
+                let loop_variable = Decode::decode(decoder).unwrap();
+                Some(loop_variable)
+            }
+        };
         let loop_body = Decode::decode(decoder).expect("already verified we are in for set");
         let r#break = Decode::decode(decoder).expect("already verified we are in for set");
 
-        let args = match r#type {
-            ForStart::ArgumentLess => {
-                /*No arguments to decode*/
-                None
-            }
-            ForStart::Arguments => {
-                //TODO: Remove old variable building context (unneeded due to new bite_code layout.)
-                let [_] = decoder.consume_n();
-                let loop_variable = Decode::decode(decoder).unwrap();
-
-                Some(ForArgMetaData {
-                    loop_variable,
-                    range_pc: decoder.current_location(),
-                })
-            }
-        };
+        let args = variable.map(|loop_variable| ForArgMetaData {
+            loop_variable,
+            range_pc: decoder.current_location(),
+        });
 
         Some(ForMetaData {
             loop_body,
