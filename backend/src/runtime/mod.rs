@@ -13,12 +13,12 @@ use crate::{
         r#for::ForFrame,
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemballyDecoder, Location, ProgramCounter},
+        program_counter::{AssemballyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 use ir::operators::{Binary, Unary};
-use std::fmt::Debug;
+use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
@@ -35,6 +35,7 @@ pub(crate) enum RuntimeError {
     NotYetSupported(&'static str),
 }
 
+#[derive(Debug)]
 struct DoFrame<'a> {
     pc: ProgramCounter<'a>,
     // Metadata for all for loops.
@@ -42,6 +43,9 @@ struct DoFrame<'a> {
     /// Stores the last result of the most resent if predicate.
     /// Used by else.
     test: bool,
+
+    /// How indented are we.
+    line_level: u16,
 }
 
 pub struct Job<'a> {
@@ -67,6 +71,8 @@ pub trait Encode: Sized {
 
 pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {EndLine=0}
+//TODO: Consider if there should be a better abstraction for intrinsic variables.
+OpCode! {Test=94}
 OpCode! {LineNum=170}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
@@ -145,6 +151,7 @@ StackAssembally! {
     QuitCodes,
     JumpIfFalse,
     DoArgLess,
+    Test,
     TEMP,
 }
 /// Marks something as a whole assembly instruction
@@ -161,151 +168,179 @@ impl<'a> Job<'a> {
                 pc: ProgramCounter::new(byte_code),
                 for_stack: vec![],
                 test: false,
+                line_level: 0,
             }],
         }
     }
     pub fn run(&mut self) {
-        while !self.stack.last().map(|x| x.pc.end()).unwrap_or(false) {
-            match self.stack.last_mut().unwrap().pc.next() {
-                StackAssembally::Value(value) => {
-                    self.r_values.push(value);
-                }
-                StackAssembally::WriteCodes(write_codes) => match write_codes {
-                    WriteCodes::Bang => self.buffer.push('\n'),
-                    WriteCodes::Clear => todo!(),
-                    WriteCodes::Tab => todo!(),
-                    WriteCodes::Expression => {
+        while self.stack.last().is_some() {
+            let instruction = self.stack.last_mut().unwrap().pc.next();
+            if let Some(instruction) = instruction {
+                match instruction {
+                    StackAssembally::Value(value) => {
+                        self.r_values.push(value);
+                    }
+                    StackAssembally::WriteCodes(write_codes) => match write_codes {
+                        WriteCodes::Bang => self.buffer.push('\n'),
+                        WriteCodes::Clear => todo!(),
+                        WriteCodes::Tab => todo!(),
+                        WriteCodes::Expression => {
+                            let value = self.r_values.pop().unwrap();
+                            self.buffer
+                                .push_str(core::str::from_utf8(value.content()).unwrap());
+                        }
+                    },
+                    StackAssembally::Binary(op) => {
+                        let second = self.r_values.pop().unwrap();
+                        let first = self.r_values.pop().unwrap();
+                        self.r_values.push(op.apply(first, second));
+                    }
+                    StackAssembally::Unary(op) => {
                         let value = self.r_values.pop().unwrap();
-                        self.buffer
-                            .push_str(core::str::from_utf8(value.content()).unwrap());
+                        self.r_values.push(op.apply(value));
                     }
-                },
-                StackAssembally::Binary(op) => {
-                    let second = self.r_values.pop().unwrap();
-                    let first = self.r_values.pop().unwrap();
-                    self.r_values.push(op.apply(first, second));
-                }
-                StackAssembally::Unary(op) => {
-                    let value = self.r_values.pop().unwrap();
-                    self.r_values.push(op.apply(value));
-                }
-                StackAssembally::StartLine(line_info) => {
-                    if line_info.level != 0 {
-                        self.stack.last_mut().unwrap().pc.advance_to_next_line();
-                    }
-                }
-                StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-                StackAssembally::DoArgLess(_) => {
-                    // Push value on the due stack.
-                    // Increment the line level.
-                    // Reset program counter.
-                }
-                StackAssembally::ForMetaData(meta_data) => {
-                    Self::initialize_for_loop(
-                        &mut self.stack.last_mut().unwrap().for_stack,
-                        &mut self.r_values,
-                        meta_data,
-                    );
-                }
-                StackAssembally::ForRangeType(r#type) => {
-                    let frame = self.stack.last_mut().unwrap();
-                    Self::initialize_for_range(
-                        &mut frame.for_stack.last_mut().as_mut().unwrap(),
-                        r#type,
-                        &mut self.symbol_table,
-                        &mut self.r_values,
-                        &mut frame.pc,
-                    );
-                }
-                StackAssembally::ForEnd(_for_end) => {
-                    let frame = self.stack.last_mut().unwrap();
-                    Self::loop_condition_check_slash_increment(
-                        &mut frame.for_stack,
-                        &mut self.symbol_table,
-                        &mut frame.pc,
-                        &mut self.error,
-                    );
-                }
-                StackAssembally::NoOpCode(_no_op_code) => {}
-                StackAssembally::LoadVar(load_var) => {
-                    let var = Self::build_var(&mut self.r_values, load_var.var);
-                    let val = self.symbol_table.get(&var).cloned().unwrap_or_default();
-                    self.r_values.push(val);
-                }
-                StackAssembally::SetCodes(code) => match code {
-                    SetCodes::Var => {
-                        let val = self.r_values.pop().expect("Value to store on the stack");
-                        let var = self.l_values.pop().unwrap();
-                        self.symbol_table.set(&var, &val).unwrap();
-                    }
-                },
-                StackAssembally::TEMP { .. } => {}
-                StackAssembally::IfOp(_) => {
-                    let condition = self.r_values.pop().expect("Value to store on the stack");
-                    let frame = self.stack.last_mut().unwrap();
-                    frame.test = bool::from(condition);
-                    if !frame.test {
-                        Self::if_jump(
-                            &mut frame.for_stack,
-                            &mut self.symbol_table,
-                            &mut frame.pc,
-                            &mut self.error,
-                        );
-                    }
-                }
-                StackAssembally::ElseOp(_) => {
-                    let frame = self.stack.last_mut().unwrap();
-                    if frame.test {
-                        Self::if_jump(
-                            &mut frame.for_stack,
-                            &mut self.symbol_table,
-                            &mut frame.pc,
-                            &mut self.error,
-                        );
-                    }
-                }
-                StackAssembally::KillInstruction(kill) => {
-                    use ir::commands::kill::KillType as E;
-                    let mut l_values = vec![];
-                    for _ in 0..kill.number_of_variables {
-                        l_values.push(self.l_values.pop().unwrap());
-                    }
-                    match kill.r#type {
-                        E::Inclusive => {
-                            for var in l_values {
-                                self.symbol_table.kill(&var);
+                    StackAssembally::StartLine(line_info) => {
+                        let current_stack = self.stack.last_mut().unwrap();
+                        match line_info.level.cmp(&current_stack.line_level) {
+                            Ordering::Less => {
+                                self.stack.pop();
+                            }
+                            Ordering::Equal => { /*continue*/ }
+                            Ordering::Greater => {
+                                current_stack.pc.advance_to_next_line();
                             }
                         }
-                        E::Exclusive => {
-                            let names: Vec<_> = l_values.into_iter().map(|x| x.name).collect();
-                            self.symbol_table.keep(&names);
+                        if line_info.level != 0 {}
+                    }
+                    StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
+                    StackAssembally::DoArgLess(_) => {
+                        let current_stack = self.stack.last_mut().unwrap();
+
+                        let mut pc = current_stack.pc.clone();
+                        pc.advance_to_next_line();
+
+                        let new_frame = DoFrame {
+                            pc: pc,
+                            for_stack: vec![],
+                            //TODO: I think this should be inherited Double check.
+                            test: current_stack.test,
+                            line_level: current_stack.line_level + 1,
+                        };
+                        self.stack.push(new_frame);
+                    }
+                    StackAssembally::ForMetaData(meta_data) => {
+                        Self::initialize_for_loop(
+                            &mut self.stack.last_mut().unwrap().for_stack,
+                            &mut self.r_values,
+                            meta_data,
+                        );
+                    }
+                    StackAssembally::ForRangeType(r#type) => {
+                        let frame = self.stack.last_mut().unwrap();
+                        Self::initialize_for_range(
+                            &mut frame.for_stack.last_mut().as_mut().unwrap(),
+                            r#type,
+                            &mut self.symbol_table,
+                            &mut self.r_values,
+                            &mut frame.pc,
+                        );
+                    }
+                    StackAssembally::ForEnd(_for_end) => {
+                        let frame = self.stack.last_mut().unwrap();
+                        Self::loop_condition_check_slash_increment(
+                            &mut frame.for_stack,
+                            &mut self.symbol_table,
+                            &mut frame.pc,
+                            &mut self.error,
+                        );
+                    }
+                    StackAssembally::NoOpCode(_no_op_code) => {}
+                    StackAssembally::LoadVar(load_var) => {
+                        let var = Self::build_var(&mut self.r_values, load_var.var);
+                        let val = self.symbol_table.get(&var).cloned().unwrap_or_default();
+                        self.r_values.push(val);
+                    }
+                    StackAssembally::SetCodes(code) => match code {
+                        SetCodes::Var => {
+                            let val = self.r_values.pop().expect("Value to store on the stack");
+                            let var = self.l_values.pop().unwrap();
+                            self.symbol_table.set(&var, &val).unwrap();
+                        }
+                    },
+                    StackAssembally::TEMP { .. } => {}
+                    StackAssembally::IfOp(_) => {
+                        let condition = self.r_values.pop().expect("Value to store on the stack");
+                        let frame = self.stack.last_mut().unwrap();
+                        frame.test = bool::from(condition);
+                        if !frame.test {
+                            Self::if_jump(
+                                &mut frame.for_stack,
+                                &mut self.symbol_table,
+                                &mut frame.pc,
+                                &mut self.error,
+                            );
                         }
                     }
-                }
-                StackAssembally::PushVar(push_var) => {
-                    let l_value = Self::build_var(&mut self.r_values, push_var.var);
-                    self.l_values.push(l_value);
-                }
-                StackAssembally::QuitCodes(quit_codes) => match quit_codes {
-                    QuitCodes::WithoutArg => {
+                    StackAssembally::ElseOp(_) => {
                         let frame = self.stack.last_mut().unwrap();
-                        let for_frame = frame
-                            .for_stack
-                            .pop()
-                            .expect("Quits are currently only supported in for loops");
-                        frame.pc.jump(for_frame.r#break);
+                        if frame.test {
+                            Self::if_jump(
+                                &mut frame.for_stack,
+                                &mut self.symbol_table,
+                                &mut frame.pc,
+                                &mut self.error,
+                            );
+                        }
                     }
-                    QuitCodes::WithArg => {
-                        let _ = self.r_values.pop().unwrap();
-                        self.error = Some(RuntimeError::NotYetSupported("quit with args"))
+                    StackAssembally::KillInstruction(kill) => {
+                        use ir::commands::kill::KillType as E;
+                        let mut l_values = vec![];
+                        for _ in 0..kill.number_of_variables {
+                            l_values.push(self.l_values.pop().unwrap());
+                        }
+                        match kill.r#type {
+                            E::Inclusive => {
+                                for var in l_values {
+                                    self.symbol_table.kill(&var);
+                                }
+                            }
+                            E::Exclusive => {
+                                let names: Vec<_> = l_values.into_iter().map(|x| x.name).collect();
+                                self.symbol_table.keep(&names);
+                            }
+                        }
                     }
-                },
-                StackAssembally::JumpIfFalse(jump) => {
-                    let condition = self.r_values.pop().expect("Value to store on the stack");
-                    if !bool::from(condition) {
-                        self.stack.last_mut().unwrap().pc.jump(jump.target)
+                    StackAssembally::PushVar(push_var) => {
+                        let l_value = Self::build_var(&mut self.r_values, push_var.var);
+                        self.l_values.push(l_value);
+                    }
+                    StackAssembally::QuitCodes(quit_codes) => match quit_codes {
+                        QuitCodes::WithoutArg => {
+                            let frame = self.stack.last_mut().unwrap();
+                            let for_frame = frame
+                                .for_stack
+                                .pop()
+                                .expect("Quits are currently only supported in for loops");
+                            frame.pc.jump(for_frame.r#break);
+                        }
+                        QuitCodes::WithArg => {
+                            let _ = self.r_values.pop().unwrap();
+                            self.error = Some(RuntimeError::NotYetSupported("quit with args"))
+                        }
+                    },
+                    StackAssembally::JumpIfFalse(jump) => {
+                        let condition = self.r_values.pop().expect("Value to store on the stack");
+                        if !bool::from(condition) {
+                            self.stack.last_mut().unwrap().pc.jump(jump.target)
+                        }
+                    }
+                    StackAssembally::Test(_) => {
+                        let test = self.stack.last_mut().unwrap().test;
+                        self.r_values.push(test.into());
                     }
                 }
+            } else {
+                self.stack.pop();
             }
         }
     }
@@ -339,8 +374,8 @@ mod test {
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
         assert_eq!(job.r_values, vec![]);
-        // We should exit all the for lops
-        assert_eq!(job.stack.last_mut().map(|x| &x.for_stack), Some(&vec![]));
+        // We should exit all the do stacks
+        assert!(job.stack.is_empty());
 
         let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
         assert_eq!(error_message, error);

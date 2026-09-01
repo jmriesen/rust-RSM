@@ -1,9 +1,14 @@
 tag w ""
- write "foo",! write "bar",!
- .write "baz",!
+ write "included1",! write "included2",!
+ .write "excluded1",!
+ d  write "included4",!
+ .write "included3",!
+ ..write "excluded2",!
 ---
-foo
-bar
+included1
+included2
+included3
+included4
 
 ---
 

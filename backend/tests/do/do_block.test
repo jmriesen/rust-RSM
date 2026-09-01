@@ -1,10 +1,14 @@
 tag w ""
- write "foo",! d  write "bar",!
- .write "baz",!
+ write "1",! d  write "4",!
+ .write "2",! d  
+ ..write "3",!
+ write "5",!
 ---
-foo
-baz
-bar
+1
+2
+3
+4
+5
 
 ---
 

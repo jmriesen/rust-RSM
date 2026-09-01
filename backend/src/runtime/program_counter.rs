@@ -101,18 +101,20 @@ impl<'a> ProgramCounter<'a> {
 
     #[cfg_attr(test, mutants::skip)]
     fn dbg_helper(&self) -> Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> {
-        let mut scrach = self.clone();
-        scrach.program_counter.0 = 0;
+        let mut scratch = self.clone();
+        scratch.program_counter.0 = 0;
         let mut vec: Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> = vec![];
-        while !scrach.end() {
-            let start = scrach.program_counter.0;
-            let asm = scrach.next();
-            let end = scrach.program_counter.0;
+        while !scratch.end() {
+            let start = scratch.program_counter.0;
+            let asm = scratch
+                .next()
+                .expect("Cant be None since we already checked if we were at the end.");
+            let end = scratch.program_counter.0;
             vec.push((
                 (start..end).contains(&self.program_counter.0),
                 (start..end),
                 asm,
-                &scrach.source[start..end],
+                &scratch.source[start..end],
             ));
         }
         vec
@@ -123,7 +125,10 @@ impl<'a> ProgramCounter<'a> {
     }
     pub fn advance_to_next_line(&mut self) {
         loop {
-            if let StackAssembally::EndLine(_) = self.next() {
+            if let StackAssembally::EndLine(_) = self
+                .next()
+                .expect("Advance to next line assumes we are in a line so their must only be an end of line. (may not apply during routine front/end material, but we this function logically should never be called then)")
+            {
                 break;
             };
         }
