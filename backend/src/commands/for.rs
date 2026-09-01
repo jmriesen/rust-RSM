@@ -59,6 +59,9 @@ impl Compile for For {
                 //TODO:
                 //VarContext is the same as `ForStart::Arguments`
                 //make them the same in the type system.
+                const _: () = const {
+                    assert!(VarContext::For as u8 == ForStart::Arguments as u8);
+                };
                 variable.compile(bite_code, &VarContext::For)
             }
             ForKind::Infinite => bite_code.push(ForStart::ArgumentLess as u8),
