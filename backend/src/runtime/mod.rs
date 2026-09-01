@@ -1,6 +1,6 @@
 use crate::{
     commands::{
-        r#for::{ForEnd, ForSet, ForStart},
+        r#for::{ForEnd, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
         quit::QuitCodes,
@@ -40,11 +40,6 @@ pub struct Job<'a> {
     r_values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).
     l_values: Vec<MVar<Path>>,
-    //Temporarily store loop metadata
-    //This is needed since for loops are encoded as
-    //Metadata expression expression expression loop body
-    //so we need a place to put the metadata while evaluating the expressions
-    for_preamble: Option<ForSet>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
     symbol_table: SymbolTable,
@@ -105,8 +100,8 @@ StackAssembally! {
     Unary,
     EndLine,
     EndCommand,
-    ForSet,
-    ForStart,
+    ForMetaData,
+    ForRangeType,
     ForEnd,
     NoOpCode,
     IfOp,
@@ -125,7 +120,6 @@ impl<'a> Job<'a> {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
-            for_preamble: None,
             for_stack: vec![],
             symbol_table: SymbolTable::default(),
             test: false,
@@ -159,18 +153,21 @@ impl<'a> Job<'a> {
                     self.r_values.push(op.apply(value));
                 }
                 StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
-                StackAssembally::ForSet(for_set) => self.for_preamble = Some(for_set),
-                StackAssembally::ForStart(for_start) => {
-                    Self::init_for_loop(
-                        &mut self.for_stack,
-                        &mut self.r_values,
-                        &mut self.for_preamble,
+
+                StackAssembally::ForMetaData(meta_data) => {
+                    Self::initialize_for_loop(&mut self.for_stack, &mut self.r_values, meta_data);
+                }
+                StackAssembally::ForRangeType(r#type) => {
+                    Self::initialize_for_range(
+                        &mut self.for_stack.last_mut().as_mut().unwrap(),
+                        r#type,
                         &mut self.symbol_table,
-                        for_start,
+                        &mut self.r_values,
+                        &mut self.pc,
                     );
                 }
                 StackAssembally::ForEnd(_for_end) => {
-                    Self::loop_body_post_check(
+                    Self::loop_condition_check_slash_increment(
                         &mut self.for_stack,
                         &mut self.symbol_table,
                         &mut self.pc,

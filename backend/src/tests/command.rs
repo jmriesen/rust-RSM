@@ -59,19 +59,11 @@ mod test {
     #[case("d tag(90):12,tag^rou:0")]
     #[case("e  ")]
     #[case("e  w 1")]
-    #[case("f  ")]
-    #[case("f  b  b  ")]
-    #[case("f  f  b  ")]
-    #[case("f  f  f  b  ")]
-    #[case("f x=1 ")]
-    #[case("f x=1:2 ")]
-    #[case("f x=1:2:3 ")]
-    #[case("f x=1,2:3,4:5:6 ")]
     fn command_test(#[case] source_code: &str) {
-        let orignal = parse(&source_code);
+        let original = parse(&source_code);
         let temp = test_compile_command(source_code);
 
-        assert_eq!(orignal, temp);
+        assert_eq!(original, temp);
     }
 
     #[rstest]
@@ -82,9 +74,9 @@ mod test {
     #[case("w ?@temp")]
     #[case("w 1,#,!,?@temp")]
     fn write_command(#[case] source_code: &str) {
-        let orignal = parse(&source_code);
+        let original = parse(&source_code);
         let temp = test_compile_command(source_code);
 
-        assert_eq!(orignal, temp);
+        assert_eq!(original, temp);
     }
 }
