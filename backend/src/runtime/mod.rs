@@ -210,7 +210,6 @@ impl<'a> Job<'a> {
                                 current_stack.pc.advance_to_next_line();
                             }
                         }
-                        if line_info.level != 0 {}
                     }
                     StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                     StackAssembally::DoArgLess(_) => {
