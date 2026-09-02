@@ -315,11 +315,11 @@ impl<'a> Job<'a> {
                     StackAssembally::QuitCodes(quit_codes) => match quit_codes {
                         QuitCodes::WithoutArg => {
                             let frame = self.stack.last_mut().unwrap();
-                            let for_frame = frame
-                                .for_stack
-                                .pop()
-                                .expect("Quits are currently only supported in for loops");
-                            frame.pc.jump(for_frame.r#break);
+                            if let Some(for_frame) = frame.for_stack.pop() {
+                                frame.pc.jump(for_frame.r#break);
+                            } else {
+                                self.stack.pop();
+                            }
                         }
                         QuitCodes::WithArg => {
                             let _ = self.r_values.pop().unwrap();
