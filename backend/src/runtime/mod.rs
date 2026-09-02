@@ -221,7 +221,6 @@ impl<'a> Job<'a> {
                         let new_frame = DoFrame {
                             pc: pc,
                             for_stack: vec![],
-                            //TODO: I think this should be inherited Double check.
                             test: current_stack.test,
                             line_level: current_stack.line_level + 1,
                         };
