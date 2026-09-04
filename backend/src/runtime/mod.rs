@@ -11,6 +11,7 @@ use crate::{
     },
     runtime::{
         r#for::ForFrame,
+        line_info::{EndLine, StartLine},
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
         program_counter::{AssemballyDecoder, ProgramCounter},
@@ -24,6 +25,7 @@ use thiserror::Error;
 use value::Value;
 mod r#for;
 mod if_else;
+mod line_info;
 mod macros;
 mod operators;
 pub mod program_counter;
@@ -70,14 +72,12 @@ pub trait Encode: Sized {
 }
 
 pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
-OpCode! {EndLine=0}
 //TODO: Consider if there should be a better abstraction for intrinsic variables.
 OpCode! {Test=94}
-OpCode! {LineNum=170}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
-OpCode! {JumpIfFalseCode=5}
 
+OpCode! {JumpIfFalseCode=5}
 #[derive(Debug)]
 pub struct JumpIfFalse {
     target: program_counter::Location,
@@ -100,32 +100,6 @@ impl Decode for TEMP {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))
-    }
-}
-
-#[derive(Debug)]
-pub struct StartLine {
-    pub line_numb: u16,
-    pub level: u16,
-}
-
-impl Decode for StartLine {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        LineNum::decode(decoder)?;
-        Some(StartLine {
-            line_numb: u16::from_le_bytes(decoder.consume_n()),
-            level: u16::from_le_bytes(decoder.consume_n()),
-        })
-    }
-}
-
-impl Compile for StartLine {
-    type Context = ();
-
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
-        bite_code.push(LineNum.encode());
-        bite_code.extend(self.line_numb.to_le_bytes());
-        bite_code.extend(self.level.to_le_bytes());
     }
 }
 
