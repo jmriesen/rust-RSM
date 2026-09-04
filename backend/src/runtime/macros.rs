@@ -80,8 +80,9 @@ pub enum StackAssembally {
 
 $(impl StackAssemblyTrait for $instruction{})*
 
-    impl<'a> ProgramCounter<'a> {
-            pub fn next(&mut self) -> Option<StackAssembally> {
+    impl<'a> Iterator for ProgramCounter<'a> {
+            type Item = StackAssembally;
+            fn next(&mut self) -> Option<StackAssembally> {
                 if self.end(){
                     None
                 }else{

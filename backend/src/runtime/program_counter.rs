@@ -104,12 +104,16 @@ impl<'a> ProgramCounter<'a> {
         let mut scratch = self.clone();
         scratch.program_counter.0 = 0;
         let mut vec: Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> = vec![];
+
+        //Note this internally not a for loop since I need want to get the address bit
+        //address before/after each call to next.
         while !scratch.end() {
             let start = scratch.program_counter.0;
             let asm = scratch
                 .next()
                 .expect("Cant be None since we already checked if we were at the end.");
             let end = scratch.program_counter.0;
+
             vec.push((
                 (start..end).contains(&self.program_counter.0),
                 (start..end),
