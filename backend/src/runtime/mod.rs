@@ -1,5 +1,4 @@
 use crate::{
-    Compile,
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForMetaData, ForRangeType},
@@ -11,6 +10,7 @@ use crate::{
     },
     runtime::{
         r#for::ForFrame,
+        if_else::JumpIfFalse,
         line_info::{EndLine, StartLine},
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
@@ -76,20 +76,6 @@ pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
 OpCode! {Test=94}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
-
-OpCode! {JumpIfFalseCode=5}
-#[derive(Debug)]
-pub struct JumpIfFalse {
-    target: program_counter::Location,
-}
-impl Decode for JumpIfFalse {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        JumpIfFalseCode::decode(decoder)?;
-        Some(Self {
-            target: Decode::decode(decoder)?,
-        })
-    }
-}
 
 #[derive(Debug)]
 #[allow(dead_code)]
