@@ -7,9 +7,6 @@ var mumps_grammer = {
   word: $ => $.identifier,
   externals: $ => [
     $.VarUndefined,
-    $._indent,
-    $._dedent,
-    $._line_level,
     $.error_sentinel
   ],
 
@@ -24,10 +21,10 @@ var mumps_grammer = {
 
   rules: {
     source_file: $ => repeat1($.line),
-    line_level2: $ => ".",
+    line_level: $ => ".",
     line: $=> seq(
       optional(field('Tag',$.TagName)),
-      optional(seq(" ",repeat(field('level',$.line_level2)), field('commands',$.commands))),
+      optional(seq(" ",repeat(field('level',$.line_level)), field('commands',$.commands))),
       "\n"
     ),
     WriteArg: $ => choice(
@@ -71,7 +68,7 @@ var mumps_grammer = {
       optional(
         seq(
           "(",
-          //NOTE It is easier to just remove the traling VarUndefined when compiling then then durring parseing
+          //NOTE It is easier to just remove the trailing VarUndefined when compiling then then during parsing
           field("args",
             repeatDel(
               choice($.ByRef, $.Expression, $.VarUndefined),
@@ -83,7 +80,7 @@ var mumps_grammer = {
     ),
     ByRef: $ => seq(".", $.Variable),
 
-    //TODO identifiers should be constraind to 32 digets.
+    //TODO identifiers should be constrained to 32 digits.
     identifier: $ => /([A-Z]|[a-z])([A-Z]|[a-z]|\d)*/,
     sign: $ => repeat1(prec(1, choice("+", "-"))),
 
@@ -92,7 +89,7 @@ var mumps_grammer = {
       seq(".", /\d+/),
     ),
 
-    string: $ => /(\"([#-~]|[ ])*\")+/,  // all charactors from # to ~ excluding quote. //TODO check the actural specs latter.
+    string: $ => /(\"([#-~]|[ ])*\")+/,  // all characters from # to ~ excluding quote. //TODO check the actual specs latter.
 
     //-------------------------------
     //opcodes
@@ -333,7 +330,7 @@ Xcall = [
   ["E", false],
   ["Paschk", false],
   ["V", false],
-  //TODO using X again would cause name colition.
+  //TODO using X again would cause name coalition.
   //["X",false],
   ["Xrsm", false],
   ["SetEnv", true],
