@@ -129,6 +129,7 @@ impl Compile for StartLine {
     }
 }
 
+/// Marks something as a whole assembly instruction
 pub(crate) trait StackAssemblyTrait: Decode {}
 StackAssembally! {
     LoadVar,
@@ -154,7 +155,6 @@ StackAssembally! {
     Test,
     TEMP,
 }
-/// Marks something as a whole assembly instruction
 
 impl<'a> Job<'a> {
     pub fn new(byte_code: &'a [u8]) -> Self {
@@ -173,9 +173,8 @@ impl<'a> Job<'a> {
         }
     }
     pub fn run(&mut self) {
-        while self.stack.last().is_some() {
-            let instruction = self.stack.last_mut().unwrap().pc.next();
-            if let Some(instruction) = instruction {
+        while let Some(do_frame) = self.stack.last_mut() {
+            if let Some(instruction) = do_frame.pc.next() {
                 match instruction {
                     StackAssembally::Value(value) => {
                         self.r_values.push(value);
@@ -200,55 +199,50 @@ impl<'a> Job<'a> {
                         self.r_values.push(op.apply(value));
                     }
                     StackAssembally::StartLine(line_info) => {
-                        let current_stack = self.stack.last_mut().unwrap();
-                        match line_info.level.cmp(&current_stack.line_level) {
+                        match line_info.level.cmp(&do_frame.line_level) {
                             Ordering::Less => {
                                 self.stack.pop();
                             }
                             Ordering::Equal => { /*continue*/ }
                             Ordering::Greater => {
-                                current_stack.pc.advance_to_next_line();
+                                do_frame.pc.advance_to_next_line();
                             }
                         }
                     }
                     StackAssembally::EndLine(_) | StackAssembally::EndCommand(_) => {}
                     StackAssembally::DoArgLess(_) => {
-                        let current_stack = self.stack.last_mut().unwrap();
-
-                        let mut pc = current_stack.pc.clone();
+                        let mut pc = do_frame.pc.clone();
                         pc.advance_to_next_line();
 
                         let new_frame = DoFrame {
                             pc: pc,
                             for_stack: vec![],
-                            test: current_stack.test,
-                            line_level: current_stack.line_level + 1,
+                            test: do_frame.test,
+                            line_level: do_frame.line_level + 1,
                         };
                         self.stack.push(new_frame);
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
-                            &mut self.stack.last_mut().unwrap().for_stack,
+                            &mut do_frame.for_stack,
                             &mut self.r_values,
                             meta_data,
                         );
                     }
                     StackAssembally::ForRangeType(r#type) => {
-                        let frame = self.stack.last_mut().unwrap();
                         Self::initialize_for_range(
-                            &mut frame.for_stack.last_mut().as_mut().unwrap(),
+                            &mut do_frame.for_stack.last_mut().as_mut().unwrap(),
                             r#type,
                             &mut self.symbol_table,
                             &mut self.r_values,
-                            &mut frame.pc,
+                            &mut do_frame.pc,
                         );
                     }
                     StackAssembally::ForEnd(_for_end) => {
-                        let frame = self.stack.last_mut().unwrap();
                         Self::loop_condition_check_slash_increment(
-                            &mut frame.for_stack,
+                            &mut do_frame.for_stack,
                             &mut self.symbol_table,
-                            &mut frame.pc,
+                            &mut do_frame.pc,
                             &mut self.error,
                         );
                     }
@@ -268,24 +262,22 @@ impl<'a> Job<'a> {
                     StackAssembally::TEMP { .. } => {}
                     StackAssembally::IfOp(_) => {
                         let condition = self.r_values.pop().expect("Value to store on the stack");
-                        let frame = self.stack.last_mut().unwrap();
-                        frame.test = bool::from(condition);
-                        if !frame.test {
+                        do_frame.test = bool::from(condition);
+                        if !do_frame.test {
                             Self::if_jump(
-                                &mut frame.for_stack,
+                                &mut do_frame.for_stack,
                                 &mut self.symbol_table,
-                                &mut frame.pc,
+                                &mut do_frame.pc,
                                 &mut self.error,
                             );
                         }
                     }
                     StackAssembally::ElseOp(_) => {
-                        let frame = self.stack.last_mut().unwrap();
-                        if frame.test {
+                        if do_frame.test {
                             Self::if_jump(
-                                &mut frame.for_stack,
+                                &mut do_frame.for_stack,
                                 &mut self.symbol_table,
-                                &mut frame.pc,
+                                &mut do_frame.pc,
                                 &mut self.error,
                             );
                         }
@@ -314,9 +306,8 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::QuitCodes(quit_codes) => match quit_codes {
                         QuitCodes::WithoutArg => {
-                            let frame = self.stack.last_mut().unwrap();
-                            if let Some(for_frame) = frame.for_stack.pop() {
-                                frame.pc.jump(for_frame.r#break);
+                            if let Some(for_frame) = do_frame.for_stack.pop() {
+                                do_frame.pc.jump(for_frame.r#break);
                             } else {
                                 self.stack.pop();
                             }
@@ -329,12 +320,11 @@ impl<'a> Job<'a> {
                     StackAssembally::JumpIfFalse(jump) => {
                         let condition = self.r_values.pop().expect("Value to store on the stack");
                         if !bool::from(condition) {
-                            self.stack.last_mut().unwrap().pc.jump(jump.target)
+                            do_frame.pc.jump(jump.target)
                         }
                     }
                     StackAssembally::Test(_) => {
-                        let test = self.stack.last_mut().unwrap().test;
-                        self.r_values.push(test.into());
+                        self.r_values.push(do_frame.test.into());
                     }
                 }
             } else {
