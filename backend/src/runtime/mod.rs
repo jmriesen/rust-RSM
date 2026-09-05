@@ -8,10 +8,10 @@ use crate::{
         set::SetCodes,
         write::WriteCodes,
     },
+    conditional_jumps::{Jump, JumpCodes},
     line_info::{EndLine, StartLine},
     runtime::{
         r#for::ForFrame,
-        if_else::JumpIfFalse,
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
         program_counter::{AssemballyDecoder, ProgramCounter},
@@ -109,7 +109,7 @@ StackAssembally! {
     KillInstruction,
     PushVar,
     QuitCodes,
-    JumpIfFalse,
+    Jump,
     DoArgLess,
     Test,
     TEMP,
@@ -276,9 +276,18 @@ impl<'a> Job<'a> {
                             self.error = Some(RuntimeError::NotYetSupported("quit with args"))
                         }
                     },
-                    StackAssembally::JumpIfFalse(jump) => {
-                        let condition = self.r_values.pop().expect("Value to store on the stack");
-                        if !bool::from(condition) {
+                    StackAssembally::Jump(jump) => {
+                        let should_jump = match jump.r#type {
+                            JumpCodes::Conditional => !bool::from(
+                                self.r_values.pop().expect("Value to store on the stack"),
+                            ),
+                            JumpCodes::Unconditional => {
+                                // Should just be "true", but leaving as unimplemented!() until I have a
+                                // test case that uses this.
+                                unimplemented!()
+                            }
+                        };
+                        if should_jump {
                             do_frame.pc.jump(jump.target)
                         }
                     }

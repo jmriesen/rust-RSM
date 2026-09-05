@@ -1,6 +1,7 @@
 pub use bite_code::BiteCode;
 pub mod bite_code;
 pub mod commands;
+mod conditional_jumps;
 pub mod expression;
 pub mod external_calls;
 pub mod extrinsic_function;
