@@ -17,6 +17,8 @@ impl Compile for Value {
 }
 impl Decode for Value {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
+        //TODO: refactor to remove the from_bytes call.
+        //The decoder compile/decode should be the canonical way to convert between types.
         if let [STRING_OP] = decoder.consume_n() {
             let (value, amount_to_consume) = {
                 let original_len = decoder.tail().len();

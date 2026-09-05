@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::Range};
+use std::fmt::Debug;
 
 use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
 
@@ -40,7 +40,7 @@ impl<'a> AssemblyDecoder<'a> {
         self.program_counter.0 += BYTES;
         tail[..BYTES]
             .try_into()
-            .expect("bounds have already ben checked")
+            .expect("bounds have already been checked")
     }
     pub fn current_location(&self) -> Location {
         self.program_counter
@@ -51,24 +51,6 @@ impl<'a> AssemblyDecoder<'a> {
 pub struct ProgramCounter<'a> {
     source: &'a [u8],
     program_counter: Location,
-}
-impl<'a> Debug for ProgramCounter<'a> {
-    #[cfg_attr(test, mutants::skip)]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ByteCode")
-            .field("program_counter", &self.program_counter.0)
-            .field(
-                "parsed",
-                &self
-                    .dbg_helper()
-                    .into_iter()
-                    //Pulling out just what is useful for the current debugging
-                    //session.
-                    .map(|x| x.2)
-                    .collect::<Vec<_>>(),
-            )
-            .finish()
-    }
 }
 
 impl<'a> ProgramCounter<'a> {
@@ -95,33 +77,8 @@ impl<'a> ProgramCounter<'a> {
         }
     }
 
-    pub fn end(&self) -> bool {
+    pub fn has_next(&self) -> bool {
         self.program_counter.0 == self.source.len()
-    }
-
-    #[cfg_attr(test, mutants::skip)]
-    fn dbg_helper(&self) -> Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> {
-        let mut scratch = self.clone();
-        scratch.program_counter.0 = 0;
-        let mut vec: Vec<(bool, Range<usize>, StackAssembally, &'a [u8])> = vec![];
-
-        //Note this internally not a for loop since I need want to get the address bit
-        //address before/after each call to next.
-        while !scratch.end() {
-            let start = scratch.program_counter.0;
-            let asm = scratch
-                .next()
-                .expect("Cant be None since we already checked if we were at the end.");
-            let end = scratch.program_counter.0;
-
-            vec.push((
-                (start..end).contains(&self.program_counter.0),
-                (start..end),
-                asm,
-                &scratch.source[start..end],
-            ));
-        }
-        vec
     }
 
     pub fn jump(&mut self, location: Location) {
@@ -140,5 +97,54 @@ impl<'a> ProgramCounter<'a> {
 
     pub(crate) fn current_location(&self) -> Location {
         self.program_counter
+    }
+}
+
+mod debug {
+    use crate::runtime::{StackAssembally, program_counter::ProgramCounter};
+    use std::ops::Range;
+
+    #[allow(unused)]
+    struct InstructionInfo<'a> {
+        byte_code_range: Range<usize>,
+        byte_code: &'a [u8],
+        stack_asm: StackAssembally,
+    }
+
+    struct InstructionDebugIter<'a>(ProgramCounter<'a>);
+
+    impl<'a> Iterator for InstructionDebugIter<'a> {
+        type Item = InstructionInfo<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let start = self.0.program_counter.0;
+            let asm = self.0.next()?;
+            let end = self.0.program_counter.0;
+
+            let byte_code_range = start..end;
+
+            Some(InstructionInfo {
+                byte_code: &self.0.source[byte_code_range.clone()],
+                byte_code_range,
+                stack_asm: asm,
+            })
+        }
+    }
+
+    impl<'a> std::fmt::Debug for ProgramCounter<'a> {
+        #[cfg_attr(test, mutants::skip)]
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("ByteCode")
+                .field("program_counter", &self.program_counter.0)
+                .field(
+                    "parsed",
+                    &InstructionDebugIter(self.clone())
+                        //Pulling out just what is useful for the current debugging
+                        //session.
+                        .map(|x| x.stack_asm)
+                        .collect::<Vec<_>>(),
+                )
+                .finish()
+        }
     }
 }

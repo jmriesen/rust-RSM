@@ -83,7 +83,7 @@ $(impl StackAssemblyTrait for $instruction{})*
     impl<'a> Iterator for ProgramCounter<'a> {
             type Item = StackAssembally;
             fn next(&mut self) -> Option<StackAssembally> {
-                if self.end(){
+                if self.has_next(){
                     None
                 }else{
                     Some(
