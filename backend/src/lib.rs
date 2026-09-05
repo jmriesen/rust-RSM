@@ -6,6 +6,7 @@ pub mod external_calls;
 pub mod extrinsic_function;
 pub mod intrinsic_functions;
 pub mod intrinsic_var;
+mod line_info;
 pub mod operators;
 pub mod runtime;
 pub mod value;

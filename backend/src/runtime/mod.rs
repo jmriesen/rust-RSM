@@ -8,10 +8,10 @@ use crate::{
         set::SetCodes,
         write::WriteCodes,
     },
+    line_info::{EndLine, StartLine},
     runtime::{
         r#for::ForFrame,
         if_else::JumpIfFalse,
-        line_info::{EndLine, StartLine},
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
         program_counter::{AssemballyDecoder, ProgramCounter},
@@ -25,7 +25,6 @@ use thiserror::Error;
 use value::Value;
 mod r#for;
 mod if_else;
-mod line_info;
 mod macros;
 mod operators;
 pub mod program_counter;
