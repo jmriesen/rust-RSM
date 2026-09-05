@@ -4,7 +4,7 @@ pub const STRING_OP: u8 = 60;
 use crate::{
     Compile,
     bite_code::BiteCode,
-    runtime::{Decode, program_counter::AssemballyDecoder},
+    runtime::{Decode, program_counter::AssemblyDecoder},
 };
 impl Compile for Value {
     type Context = ();
@@ -16,7 +16,7 @@ impl Compile for Value {
     }
 }
 impl Decode for Value {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         if let [STRING_OP] = decoder.consume_n() {
             let (value, amount_to_consume) = {
                 let original_len = decoder.tail().len();

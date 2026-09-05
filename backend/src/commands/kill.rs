@@ -2,7 +2,7 @@ use ir::commands::kill::{Kill, KillType};
 
 use crate::{
     Compile,
-    runtime::{Decode, Encode, OpCodesForeign, program_counter::AssemballyDecoder},
+    runtime::{Decode, Encode, OpCodesForeign, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 
@@ -40,7 +40,7 @@ impl Compile for KillInstruction {
     }
 }
 impl Decode for KillInstruction {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         Some(Self {
             r#type: KillType::decode(decoder)?,
             number_of_variables: decoder.consume_n::<1>()[0],

@@ -14,7 +14,7 @@ use crate::{
         r#for::ForFrame,
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemballyDecoder, ProgramCounter},
+        program_counter::{AssemblyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
@@ -64,7 +64,7 @@ pub struct Job<'a> {
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self>;
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self>;
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -81,7 +81,7 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))

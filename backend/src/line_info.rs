@@ -2,7 +2,7 @@ use ir::Line;
 
 use crate::{
     BiteCode, Compile,
-    runtime::{Decode, OpCode, program_counter::AssemballyDecoder},
+    runtime::{Decode, OpCode, program_counter::AssemblyDecoder},
 };
 
 OpCode! {EndLine=0}
@@ -32,7 +32,7 @@ pub struct StartLine {
 }
 
 impl Decode for StartLine {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         LineNum::decode(decoder)?;
         Some(StartLine {
             line_numb: u16::from_le_bytes(decoder.consume_n()),

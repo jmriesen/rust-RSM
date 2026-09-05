@@ -4,7 +4,7 @@ macro_rules! OpCode {
         pub struct $name;
         impl Decode for $name {
             fn decode(
-                decoder: &mut crate::runtime::program_counter::AssemballyDecoder<'_>,
+                decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>,
             ) -> Option<Self> {
                 if let [$code] = decoder.consume_n() {
                     Some(Self)
@@ -32,7 +32,7 @@ $name:ident{
             $($var = $code,)*
         }
         impl Decode for $name{
-            fn decode(decoder: &mut crate::runtime::program_counter::AssemballyDecoder<'_>) -> Option<Self > {
+            fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
                         $($code => Some(Self::$var),)*
@@ -49,7 +49,7 @@ macro_rules! OpCodesForeign {
         $($var:ident=>$code:expr,)*
 }) => {
         impl Decode for $name{
-            fn decode(decoder: &mut crate::runtime::program_counter::AssemballyDecoder<'_>) -> Option<Self > {
+            fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
                         $($code => Some(Self::$var),)*

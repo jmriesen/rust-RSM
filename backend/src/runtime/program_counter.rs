@@ -7,7 +7,7 @@ use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Location(pub usize);
 impl Decode for Location {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
         let Location(here) = decoder.program_counter;
         Some(Self(
@@ -15,6 +15,35 @@ impl Decode for Location {
                 "Currently only supporting forward jumps. May change if new functionality needs it.",
             ),
         ))
+    }
+}
+
+/// Responsible for parsing assembly instruction.
+/// This **is allowed** to decode partial instructions.
+pub struct AssemblyDecoder<'a> {
+    source: &'a [u8],
+    program_counter: Location,
+}
+impl<'a> AssemblyDecoder<'a> {
+    pub fn tail(&self) -> &'a [u8] {
+        &self.source[self.program_counter.0..]
+    }
+    pub fn consume(&mut self, bytes: usize) -> &'a [u8] {
+        let tail = self.tail();
+        assert!(tail.len() >= bytes);
+        self.program_counter.0 += bytes;
+        &tail[..bytes]
+    }
+    pub fn consume_n<const BYTES: usize>(&mut self) -> [u8; BYTES] {
+        let tail = &self.source[self.program_counter.0..];
+        assert!(tail.len() >= BYTES);
+        self.program_counter.0 += BYTES;
+        tail[..BYTES]
+            .try_into()
+            .expect("bounds have already ben checked")
+    }
+    pub fn current_location(&self) -> Location {
+        self.program_counter
     }
 }
 
@@ -42,35 +71,6 @@ impl<'a> Debug for ProgramCounter<'a> {
     }
 }
 
-/// Responsible for parsing assembly instruction.
-/// This **is allowed** to decode partial instructions.
-pub struct AssemballyDecoder<'a> {
-    source: &'a [u8],
-    program_counter: Location,
-}
-impl<'a> AssemballyDecoder<'a> {
-    pub fn tail(&self) -> &'a [u8] {
-        &self.source[self.program_counter.0..]
-    }
-    pub fn consume(&mut self, bytes: usize) -> &'a [u8] {
-        let tail = self.tail();
-        assert!(tail.len() >= bytes);
-        self.program_counter.0 += bytes;
-        &tail[..bytes]
-    }
-    pub fn consume_n<const BYTES: usize>(&mut self) -> [u8; BYTES] {
-        let tail = &self.source[self.program_counter.0..];
-        assert!(tail.len() >= BYTES);
-        self.program_counter.0 += BYTES;
-        tail[..BYTES]
-            .try_into()
-            .expect("bounds have already ben checked")
-    }
-    pub fn current_location(&self) -> Location {
-        self.program_counter
-    }
-}
-
 impl<'a> ProgramCounter<'a> {
     pub fn new(source: &'a [u8]) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl<'a> ProgramCounter<'a> {
     /// This is atomic it will decode a full instruction and update the program counter,
     /// Or it will fail without modifying self's internal state.
     pub(crate) fn try_decode<T: StackAssemblyTrait>(&mut self) -> Option<T> {
-        let mut decoder = AssemballyDecoder {
+        let mut decoder = AssemblyDecoder {
             source: self.source,
             program_counter: self.program_counter,
         };
