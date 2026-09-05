@@ -25,22 +25,21 @@ pub struct AssemblyDecoder<'a> {
     program_counter: Location,
 }
 impl<'a> AssemblyDecoder<'a> {
-    pub fn tail(&self) -> &'a [u8] {
-        &self.source[self.program_counter.0..]
-    }
     pub fn consume(&mut self, bytes: usize) -> &'a [u8] {
-        let tail = self.tail();
-        assert!(tail.len() >= bytes);
+        let start = self.program_counter.0;
         self.program_counter.0 += bytes;
-        &tail[..bytes]
+        let end = self.program_counter.0;
+        let content = &self.source[start..end];
+        assert!(
+            content.len() == bytes,
+            "There should be enough bytes remaining if the code was compile/decode properly"
+        );
+        content
     }
     pub fn consume_n<const BYTES: usize>(&mut self) -> [u8; BYTES] {
-        let tail = &self.source[self.program_counter.0..];
-        assert!(tail.len() >= BYTES);
-        self.program_counter.0 += BYTES;
-        tail[..BYTES]
+        self.consume(BYTES)
             .try_into()
-            .expect("bounds have already been checked")
+            .expect("len is already checked in consume")
     }
     pub fn current_location(&self) -> Location {
         self.program_counter
