@@ -1,4 +1,4 @@
-use ir::commands::Command;
+use ir::{Line, commands::Command};
 
 use crate::ParsingError;
 
@@ -11,6 +11,25 @@ pub mod kill;
 pub mod quit;
 pub mod set;
 pub mod write;
+
+/// Parses a line into a sequence of commands.
+pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Line, ParsingError> {
+    let mut commands = vec![];
+
+    let mut line_tail = line
+        .commands()
+        .map(|x| x.children())
+        .unwrap_or_default()
+        .into_iter();
+
+    while let Some(command) = line_tail.next() {
+        commands.push(new(&command, source_code, &mut line_tail)?);
+    }
+    Ok(Line {
+        level: line.level().len() as u16,
+        commands,
+    })
+}
 
 pub fn new(
     sitter: &lang_model::command,

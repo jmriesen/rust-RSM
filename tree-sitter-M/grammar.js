@@ -7,9 +7,6 @@ var mumps_grammer = {
   word: $ => $.identifier,
   externals: $ => [
     $.VarUndefined,
-    $._indent,
-    $._dedent,
-    $._line_level,
     $.error_sentinel
   ],
 
@@ -23,18 +20,12 @@ var mumps_grammer = {
   ],
 
   rules: {
-    source_file: $ => repeat1($.Tag),
-    Tag: $ => seq(field("name", $.TagName), choice(field("block", $.Block), "\n")),
-    //TODO: Remove notion of a block M really does not have this and it is silly to pretend it does.
-    //Linting for things like non continues blocks should be done later in the pipeline, after lexing and initial parsing.
-    Block: $ => seq(
-      $._indent,
-      repeat1(choice(
-        //NOTE including a newline here forces the routine to include a new line at the end.
-        seq($._line_level, $.line, "\n"),
-        $.Block
-      )),
-      $._dedent
+    source_file: $ => repeat1($.line),
+    line_level: $ => ".",
+    line: $=> seq(
+      optional(field('Tag',$.TagName)),
+      optional(seq(" ",repeat(field('level',$.line_level)), field('commands',$.commands))),
+      "\n"
     ),
     WriteArg: $ => choice(
       $.Bang,
@@ -65,7 +56,7 @@ var mumps_grammer = {
     ),
     KillExclusive: $ => seq("(", $.Variable, ")"),
     KillInclusive: $ => $.Variable,
-    line: $ => seq(repeatDel($.command, " "), repeat(" ")),
+    commands: $ => seq(repeatDel($.command, " "), repeat(" ")),
     TagName: $ => choice($.identifier, $.NumericIdentifier),
     NumericIdentifier: $ => /\d{1,32}/,
     ExtrinsicFunction: $ => seq(
@@ -77,7 +68,7 @@ var mumps_grammer = {
       optional(
         seq(
           "(",
-          //NOTE It is easier to just remove the traling VarUndefined when compiling then then durring parseing
+          //NOTE It is easier to just remove the trailing VarUndefined when compiling then then during parsing
           field("args",
             repeatDel(
               choice($.ByRef, $.Expression, $.VarUndefined),
@@ -89,7 +80,7 @@ var mumps_grammer = {
     ),
     ByRef: $ => seq(".", $.Variable),
 
-    //TODO identifiers should be constraind to 32 digets.
+    //TODO identifiers should be constrained to 32 digits.
     identifier: $ => /([A-Z]|[a-z])([A-Z]|[a-z]|\d)*/,
     sign: $ => repeat1(prec(1, choice("+", "-"))),
 
@@ -98,7 +89,7 @@ var mumps_grammer = {
       seq(".", /\d+/),
     ),
 
-    string: $ => /(\"([#-~]|[ ])*\")+/,  // all charactors from # to ~ excluding quote. //TODO check the actural specs latter.
+    string: $ => /(\"([#-~]|[ ])*\")+/,  // all characters from # to ~ excluding quote. //TODO check the actual specs latter.
 
     //-------------------------------
     //opcodes
@@ -339,7 +330,7 @@ Xcall = [
   ["E", false],
   ["Paschk", false],
   ["V", false],
-  //TODO using X again would cause name colition.
+  //TODO using X again would cause name coalition.
   //["X",false],
   ["Xrsm", false],
   ["SetEnv", true],

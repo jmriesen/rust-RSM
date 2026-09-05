@@ -1,0 +1,20 @@
+test
+ w "$Test default is false",!
+ w $Test d  w $Test
+ .w $Test
+ .i 1
+ .w $Test
+ w !,"Set $Test to true",!
+ i 1
+ w $Test d  w $Test
+ .w $Test
+ .i 0
+ .w $Test
+
+---
+$Test default is false
+0010
+Set $Test to true
+1101
+---
+

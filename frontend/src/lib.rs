@@ -22,33 +22,23 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
         Ok(())
     }
 }
-//TODO: remove with multiple tags in a file become supported.
-#[mutants::skip]
-fn check_number_of_tags(tags: &Vec<lang_model::Tag<'_>>) -> Result<(), ParsingError> {
-    if tags.len() != 1 {
-        return Err(ParsingError::NotYetSupported(
-            "Only exacly one tag per routine is currenly supported",
-        ));
-    } else {
-        Ok(())
-    }
-}
+
 #[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
-    #[error("Error ocurred when tree-sitter parsed the routine")]
+    #[error("Error occurred when tree-sitter parsed the routine")]
     TreeSitterError(()),
     #[error("Quit can only have zero or one argument")]
     QuitExtraArgs(lang_model::Range),
     #[error("Close always takes at least one argument")]
     CloseRequiresArgs(lang_model::Range),
     #[error("If always takes at least one argument")]
-    IfReqiresArgs(lang_model::Range),
+    IfRequireArgs(lang_model::Range),
     #[error("not yet supported:{}",.0)]
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
     KillExclusiveNonLocal(lang_model::Range),
     #[error(
-        "Excided max line length {MAX_LINE_LENGTH} TODO: this constratint should be eventually remove. Currently here to prevent stack overflows durring fuzzing"
+        "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]
     HitMaxLineLength,
 }
@@ -63,27 +53,11 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
     let tree = lang_model::create_tree(source_code);
     let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
 
-    let tags = tree.children();
-    check_number_of_tags(&tags)?;
-    let block = tags[0]
-        .block()
-        .ok_or(ParsingError::NotYetSupported("Multiple blocks in one tag"))?;
-    let mut lines = vec![];
-    for line in block.children() {
-        let line = match line {
-            lang_model::BlockChildren::line(line) => line,
-            lang_model::BlockChildren::Block(_block) => {
-                return Err(ParsingError::NotYetSupported("nested blocks"));
-            }
-        };
-        let mut commands = vec![];
-        let mut line_tail = line.children().into_iter();
-        while let Some(command) = line_tail.next() {
-            commands.push(commands::new(&command, source_code, &mut line_tail)?);
-        }
-        lines.push(commands);
-    }
-    Ok(lines)
+    let lines = tree.children();
+    lines
+        .iter()
+        .map(|line| commands::new_line(line, source_code))
+        .collect()
 }
 
 #[cfg(test)]

@@ -1,0 +1,14 @@
+tag w ""
+ for i=1:1:5 d  
+ .w !,i 
+ .q:'(i=3)
+ .w " third iteration"
+---
+
+1
+2
+3 third iteration
+4
+5
+---
+
