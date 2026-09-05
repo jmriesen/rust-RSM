@@ -2,10 +2,10 @@ use std::{fmt::Debug, ops::Range};
 
 use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
 
+/// A location in the byte code.
+/// Used by jumps and program counters
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Location(pub usize);
-#[derive(Clone, Copy, Debug)]
-pub struct Jump(pub Location);
 impl Decode for Location {
     fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
