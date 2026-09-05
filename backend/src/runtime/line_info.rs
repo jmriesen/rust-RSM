@@ -1,10 +1,29 @@
+use ir::Line;
+
 use crate::{
-    Compile,
+    BiteCode, Compile,
     runtime::{Decode, OpCode, program_counter::AssemballyDecoder},
 };
 
 OpCode! {EndLine=0}
 OpCode! {LineNum=170}
+
+impl Compile for Line {
+    type Context = u16;
+
+    fn compile(&self, bite_code: &mut BiteCode, line_numb: &Self::Context) {
+        StartLine {
+            line_numb: *line_numb,
+            level: self.level,
+        }
+        .compile(bite_code, &());
+        //NOTE: I have decided to change the bite code layout compared to the original C code.
+        //In the ordinal C the line level/check is part of the stack machine instructions.
+        //In this version it will be unconditional included as part of the line encoding.
+        self.commands.compile(bite_code, &());
+        bite_code.push(EndLine.encode());
+    }
+}
 
 #[derive(Debug)]
 pub struct StartLine {
