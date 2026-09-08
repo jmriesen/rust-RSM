@@ -1,10 +1,6 @@
 use symbol_table::SymbolTable;
 
-use crate::runtime::{
-    Decode, Job, OpCode, RuntimeError,
-    r#for::ForFrame,
-    program_counter::{self, AssemballyDecoder, ProgramCounter},
-};
+use crate::runtime::{Job, RuntimeError, r#for::ForFrame, program_counter::ProgramCounter};
 
 impl<'a> Job<'a> {
     /// Jump handling for if/else statements.
@@ -20,18 +16,5 @@ impl<'a> Job<'a> {
         } else {
             pc.advance_to_next_line();
         }
-    }
-}
-OpCode! {JumpIfFalseCode=5}
-#[derive(Debug)]
-pub struct JumpIfFalse {
-    pub target: program_counter::Location,
-}
-impl Decode for JumpIfFalse {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
-        JumpIfFalseCode::decode(decoder)?;
-        Some(Self {
-            target: Decode::decode(decoder)?,
-        })
     }
 }

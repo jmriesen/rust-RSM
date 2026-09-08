@@ -28,25 +28,24 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 use serde::{Deserialize, Serialize};
-use std::iter;
 const MAX_STR_LEN: usize = u16::MAX as usize - 1;
-mod convertions;
-pub use convertions::CreationError;
+mod conversions;
+pub use conversions::CreationError;
 
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
-mod constents;
+mod constants;
 mod number;
 pub use number::Number;
 /// An M Value.
 ///
-/// # Type convertions:
+/// # Type conversions:
 /// In the M language only has one value type and the expression "a"+"b" is perfectly valid in
 /// M. It evaluates to 0. However I have chosen not to implement math operations directly on the `Value` type.
 ///
 /// The internal representation used during arithmetic is significantly different from the representation used
 /// to store arbitrary values. Since converting between the two is nontrivial I want to be explicit
-/// about when the convertions occurs.
+/// about when the conversions occurs.
 /// ```
 /// use value::{Value,Number};
 /// let a :Number = "a".parse::<Value>().unwrap().into();
@@ -67,6 +66,9 @@ pub use number::Number;
 pub struct Value(Vec<u8>);
 
 impl Value {
+    pub fn new(content: Vec<u8>) -> Self {
+        Self(content)
+    }
     /// Returns the raw value as a slice of u8s
     #[must_use]
     pub fn content(&self) -> &[u8] {
@@ -77,38 +79,6 @@ impl Value {
     /// Creates a new empty Value
     pub const fn empty() -> Self {
         Self(Vec::new())
-    }
-
-    /// Serialize value into a byte stream
-    ///
-    /// The first two bytes are the length represented as a little endian u16.
-    /// The remaining bytes are content of the Value.
-    ///
-    /// NOTE: This is used to match the C ABI, and should only be used if you need to
-    /// convert to a `ffi::CSTRING`
-    pub fn as_bytes(&self) -> impl Iterator<Item = u8> {
-        let len: u16 = self
-            .0
-            .len()
-            .try_into()
-            .expect("Max length of Value should fit in a u16");
-
-        //Deconstructing the u16 explicitly to avoid lifetime issues
-        let [first, second] = len.to_le_bytes();
-        iter::once(first)
-            .chain(iter::once(second))
-            .chain(self.content().iter().cloned())
-    }
-    pub fn from_bytes(source: &[u8]) -> (Self, &[u8]) {
-        let [first, second] = source[0..2]
-            .try_into()
-            .expect("There should always be at least two elements");
-        let len = u16::from_le_bytes([first, second]);
-        let content = &source[2..2 + len as usize];
-        (
-            Self(content.to_vec()),
-            &source[2 + len as usize..],
-        )
     }
 }
 
@@ -129,32 +99,5 @@ impl std::fmt::Debug for Value {
         }
 
         builder.finish()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn as_bytes() {
-        let content: Vec<u8> = (10..15).collect();
-        let value = Value::try_from(&content[..]).unwrap();
-        let expected = {
-            let mut expected = content.clone();
-            expected.insert(0, content.len() as u8);
-            expected.insert(1, 0);
-            expected
-        };
-
-        let bytes: Vec<_> = value.as_bytes().collect();
-        assert_eq!(bytes, expected);
-    }
-    #[test]
-    fn to_from_bytes() {
-        let orignal: Value = "some test value".parse().unwrap();
-        let bytes: Vec<_> = orignal.as_bytes().collect();
-        let decoded = Value::from_bytes(&bytes[..]);
-        assert_eq!(decoded, (orignal, &[0u8; 0][..]));
     }
 }

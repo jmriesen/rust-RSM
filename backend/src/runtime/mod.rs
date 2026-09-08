@@ -8,13 +8,13 @@ use crate::{
         set::SetCodes,
         write::WriteCodes,
     },
+    conditional_jumps::{Jump, JumpCodes},
+    line_info::{EndLine, StartLine},
     runtime::{
         r#for::ForFrame,
-        if_else::JumpIfFalse,
-        line_info::{EndLine, StartLine},
         macros::StackAssembally,
         operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemballyDecoder, ProgramCounter},
+        program_counter::{AssemblyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
@@ -25,7 +25,6 @@ use thiserror::Error;
 use value::Value;
 mod r#for;
 mod if_else;
-mod line_info;
 mod macros;
 mod operators;
 pub mod program_counter;
@@ -65,7 +64,7 @@ pub struct Job<'a> {
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self>;
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self>;
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -82,7 +81,7 @@ OpCode! {NoOpCode=179}
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))
@@ -110,7 +109,7 @@ StackAssembally! {
     KillInstruction,
     PushVar,
     QuitCodes,
-    JumpIfFalse,
+    Jump,
     DoArgLess,
     Test,
     TEMP,
@@ -277,9 +276,18 @@ impl<'a> Job<'a> {
                             self.error = Some(RuntimeError::NotYetSupported("quit with args"))
                         }
                     },
-                    StackAssembally::JumpIfFalse(jump) => {
-                        let condition = self.r_values.pop().expect("Value to store on the stack");
-                        if !bool::from(condition) {
+                    StackAssembally::Jump(jump) => {
+                        let should_jump = match jump.r#type {
+                            JumpCodes::Conditional => !bool::from(
+                                self.r_values.pop().expect("Value to store on the stack"),
+                            ),
+                            JumpCodes::Unconditional => {
+                                // Should just be "true", but leaving as unimplemented!() until I have a
+                                // test case that uses this.
+                                unimplemented!()
+                            }
+                        };
+                        if should_jump {
                             do_frame.pc.jump(jump.target)
                         }
                     }

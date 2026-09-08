@@ -4,7 +4,7 @@ use crate::{
     Compile,
     bite_code::BiteCode,
     expression::ExpressionContext,
-    runtime::{Decode, EndCommand, NoOpCode, OpCode, OpCodes, program_counter::AssemballyDecoder},
+    runtime::{Decode, EndCommand, NoOpCode, OpCode, OpCodes, program_counter::AssemblyDecoder},
     variable::{BuildVarInstructions, VarContext},
 };
 
@@ -109,7 +109,7 @@ impl Compile for For {
 }
 
 impl Decode for ForMetaData {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let r#type = ForStart::decode(decoder)?;
 
         let variable = match r#type {

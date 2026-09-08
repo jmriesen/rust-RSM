@@ -4,27 +4,26 @@ pub const STRING_OP: u8 = 60;
 use crate::{
     Compile,
     bite_code::BiteCode,
-    runtime::{Decode, program_counter::AssemballyDecoder},
+    runtime::{Decode, program_counter::AssemblyDecoder},
 };
 impl Compile for Value {
     type Context = ();
 
     fn compile(&self, bite_code: &mut BiteCode, _: &Self::Context) {
+        let len = self.content().len() as u16;
+
         bite_code.push(STRING_OP);
-        bite_code.extend(self.as_bytes());
+        bite_code.extend(len.to_le_bytes());
+        bite_code.extend(self.content().iter().cloned());
         bite_code.push(0);
     }
 }
 impl Decode for Value {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         if let [STRING_OP] = decoder.consume_n() {
-            let (value, amount_to_consume) = {
-                let original_len = decoder.tail().len();
-                let (value, new_tail) = Value::from_bytes(decoder.tail());
-                let after_parsing_len = new_tail.len();
-                (value, original_len - after_parsing_len)
-            };
-            decoder.consume(amount_to_consume + 1);
+            let len = u16::from_le_bytes(decoder.consume_n());
+            let value = Value::new(decoder.consume(len as usize).to_vec());
+            decoder.consume_n::<1>();
             Some(value)
         } else {
             None

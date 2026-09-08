@@ -1,7 +1,7 @@
 use crate::{
     Compile,
     bite_code::BiteCode,
-    runtime::{Decode, program_counter::AssemballyDecoder},
+    runtime::{Decode, program_counter::AssemblyDecoder},
 };
 use ir::{
     Variable,
@@ -111,7 +111,7 @@ pub struct BuildVarInstructions {
     pub subscripts: usize,
 }
 impl Decode for BuildVarInstructions {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         //TODO: handle other types
         let [code_num_subscriptions] = decoder.consume_n();
         let variable_string = decoder.consume_n::<32>();
@@ -133,7 +133,7 @@ pub struct LoadVar {
     pub var: BuildVarInstructions,
 }
 impl Decode for LoadVar {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::Eval as u8;
         if let [CODE] = decoder.consume_n() {
             Some(Self {
@@ -150,7 +150,7 @@ pub struct PushVar {
     pub var: BuildVarInstructions,
 }
 impl Decode for PushVar {
-    fn decode(decoder: &mut AssemballyDecoder<'_>) -> Option<Self> {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         const BUILD: u8 = VarContext::Build as u8;
         if let [BUILD] = decoder.consume_n() {
             let name = Decode::decode(decoder).unwrap();
