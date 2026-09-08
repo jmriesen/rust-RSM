@@ -112,6 +112,7 @@ mod debug {
 
     struct InstructionDebugIter<'a>(ProgramCounter<'a>);
 
+    #[cfg_attr(test, mutants::skip)]
     impl<'a> Iterator for InstructionDebugIter<'a> {
         type Item = InstructionInfo<'a>;
 
