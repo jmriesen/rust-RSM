@@ -4,5 +4,5 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn create_mumps_lsp(publish: PublishMessageCallback) -> TowerLspWasmBridge {
-    TowerLspWasmBridge::new(publish, |client| MumpsLsp::new(client))
+    TowerLspWasmBridge::new(publish, MumpsLsp::new)
 }

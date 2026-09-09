@@ -32,14 +32,21 @@ impl<Client: client::Client> MumpsLsp<Client> {
             allow_overlapping_tokens: RwLock::new(false),
         }
     }
+
+    /// # Panics
+    ///
+    /// Will Panic if the document lock is poisoned.
     pub fn did_open(&self, url: Url, text: String) {
         self.documents
             .write()
-            .unwrap()
+            .expect("The lock is not poisoned.")
             .insert(url, Document::new(text));
     }
-    pub fn tokens(&self, document: TextDocumentIdentifier) -> Vec<SemanticToken> {
-        let documents = self.documents.read().unwrap();
+    /// # Panics
+    ///
+    /// Will Panic if the document lock is poisoned.
+    pub fn tokens(&self, document: &TextDocumentIdentifier) -> Vec<SemanticToken> {
+        let documents = self.documents.read().expect("The lock is not poisoned.");
         let document = documents.get(&document.uri).unwrap();
         let mut query_cursor = QueryCursor::new();
         let tokens: Vec<_> = collect(
@@ -64,8 +71,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         let supports_overlapping_tokens = client_config
             .capabilities
             .text_document
-            .map(|x| x.semantic_tokens.map(|x| x.overlapping_token_support))
-            .flatten()
+            .and_then(|x| x.semantic_tokens.map(|x| x.overlapping_token_support))
             .flatten()
             .unwrap_or(false);
         *self.allow_overlapping_tokens.write().unwrap() = supports_overlapping_tokens;
@@ -97,7 +103,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
     ) -> Result<Option<SemanticTokensResult>> {
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
-            data: self.tokens(params.text_document),
+            data: self.tokens(&params.text_document),
         })))
     }
 
@@ -146,9 +152,9 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             .write()
             .unwrap()
             .get_mut(&change.text_document.uri)
-            .expect("The document should allready be open before changes are made")
+            .expect("The document should already be open before changes are made")
             //It is fine to unwrap since the document must have been opened for there to be changes.
-            .update(change.content_changes);
+            .update(&change.content_changes);
     }
 }
 #[cfg(test)]

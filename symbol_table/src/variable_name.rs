@@ -56,7 +56,7 @@ impl VariableName {
     /// Intrinsics start with a '$' and are built in variables.
     #[must_use]
     pub fn is_intrinsic(&self) -> bool {
-        self.contents().get(0) == Some(&b'$')
+        self.contents().first() == Some(&b'$')
     }
 
     /// Returns the raw representation.

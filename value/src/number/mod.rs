@@ -49,7 +49,7 @@ use std::iter;
 /// assert_eq!("1".parse::<Value>().unwrap(),number.into());
 /// ```
 
-#[derive(Debug, Clone, PartialOrd, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct Number {
     exponent: usize,
     ///Note due to 9's complement
@@ -266,6 +266,12 @@ impl Ord for Number {
         } else {
             std::cmp::Ordering::Greater
         }
+    }
+}
+// Implementation recommended by clippy
+impl PartialOrd for Number {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

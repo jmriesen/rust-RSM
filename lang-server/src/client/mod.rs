@@ -11,7 +11,7 @@ pub trait Client : Send + Sync + 'static {
 
 impl Client for tower_lsp::Client{
     async fn log_message<M: Display>(&self, typ: MessageType, message: M) {
-        tower_lsp::Client::log_message(self, typ, message).await
+        tower_lsp::Client::log_message(self, typ, message).await;
     }
 }
 

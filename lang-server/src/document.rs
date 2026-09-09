@@ -40,14 +40,14 @@ impl Document {
             .map(|line_start| line_start + position.character as usize)
     }
 
-    pub fn update(&mut self, changes: Vec<TextDocumentContentChangeEvent>) {
-        for change in changes.iter() {
+    pub fn update(&mut self, changes: &[TextDocumentContentChangeEvent]) {
+        for change in changes {
             let start = self
                 .position_to_index(change.range.unwrap().start)
-                .expect("Changed range must be pressent in the document");
+                .expect("Changed range must be present in the document");
             let end = self
                 .position_to_index(change.range.unwrap().end)
-                .expect("Changed range must be pressent in the document");
+                .expect("Changed range must be present in the document");
 
             self.source.replace_range(start..end, &change.text);
         }
@@ -72,7 +72,7 @@ mod test {
 
     const DOC_BEFORE_EDIT: &str = "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=te\n\n";
     const DOC_AFTER_EDIT:  &str = "tag w \"before loop\",!\n f i=1:1:5 w \"foo \"\n w !,\"after loop\"\n w \"foo\" \n w test,!,!\n q  \n s foo=test\n\n";
-    const FIRST_EDIT: LazyLock<TextDocumentContentChangeEvent> =
+    static FIRST_EDIT: LazyLock<TextDocumentContentChangeEvent> =
         LazyLock::new(|| TextDocumentContentChangeEvent {
             range: Some(Range {
                 start: Position {
@@ -87,7 +87,7 @@ mod test {
             range_length: Some(0),
             text: "s".to_owned(),
         });
-    const SECOND_EDIT: LazyLock<TextDocumentContentChangeEvent> =
+    static SECOND_EDIT: LazyLock<TextDocumentContentChangeEvent> =
         LazyLock::new(|| TextDocumentContentChangeEvent {
             range: Some(Range {
                 start: Position {

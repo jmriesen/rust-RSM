@@ -29,9 +29,9 @@ impl Range {
         var: &MVar<Path>,
         symbol_table: &mut SymbolTable,
     ) -> Result<RangeCheck, RuntimeError> {
-        if let Some(loop_var) = symbol_table.get(&var) {
+        if let Some(loop_var) = symbol_table.get(var) {
             let new_value = Number::from(loop_var.clone()) + self.increment.clone();
-            symbol_table.set(&var, &new_value.clone().into()).unwrap();
+            symbol_table.set(var, &new_value.clone().into()).unwrap();
             Ok(self.in_bounds(new_value))
         } else {
             Err(RuntimeError::UndefinedIndexVariable)
