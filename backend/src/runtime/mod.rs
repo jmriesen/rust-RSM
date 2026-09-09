@@ -296,7 +296,7 @@ impl<'a> Job<'a> {
     }
 
     /// Exit the current line.
-    /// This douse handle the case where we are in a for loop.
+    /// This handles the case where we are in a for loop.
     pub(crate) fn quit_line(
         for_stack: &mut Vec<ForFrame>,
         symbol_table: &mut SymbolTable,
