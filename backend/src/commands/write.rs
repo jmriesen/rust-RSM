@@ -1,10 +1,7 @@
 use ir::{Expression, commands::Write};
 
 use crate::{
-    Compile,
-    bite_code::BiteCode,
-    expression::ExpressionContext,
-    runtime::{Decode, OpCodes},
+    Compile, bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
 };
 
 OpCodes! {WriteCodes {

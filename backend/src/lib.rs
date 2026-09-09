@@ -8,6 +8,7 @@ pub mod extrinsic_function;
 pub mod intrinsic_functions;
 pub mod intrinsic_var;
 mod line_info;
+mod macros;
 pub mod operators;
 pub mod runtime;
 pub mod value;

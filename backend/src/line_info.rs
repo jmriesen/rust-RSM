@@ -2,7 +2,8 @@ use ir::Line;
 
 use crate::{
     BiteCode, Compile,
-    runtime::{Decode, OpCode, program_counter::AssemblyDecoder},
+    macros::OpCode,
+    runtime::{Decode, program_counter::AssemblyDecoder},
 };
 
 OpCode! {EndLine=0}

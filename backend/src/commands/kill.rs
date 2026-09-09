@@ -2,7 +2,8 @@ use ir::commands::kill::{Kill, KillType};
 
 use crate::{
     Compile,
-    runtime::{Decode, Encode, OpCodesForeign, program_counter::AssemblyDecoder},
+    macros::OpCodesForeign,
+    runtime::{Decode, Encode, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 

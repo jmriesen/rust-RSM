@@ -2,9 +2,7 @@ use crate::Compile;
 use ir::commands::set::Set;
 
 use crate::{
-    bite_code::BiteCode,
-    expression::ExpressionContext,
-    runtime::{Decode, OpCodes},
+    bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
     variable::VarContext,
 };
 

@@ -4,7 +4,8 @@ use crate::{
     Compile,
     bite_code::BiteCode,
     expression::ExpressionContext,
-    runtime::{Decode, EndCommand, NoOpCode, OpCode, OpCodes, program_counter::AssemblyDecoder},
+    macros::{OpCode, OpCodes},
+    runtime::{Decode, EndCommand, NoOpCode, program_counter::AssemblyDecoder},
     variable::{BuildVarInstructions, VarContext},
 };
 
