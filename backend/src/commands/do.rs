@@ -1,8 +1,6 @@
 use crate::{
-    Compile,
-    bite_code::BiteCode,
-    extrinsic_function::ExtrinsicFunctionContext,
-    runtime::{Decode, OpCode},
+    Compile, bite_code::BiteCode, extrinsic_function::ExtrinsicFunctionContext, macros::OpCode,
+    runtime::Decode,
 };
 use ir::commands::r#do::Do;
 

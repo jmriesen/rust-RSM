@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         r#do::DoArgLess,
-        r#for::{ForEnd, ForMetaData, ForRangeType},
+        r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
         quit::QuitCodes,
@@ -10,12 +10,9 @@ use crate::{
     },
     conditional_jumps::{Jump, JumpCodes},
     line_info::{EndLine, StartLine},
-    runtime::{
-        r#for::ForFrame,
-        macros::StackAssembally,
-        operators::{BinaryApply, UnaryApply},
-        program_counter::{AssemblyDecoder, ProgramCounter},
-    },
+    macros::StackAssembally,
+    operators::{BinaryApply, UnaryApply},
+    runtime::program_counter::{AssemblyDecoder, ProgramCounter},
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 use ir::operators::{Binary, Unary};
@@ -23,11 +20,8 @@ use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
-mod r#for;
-mod if_else;
-mod macros;
-mod operators;
 pub mod program_counter;
+
 #[derive(Error, PartialEq, Debug)]
 pub(crate) enum RuntimeError {
     #[error("Undefined Index variable")]
@@ -70,7 +64,7 @@ pub trait Encode: Sized {
     fn encode(&self) -> u8;
 }
 
-pub(crate) use macros::{OpCode, OpCodes, OpCodesForeign};
+use crate::macros::{OpCode, OpCodes, OpCodesForeign};
 //TODO: Consider if there should be a better abstraction for intrinsic variables.
 OpCode! {Test=94}
 OpCode! {EndCommand=4}
@@ -223,7 +217,7 @@ impl<'a> Job<'a> {
                         let condition = self.r_values.pop().expect("Value to store on the stack");
                         do_frame.test = bool::from(condition);
                         if !do_frame.test {
-                            Self::if_jump(
+                            Self::quit_line(
                                 &mut do_frame.for_stack,
                                 &mut self.symbol_table,
                                 &mut do_frame.pc,
@@ -233,7 +227,7 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ElseOp(_) => {
                         if do_frame.test {
-                            Self::if_jump(
+                            Self::quit_line(
                                 &mut do_frame.for_stack,
                                 &mut self.symbol_table,
                                 &mut do_frame.pc,
@@ -301,7 +295,22 @@ impl<'a> Job<'a> {
         }
     }
 
-    fn build_var(r_values: &mut Vec<Value>, var: BuildVarInstructions) -> MVar<Path> {
+    /// Exit the current line.
+    /// This handles the case where we are in a for loop.
+    pub(crate) fn quit_line(
+        for_stack: &mut Vec<ForFrame>,
+        symbol_table: &mut SymbolTable,
+        pc: &mut ProgramCounter<'_>,
+        error: &mut Option<RuntimeError>,
+    ) {
+        if !for_stack.is_empty() {
+            Self::loop_condition_check_slash_increment(for_stack, symbol_table, pc, error);
+        } else {
+            pc.advance_to_next_line();
+        }
+    }
+
+    pub fn build_var(r_values: &mut Vec<Value>, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
             subscripts.push(r_values.pop().unwrap());

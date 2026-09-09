@@ -1,10 +1,6 @@
 use ir::commands::r#if::If;
 
-use crate::{
-    Compile,
-    expression::ExpressionContext,
-    runtime::{Decode, OpCode},
-};
+use crate::{Compile, expression::ExpressionContext, macros::OpCode, runtime::Decode};
 
 OpCode! {IfOp = 7}
 OpCode! {ElseOp = 9}

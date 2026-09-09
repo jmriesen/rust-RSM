@@ -1,10 +1,9 @@
-use super::{
-    Job,
-    program_counter::{Location, ProgramCounter},
-};
 use crate::{
     commands::r#for::{ForMetaData, ForRangeType},
-    runtime::RuntimeError,
+    runtime::{
+        Job, RuntimeError,
+        program_counter::{Location, ProgramCounter},
+    },
 };
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
@@ -63,7 +62,7 @@ pub struct ForArgFrame {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct ForFrame {
+pub struct ForFrame {
     loop_body: Location,
     pub r#break: Location,
     pub args_frame: Option<ForArgFrame>, //TODO: Direction

@@ -1,8 +1,12 @@
-use crate::runtime::{
-    Decode, OpCodes,
-    program_counter::{self, AssemblyDecoder},
+use crate::{
+    macros::OpCodes,
+    runtime::{
+        Decode,
+        program_counter::{self, AssemblyDecoder},
+    },
 };
-OpCodes! {JumpCodes {
+OpCodes! {
+    JumpCodes {
         Conditional = 5,
         Unconditional = 172,
 }}
