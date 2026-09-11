@@ -242,6 +242,10 @@ pub struct TabLayout<A, B, C, D, E, F> {
 
 impl<A, B, C, D, E, F> TabLayout<A, B, C, D, E, F> {
     ///Constructs a `TabLayout`
+    #[expect(
+        clippy::many_single_char_names,
+        reason = "The order is the most important thing regarding these fields.\"abc..\"makes it clear what order everything should be in."
+    )]
     #[must_use]
     pub fn new(
         a: TypedLayout<A>,

@@ -64,7 +64,7 @@ pub trait Encode: Sized {
     fn encode(&self) -> u8;
 }
 
-use crate::macros::{OpCode, OpCodes, OpCodesForeign};
+use crate::macros::OpCode;
 //TODO: Consider if there should be a better abstraction for intrinsic variables.
 OpCode! {Test=94}
 OpCode! {EndCommand=4}
@@ -168,7 +168,7 @@ impl<'a> Job<'a> {
                         pc.advance_to_next_line();
 
                         let new_frame = DoFrame {
-                            pc: pc,
+                            pc,
                             for_stack: vec![],
                             test: do_frame.test,
                             line_level: do_frame.line_level + 1,
@@ -184,7 +184,7 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ForRangeType(r#type) => {
                         Self::initialize_for_range(
-                            &mut do_frame.for_stack.last_mut().as_mut().unwrap(),
+                            do_frame.for_stack.last_mut().as_mut().unwrap(),
                             r#type,
                             &mut self.symbol_table,
                             &mut self.r_values,

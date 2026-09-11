@@ -37,7 +37,10 @@
     clippy::cast_possible_wrap,
     clippy::missing_panics_doc,
     clippy::missing_errors_doc,
-    clippy::missing_safety_doc
+    clippy::missing_safety_doc,
+    // large arrays are required to match C structure. Note they should
+    // not live on the stack. (but may exist there temporarily as the objects are being constructed.)
+    clippy::large_stack_arrays 
 )]
 
 #[allow(clippy::all, unused)]

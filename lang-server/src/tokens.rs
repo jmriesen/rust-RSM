@@ -1,7 +1,10 @@
 use std::sync::LazyLock;
 
-use tower_lsp::lsp_types::*;
-pub const SEMANTIC_TOKENS_CAPABILITIES: LazyLock<Option<SemanticTokensServerCapabilities>> =
+use tower_lsp::lsp_types::{
+    SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensServerCapabilities,
+};
+pub static SEMANTIC_TOKENS_CAPABILITIES: LazyLock<Option<SemanticTokensServerCapabilities>> =
     LazyLock::new(|| {
         Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
             SemanticTokensOptions {
@@ -70,7 +73,7 @@ tokens! {
 /// Wrapper around a Node that is known to correspond to a Token
 pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
-/// SemanticToken but position is measure in absolute rather than relative terms
+/// `SemanticToken` but position is measure in absolute rather than relative terms
 #[derive(Clone, Copy)]
 pub struct AbsolutToken {
     pub line: u32,
@@ -113,12 +116,12 @@ impl AbsolutToken {
             .map(|[previuse, current]| {
                 SemanticToken {
                     delta_line: current.line - previuse.line,
-                    delta_start: if current.line != previuse.line {
-                        //If starting a newline just use the current column.
-                        current.column
-                    } else {
+                    delta_start: if current.line == previuse.line {
                         //Otherwise, calculate the diff.
                         current.column - previuse.column
+                    } else {
+                        //If starting a newline just use the current column.
+                        current.column
                     },
                     length: current.length,
                     token_type: current.token_type,
@@ -131,9 +134,9 @@ impl AbsolutToken {
 pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken> {
     for i in 1..tokens.len() {
         // If token is to long clip it.
-        // Only needed if overlaping tokes are not supported.
+        // Only needed if overlapping tokes are not supported.
         if tokens[i].delta_line == 0 && tokens[i - 1].length > tokens[i].delta_start {
-            tokens[i - 1].length = tokens[i].delta_start
+            tokens[i - 1].length = tokens[i].delta_start;
         }
     }
     tokens
@@ -176,7 +179,7 @@ mod test {
         .await
         .unwrap();
         lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
+        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
     }
     #[tokio::test]
     async fn non_overlapping() {
@@ -201,6 +204,6 @@ mod test {
         .await
         .unwrap();
         lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
+        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
     }
 }
