@@ -104,16 +104,16 @@ mod test {
         });
 
     #[test]
-    fn sequencal_updates() {
+    fn sequential_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
-        document.update(vec![FIRST_EDIT.clone()]);
-        document.update(vec![SECOND_EDIT.clone()]);
+        document.update(&[FIRST_EDIT.clone()]);
+        document.update(&[SECOND_EDIT.clone()]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
     #[test]
     fn batched_updates() {
         let mut document = Document::new(DOC_BEFORE_EDIT.to_owned());
-        document.update(vec![FIRST_EDIT.clone(), SECOND_EDIT.clone()]);
+        document.update(&[FIRST_EDIT.clone(), SECOND_EDIT.clone()]);
         assert_eq!(document.text(), DOC_AFTER_EDIT)
     }
 }

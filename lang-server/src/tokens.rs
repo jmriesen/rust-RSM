@@ -134,7 +134,7 @@ impl AbsolutToken {
 pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken> {
     for i in 1..tokens.len() {
         // If token is to long clip it.
-        // Only needed if overlaping tokes are not supported.
+        // Only needed if overlapping tokes are not supported.
         if tokens[i].delta_line == 0 && tokens[i - 1].length > tokens[i].delta_start {
             tokens[i - 1].length = tokens[i].delta_start;
         }
@@ -179,7 +179,7 @@ mod test {
         .await
         .unwrap();
         lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
+        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
     }
     #[tokio::test]
     async fn non_overlapping() {
@@ -204,6 +204,6 @@ mod test {
         .await
         .unwrap();
         lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(TextDocumentIdentifier::new(uri)));
+        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
     }
 }
