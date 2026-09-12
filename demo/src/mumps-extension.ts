@@ -16,8 +16,10 @@ export const mumpsExtension = {
   }
 };
 
-export const mumpsExampleConntent = `tag s asdf=90
-  write foo=90
-  s foo="test"
-  set foo("test")=90
+export const mumpsExampleContent = `tag w "before loop",!
+ f i=1:1:5 w "foo "
+ w !,"after loop"
+ w "foo" 
+ q  
+
 `;
