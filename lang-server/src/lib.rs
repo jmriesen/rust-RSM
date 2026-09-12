@@ -1,5 +1,6 @@
 #![warn(clippy::pedantic)]
-use std::{collections::HashMap, sync::RwLock};
+use commands::Commands as MyCommand;
+use std::{collections::HashMap, str::FromStr, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::{QueryCursor, StreamingIterator};
@@ -12,6 +13,7 @@ use crate::{
 };
 
 mod client;
+mod commands;
 mod config;
 mod document;
 mod errors;
@@ -81,10 +83,50 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
                 text_document_sync: DOCUMENT_SYNC_CAPABILITY,
                 semantic_tokens_provider: SEMANTIC_TOKENS_CAPABILITIES.clone(),
                 diagnostic_provider: DIAGNOSTIC_CAPACITIES,
+                code_lens_provider: Some(CodeLensOptions {
+                    resolve_provider: Some(false),
+                }),
+                execute_command_provider: Some(ExecuteCommandOptions {
+                    commands: vec![MyCommand::HelloWorld.into()],
+                    ..Default::default()
+                }),
                 ..ServerCapabilities::default()
             },
             server_info: None,
         })
+    }
+    async fn code_lens(&self, _params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+        let top_of_file = Range {
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 0,
+                character: 0,
+            },
+        };
+
+        let lens = CodeLens {
+            range: top_of_file,
+            command: Some(Command {
+                title: "▶ Run Hello World".to_string(),
+                command: MyCommand::HelloWorld.into(),
+                arguments: None,
+            }),
+            data: None,
+        };
+
+        Ok(Some(vec![lens]))
+    }
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<serde_json::Value>> {
+        match MyCommand::from_str(&params.command) {
+            Ok(comand) => Ok(comand.run(&self.client).await),
+            Err(_) => Ok(None),
+        }
     }
 
     async fn initialized(&self, _: InitializedParams) {

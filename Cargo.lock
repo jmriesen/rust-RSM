@@ -1024,6 +1024,7 @@ dependencies = [
  "insta",
  "lang-model",
  "lsp-types 0.97.0",
+ "serde_json",
  "tokio",
  "tower-lsp",
  "tree-sitter",
