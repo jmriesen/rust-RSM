@@ -86,11 +86,10 @@ pub struct AbsolutToken {
 impl From<&TokenNode<'_>> for AbsolutToken {
     fn from(TokenNode(node): &TokenNode) -> Self {
         let start = node.start_position();
-        let end = node.end_position();
         AbsolutToken {
             line: to_lsp_int(start.row),
             column: to_lsp_int(start.column),
-            length: to_lsp_int(end.column - start.column),
+            length: to_lsp_int(node.end_byte() - node.start_byte()),
             token_type: TokenTypes::from_node_type(node.kind()) as u32,
             token_modifiers_bitset: 0,
         }
