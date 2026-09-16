@@ -56,7 +56,6 @@ impl Document {
         self.tree = lang_model::create_tree(&self.source);
     }
 
-    #[cfg(test)]
     pub fn text(&self) -> &str {
         &self.source
     }

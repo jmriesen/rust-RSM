@@ -13,6 +13,8 @@ lang-model= { path = "../lang-model"}
 tree-sitter-mumps = { path = "../tree-sitter-M"}
 tree-sitter = {workspace=true}
 serde_json = { version = "1.0.151",default-features=false}
+backend = {path = "../backend"}
+frontend = {path = "../frontend/"}
 
 [dev-dependencies]
 insta = { version = "1.48.0", features = ["yaml"] }

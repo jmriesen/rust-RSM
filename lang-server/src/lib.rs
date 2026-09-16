@@ -1,6 +1,10 @@
 #![warn(clippy::pedantic)]
 use commands::Commands as MyCommand;
-use std::{collections::HashMap, str::FromStr, sync::RwLock};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Mutex, RwLock},
+};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 use tree_sitter::{QueryCursor, StreamingIterator};
@@ -23,14 +27,14 @@ pub use tokens::TokenTypes;
 
 pub struct MumpsLsp<Client: client::Client> {
     client: Client,
-    documents: RwLock<HashMap<Url, Document>>,
+    documents: Mutex<HashMap<Url, Document>>,
     allow_overlapping_tokens: RwLock<bool>,
 }
 impl<Client: client::Client> MumpsLsp<Client> {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            documents: RwLock::default(),
+            documents: Mutex::default(),
             allow_overlapping_tokens: RwLock::new(false),
         }
     }
@@ -40,7 +44,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     /// Will Panic if the document lock is poisoned.
     pub fn did_open(&self, url: Url, text: String) {
         self.documents
-            .write()
+            .lock()
             .expect("The lock is not poisoned.")
             .insert(url, Document::new(text));
     }
@@ -48,7 +52,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     ///
     /// Will Panic if the document lock is poisoned.
     pub fn tokens(&self, document: &TextDocumentIdentifier) -> Vec<SemanticToken> {
-        let documents = self.documents.read().expect("The lock is not poisoned.");
+        let documents = self.documents.lock().expect("The lock is not poisoned.");
         let document = documents.get(&document.uri).unwrap();
         let mut query_cursor = QueryCursor::new();
         let tokens: Vec<_> = collect(
@@ -95,7 +99,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             server_info: None,
         })
     }
-    async fn code_lens(&self, _params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+    async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
         let top_of_file = Range {
             start: Position {
                 line: 0,
@@ -112,7 +116,9 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             command: Some(Command {
                 title: "▶ Run Hello World".to_string(),
                 command: MyCommand::HelloWorld.into(),
-                arguments: None,
+                arguments: Some(vec![serde_json::Value::String(
+                    params.text_document.uri.into(),
+                )]),
             }),
             data: None,
         };
@@ -124,7 +130,9 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         params: ExecuteCommandParams,
     ) -> Result<Option<serde_json::Value>> {
         match MyCommand::from_str(&params.command) {
-            Ok(comand) => Ok(comand.run(&self.client).await),
+            Ok(comand) => Ok(comand
+                .run(&self.client, params.arguments, &self.documents)
+                .await),
             Err(_) => Ok(None),
         }
     }
@@ -153,7 +161,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         &self,
         params: DocumentDiagnosticParams,
     ) -> Result<DocumentDiagnosticReportResult> {
-        let documents = self.documents.read().unwrap();
+        let documents = self.documents.lock().unwrap();
 
         let routine = documents
             .get(&params.text_document.uri)
@@ -191,7 +199,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
 
     async fn did_change(&self, change: DidChangeTextDocumentParams) {
         self.documents
-            .write()
+            .lock()
             .unwrap()
             .get_mut(&change.text_document.uri)
             .expect("The document should already be open before changes are made")

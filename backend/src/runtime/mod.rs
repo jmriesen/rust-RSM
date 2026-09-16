@@ -45,7 +45,7 @@ struct DoFrame<'a> {
 
 pub struct Job<'a> {
     //TODO: Replace with a proper output device later.
-    buffer: String,
+    pub buffer: String,
     /// Stack of values
     r_values: Vec<value::Value>,
     /// Stack of L-values (things that can be assigned to).

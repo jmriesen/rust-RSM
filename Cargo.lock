@@ -1030,6 +1030,8 @@ dependencies = [
 name = "lang-server"
 version = "0.1.0"
 dependencies = [
+ "backend",
+ "frontend",
  "insta",
  "lang-model",
  "lsp-types 0.97.0",
