@@ -1,11 +1,6 @@
 use std::str::FromStr;
 
-use chumsky::{
-    IterParser,
-    input::StrInput,
-    prelude::*,
-    text::{ascii::ident, newline},
-};
+use chumsky::{IterParser, prelude::*};
 use ir::{
     Expression, Line, Routine,
     commands::{

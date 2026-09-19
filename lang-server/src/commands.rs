@@ -66,17 +66,25 @@ impl Commands {
 
                 //TODO: FIX CAUSING ISSUES WIHT WEB
                 // Start of problematic section
-                let routine = frontend::parse_routine(&text).unwrap();
-                let byte_code = backend::compile_routine(routine);
-                let mut job = Job::new(&byte_code);
-                job.run();
-                // End of problematic section
+                if let Ok(routine) = frontend::parse_routine(&text) {
+                    let byte_code = backend::compile_routine(routine);
+                    let mut job = Job::new(&byte_code);
+                    job.run();
+                    // End of problematic section
 
-                let output = &job.buffer;
-                client.log_message(MessageType::ERROR, output).await;
-                client
-                    .show_message(MessageType::INFO, format!("Result{}", output))
-                    .await;
+                    let output = &job.buffer;
+                    client.log_message(MessageType::ERROR, output).await;
+                    client
+                        .show_message(MessageType::INFO, format!("Result{}", output))
+                        .await;
+                } else {
+                    client
+                        .log_message(MessageType::ERROR, "could not compile")
+                        .await;
+                    client
+                        .show_message(MessageType::INFO, format!("Result{}", "could not compile"))
+                        .await;
+                };
                 Some(Value::String("Hello world".to_string()))
             }
         }
