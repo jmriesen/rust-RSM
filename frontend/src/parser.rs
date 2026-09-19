@@ -11,6 +11,7 @@ use ir::{
     commands::{
         PostCondition,
         Write::{self},
+        r#if::If,
     },
     operators::Unary,
 };
@@ -26,10 +27,16 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line> {
     let tag = text::ascii::ident().map(|_x: &str| ());
     tag.or_not()
         .ignore_then(just(" "))
-        .ignore_then(write())
+        .ignore_then(
+            choice((write(), if_parser(), else_parser()))
+                //Consume next space unless it is a new line
+                .then_ignore(choice((just(" ").to(()), empty().and_is(just("\n")))))
+                .repeated()
+                .collect(),
+        )
         .map(|x| Line {
             level: 0,
-            commands: vec![x],
+            commands: x,
         })
 }
 
@@ -41,14 +48,26 @@ fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
                 .at_least(1)
                 .collect::<Vec<_>>(),
         )
-        //Consume next space unless it is a new line
-        .then_ignore(choice((just(" ").to(()), empty().and_is(just("\n")))))
         .map(|x| {
             ir::commands::Command::Write(PostCondition {
                 condition: None,
                 value: x,
             })
         })
+}
+fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
+    just("i ")
+        .ignore_then(
+            expression()
+                .map(If)
+                .separated_by(just(","))
+                .at_least(1)
+                .collect::<Vec<_>>(),
+        )
+        .map(|x| ir::commands::Command::If(x))
+}
+fn else_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
+    just("e ").map(|_| ir::commands::Command::Else)
 }
 
 fn write_arg<'src>() -> impl Parser<'src, &'src str, Write> {
@@ -59,6 +78,7 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Write> {
         expression().map(|x| Write::Expression(x)),
     ))
 }
+
 fn str_literal<'src>() -> impl Parser<'src, &'src str, Expression> {
     none_of("\"")
         .repeated()
