@@ -9,3 +9,4 @@ value = {path = "../value/"}
 ir = {path = "../ir/"}
 thiserror = "1.0.63"
 mutants = "0.0.3"
+chumsky = "0.13.0"

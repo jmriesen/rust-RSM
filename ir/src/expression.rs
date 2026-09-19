@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
     Number(value::Number),
     String(value::Value),

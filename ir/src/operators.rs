@@ -1,11 +1,11 @@
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Unary {
     Minus,
     Plus,
     Not,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Binary {
     Add,
     Sub,

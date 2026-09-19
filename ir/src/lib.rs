@@ -15,7 +15,7 @@ pub use variable::Variable;
 
 use crate::commands::Command;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Line {
     //TODO:TAG
     pub level: u16,

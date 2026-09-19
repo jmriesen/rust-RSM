@@ -19,13 +19,13 @@ use crate::commands::kill::Kill;
 
 use super::Expression;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PostCondition<T> {
     pub condition: Option<Expression>,
     pub value: T,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Command {
     Write(PostCondition<Vec<Write>>),
     Close(PostCondition<Vec<Close>>),
@@ -39,5 +39,5 @@ pub enum Command {
     Quit(PostCondition<Quit>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Quit(pub Option<Expression>);
