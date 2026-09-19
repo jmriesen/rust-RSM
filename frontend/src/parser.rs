@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chumsky::{IterParser, prelude::*};
 use ir::{
-    Expression, Line, Routine,
+    Expression, Line, Routine, Tag,
     commands::{
         PostCondition,
         Write::{self},
@@ -19,17 +19,28 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine> {
 }
 
 fn line_parser<'src>() -> impl Parser<'src, &'src str, Line> {
-    let tag = text::ascii::ident().map(|_x: &str| ());
+    let tag = text::ascii::ident().map_with(|tag: &str, extra| {
+        use ir::Spanned;
+        let temp: SimpleSpan = extra.span();
+        Spanned {
+            inner: Tag {
+                name: tag.to_owned(),
+            },
+            start: temp.start(),
+            end: temp.end(),
+        }
+    });
     tag.or_not()
-        .ignore_then(just(" "))
-        .ignore_then(
+        .then_ignore(just(" "))
+        .then(
             choice((write(), if_parser(), else_parser()))
                 //Consume next space unless it is a new line
                 .then_ignore(choice((just(" ").to(()), empty().and_is(just("\n")))))
                 .repeated()
                 .collect(),
         )
-        .map(|x| Line {
+        .map(|(tag, x)| Line {
+            tag: tag,
             level: 0,
             commands: x,
         })

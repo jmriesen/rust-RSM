@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use ir::Spanned;
 use tower_lsp::lsp_types::{
     SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, SemanticTokensServerCapabilities,
@@ -74,7 +75,7 @@ tokens! {
 pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
 /// `SemanticToken` but position is measure in absolute rather than relative terms
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AbsolutToken {
     pub line: u32,
     pub column: u32,
@@ -95,6 +96,7 @@ impl From<&TokenNode<'_>> for AbsolutToken {
         }
     }
 }
+
 impl AbsolutToken {
     pub fn to_relitive(mut tokens: Vec<Self>) -> Vec<SemanticToken> {
         // Tokens need to be in order for diff calculation.
@@ -130,6 +132,7 @@ impl AbsolutToken {
             .collect()
     }
 }
+
 pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken> {
     for i in 1..tokens.len() {
         // If token is to long clip it.
@@ -204,5 +207,41 @@ mod test {
         .unwrap();
         lsp.did_open(uri.clone(), source);
         assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
+    }
+}
+impl crate::Document {
+    pub fn tokens(&self) -> Vec<AbsolutToken> {
+        let new_lines: Vec<_> = std::iter::once(0)
+            .chain(self.text().match_indices('\n').map(
+                |(x, _)| x + 1, /*The +1 moves us to start of next line.*/
+            ))
+            .collect();
+
+        if let Some(routine) = self.ir().clone().into_output() {
+            routine
+                .into_iter()
+                .filter_map(|x| x.tag)
+                .map(|x| Spanned {
+                    inner: TokenTypes::TagName,
+                    start: x.start,
+                    end: x.end,
+                })
+                .map(|x| {
+                    let line = new_lines
+                        .iter()
+                        .rposition(|line_pos| *line_pos <= x.start)
+                        .unwrap_or(0);
+                    AbsolutToken {
+                        line: line as u32,
+                        column: (x.start - new_lines[line]) as u32,
+                        length: (x.end - x.start) as u32,
+                        token_type: x.inner as u32,
+                        token_modifiers_bitset: 0,
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
+        }
     }
 }

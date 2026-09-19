@@ -10,4 +10,4 @@ members=[
 
 [workspace.dependencies]
 tree-sitter = "0.26.11"
-
+chumsky = "0.13.0"

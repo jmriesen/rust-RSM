@@ -26,6 +26,7 @@ pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Line, Pars
         commands.push(new(&command, source_code, &mut line_tail)?);
     }
     Ok(Line {
+        tag: None,
         level: line.level().len() as u16,
         commands,
     })

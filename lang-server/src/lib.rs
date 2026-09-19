@@ -7,13 +7,10 @@ use std::{
 };
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
-use tree_sitter::{QueryCursor, StreamingIterator};
 
 use crate::{
     document::{Document, DOCUMENT_SYNC_CAPABILITY},
-    errors::{ErrorNode, DIAGNOSTIC_CAPACITIES},
-    tokens::{remove_over_lapping, AbsolutToken, TokenNode, SEMANTIC_TOKENS_CAPABILITIES},
-    util::collect,
+    tokens::{remove_over_lapping, AbsolutToken, SEMANTIC_TOKENS_CAPABILITIES},
 };
 
 mod client;
@@ -54,15 +51,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     pub fn tokens(&self, document: &TextDocumentIdentifier) -> Vec<SemanticToken> {
         let documents = self.documents.lock().expect("The lock is not poisoned.");
         let document = documents.get(&document.uri).unwrap();
-        let mut query_cursor = QueryCursor::new();
-        let tokens: Vec<_> = collect(
-            document
-                .query(&TokenTypes::query(), &mut query_cursor)
-                .map(|x| TokenNode(x.captures[0].node))
-                .map(|x| AbsolutToken::from(x)),
-        );
-
-        let tokens = AbsolutToken::to_relitive(tokens);
+        let tokens = AbsolutToken::to_relitive(document.tokens());
         if *self.allow_overlapping_tokens.read().unwrap() {
             tokens
         } else {
@@ -86,7 +75,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             capabilities: ServerCapabilities {
                 text_document_sync: DOCUMENT_SYNC_CAPABILITY,
                 semantic_tokens_provider: SEMANTIC_TOKENS_CAPABILITIES.clone(),
-                diagnostic_provider: DIAGNOSTIC_CAPACITIES,
+                diagnostic_provider: None, //DIAGNOSTIC_CAPACITIES,
                 code_lens_provider: Some(CodeLensOptions {
                     resolve_provider: Some(false),
                 }),
@@ -157,6 +146,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         })))
     }
 
+    /*
     async fn diagnostic(
         &self,
         params: DocumentDiagnosticParams,
@@ -185,6 +175,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             }),
         ))
     }
+    */
 
     async fn did_open(
         &self,

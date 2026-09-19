@@ -1,7 +1,12 @@
+use chumsky::{error::EmptyErr, ParseResult, Parser};
+use frontend::parser::routine;
+use ir::{Routine, Spanned};
 use tower_lsp::lsp_types::{
     Position, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use tree_sitter::{Query, QueryCursor, QueryMatches};
+
+use crate::{tokens::AbsolutToken, TokenTypes};
 pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
     TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL),
 );
@@ -9,17 +14,16 @@ pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
 pub struct Document {
     ///Note the document and tree must always stay in sync.
     source: String,
-    tree: tree_sitter::Tree,
+    ir: ParseResult<Routine, EmptyErr>,
 }
 
 impl Document {
     pub fn new(source: String) -> Self {
-        Self {
-            tree: lang_model::create_tree(&source),
-            source,
-        }
+        let ir = routine().parse(&source);
+        Self { source, ir }
     }
 
+    /*
     pub fn query<'a, 'query>(
         &'a self,
         query: &'query Query,
@@ -27,6 +31,7 @@ impl Document {
     ) -> QueryMatches<'query, 'a, &'a [u8], &'a [u8]> {
         query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
     }
+    */
 
     pub fn line_start_index(&self, line_number: usize) -> Option<usize> {
         std::iter::once(0)
@@ -52,12 +57,14 @@ impl Document {
             self.source.replace_range(start..end, &change.text);
         }
 
-        //OPTIMIZATION OPPORTUNITY: tree sitter supports updating the tree based on edits.
-        self.tree = lang_model::create_tree(&self.source);
+        self.ir = routine().parse(&self.source);
     }
 
     pub fn text(&self) -> &str {
         &self.source
+    }
+    pub fn ir(&self) -> &ParseResult<Routine, EmptyErr> {
+        &self.ir
     }
 }
 

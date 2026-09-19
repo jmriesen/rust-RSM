@@ -14,10 +14,21 @@ pub mod variable;
 pub use variable::Variable;
 
 use crate::commands::Command;
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Spanned<T> {
+    pub inner: T,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Tag {
+    pub name: String,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Line {
-    //TODO:TAG
+    pub tag: Option<Spanned<Tag>>,
     pub level: u16,
     pub commands: Vec<Command>,
 }
