@@ -1,6 +1,6 @@
-use std::sync::LazyLock;
+use std::{result::IterMut, sync::LazyLock};
 
-use ir::Spanned;
+use ir::{Line, Routine, Spanned, Tag};
 use tower_lsp::lsp_types::{
     SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, SemanticTokensServerCapabilities,
@@ -219,13 +219,8 @@ impl crate::Document {
 
         if let Some(routine) = self.ir().clone().into_output() {
             routine
+                .tokens()
                 .into_iter()
-                .filter_map(|x| x.tag)
-                .map(|x| Spanned {
-                    inner: TokenTypes::TagName,
-                    start: x.start,
-                    end: x.end,
-                })
                 .map(|x| {
                     let line = new_lines
                         .iter()
@@ -243,5 +238,28 @@ impl crate::Document {
         } else {
             vec![]
         }
+    }
+}
+trait ExtractTokens {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>>;
+}
+
+impl ExtractTokens for Routine {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        self.iter().map(|x| x.tokens()).flatten()
+    }
+}
+impl ExtractTokens for Line {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        self.tag.as_ref().map(|x| x.tokens()).into_iter().flatten()
+    }
+}
+impl ExtractTokens for Spanned<Tag> {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        core::iter::once(Spanned {
+            inner: TokenTypes::TagName,
+            start: self.start,
+            end: self.end,
+        })
     }
 }
