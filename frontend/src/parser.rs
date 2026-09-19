@@ -13,7 +13,7 @@ use ir::{
         Write::{self},
         r#if::If,
     },
-    operators::Unary,
+    operators::{Binary, Unary},
 };
 use value::{Number, Value};
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine> {
@@ -95,19 +95,51 @@ fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary> {
         just("'").to(Unary::Not),
     ))
 }
+fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary> {
+    choice((
+        //
+        just("+").to(Binary::Add),
+        just("-").to(Binary::Sub),
+    ))
+}
 fn expression<'src>() -> impl Parser<'src, &'src str, Expression> {
-    recursive(|inner| {
+    recursive(|expr| {
+        let atom = choice((
+            //Note: must either terminate or move the cursor before a recursive call.
+            //To do otherwise will result in infinite recursion.
+            expr.clone().delimited_by(just("("), just(")")),
+            str_literal(),
+            text::int(10).map(|x| Expression::Number(Number::from_str(x).unwrap())),
+        ))
+        .boxed();
+        // Handle operator cases.
+        // Note: To prevent infinite recursion operators are applied to atoms not expressions.
+        // If the first thing we do to parse a binary expression is try and parse another (binary)
+        // expression we are in for infinite recursion.
+        // `atom` is guarantied to move the cursor before trying to recurs.
         choice((
             //
-            str_literal().boxed(),
+            //NOTE: This also handles the atom case (no trailing operator + atom) since the first
+            //argument to fold matches on zero repetitions
+            atom.clone()
+                .foldl(
+                    op_b_code().then(atom.clone()).repeated(),
+                    |lhs, (op, rhs)| Expression::BinaryExpression {
+                        left: Box::new(lhs),
+                        op_code: op,
+                        right: Box::new(rhs),
+                    },
+                )
+                .boxed(),
             op_u_code()
-                .then(inner)
-                .map(|(op_code, expresstion)| Expression::UnaryExpression {
-                    op_code,
-                    expresstion: Box::new(expresstion),
+                .repeated()
+                .foldr(atom.clone(), |op_code, expression| {
+                    Expression::UnaryExpression {
+                        op_code,
+                        expresstion: Box::new(expression),
+                    }
                 })
                 .boxed(),
-            text::int(10).map(|x| Expression::Number(Number::from_str(x).unwrap())),
         ))
     })
 }
