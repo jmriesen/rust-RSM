@@ -1,6 +1,9 @@
 use std::{result::IterMut, sync::LazyLock};
 
-use ir::{Line, Routine, Spanned, Tag};
+use ir::{
+    commands::{Command, Write},
+    Line, Routine, Spanned, Tag,
+};
 use tower_lsp::lsp_types::{
     SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, SemanticTokensServerCapabilities,
@@ -240,20 +243,37 @@ impl crate::Document {
         }
     }
 }
+
 trait ExtractTokens {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>>;
 }
 
-impl ExtractTokens for Routine {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        self.iter().map(|x| x.tokens()).flatten()
-    }
-}
 impl ExtractTokens for Line {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        self.tag.as_ref().map(|x| x.tokens()).into_iter().flatten()
+        self.tag.tokens().chain(self.commands.tokens())
     }
 }
+impl ExtractTokens for Spanned<Command> {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        core::iter::once(Spanned {
+            inner: TokenTypes::Command,
+            start: self.start,
+            end: self.end,
+        })
+        .chain(match &self.inner {
+            Command::Write(post_condition) => Box::new(post_condition.value.tokens())
+                as Box<dyn Iterator<Item = Spanned<TokenTypes>>>,
+
+            Command::Error => Box::new(core::iter::once(Spanned {
+                inner: TokenTypes::String,
+                start: self.start,
+                end: self.end,
+            })),
+            _ => Box::new(Option::<Spanned<Tag>>::None.tokens()),
+        })
+    }
+}
+
 impl ExtractTokens for Spanned<Tag> {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
         core::iter::once(Spanned {
@@ -261,5 +281,29 @@ impl ExtractTokens for Spanned<Tag> {
             start: self.start,
             end: self.end,
         })
+    }
+}
+impl ExtractTokens for Spanned<Write> {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        match &self.inner {
+            Write::Bang | Write::Clear => Box::new(core::iter::once(Spanned {
+                inner: TokenTypes::Variable,
+                start: self.start,
+                end: self.end,
+            }))
+                as Box<dyn Iterator<Item = Spanned<TokenTypes>>>,
+            _ => Box::new(Option::<Spanned<Tag>>::None.tokens()),
+        }
+    }
+}
+
+impl<E: ExtractTokens> ExtractTokens for Option<E> {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        self.as_ref().map(|x| x.tokens()).into_iter().flatten()
+    }
+}
+impl<E: ExtractTokens> ExtractTokens for Vec<E> {
+    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
+        self.iter().map(|x| x.tokens()).flatten()
     }
 }

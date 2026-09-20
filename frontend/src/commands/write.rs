@@ -1,5 +1,5 @@
 use ir::{
-    Expression,
+    Expression, Spanned,
     commands::{Command, PostCondition, Write},
 };
 
@@ -24,6 +24,11 @@ pub fn new(sitter: &lang_model::WriteCommand, source_code: &str) -> Command {
                         Write::Expression(Expression::new(&expression, source_code))
                     }
                 }
+            })
+            .map(|x| Spanned {
+                inner: x,
+                start: 0,
+                end: 0,
             })
             .collect(),
     })

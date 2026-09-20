@@ -30,7 +30,7 @@ pub struct Tag {
 pub struct Line {
     pub tag: Option<Spanned<Tag>>,
     pub level: u16,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Spanned<Command>>,
 }
 
 pub type Routine = Vec<Line>;

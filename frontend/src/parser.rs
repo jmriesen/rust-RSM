@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chumsky::{IterParser, prelude::*};
 use ir::{
-    Expression, Line, Routine, Tag,
+    Expression, Line, Routine, Spanned, Tag,
     commands::{
         PostCondition,
         Write::{self},
@@ -11,14 +11,16 @@ use ir::{
     operators::{Binary, Unary},
 };
 use value::{Number, Value};
-pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine> {
+pub fn routine<'src>()
+-> impl Parser<'src, &'src str, Routine, chumsky::extra::Err<Rich<'src, char>>> {
     line_parser()
         .separated_by(just("\n"))
         .allow_trailing()
         .collect::<Vec<_>>()
 }
 
-fn line_parser<'src>() -> impl Parser<'src, &'src str, Line> {
+fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, chumsky::extra::Err<Rich<'src, char>>>
+{
     let tag = text::ascii::ident().map_with(|tag: &str, extra| {
         use ir::Spanned;
         let temp: SimpleSpan = extra.span();
@@ -30,11 +32,21 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line> {
             end: temp.end(),
         }
     });
+    let skip_to_next_command_recovery = none_of(' ')
+        .repeated()
+        .then(empty().and_is(just(" ")))
+        .map(|_| ir::commands::Command::Error);
     tag.or_not()
         .then_ignore(just(" "))
         .then(
             choice((write(), if_parser(), else_parser()))
+                .recover_with(via_parser(skip_to_next_command_recovery))
                 //Consume next space unless it is a new line
+                .map_with(|inner, extra| Spanned {
+                    inner,
+                    start: extra.span().start,
+                    end: extra.span().end,
+                })
                 .then_ignore(choice((just(" ").to(()), empty().and_is(just("\n")))))
                 .repeated()
                 .collect(),
@@ -46,7 +58,8 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line> {
         })
 }
 
-fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
+fn write<'src>()
+-> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
     just("w ")
         .ignore_then(
             write_arg()
@@ -61,7 +74,8 @@ fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
             })
         })
 }
-fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
+fn if_parser<'src>()
+-> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
     just("i ")
         .ignore_then(
             expression()
@@ -72,20 +86,28 @@ fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
         )
         .map(|x| ir::commands::Command::If(x))
 }
-fn else_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command> {
+fn else_parser<'src>()
+-> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
     just("e ").map(|_| ir::commands::Command::Else)
 }
 
-fn write_arg<'src>() -> impl Parser<'src, &'src str, Write> {
+fn write_arg<'src>()
+-> impl Parser<'src, &'src str, Spanned<Write>, chumsky::extra::Err<Rich<'src, char>>> {
     choice((
         //
         just("!").to(Write::Bang),
         just("#").to(Write::Clear),
         expression().map(|x| Write::Expression(x)),
     ))
+    .map_with(|x, exra| Spanned {
+        inner: x,
+        start: exra.span().start,
+        end: exra.span().end,
+    })
 }
 
-fn str_literal<'src>() -> impl Parser<'src, &'src str, Expression> {
+fn str_literal<'src>()
+-> impl Parser<'src, &'src str, Expression, chumsky::extra::Err<Rich<'src, char>>> {
     none_of("\"")
         .repeated()
         .collect::<String>()
@@ -93,7 +115,7 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, Expression> {
         .map(|x| Expression::String(Value::from_str(&x).unwrap()))
 }
 
-fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary> {
+fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, chumsky::extra::Err<Rich<'src, char>>> {
     choice((
         //
         just("+").to(Unary::Plus),
@@ -101,14 +123,16 @@ fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary> {
         just("'").to(Unary::Not),
     ))
 }
-fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary> {
+fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, chumsky::extra::Err<Rich<'src, char>>>
+{
     choice((
         //
         just("+").to(Binary::Add),
         just("-").to(Binary::Sub),
     ))
 }
-fn expression<'src>() -> impl Parser<'src, &'src str, Expression> {
+fn expression<'src>()
+-> impl Parser<'src, &'src str, Expression, chumsky::extra::Err<Rich<'src, char>>> {
     recursive(|expr| {
         let atom = choice((
             //Note: must either terminate or move the cursor before a recursive call.

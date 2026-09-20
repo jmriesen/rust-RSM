@@ -1,4 +1,5 @@
 pub use bite_code::BiteCode;
+use ir::Spanned;
 pub mod bite_code;
 pub mod commands;
 mod conditional_jumps;
@@ -43,6 +44,16 @@ where
         if let Some(inner) = self {
             inner.compile(bite_code, context)
         }
+    }
+}
+impl<T, C> Compile for Spanned<T>
+where
+    T: Compile,
+    T: Compile<Context = C>,
+{
+    type Context = C;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+        self.inner.compile(bite_code, context)
     }
 }
 

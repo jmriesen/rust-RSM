@@ -1,4 +1,4 @@
-use ir::{Line, commands::Command};
+use ir::{Line, Spanned, commands::Command};
 
 use crate::ParsingError;
 
@@ -28,7 +28,14 @@ pub fn new_line(line: &lang_model::line, source_code: &str) -> Result<Line, Pars
     Ok(Line {
         tag: None,
         level: line.level().len() as u16,
-        commands,
+        commands: commands
+            .into_iter()
+            .map(|x| Spanned {
+                inner: x,
+                start: 0,
+                end: 0,
+            })
+            .collect(),
     })
 }
 

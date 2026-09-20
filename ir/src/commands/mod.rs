@@ -15,7 +15,7 @@ use r#if::If;
 use set::Set;
 pub use write::Write;
 
-use crate::commands::kill::Kill;
+use crate::{Spanned, commands::kill::Kill};
 
 use super::Expression;
 
@@ -27,7 +27,7 @@ pub struct PostCondition<T> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Command {
-    Write(PostCondition<Vec<Write>>),
+    Write(PostCondition<Vec<Spanned<Write>>>),
     Close(PostCondition<Vec<Close>>),
     Do(PostCondition<Do>),
     Break(PostCondition<Break>),
@@ -37,6 +37,7 @@ pub enum Command {
     If(Vec<If>),
     Kill(Vec<Kill>),
     Quit(PostCondition<Quit>),
+    Error,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

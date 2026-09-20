@@ -1,11 +1,6 @@
-use std::{
-    collections::HashMap,
-    hint::black_box,
-    str::FromStr,
-    sync::{Mutex, RwLock},
-};
+use std::{collections::HashMap, str::FromStr, sync::Mutex};
 
-use backend::{bite_code, runtime::Job};
+use backend::runtime::Job;
 use serde_json::Value;
 use tower_lsp::lsp_types::{MessageType, Url};
 
@@ -56,35 +51,34 @@ impl Commands {
                     _ => panic!(),
                 };
 
-                let text = black_box({
+                let output = {
                     let documents = documents.lock().expect("The lock is not poisoned.");
                     let document = documents.get(&uri).unwrap();
-                    let text = document.text().to_owned();
-                    drop(documents);
-                    text
-                });
+                    let parse_result = document.ir().clone();
 
-                //TODO: FIX CAUSING ISSUES WIHT WEB
-                // Start of problematic section
-                if let Ok(routine) = frontend::parse_routine(&text) {
-                    let byte_code = backend::compile_routine(routine);
-                    let mut job = Job::new(&byte_code);
-                    job.run();
-                    // End of problematic section
+                    match parse_result.into_result() {
+                        Ok(routine) => {
+                            let byte_code = backend::compile_routine(routine);
+                            let mut job = Job::new(&byte_code);
+                            job.run();
+                            // End of problematic section
 
-                    let output = &job.buffer;
-                    client.log_message(MessageType::ERROR, output).await;
-                    client
-                        .show_message(MessageType::INFO, format!("Result{}", output))
-                        .await;
-                } else {
-                    client
-                        .log_message(MessageType::ERROR, "could not compile")
-                        .await;
-                    client
-                        .show_message(MessageType::INFO, format!("Result{}", "could not compile"))
-                        .await;
+                            job.buffer.clone()
+                        }
+                        Err(errs) => {
+                            format!(
+                                "Could not compile{:?}",
+                                errs.into_iter()
+                                    .map(|x| format!("{x:?}"))
+                                    .collect::<String>()
+                            )
+                        }
+                    }
                 };
+                client
+                    .show_message(MessageType::INFO, format!("Result{}", output))
+                    .await;
+
                 Some(Value::String("Hello world".to_string()))
             }
         }
