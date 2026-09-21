@@ -1,4 +1,4 @@
-use chumsky::{IterParser, prelude::*, recovery};
+use chumsky::{IterParser, prelude::*};
 use ir::{
     Expression, Line, Routine, Spanned, Tag,
     commands::{
