@@ -35,7 +35,7 @@ IndirectVariable: $ => seq("@", $.Expression, "@"),
 use super::Error;
 use chumsky::{Parser, prelude::*};
 use ir::{Expression, Variable, variable::VariableType};
-fn identifier<'src>() -> impl Parser<'src, &'src str, String, Error<'src>> {
+pub fn identifier<'src>() -> impl Parser<'src, &'src str, String, Error<'src>> {
     any()
         .filter(|start: &char| start.is_ascii_alphabetic())
         .then(
@@ -74,5 +74,17 @@ pub fn variable<'src>(
         })
         .labelled("Variable")
         .as_non_terminal()
+        .as_context()
+}
+pub fn local_variable_no_subscripts<'src>() -> impl Parser<'src, &'src str, Variable, Error<'src>> {
+    identifier()
+        .map(|name| Variable {
+            var_type: ir::variable::VariableType::Named {
+                name,
+                globle_ident: None,
+            },
+            subscripts: vec![],
+        })
+        .labelled("Local variable no subscripts")
         .as_context()
 }

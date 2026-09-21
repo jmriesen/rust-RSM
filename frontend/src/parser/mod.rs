@@ -1,6 +1,6 @@
 use chumsky::{IterParser, extra::Err, prelude::*};
 use ir::{
-    Expression, Line, Routine, Spanned, Tag,
+    Expression, Line, Routine, Spanned, Tag, Variable,
     commands::{
         self, Command, PostCondition,
         Write::{self},
@@ -13,7 +13,7 @@ mod expression;
 mod variable;
 use expression::expression;
 
-use crate::parser::variable::variable;
+use crate::parser::variable::{identifier, local_variable_no_subscripts, variable};
 
 pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), Error<'src>> {
     let (first, second) = keyword.split_at(1);
@@ -61,6 +61,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>
             set_parser(),
             for_parser(cmd),
             quit_parser(),
+            kill_parser(),
         ))
         .boxed()
         .recover_with(via_parser(choice((
@@ -143,17 +144,45 @@ fn set_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Err
 fn post_condition<'src>() -> impl Parser<'src, &'src str, Option<Expression>, Error<'src>> {
     just(":").ignore_then(expression()).or_not()
 }
+
 fn quit_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     keyword("quit")
-        .then(post_condition())
-        //deliminator
+        .ignore_then(post_condition())
         .then_ignore(argument_less())
-        .map(|((), condition)| {
+        .map(|condition| {
             ir::commands::Command::Quit(PostCondition {
                 condition,
                 value: commands::Quit(None),
             })
         })
+}
+
+fn kill_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
+    use commands::kill::KillType as E;
+    keyword("kill")
+        .ignore_then(choice((
+            just(" ").ignore_then(
+                choice((
+                    variable(expression()).map(|var| commands::kill::Kill {
+                        r#type: E::Inclusive,
+                        variables: vec![var],
+                    }),
+                    local_variable_no_subscripts()
+                        .delimited_by(just("("), just(")"))
+                        .map(|var| commands::kill::Kill {
+                            r#type: E::Exclusive,
+                            variables: vec![var],
+                        }),
+                ))
+                .separated_by(just(","))
+                .collect::<Vec<_>>(),
+            ),
+            argument_less().to(vec![commands::kill::Kill {
+                r#type: E::Exclusive,
+                variables: vec![],
+            }]),
+        )))
+        .map(|value| ir::commands::Command::Kill(value))
 }
 
 fn argument_less<'src>() -> impl Parser<'src, &'src str, (), Error<'src>> {
