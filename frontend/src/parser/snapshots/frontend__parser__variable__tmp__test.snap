@@ -1,0 +1,10 @@
+---
+source: frontend/src/parser/variable.rs
+expression: "identifyer().parse(\"\")"
+---
+ParseResult {
+    output: None,
+    errs: [
+        found end of input at 0..0 expected any,
+    ],
+}

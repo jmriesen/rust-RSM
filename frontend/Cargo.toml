@@ -10,3 +10,6 @@ ir = {path = "../ir/"}
 thiserror = "1.0.63"
 mutants = "0.0.3"
 chumsky = {workspace=true}
+
+[dev-dependencies]
+insta = { version = "1.48.0", features = ["yaml"] }

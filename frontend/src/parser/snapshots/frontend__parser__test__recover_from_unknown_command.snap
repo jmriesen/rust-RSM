@@ -1,0 +1,28 @@
+---
+source: frontend/src/parser/mod.rs
+expression: "line_parser().parse(\" foo bar\").into_output_errors()"
+---
+(
+    Some(
+        Line {
+            tag: None,
+            level: 0,
+            commands: [
+                Spanned {
+                    inner: Error,
+                    start: 1,
+                    end: 4,
+                },
+                Spanned {
+                    inner: Error,
+                    start: 5,
+                    end: 8,
+                },
+            ],
+        },
+    ),
+    [
+        found ''f'' at 1..2 expected ''w'', ''i'', ''e'', or ''s'',
+        found ''b'' at 5..6 expected ''w'', ''i'', ''e'', or ''s'',
+    ],
+)

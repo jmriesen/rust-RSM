@@ -1,25 +1,28 @@
-use chumsky::{IterParser, prelude::*};
+use chumsky::{IterParser, extra::Err, prelude::*};
 use ir::{
-    Expression, Line, Routine, Spanned, Tag,
+    Line, Routine, Spanned, Tag,
     commands::{
         self, Command, PostCondition,
         Write::{self},
         r#if::If,
+        set::Set,
     },
-    operators::{Binary, Unary},
 };
-use std::str::FromStr;
-use value::{Number, Value};
-pub fn routine<'src>()
--> impl Parser<'src, &'src str, Routine, chumsky::extra::Err<Rich<'src, char>>> {
+mod expression;
+mod variable;
+use expression::expression;
+
+use crate::parser::variable::variable;
+
+type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
+pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Error<'src>> {
     line_parser()
         .separated_by(just("\n"))
         .allow_trailing()
         .collect::<Vec<_>>()
 }
 
-fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, chumsky::extra::Err<Rich<'src, char>>>
-{
+fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Error<'src>> {
     let tag = text::ascii::ident().map_with(|tag: &str, extra| {
         use ir::Spanned;
         let temp: SimpleSpan = extra.span();
@@ -40,9 +43,8 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, chumsky::extra::Err
             commands: x,
         })
 }
-fn command<'src>()
--> impl Parser<'src, &'src str, Spanned<Command>, chumsky::extra::Err<Rich<'src, char>>> {
-    choice((write(), if_parser(), else_parser()))
+fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>> {
+    choice((write(), if_parser(), else_parser(), set_parser()))
         .recover_with(via_parser(choice((
             //Consumes arbitrary text and treats is as a command.
             //We don't want to consume our delimiters
@@ -62,8 +64,7 @@ fn command<'src>()
         })
 }
 
-fn write<'src>()
--> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
+fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     just("w ")
         .ignore_then(
             write_arg()
@@ -78,8 +79,7 @@ fn write<'src>()
             })
         })
 }
-fn if_parser<'src>()
--> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
+fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     just("i ")
         .ignore_then(
             expression()
@@ -90,13 +90,11 @@ fn if_parser<'src>()
         )
         .map(|x| ir::commands::Command::If(x))
 }
-fn else_parser<'src>()
--> impl Parser<'src, &'src str, ir::commands::Command, chumsky::extra::Err<Rich<'src, char>>> {
+fn else_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     just("e ").map(|_| ir::commands::Command::Else)
 }
 
-fn write_arg<'src>()
--> impl Parser<'src, &'src str, Spanned<Write>, chumsky::extra::Err<Rich<'src, char>>> {
+fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Error<'src>> {
     choice((
         //
         just("!").to(Write::Bang),
@@ -109,124 +107,36 @@ fn write_arg<'src>()
         end: exra.span().end,
     })
 }
-
-fn str_literal<'src>()
--> impl Parser<'src, &'src str, Expression, chumsky::extra::Err<Rich<'src, char>>> {
-    none_of("\"")
-        .repeated()
-        .collect::<String>()
-        .delimited_by(just('"'), just('"'))
-        .map(|x| Expression::String(Value::from_str(&x).unwrap()))
+fn set_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
+    just("s ")
+        .ignore_then(variable(expression()))
+        .then_ignore(just("="))
+        .then(expression())
+        .map(|(variable, value)| ir::commands::Command::Set(Set { variable, value }))
 }
 
-fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, chumsky::extra::Err<Rich<'src, char>>> {
-    choice((
-        //
-        just("+").to(Unary::Plus),
-        just("-").to(Unary::Minus),
-        just("'").to(Unary::Not),
-    ))
-}
-fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, chumsky::extra::Err<Rich<'src, char>>>
-{
-    choice((
-        //
-        just("+").to(Binary::Add),
-        just("-").to(Binary::Sub),
-    ))
-}
-fn expression<'src>()
--> impl Parser<'src, &'src str, Expression, chumsky::extra::Err<Rich<'src, char>>> {
-    recursive(|expr| {
-        let atom = choice((
-            //Note: must either terminate or move the cursor before a recursive call.
-            //To do otherwise will result in infinite recursion.
-            expr.clone().delimited_by(just("("), just(")")),
-            str_literal(),
-            text::int(10).map(|x| Expression::Number(Number::from_str(x).unwrap())),
-        ))
-        .boxed();
-        // Handle operator cases.
-        // Note: To prevent infinite recursion operators are applied to atoms not expressions.
-        // If the first thing we do to parse a binary expression is try and parse another (binary)
-        // expression we are in for infinite recursion.
-        // `atom` is guarantied to move the cursor before trying to recurs.
-        choice((
-            //
-            //NOTE: This also handles the atom case (no trailing operator + atom) since the first
-            //argument to fold matches on zero repetitions
-            atom.clone()
-                .foldl(
-                    op_b_code().then(atom.clone()).repeated(),
-                    |lhs, (op, rhs)| Expression::BinaryExpression {
-                        left: Box::new(lhs),
-                        op_code: op,
-                        right: Box::new(rhs),
-                    },
-                )
-                .boxed(),
-            op_u_code()
-                .repeated()
-                .foldr(atom.clone(), |op_code, expression| {
-                    Expression::UnaryExpression {
-                        op_code,
-                        expresstion: Box::new(expression),
-                    }
-                })
-                .boxed(),
-        ))
-    })
-}
+#[cfg(test)]
+mod test {
+    use chumsky::Parser;
 
-#[test]
-fn test_parser() {
-    // Our parser expects empty strings, so this should parse successfully
-    assert_eq!(
-        write().parse("w !,#,\"test\"").into_result(),
-        Ok(ir::commands::Command::Write(PostCondition {
-            condition: None,
-            value: vec![
-                Spanned {
-                    inner: Write::Bang,
-                    start: 2,
-                    end: 3
-                },
-                Spanned {
-                    inner: Write::Clear,
-                    start: 4,
-                    end: 5
-                },
-                Spanned {
-                    inner: Write::Expression(Expression::String(Value::from_str("test").unwrap())),
-                    start: 6,
-                    end: 12
-                },
-            ]
-        }))
-    );
-    assert_eq!(
-        line_parser().parse("tag w \"\" ").into_result(),
-        Ok(Line {
-            tag: Some(Spanned {
-                inner: Tag {
-                    name: "tag".to_string()
-                },
-                start: 0,
-                end: 3
-            }),
-            level: 0,
-            commands: vec![Spanned {
-                inner: ir::commands::Command::Write(PostCondition {
-                    condition: None,
-                    value: vec![Spanned {
-                        inner: Write::Expression(Expression::String(Value::from_str("").unwrap())),
-                        start: 6,
-                        end: 8
-                    },]
-                }),
-                start: 4,
-                end: 8
-            }]
-        })
-    );
+    use super::{line_parser, write};
+
+    #[test]
+    fn write_command() {
+        insta::assert_debug_snapshot!(write().parse("w !,#,\"test\"").into_output_errors());
+    }
+
+    #[test]
+    fn full_line() {
+        insta::assert_debug_snapshot!(line_parser().parse("tag w !").into_output_errors());
+    }
+
+    #[test]
+    fn recover_from_extra_space() {
+        insta::assert_debug_snapshot!(line_parser().parse(" w !  w ! ").into_output_errors());
+    }
+    #[test]
+    fn recover_from_unknown_command() {
+        insta::assert_debug_snapshot!(line_parser().parse(" foo bar").into_output_errors());
+    }
 }
