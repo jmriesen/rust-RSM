@@ -10,6 +10,7 @@ use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
 use crate::{
     document::{Document, DOCUMENT_SYNC_CAPABILITY},
+    errors::DIAGNOSTIC_CAPACITIES,
     tokens::{remove_over_lapping, AbsolutToken, SEMANTIC_TOKENS_CAPABILITIES},
 };
 
@@ -75,7 +76,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             capabilities: ServerCapabilities {
                 text_document_sync: DOCUMENT_SYNC_CAPABILITY,
                 semantic_tokens_provider: SEMANTIC_TOKENS_CAPABILITIES.clone(),
-                diagnostic_provider: None, //DIAGNOSTIC_CAPACITIES,
+                diagnostic_provider: DIAGNOSTIC_CAPACITIES,
                 code_lens_provider: Some(CodeLensOptions {
                     resolve_provider: Some(false),
                 }),
@@ -146,7 +147,6 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         })))
     }
 
-    /*
     async fn diagnostic(
         &self,
         params: DocumentDiagnosticParams,
@@ -157,25 +157,16 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             .get(&params.text_document.uri)
             .expect("diagnostic can only be requested for open documents");
 
-        let mut query_cursor = QueryCursor::new();
-        let errors = collect(
-            routine
-                .query(&errors::ERROR_QUERY, &mut query_cursor)
-                .map(|x| ErrorNode(x.captures[0].node))
-                .map(|x| x.into()),
-        );
-
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
                 related_documents: None,
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                    items: errors,
+                    items: routine.errors(),
                     result_id: None,
                 },
             }),
         ))
     }
-    */
 
     async fn did_open(
         &self,

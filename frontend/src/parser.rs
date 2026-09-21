@@ -1,15 +1,14 @@
-use std::str::FromStr;
-
-use chumsky::{IterParser, prelude::*};
+use chumsky::{IterParser, prelude::*, recovery};
 use ir::{
     Expression, Line, Routine, Spanned, Tag,
     commands::{
-        PostCondition,
+        self, Command, PostCondition,
         Write::{self},
         r#if::If,
     },
     operators::{Binary, Unary},
 };
+use std::str::FromStr;
 use value::{Number, Value};
 pub fn routine<'src>()
 -> impl Parser<'src, &'src str, Routine, chumsky::extra::Err<Rich<'src, char>>> {
@@ -32,29 +31,34 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, chumsky::extra::Err
             end: temp.end(),
         }
     });
-    let skip_to_next_command_recovery = none_of(' ')
-        .repeated()
-        .then(empty().and_is(just(" ")))
-        .map(|_| ir::commands::Command::Error);
     tag.or_not()
         .then_ignore(just(" "))
-        .then(
-            choice((write(), if_parser(), else_parser()))
-                .recover_with(via_parser(skip_to_next_command_recovery))
-                //Consume next space unless it is a new line
-                .map_with(|inner, extra| Spanned {
-                    inner,
-                    start: extra.span().start,
-                    end: extra.span().end,
-                })
-                .then_ignore(choice((just(" ").to(()), empty().and_is(just("\n")))))
-                .repeated()
-                .collect(),
-        )
+        .then(command().separated_by(just(" ")).allow_trailing().collect())
         .map(|(tag, x)| Line {
             tag: tag,
             level: 0,
             commands: x,
+        })
+}
+fn command<'src>()
+-> impl Parser<'src, &'src str, Spanned<Command>, chumsky::extra::Err<Rich<'src, char>>> {
+    choice((write(), if_parser(), else_parser()))
+        .recover_with(via_parser(choice((
+            //Consumes arbitrary text and treats is as a command.
+            //We don't want to consume our delimiters
+            none_of(" \n")
+                .repeated()
+                .at_least(1)
+                .to(commands::Command::Error),
+            //Handles detecting "extra spaces"
+            //Rather than trying to consume the space I am just injecting an error command (without
+            //consuming anything and letting the "extra" space be treated as a deliminator.
+            empty().and_is(just(" ")).to(commands::Command::Error),
+        ))))
+        .map_with(|inner, extra| Spanned {
+            inner,
+            start: extra.span().start,
+            end: extra.span().end,
         })
 }
 
@@ -178,21 +182,51 @@ fn expression<'src>()
 fn test_parser() {
     // Our parser expects empty strings, so this should parse successfully
     assert_eq!(
-        write().parse("w !,#,\"test\" ").into_result(),
+        write().parse("w !,#,\"test\"").into_result(),
         Ok(ir::commands::Command::Write(PostCondition {
             condition: None,
             value: vec![
-                Write::Bang,
-                Write::Clear,
-                Write::Expression(Expression::String(Value::from_str("test").unwrap()))
+                Spanned {
+                    inner: Write::Bang,
+                    start: 2,
+                    end: 3
+                },
+                Spanned {
+                    inner: Write::Clear,
+                    start: 4,
+                    end: 5
+                },
+                Spanned {
+                    inner: Write::Expression(Expression::String(Value::from_str("test").unwrap())),
+                    start: 6,
+                    end: 12
+                },
             ]
         }))
     );
     assert_eq!(
         line_parser().parse("tag w \"\" ").into_result(),
         Ok(Line {
+            tag: Some(Spanned {
+                inner: Tag {
+                    name: "tag".to_string()
+                },
+                start: 0,
+                end: 3
+            }),
             level: 0,
-            commands: vec![]
+            commands: vec![Spanned {
+                inner: ir::commands::Command::Write(PostCondition {
+                    condition: None,
+                    value: vec![Spanned {
+                        inner: Write::Expression(Expression::String(Value::from_str("").unwrap())),
+                        start: 6,
+                        end: 8
+                    },]
+                }),
+                start: 4,
+                end: 8
+            }]
         })
     );
 }

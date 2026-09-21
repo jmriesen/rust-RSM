@@ -30,6 +30,29 @@ impl Document {
         self.line_start_index(position.line as usize)
             .map(|line_start| line_start + position.character as usize)
     }
+    //Returns a function that can preform the conversations.
+    //Returning a closure since normally you need to do a lot of conversations in a batch
+    //And this lets me reuse the calculated newlines.
+    //Lifetime bound is there to prevent the converter from being used after our immutable barrow ends
+    pub fn index_converter<'a>(&'a self) -> impl Fn(usize) -> Position + 'a {
+        let new_lines: Vec<_> = std::iter::once(0)
+            .chain(self.text().match_indices('\n').map(
+                |(x, _)| x + 1, /*The +1 moves us to start of next line.*/
+            ))
+            .collect();
+        let index_to_position = move |index: usize| {
+            let line = new_lines
+                .iter()
+                .rposition(|line_pos| *line_pos <= index)
+                .unwrap_or(0);
+
+            Position {
+                line: line as u32,
+                character: (index - new_lines[line]) as u32,
+            }
+        };
+        index_to_position
+    }
 
     pub fn update(&mut self, changes: &[TextDocumentContentChangeEvent]) {
         for change in changes {

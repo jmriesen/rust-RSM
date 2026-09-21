@@ -21,5 +21,4 @@ export const mumpsExampleContent = `tag w "before loop",!
  w !,"after loop"
  w "foo" 
  q  
-
 `;
