@@ -16,6 +16,8 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src>> 
         .collect::<String>()
         .delimited_by(just('"'), just('"'))
         .map(|x| Expression::String(Value::from_str(&x).unwrap()))
+        .labelled("String Literal")
+        .as_terminal()
 }
 
 fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, Error<'src>> {
@@ -41,7 +43,9 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             expr.clone().delimited_by(just("("), just(")")),
             str_literal(),
             text::int(10).map(|x| Expression::Number(Number::from_str(x).unwrap())),
+            variable(expr).map(Expression::Variable).boxed(),
         ))
+        .labelled("expression atom")
         .boxed();
         // Handle operator cases.
         // Note: To prevent infinite recursion operators are applied to atoms not expressions.
@@ -71,7 +75,7 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
                     }
                 })
                 .boxed(),
-            variable(expr).map(Expression::Variable).boxed(),
         ))
     })
+    .labelled("expression")
 }

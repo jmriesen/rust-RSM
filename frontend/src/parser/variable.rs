@@ -46,6 +46,9 @@ fn identifier<'src>() -> impl Parser<'src, &'src str, String, Error<'src>> {
         )
         .to_slice()
         .map(|ident: &str|  ident.to_owned())
+        .labelled("identifier")
+        .as_terminal()
+        .as_context()
 }
 
 /// WARNING: You must pass in an expression parser.
@@ -70,4 +73,6 @@ pub fn variable<'src>(
             subscripts: subscripts.unwrap_or_default(),
         })
         .labelled("Variable")
+        .as_non_terminal()
+        .as_context()
 }

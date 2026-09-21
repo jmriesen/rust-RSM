@@ -21,6 +21,7 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
         .then(just(second).or_not())
         .then(just(" "))
         .ignored()
+        .labelled(keyword)
 }
 
 type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
