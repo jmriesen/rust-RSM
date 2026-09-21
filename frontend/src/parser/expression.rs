@@ -33,6 +33,7 @@ fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
         //
         just("+").to(Binary::Add),
         just("-").to(Binary::Sub),
+        just("=").to(Binary::Equal),
     ))
 }
 pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src>> {

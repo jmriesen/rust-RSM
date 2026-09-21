@@ -1,6 +1,6 @@
 use chumsky::{IterParser, extra::Err, prelude::*};
 use ir::{
-    Line, Routine, Spanned, Tag,
+    Expression, Line, Routine, Spanned, Tag,
     commands::{
         self, Command, PostCondition,
         Write::{self},
@@ -19,7 +19,6 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
     let (first, second) = keyword.split_at(1);
     just(first)
         .then(just(second).or_not())
-        .then(just(" "))
         .ignored()
         .labelled(keyword)
 }
@@ -61,6 +60,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>
             else_parser(),
             set_parser(),
             for_parser(cmd),
+            quit_parser(),
         ))
         .boxed()
         .recover_with(via_parser(choice((
@@ -85,6 +85,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>
 
 fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     keyword("write")
+        .then_ignore(just(" "))
         .ignore_then(
             write_arg()
                 .separated_by(just(","))
@@ -100,6 +101,7 @@ fn write<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'s
 }
 fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     keyword("if")
+        .then_ignore(just(" "))
         .ignore_then(
             expression()
                 .map(If)
@@ -110,7 +112,9 @@ fn if_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Erro
         .map(|x| ir::commands::Command::If(dbg!(x)))
 }
 fn else_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
-    keyword("else").map(|_| ir::commands::Command::Else)
+    keyword("else")
+        .then_ignore(just(" "))
+        .map(|_| ir::commands::Command::Else)
 }
 
 fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Error<'src>> {
@@ -126,12 +130,34 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Error<'src>
         end: exra.span().end,
     })
 }
+
 fn set_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
     keyword("set")
+        .then_ignore(just(" "))
         .ignore_then(variable(expression()))
         .then_ignore(just("="))
         .then(expression())
         .map(|(variable, value)| ir::commands::Command::Set(Set { variable, value }))
+}
+
+fn post_condition<'src>() -> impl Parser<'src, &'src str, Option<Expression>, Error<'src>> {
+    just(":").ignore_then(expression()).or_not()
+}
+fn quit_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
+    keyword("quit")
+        .then(post_condition())
+        //deliminator
+        .then_ignore(argument_less())
+        .map(|((), condition)| {
+            ir::commands::Command::Quit(PostCondition {
+                condition,
+                value: commands::Quit(None),
+            })
+        })
+}
+
+fn argument_less<'src>() -> impl Parser<'src, &'src str, (), Error<'src>> {
+    choice((just(" ").ignored(), empty().and_is(just("\n")).ignored()))
 }
 
 ///WARN: Look at warning on `variable`
@@ -145,6 +171,7 @@ fn for_parser<'src>(
         .collect();
 
     keyword("for")
+        .then_ignore(just(" "))
         .ignore_then(choice((
             variable(expression())
                 .then_ignore(just("="))

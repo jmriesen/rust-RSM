@@ -56,7 +56,15 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
     routine()
         .parse(source_code)
         .into_result()
-        .map_err(|_| ParsingError::NotYetSupported("todo fix parsing"))
+        .map_err(|errors| {
+            ParsingError::NotYetSupported(
+                errors
+                    .iter()
+                    .map(|error| format!("parsing_error:{error}"))
+                    .collect::<String>()
+                    .leak(),
+            )
+        })
     /*
         check_line_lengths(source_code)?;
         let tree = lang_model::create_tree(source_code);
