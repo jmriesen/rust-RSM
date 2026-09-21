@@ -1,5 +1,5 @@
 use ir::{
-    Expression, Variable,
+    Expression, Spanned, Variable,
     commands::r#for::{Argument, For, ForKind},
 };
 
@@ -42,5 +42,15 @@ pub fn new(
     while let Some(command) = line_tail.next() {
         commands.push(super::new(&command, source_code, line_tail)?);
     }
-    Ok(For { kind, commands })
+    Ok(For {
+        kind,
+        commands: commands
+            .into_iter()
+            .map(|x| Spanned {
+                inner: x,
+                start: 0,
+                end: 0,
+            })
+            .collect(),
+    })
 }

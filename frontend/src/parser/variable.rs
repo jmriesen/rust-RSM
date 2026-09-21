@@ -69,4 +69,5 @@ pub fn variable<'src>(
             },
             subscripts: subscripts.unwrap_or_default(),
         })
+        .labelled("Variable")
 }

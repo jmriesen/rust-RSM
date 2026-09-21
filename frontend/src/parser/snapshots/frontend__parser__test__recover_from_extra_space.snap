@@ -49,6 +49,6 @@ expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
         },
     ),
     [
-        found '' '' at 5..6 expected ''w'', ''i'', ''e'', or ''s'',
+        found '' '' at 5..6 expected ''w'', ''i'', ''e'', ''s'', or ''f'',
     ],
 )

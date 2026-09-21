@@ -1,4 +1,4 @@
-use crate::{Expression, Variable};
+use crate::{Expression, Spanned, Variable};
 
 use super::Command;
 
@@ -20,5 +20,5 @@ pub enum ForKind {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct For {
     pub kind: ForKind,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Spanned<Command>>,
 }

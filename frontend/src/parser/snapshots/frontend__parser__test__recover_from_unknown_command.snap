@@ -22,7 +22,7 @@ expression: "line_parser().parse(\" foo bar\").into_output_errors()"
         },
     ),
     [
-        found ''f'' at 1..2 expected ''w'', ''i'', ''e'', or ''s'',
-        found ''b'' at 5..6 expected ''w'', ''i'', ''e'', or ''s'',
+        found ''o'' at 2..3 expected '' '',
+        found ''b'' at 5..6 expected ''w'', ''i'', ''e'', ''s'', or ''f'',
     ],
 )
