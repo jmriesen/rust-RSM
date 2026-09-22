@@ -70,7 +70,7 @@ mod test {
     fn intrinsic_var(#[case] var: &str) {
         {
             let source_code = format!("w {}", var);
-            let orignal = parse(&source_code);
+            let orignal = parse(dbg!(&source_code));
 
             assert_eq!(orignal, test_compile_command(&source_code));
         }

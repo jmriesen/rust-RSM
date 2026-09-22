@@ -35,7 +35,7 @@ IndirectVariable: $ => seq("@", $.Expression, "@"),
 use super::Error;
 use chumsky::{Parser, prelude::*};
 use ir::{Expression, Variable, variable::VariableType};
-pub fn identifier<'src>() -> impl Parser<'src, &'src str, String, Error<'src>> {
+pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
     any()
         .filter(|start: &char| start.is_ascii_alphabetic())
         .then(
@@ -45,7 +45,6 @@ pub fn identifier<'src>() -> impl Parser<'src, &'src str, String, Error<'src>> {
                 .at_most(32 /*Identifier max size*/ - 1 /* adjustment due to first char being handle separately*/),
         )
         .to_slice()
-        .map(|ident: &str|  ident.to_owned())
         .labelled("identifier")
         .as_terminal()
         .as_context()
@@ -67,7 +66,7 @@ pub fn variable<'src>(
         .then(subscripts.or_not())
         .map(|(name, subscripts)| Variable {
             var_type: VariableType::Named {
-                name,
+                name: name.to_owned(),
                 globle_ident: None,
             },
             subscripts: subscripts.unwrap_or_default(),
@@ -80,7 +79,7 @@ pub fn local_variable_no_subscripts<'src>() -> impl Parser<'src, &'src str, Vari
     identifier()
         .map(|name| Variable {
             var_type: ir::variable::VariableType::Named {
-                name,
+                name: name.to_owned(),
                 globle_ident: None,
             },
             subscripts: vec![],

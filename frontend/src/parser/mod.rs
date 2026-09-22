@@ -1,6 +1,6 @@
-use chumsky::{IterParser, extra::Err, prelude::*};
+use chumsky::{IterParser, prelude::*};
 use ir::{
-    Expression, Line, Routine, Spanned, Tag, Variable,
+    Expression, Line, Routine, Spanned, Tag,
     commands::{
         self, Command, PostCondition,
         Write::{self},
@@ -13,14 +13,18 @@ mod expression;
 mod variable;
 use expression::expression;
 
-use crate::parser::variable::{identifier, local_variable_no_subscripts, variable};
+use crate::parser::variable::{local_variable_no_subscripts, variable};
 
 pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), Error<'src>> {
-    let (first, second) = keyword.split_at(1);
-    just(first)
-        .then(just(second).or_not())
-        .ignored()
-        .labelled(keyword)
+    let (abriveation, _) = keyword.split_at(1);
+    choice((
+        just(keyword.to_lowercase()),
+        just(keyword.to_ascii_uppercase()),
+        just(abriveation.to_lowercase()),
+        just(abriveation.to_ascii_uppercase()),
+    ))
+    .ignored()
+    .labelled(keyword)
 }
 
 type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
@@ -43,15 +47,39 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Error<'src>> {
             end: temp.end(),
         }
     });
-    tag.or_not()
-        .then_ignore(just(" "))
-        .then(command().separated_by(just(" ")).allow_trailing().collect())
-        .map(|(tag, x)| Line {
-            tag: tag,
+    let line_level = just(".").repeated().count();
+
+    let commands = command().separated_by(just(" ")).allow_trailing().collect();
+    let commands2 = command().separated_by(just(" ")).allow_trailing().collect();
+
+    //Tag\n
+    //Tag Commands\n
+    // line_levelCommands\n
+    //TODO: This feels like this can be simplified
+    choice((
+        tag.then_ignore(just(" "))
+            .then(commands)
+            .map(|(tag, commands)| Line {
+                tag: Some(tag),
+                level: 0,
+                commands,
+            }),
+        just(" ")
+            .ignore_then(line_level)
+            .then(commands2)
+            .map(|(level, commands)| Line {
+                tag: None,
+                level: level as u16,
+                commands,
+            }),
+        tag.map(|tag| Line {
+            tag: Some(tag),
             level: 0,
-            commands: x,
-        })
+            commands: vec![],
+        }),
+    ))
 }
+
 fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>> {
     recursive(|cmd| {
         choice((
@@ -62,6 +90,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>
             for_parser(cmd),
             quit_parser(),
             kill_parser(),
+            do_parser(),
         ))
         .boxed()
         .recover_with(via_parser(choice((
@@ -123,6 +152,7 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Error<'src>
         //
         just("!").to(Write::Bang),
         just("#").to(Write::Clear),
+        just("?").ignore_then(expression()).map(|x| Write::Tab(x)),
         expression().map(|x| Write::Expression(x)),
     ))
     .map_with(|x, exra| Spanned {
@@ -153,6 +183,17 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Er
             ir::commands::Command::Quit(PostCondition {
                 condition,
                 value: commands::Quit(None),
+            })
+        })
+}
+fn do_parser<'src>() -> impl Parser<'src, &'src str, ir::commands::Command, Error<'src>> {
+    keyword("do")
+        .ignore_then(post_condition())
+        .then_ignore(argument_less())
+        .map(|condition| {
+            ir::commands::Command::Do(PostCondition {
+                condition,
+                value: commands::r#do::Do::ArgumentLess,
             })
         })
 }

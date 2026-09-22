@@ -53,6 +53,7 @@ pub trait TreeSitterParser<'a> {
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
+    check_line_lengths(source_code)?;
     routine()
         .parse(source_code)
         .into_result()
@@ -60,29 +61,17 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
             ParsingError::NotYetSupported(
                 errors
                     .iter()
-                    .map(|error| format!("parsing_error:{error}"))
+                    .map(|error| format!("parsing_error:{error},{}", error.span()))
                     .collect::<String>()
                     .leak(),
             )
         })
-    /*
-        check_line_lengths(source_code)?;
-        let tree = lang_model::create_tree(source_code);
-        let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
-
-        let lines = tree.children();
-        lines
-            .iter()
-            .map(|line| commands::new_line(line, source_code))
-            .collect()
-    */
 }
 
 #[cfg(test)]
 mod test {
     use crate::{ParsingError, parse_routine};
 
-    #[ignore = "Should address at some point. Not now."]
     #[test]
     fn stack_overflow() {
         //TODO: update with better long term solution (counting how many levels of nesting for
