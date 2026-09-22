@@ -1,4 +1,6 @@
 #![feature(iter_array_chunks)]
+#![feature(const_array)]
+use ariadne::{Label, Report, ReportKind, Source};
 use chumsky::Parser;
 use ir::Routine;
 pub mod commands;
@@ -61,7 +63,16 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
             ParsingError::NotYetSupported(
                 errors
                     .iter()
-                    .map(|error| format!("parsing_error:{error},{}", error.span()))
+                    .map(|error| {
+                        let report = Report::build(ReportKind::Error, error.span().into_range())
+                            .with_message(error.reason())
+                            .with_label(
+                                Label::new(error.span().into_range()).with_message(error.reason()),
+                            )
+                            .finish();
+                        report.print(Source::from(source_code)).unwrap();
+                        format!("parsing_error:{error},{}", error.span())
+                    })
                     .collect::<String>()
                     .leak(),
             )
@@ -70,6 +81,7 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
 
 #[cfg(test)]
 mod test {
+
     use crate::{ParsingError, parse_routine};
 
     #[test]
