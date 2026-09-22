@@ -60,6 +60,7 @@ mod test {
     #[case("e  ")]
     #[case("e  w 1")]
     fn command_test(#[case] source_code: &str) {
+        print!("{source_code}");
         let original = parse(&source_code);
         let temp = test_compile_command(source_code);
 

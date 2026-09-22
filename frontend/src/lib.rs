@@ -1,5 +1,4 @@
 #![feature(iter_array_chunks)]
-#![feature(const_array)]
 use ariadne::{Label, Report, ReportKind, Source};
 use chumsky::Parser;
 use ir::Routine;

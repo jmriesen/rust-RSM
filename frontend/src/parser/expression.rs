@@ -2,11 +2,14 @@ use std::str::FromStr;
 
 use chumsky::{prelude::*, text::digits};
 use ir::{
-    Expression, IntrinsicFunction, IntrinsicVar, Variable,
+    Expression::{self, ExtrinsicFunction},
+    IntrinsicFunction, IntrinsicVar,
     intrinsic_functions::{Function, VarFunction},
     operators::{Binary, Unary},
 };
 use value::{Number, Value};
+
+use crate::parser::parse_extrinsic_function;
 
 use super::variable::{identifier, variable};
 
@@ -31,12 +34,6 @@ fn number<'src>() -> impl Parser<'src, &'src str, Number, Error<'src>> {
     .labelled("String Literal")
     .as_terminal()
 }
-/*
-number: $ => choice(
-      seq(/\d+/, optional(seq(".", optional(/\d+/)))),
-      seq(".", /\d+/),
-    )
-*/
 
 fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, Error<'src>> {
     choice((
@@ -67,7 +64,10 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             str_literal().map(Expression::String),
             number().map(Expression::Number),
             variable(expr.clone()).map(Expression::Variable),
-            intrinsic_fn(expr).map(|x| Expression::IntrinsicFunction(Box::new(x))),
+            intrinsic_fn(expr.clone()).map(|x| Expression::IntrinsicFunction(Box::new(x))),
+            just("$$")
+                .ignore_then(parse_extrinsic_function(expr))
+                .map(Expression::ExtrinsicFunction),
             intrinsic_var().map(Expression::IntrinsicVar),
         ))
         .labelled("expression atom")
