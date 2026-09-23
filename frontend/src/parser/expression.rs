@@ -11,7 +11,10 @@ use value::{Number, Value};
 
 use crate::parser::{function_args, parse_extrinsic_function};
 
-use super::variable::{identifier, variable};
+use super::{
+    peek,
+    variable::{identifier, variable},
+};
 
 use super::Error;
 fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
@@ -65,6 +68,9 @@ fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
         // Indirect pattern matching is handle just like any other binary expression.
         // Note We do want to consume the indirect marker as what follows is just the expression to
         // evaluate.
+        //NOTE: literal patterns are handled differently
+        // Indirect patterns are handle like any other binary expression (after we remove the
+        // indirect marker.
         pattern_match_op_code().then_ignore(just("@")),
     ))
 }
@@ -130,53 +136,57 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             intrinsic_var().map(Expression::IntrinsicVar),
         ))
         .labelled("expression atom")
+        .as_terminal()
         .boxed();
+
+        let unary = op_u_code()
+            .repeated()
+            //NOTE: Use of atom hear instead of expression is important.
+            //if we used expression parsing order could be messed up.
+            //-a+b should be (-1)+(b)
+            //If I used expression here I would get -(a+b)
+            .foldr(atom.clone(), |op_code, expression| {
+                Expression::UnaryExpression {
+                    op_code,
+                    expresstion: Box::new(expression),
+                }
+            })
+            .boxed();
         // Handle operator cases.
         // Note: To prevent infinite recursion operators are applied to atoms not expressions.
         // If the first thing we do to parse a binary expression is try and parse another (binary)
         // expression we are in for infinite recursion.
         // `atom` is guarantied to move the cursor before trying to recurs.
-        choice((
-            //
-            //NOTE: This also handles the atom case (no trailing operator + atom) since the first
-            //argument to fold matches on zero repetitions
-            atom.clone()
-                .foldl(
-                    choice((
-                        pattern_match_op_code()
-                            // Only grab when a literal value
-                            .then_ignore(empty().and_is(just("@").not()))
-                            .then(
-                                pattern().map(|x| Expression::String(Value::from_str(x).unwrap())),
-                            ),
-                        op_b_code().then(atom.clone()),
-                    ))
-                    .repeated(),
-                    //there are two types of binary
-                    //Expression based and pattern based.
-                    //Expression based I can handle by just checking that the next
-                    //character is a @
-                    //literal based I can do vie the opposite approach.
-                    //I kind of question if they shoudl be the same type? no it will
-                    //be fine
-                    |lhs, (op, rhs)| Expression::BinaryExpression {
-                        left: Box::new(lhs),
-                        op_code: op,
-                        right: Box::new(rhs),
-                    },
-                )
-                .boxed(),
-            op_u_code()
-                .repeated()
-                .foldr(atom.clone(), |op_code, expression| {
-                    Expression::UnaryExpression {
-                        op_code,
-                        expresstion: Box::new(expression),
-                    }
-                })
-                .boxed(),
-            atom.clone(),
-        ))
+        //
+        //NOTE: This also handles the atom case (no trailing operator + atom) since the first
+        //argument to fold matches on zero repetitions
+        choice(
+            //first (and possible only expression)
+            (atom.clone(), unary.clone()),
+        )
+        .foldl(
+            choice((
+                pattern_match_op_code()
+                    // Only grab when a literal value
+                    .then_ignore(peek(just("@")).not())
+                    .then(pattern().map(|x| Expression::String(Value::from_str(x).unwrap()))),
+                op_b_code().then(expr),
+            ))
+            .repeated(),
+            //there are two types of binary
+            //Expression based and pattern based.
+            //Expression based I can handle by just checking that the next
+            //character is a @
+            //literal based I can do vie the opposite approach.
+            //I kind of question if they shoudl be the same type? no it will
+            //be fine
+            |lhs, (op, rhs)| Expression::BinaryExpression {
+                left: Box::new(lhs),
+                op_code: op,
+                right: Box::new(rhs),
+            },
+        )
+        .boxed()
     })
     .labelled("expression")
 }

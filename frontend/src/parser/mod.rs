@@ -1,4 +1,4 @@
-use chumsky::{IterParser, prelude::*};
+use chumsky::{IterParser, combinator::AndIs, prelude::*, primitive::Empty};
 use ir::{
     Expression::{self},
     ExtrinsicFunction, Line, Routine, Spanned, Tag,
@@ -22,6 +22,12 @@ mod variable;
 use expression::expression;
 
 use crate::parser::variable::{identifier, local_variable_no_subscripts, variable};
+pub fn peek<'src, U, B>(item: B) -> AndIs<Empty<&'src str, Error<'src>>, B, U>
+where
+    B: Parser<'src, &'src str, U, Error<'src>>,
+{
+    empty().and_is(item)
+}
 
 pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), Error<'src>> {
     let (abriveation, _) = keyword.split_at(1);
@@ -114,7 +120,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Error<'src>
             //Handles detecting "extra spaces"
             //Rather than trying to consume the space I am just injecting an error command (without
             //consuming anything and letting the "extra" space be treated as a deliminator.
-            empty().and_is(just(" ")).to(commands::Command::Error),
+            peek(just(" ")).to(commands::Command::Error),
         ))))
         .map_with(|inner, extra| Spanned {
             inner,
@@ -333,7 +339,7 @@ fn close_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
 }
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Error<'src>> {
-    choice((just(" ").ignored(), empty().and_is(just("\n")).ignored()))
+    choice((just(" ").ignored(), peek(just("\n")).ignored()))
 }
 
 ///WARN: Look at warning on `variable`
@@ -344,32 +350,26 @@ fn for_parser<'src>(
         .separated_by(just(":"))
         .at_least(1)
         .at_most(3)
-        .collect();
+        .collect()
+        .map(|args: Vec<_>| {
+            let mut args = args.into_iter();
+            let start = args
+                .next()
+                .expect("already bounds checked by at_least call");
+            let increment = args.next();
+            let increment_end = increment.map(|inc| (inc, args.next()));
+            Argument {
+                start,
+                increment_end,
+            }
+        });
 
     keyword("for")
         .then_ignore(just(" "))
         .ignore_then(choice((
             variable(expression().boxed())
                 .then_ignore(just("="))
-                .then(
-                    for_args
-                        .map(|args: Vec<_>| {
-                            //
-                            let mut args = args.into_iter();
-                            let start = args
-                                .next()
-                                .expect("already bounds checked by at_least call");
-                            let increment = args.next();
-                            let increment_end = increment.map(|inc| (inc, args.next()));
-                            Argument {
-                                start,
-                                increment_end,
-                            }
-                        })
-                        .separated_by(just(","))
-                        .at_least(1)
-                        .collect(),
-                )
+                .then(for_args.separated_by(just(",")).at_least(1).collect())
                 .map(|(variable, arguments)| ForKind::VarLoop {
                     variable,
                     arguments,
