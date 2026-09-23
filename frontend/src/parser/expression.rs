@@ -2,14 +2,14 @@ use std::str::FromStr;
 
 use chumsky::{prelude::*, text::digits};
 use ir::{
-    Expression::{self, ExtrinsicFunction},
-    IntrinsicFunction, IntrinsicVar,
+    Expression::{self},
+    ExternalCalls, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar,
     intrinsic_functions::{Function, VarFunction},
     operators::{Binary, Unary},
 };
 use value::{Number, Value};
 
-use crate::parser::{self, parse_extrinsic_function};
+use crate::parser::{function_args, parse_extrinsic_function};
 
 use super::variable::{identifier, variable};
 
@@ -114,13 +114,14 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
         let atom = choice((
             //Note: must either terminate or move the cursor before a recursive call.
             //To do otherwise will result in infinite recursion.
+            external_calls(expr.clone()),
             expr.clone().delimited_by(just("("), just(")")),
+            variable(expr.clone()).map(Expression::Variable),
             just("@")
                 .ignore_then(expr.clone())
                 .map(|x| Expression::InderectExpression(Box::new(x))),
             str_literal().map(Expression::String),
             number().map(Expression::Number),
-            variable(expr.clone()).map(Expression::Variable),
             intrinsic_fn(expr.clone()).map(|x| Expression::IntrinsicFunction(Box::new(x))),
             just("$$")
                 .ignore_then(parse_extrinsic_function(expr.clone()))
@@ -204,6 +205,46 @@ pub fn intrinsic_var<'src>() -> impl Parser<'src, &'src str, IntrinsicVar, Error
         }
     }))
 }
+
+pub fn external_calls<'src>(
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
+) -> impl Parser<'src, &'src str, Expression, Error<'src>> {
+    just("$&")
+        .ignore_then(
+            identifier().filter_map(|x| match x.to_uppercase().as_str() {
+                "%DIRECTORY" => Some(ExternalCalls::Directory),
+                "%HOST" => Some(ExternalCalls::Host),
+                "%FILE" => Some(ExternalCalls::File),
+                "%ERRMSG" => Some(ExternalCalls::ErrMsg),
+                "%OPCOM" => Some(ExternalCalls::OpCom),
+                "%SIGNAL" => Some(ExternalCalls::Signal),
+                "%SPAWN" => Some(ExternalCalls::Spawn),
+                "%VERSION" => Some(ExternalCalls::Version),
+                "%ZWRITE" => Some(ExternalCalls::Zwrite),
+                "E" => Some(ExternalCalls::E),
+                "PASCHK" => Some(ExternalCalls::Paschk),
+                "V" => Some(ExternalCalls::V),
+                "X" => Some(ExternalCalls::XCallX),
+                "XRSM" => Some(ExternalCalls::Xrsm),
+                "%SETENV" => Some(ExternalCalls::SetEnv),
+                "%GETENV" => Some(ExternalCalls::GetEnv),
+                "%ROUCHK" => Some(ExternalCalls::RouChk),
+                "%FORK" => Some(ExternalCalls::Fork),
+                "%IC" => Some(ExternalCalls::IC),
+                "%WAIT" => Some(ExternalCalls::Wait),
+                "DEBUG" => Some(ExternalCalls::Debug),
+                "%COMPRESS" => Some(ExternalCalls::Compress),
+                _ => None,
+            }),
+        )
+        .then(
+            exp.separated_by(just(","))
+                .collect()
+                .delimited_by(just("("), just(")")),
+        )
+        .map(|(op_code, args)| Expression::ExternalCalls { args, op_code })
+}
+
 pub fn intrinsic_fn<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {

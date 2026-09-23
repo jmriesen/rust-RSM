@@ -175,7 +175,7 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Error<'src>
 fn set_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     keyword("set")
         .then_ignore(just(" "))
-        .ignore_then(variable(expression()))
+        .ignore_then(variable(expression().boxed()))
         .then_ignore(just("="))
         .then(expression())
         .map(|(variable, value)| Command::Set(Set { variable, value }))
@@ -265,7 +265,7 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
         .ignore_then(choice((
             just(" ").ignore_then(
                 choice((
-                    variable(expression()).map(|var| commands::kill::Kill {
+                    variable(expression().boxed()).map(|var| commands::kill::Kill {
                         r#type: E::Inclusive,
                         variables: vec![var],
                     }),
@@ -335,7 +335,7 @@ fn for_parser<'src>(
     keyword("for")
         .then_ignore(just(" "))
         .ignore_then(choice((
-            variable(expression())
+            variable(expression().boxed())
                 .then_ignore(just("="))
                 .then(
                     for_args
