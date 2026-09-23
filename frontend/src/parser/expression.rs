@@ -9,19 +9,31 @@ use ir::{
 };
 use value::{Number, Value};
 
-use crate::parser::parse_extrinsic_function;
+use crate::parser::{self, parse_extrinsic_function};
 
 use super::variable::{identifier, variable};
 
 use super::Error;
 fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
-    none_of("\"")
-        .repeated()
-        .collect::<String>()
-        .delimited_by(just('"'), just('"'))
-        .map(|x| Value::from_str(&x).unwrap())
-        .labelled("String Literal")
-        .as_terminal()
+    choice((
+        none_of("\"").ignored(),
+        just("\"").then(just("\"")).ignored(),
+    ))
+    .repeated()
+    .collect::<Vec<_>>()
+    .delimited_by(just('"'), just('"'))
+    .to_slice()
+    .map(|x: &str| {
+        let string: String = x.to_owned();
+        let striped = string
+            .strip_prefix('\"')
+            .unwrap()
+            .strip_suffix('\"')
+            .unwrap();
+        Value::from_str(&striped).unwrap()
+    })
+    .labelled("String Literal")
+    .as_terminal()
 }
 fn number<'src>() -> impl Parser<'src, &'src str, Number, Error<'src>> {
     choice((
@@ -49,8 +61,53 @@ fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
         just("+").to(Binary::Add),
         just("-").to(Binary::Sub),
         just("=").to(Binary::Equal),
+        // Indirect pattern matching is handle just like any other binary expression.
+        // Note We do want to consume the indirect marker as what follows is just the expression to
+        // evaluate.
+        pattern_match_op_code().then_ignore(just("@")),
     ))
 }
+
+fn pattern_match_op_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
+    choice((
+        //
+        just("?").to(Binary::Pattern),
+        just("'?").to(Binary::NotPattern),
+    ))
+}
+
+pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
+    let repetition = choice((
+        // between
+        text::int(10).then(just(".")).then(text::int(10)).ignored(),
+        // at most
+        just(".").then(text::int(10)).ignored(),
+        // at least
+        text::int(10).then(just(".")).ignored(),
+        // exact number
+        text::int(10).ignored(),
+        // any number
+        just(".").ignored(),
+    ));
+    let codes = one_of("ACELNPUA").ignored();
+
+    recursive(|pat| {
+        let atom = choice((
+            //normal
+            codes.ignored(),
+            str_literal().ignored(),
+            pat
+                //Or-ing
+                .separated_by(just(","))
+                .at_least(1)
+                //Grouping
+                .delimited_by(just('('), just(')')),
+        ));
+        let atom = atom.boxed();
+        repetition.then(atom).repeated().at_least(1).to_slice()
+    })
+}
+
 pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src>> {
     recursive(|expr| {
         let expr = expr.boxed();
@@ -66,7 +123,7 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             variable(expr.clone()).map(Expression::Variable),
             intrinsic_fn(expr.clone()).map(|x| Expression::IntrinsicFunction(Box::new(x))),
             just("$$")
-                .ignore_then(parse_extrinsic_function(expr))
+                .ignore_then(parse_extrinsic_function(expr.clone()))
                 .map(Expression::ExtrinsicFunction),
             intrinsic_var().map(Expression::IntrinsicVar),
         ))
@@ -83,7 +140,23 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             //argument to fold matches on zero repetitions
             atom.clone()
                 .foldl(
-                    op_b_code().then(atom.clone()).repeated(),
+                    choice((
+                        pattern_match_op_code()
+                            // Only grab when a literal value
+                            .then_ignore(empty().and_is(just("@").not()))
+                            .then(
+                                pattern().map(|x| Expression::String(Value::from_str(x).unwrap())),
+                            ),
+                        op_b_code().then(atom.clone()),
+                    ))
+                    .repeated(),
+                    //there are two types of binary
+                    //Expression based and pattern based.
+                    //Expression based I can handle by just checking that the next
+                    //character is a @
+                    //literal based I can do vie the opposite approach.
+                    //I kind of question if they shoudl be the same type? no it will
+                    //be fine
                     |lhs, (op, rhs)| Expression::BinaryExpression {
                         left: Box::new(lhs),
                         op_code: op,
@@ -100,6 +173,7 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
                     }
                 })
                 .boxed(),
+            atom.clone(),
         ))
     })
     .labelled("expression")

@@ -42,7 +42,7 @@ use rstest::rstest;
 #[case("SomeString?1\"quote \"\" literal\"")]
 fn parse_pattern(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let orignal = parse(&source_code);
+    let orignal = parse(dbg!(&source_code));
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
