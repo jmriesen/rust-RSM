@@ -94,6 +94,7 @@ fn parse_unary_exp(#[case] num: &str) {
 }
 #[rstest]
 #[case("98+9")]
+#[case("98\\9")]
 #[case("-98\\var(7,9)")]
 #[case("98+(something+9)")]
 fn parse_binary(#[case] num: &str) {

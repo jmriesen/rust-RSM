@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{cell::LazyCell, str::FromStr, sync::LazyLock};
 
 use chumsky::{prelude::*, text::digits};
 use ir::{
@@ -61,6 +61,7 @@ fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
         just("+").to(Binary::Add),
         just("-").to(Binary::Sub),
         just("=").to(Binary::Equal),
+        just("\\").to(Binary::IntDivide),
         // Indirect pattern matching is handle just like any other binary expression.
         // Note We do want to consume the indirect marker as what follows is just the expression to
         // evaluate.
