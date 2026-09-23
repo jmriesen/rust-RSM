@@ -33,6 +33,7 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
     ))
     .ignored()
     .labelled(keyword)
+    .as_terminal()
 }
 
 type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
@@ -189,10 +190,17 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     keyword("quit")
         .ignore_then(post_condition())
         .then_ignore(space_or_eol())
-        .map(|condition| {
+        .then(expression().or_not())
+        .validate(|(condition, return_value), extra, emiter| {
+            if return_value.is_some() {
+                emiter.emit(Rich::custom(
+                    extra.span(),
+                    "Not yet supported quit with args",
+                ));
+            }
             Command::Quit(PostCondition {
                 condition,
-                value: commands::Quit(None),
+                value: commands::Quit(return_value),
             })
         })
 }
@@ -262,8 +270,8 @@ fn function_args<'src>(
 fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     use commands::kill::KillType as E;
     keyword("kill")
-        .ignore_then(choice((
-            just(" ").ignore_then(
+        .ignore_then(
+            space_or_eol().ignore_then(
                 choice((
                     variable(expression().boxed()).map(|var| commands::kill::Kill {
                         r#type: E::Inclusive,
@@ -277,13 +285,19 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                         }),
                 ))
                 .separated_by(just(","))
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()
+                .map(|x| {
+                    if x.is_empty() {
+                        vec![commands::kill::Kill {
+                            r#type: E::Exclusive,
+                            variables: vec![],
+                        }]
+                    } else {
+                        x
+                    }
+                }),
             ),
-            space_or_eol().to(vec![commands::kill::Kill {
-                r#type: E::Exclusive,
-                variables: vec![],
-            }]),
-        )))
+        )
         .map(|value| Command::Kill(value))
 }
 fn break_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
