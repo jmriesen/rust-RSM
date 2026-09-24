@@ -1,9 +1,9 @@
-use std::{cell::LazyCell, str::FromStr, sync::LazyLock};
+use std::{array::from_fn, cell::LazyCell, str::FromStr, sync::LazyLock};
 
 use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
-    ExternalCalls, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar,
+    ExternalCalls, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar, Variable,
     intrinsic_functions::{Function, VarFunction},
     operators::{Binary, Unary},
 };
@@ -27,12 +27,13 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
     .delimited_by(just('"'), just('"'))
     .to_slice()
     .map(|x: &str| {
-        let string: String = x.to_owned();
-        let striped = string
+        let striped = x
             .strip_prefix('\"')
             .unwrap()
             .strip_suffix('\"')
-            .unwrap();
+            .unwrap()
+            .to_owned()
+            .replace("\"\"", "\"");
         Value::from_str(&striped).unwrap()
     })
     .labelled("String Literal")
@@ -256,75 +257,137 @@ pub fn external_calls<'src>(
         .map(|(op_code, args)| Expression::ExternalCalls { args, op_code })
 }
 
+struct Output<T> {
+    value: T,
+    err: Option<&'static str>,
+}
+impl<T> Output<T> {
+    fn map<U>(self, map: impl FnOnce(T) -> U) -> Output<U> {
+        Output {
+            value: map(self.value),
+            err: self.err,
+        }
+    }
+}
 pub fn intrinsic_fn<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {
-    just("$").ignore_then(
-        //Note: Must be broken down into different cases to satisfy const generic bounds
-        choice((
-            var_fn_case(exp.clone(), |x| match x.to_lowercase().as_str() {
-                "d" | "data" => Some(IntrinsicFunction::Data),
-                "ql" | "qlength" => Some(IntrinsicFunction::QLength),
-                _ => None,
-            }),
-            var_fn_case(exp.clone(), |x| match x.to_lowercase().as_str() {
-                "g" | "get" => Some(IntrinsicFunction::Get),
-                "i" | "increment" => Some(IntrinsicFunction::Increment),
-                "q" | "query" => Some(IntrinsicFunction::Query),
-                "o" | "order" => Some(IntrinsicFunction::Order),
-                _ => None,
-            }),
-            var_fn_case(exp.clone(), |x| match x.to_lowercase().as_str() {
-                "qs" | "qsubscript" => Some(
-                    IntrinsicFunction::QSubscript as fn(VarFunction<1, 0>) -> IntrinsicFunction,
-                ),
-                _ => None,
-            }),
-            var_fn_case(exp.clone(), |x| match x.to_lowercase().as_str() {
-                "na" | "name" => Some(IntrinsicFunction::Name),
-                _ => None,
-            }),
-            var_fn_case(exp, |x| match x.to_lowercase().as_str() {
-                "n" | "next" => Some(IntrinsicFunction::Next),
-                _ => None,
-            }),
-        )),
+    choice((intrinsic_var_fn(exp.clone()), intrinsic_non_var_fn(exp))).validate(
+        |output, extra, emiter| {
+            if let Some(msg) = output.err {
+                emiter.emit(Rich::custom(extra.span(), msg));
+            }
+            output.value
+        },
     )
 }
 
-fn var_fn_case<'src, const REQUIRED: usize, const OPTIONAL: usize>(
-    exp: impl Parser<'src, &'src str, Expression, extra::Full<Rich<'src, char>, (), ()>> + Clone,
-    var_name: impl Fn(&'src str) -> Option<fn(VarFunction<REQUIRED, OPTIONAL>) -> IntrinsicFunction>,
-) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {
-    identifier()
-        .filter_map(move |x| var_name(x))
-        .then(var_fn_args(exp))
-        .map(|(e_type, function)| e_type(function))
+fn intrinsic_var_fn<'src>(
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    just("$").ignore_then(
+        identifier()
+            .then(
+                variable(exp.clone())
+                    .then(
+                        just(",")
+                            .ignore_then(exp.clone())
+                            .repeated()
+                            .collect::<Vec<_>>(),
+                    )
+                    .delimited_by(just('('), just(')')),
+            )
+            //I want to keep parsing If I get the number of arguments wrong.
+            //I don't want to keep parsing if I got the function wrong.
+            .filter_map(|(name, (var, args))| match name.to_lowercase().as_str() {
+                "d" | "data" => Some(init_var_fn(IntrinsicFunction::Data, var, args)),
+                "ql" | "qlength" => Some(init_var_fn(IntrinsicFunction::QLength, var, args)),
+                "g" | "get" => Some(init_var_fn(IntrinsicFunction::Get, var, args)),
+                "i" | "increment" => Some(init_var_fn(IntrinsicFunction::Increment, var, args)),
+                "q" | "query" => Some(init_var_fn(IntrinsicFunction::Query, var, args)),
+                "o" | "order" => Some(init_var_fn(IntrinsicFunction::Order, var, args)),
+                "qs" | "qsubscript" => Some(init_var_fn(IntrinsicFunction::QSubscript, var, args)),
+                "na" | "name" => Some(init_var_fn(IntrinsicFunction::Name, var, args)),
+                "n" | "next" => Some(init_var_fn(IntrinsicFunction::Next, var, args)),
+                _ => None,
+            }),
+    )
+}
+fn intrinsic_non_var_fn<'src>(
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    just("$").ignore_then(
+        identifier()
+            .then(
+                exp.clone()
+                    .separated_by(just(","))
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('('), just(')')),
+            )
+            //I want to keep parsing If I get the number of arguments wrong.
+            //I don't want to keep parsing if I got the function wrong.
+            .filter_map(|(name, args)| match name.to_lowercase().as_str() {
+                "v" | "view" => Some(init_fn(IntrinsicFunction::View, args)),
+                "t" | "text" => Some(init_fn(IntrinsicFunction::Text, args)),
+                "tr" | "translate" => Some(init_fn(IntrinsicFunction::Translate, args)),
+                "f" | "find" => Some(init_fn(IntrinsicFunction::Find, args)),
+                "fn" | "fnumber" => Some(init_fn(IntrinsicFunction::Fnumber, args)),
+                "r" | "random" => Some(init_fn(IntrinsicFunction::Random, args)),
+                "p" | "piece" => Some(init_fn(IntrinsicFunction::Piece, args)),
+                "j" | "justify" => Some(init_fn(IntrinsicFunction::Justify, args)),
+                "e" | "extract" => Some(init_fn(IntrinsicFunction::Extract, args)),
+                "a" | "ascii" => Some(init_fn(IntrinsicFunction::Ascii, args)),
+                "re" | "reverse" => Some(init_fn(IntrinsicFunction::Reverse, args)),
+                "c" | "char" => Some(Output {
+                    value: IntrinsicFunction::Char { args },
+                    err: None,
+                }),
+                "l" | "length" => Some(init_fn(IntrinsicFunction::Length, args)),
+                "st" | "stack" => Some(init_fn(IntrinsicFunction::Stack, args)),
+                _ => None,
+            }),
+    )
 }
 
-pub fn var_fn_args<'src, const REQUIRED: usize, const OPTIONAL: usize>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, VarFunction<REQUIRED, OPTIONAL>, Error<'src>> {
-    variable(exp.clone())
-        .then(
-            just(",")
-                .ignore_then(exp.clone())
-                .repeated()
-                .collect_exactly::<[_; REQUIRED]>(),
-        )
-        .then(
-            just(",")
-                .ignore_then(exp.clone())
-                .or_not()
-                .repeated()
-                .collect_exactly::<[_; OPTIONAL]>(),
-        )
-        .map(|((variable, requred), optional)| VarFunction {
-            variable,
-            function: Function {
-                required: requred,
-                optional: optional,
-            },
+//Should I make my own output/errors result type?
+//Mach the style of above using monoids
+fn init_var_fn<const REQUIRED: usize, const OPTIONAL: usize>(
+    variant: fn(VarFunction<REQUIRED, OPTIONAL>) -> IntrinsicFunction,
+    var: Variable,
+    args: Vec<Expression>,
+) -> Output<IntrinsicFunction> {
+    map_args(args).map(move |args| {
+        variant(VarFunction {
+            variable: var,
+            function: args,
         })
-        .delimited_by(just("("), just(")"))
+    })
+}
+fn init_fn<const REQUIRED: usize, const OPTIONAL: usize>(
+    variant: fn(Function<REQUIRED, OPTIONAL>) -> IntrinsicFunction,
+    args: Vec<Expression>,
+) -> Output<IntrinsicFunction> {
+    map_args(args).map(move |function| variant(function))
+}
+
+//Lets parse any number a variable and then validate to report an error.
+fn map_args<'src, const REQUIRED: usize, const OPTIONAL: usize>(
+    args: Vec<Expression>,
+) -> Output<Function<REQUIRED, OPTIONAL>> {
+    let err = if args.len() < REQUIRED {
+        Some("Function Expects more arguments")
+    } else if REQUIRED + OPTIONAL < args.len() {
+        Some("Function Expects fewer arguments")
+    } else {
+        None
+    };
+    let mut iter = args.into_iter();
+    Output {
+        value: Function {
+            //Fill with placeholder arguments so we can keep parsing
+            required: from_fn(|_| iter.next().unwrap_or(Expression::String(Value::empty()))),
+            optional: from_fn(|_| iter.next()),
+        },
+        err,
+    }
 }
