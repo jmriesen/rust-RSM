@@ -884,18 +884,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
-name = "gloo-timers"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "482ce8a491a501da4cd806bd190275363d674f2845005c6ddbd5d3e1dd54495d"
-dependencies = [
- "futures-channel",
- "futures-core",
- "js-sys",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "half"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1374,9 +1362,9 @@ dependencies = [
 [[package]]
 name = "monaco-tower-lsp-bridge"
 version = "0.1.0"
+source = "git+https://github.com/jmriesen/Monaco-Tower-Lsp-Bridge?rev=4d6c01c1ecff13f2e2a8183bb5d35578c6216722#4d6c01c1ecff13f2e2a8183bb5d35578c6216722"
 dependencies = [
- "futures-util",
- "gloo-timers",
+ "futures",
  "js-sys",
  "tokio",
  "tokio-stream",
