@@ -152,67 +152,83 @@ pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken>
 
 #[cfg(test)]
 mod test {
-    use std::fs;
+    use crate::tokens::remove_over_lapping;
+    use tower_lsp::lsp_types::SemanticToken;
 
-    use insta::assert_debug_snapshot;
-    use tower_lsp::{
-        lsp_types::{
-            ClientCapabilities, InitializeParams, SemanticTokensClientCapabilities,
-            TextDocumentClientCapabilities, TextDocumentIdentifier, Url,
-        },
-        LanguageServer,
-    };
-
-    use crate::{partial, test_url, MumpsLsp};
-    #[tokio::test]
-    async fn overlapping() {
-        let uri: Url = test_url!();
-        let source = fs::read_to_string("../backend/tests/for/for_each.test")
-            .unwrap()
-            .split_once("\n---\n")
-            .unwrap()
-            .0
-            .to_owned();
-
-        let lsp = MumpsLsp::new(());
-        lsp.initialize(partial!(InitializeParams {
-            capabilities: ClientCapabilities {
-                text_document: Some(TextDocumentClientCapabilities {
-                    semantic_tokens: Some(SemanticTokensClientCapabilities {
-                        overlapping_token_support: Some(true)
-                    })
-                })
-            }
-        }))
-        .await
-        .unwrap();
-        lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
-    }
-    #[tokio::test]
-    async fn non_overlapping() {
-        let uri: Url = test_url!();
-        let source = fs::read_to_string("../backend/tests/for/for_each.test")
-            .unwrap()
-            .split_once("\n---\n")
-            .unwrap()
-            .0
-            .to_owned();
-
-        let lsp = MumpsLsp::new(());
-        lsp.initialize(partial!(InitializeParams {
-            capabilities: ClientCapabilities {
-                text_document: Some(TextDocumentClientCapabilities {
-                    semantic_tokens: Some(SemanticTokensClientCapabilities {
-                        overlapping_token_support: Some(false)
-                    })
-                })
-            }
-        }))
-        .await
-        .unwrap();
-        lsp.did_open(uri.clone(), source);
-        assert_debug_snapshot!(lsp.tokens(&TextDocumentIdentifier::new(uri)));
+    #[test]
+    fn de_overlap_tokens() {
+        let overlapping = vec![
+            SemanticToken {
+                delta_line: 0,
+                delta_start: 0,
+                length: 5,
+                token_type: 0,
+                token_modifiers_bitset: 0,
+            },
+            //Not adjacent, not overlapping.
+            SemanticToken {
+                delta_line: 0,
+                delta_start: 5,
+                length: 10,
+                token_type: 0,
+                token_modifiers_bitset: 0,
+            },
+            //Overlapping.
+            SemanticToken {
+                delta_line: 0,
+                delta_start: 5,
+                length: 10,
+                token_type: 0,
+                token_modifiers_bitset: 0,
+            },
+            //On new line (never overlapping)
+            //Mumps tokens should not overlap
+            SemanticToken {
+                delta_line: 1,
+                delta_start: 10,
+                length: 10,
+                token_type: 0,
+                token_modifiers_bitset: 0,
+            },
+        ];
+        assert_eq!(
+            remove_over_lapping(overlapping),
+            vec![
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 0,
+                    length: 5,
+                    token_type: 0,
+                    token_modifiers_bitset: 0,
+                },
+                //Not adjacent, not overlapping.
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 5,
+                    // truncated to accommodate next token
+                    length: 5,
+                    token_type: 0,
+                    token_modifiers_bitset: 0,
+                },
+                //Overlapping.
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 5,
+                    length: 10,
+                    token_type: 0,
+                    token_modifiers_bitset: 0,
+                },
+                //On new line (never overlapping)
+                //Mumps tokens should not overlap
+                SemanticToken {
+                    delta_line: 1,
+                    delta_start: 10,
+                    length: 10,
+                    token_type: 0,
+                    token_modifiers_bitset: 0,
+                },
+            ]
+        );
     }
 }
 impl crate::Document {
