@@ -4,7 +4,7 @@ use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
     ExternalCalls, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar, Variable,
-    intrinsic_functions::{Function, VarFunction},
+    intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
 };
 use value::{Number, Value};
@@ -269,17 +269,21 @@ impl<T> Output<T> {
         }
     }
 }
+
 pub fn intrinsic_fn<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {
-    choice((intrinsic_var_fn(exp.clone()), intrinsic_non_var_fn(exp))).validate(
-        |output, extra, emiter| {
-            if let Some(msg) = output.err {
-                emiter.emit(Rich::custom(extra.span(), msg));
-            }
-            output.value
-        },
-    )
+    choice((
+        intrinsic_var_fn(exp.clone()),
+        intrinsic_non_var_fn(exp.clone()),
+        select(exp),
+    ))
+    .validate(|output, extra, emiter| {
+        if let Some(msg) = output.err {
+            emiter.emit(Rich::custom(extra.span(), msg));
+        }
+        output.value
+    })
 }
 
 fn intrinsic_var_fn<'src>(
@@ -390,4 +394,28 @@ fn map_args<'src, const REQUIRED: usize, const OPTIONAL: usize>(
         },
         err,
     }
+}
+
+fn select<'src>(
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    just("$").ignore_then(
+        identifier()
+            .then(
+                exp.clone()
+                    .then_ignore(just(":"))
+                    .then(exp)
+                    .map(|(condition, value)| SelectTerm { condition, value })
+                    .separated_by(just(","))
+                    .collect::<Vec<_>>()
+                    .delimited_by(just("("), just(")")),
+            )
+            .filter_map(|(name, terms)| match name.to_lowercase().as_str() {
+                "s" | "select" => Some(Output {
+                    value: IntrinsicFunction::Select { terms },
+                    err: None,
+                }),
+                _ => None,
+            }),
+    )
 }
