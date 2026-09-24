@@ -1,16 +1,7 @@
-#![feature(iter_array_chunks)]
 use ariadne::{Label, Report, ReportKind, Source};
 use chumsky::Parser;
 use ir::Routine;
-pub mod commands;
-pub mod expression;
-pub mod external_calls;
-pub mod extrinsic_function;
-pub mod intrinsic_functions;
-pub mod intrinsic_var;
-pub mod operators;
 pub mod parser;
-pub mod variable;
 use thiserror::Error;
 
 use crate::parser::routine;
@@ -33,24 +24,19 @@ pub enum ParsingError {
     #[error("Error occurred when tree-sitter parsed the routine")]
     TreeSitterError(()),
     #[error("Quit can only have zero or one argument")]
-    QuitExtraArgs(lang_model::Range),
+    QuitExtraArgs(ir::Spanned<()>),
     #[error("Close always takes at least one argument")]
-    CloseRequiresArgs(lang_model::Range),
+    CloseRequiresArgs(ir::Spanned<()>),
     #[error("If always takes at least one argument")]
-    IfRequireArgs(lang_model::Range),
+    IfRequireArgs(ir::Spanned<()>),
     #[error("not yet supported:{}",.0)]
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
-    KillExclusiveNonLocal(lang_model::Range),
+    KillExclusiveNonLocal(ir::Spanned<()>),
     #[error(
         "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]
     HitMaxLineLength,
-}
-
-pub trait TreeSitterParser<'a> {
-    type NodeType;
-    fn new(sitter: &Self::NodeType, source_code: &str) -> Self;
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
@@ -94,16 +80,5 @@ mod test {
             parse_routine(source_code).map(|_| () /*I only care about the error case*/),
             Err(ParsingError::HitMaxLineLength),
         )
-    }
-
-    #[test]
-    #[should_panic]
-    #[ignore = "don't have time to track down root cause right now."]
-    fn todo_this_should_not_parse() {
-        let source_code = "foo k (^A\n";
-        let tree = lang_model::create_tree(source_code);
-        let _tree = lang_model::type_tree(&tree, source_code)
-            .map_err(ParsingError::TreeSitterError)
-            .unwrap();
     }
 }

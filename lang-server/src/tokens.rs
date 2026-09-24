@@ -1,8 +1,9 @@
-use std::{result::IterMut, sync::LazyLock};
+use core::iter::once;
+use std::sync::LazyLock;
 
 use ir::{
     commands::{Command, Write},
-    Line, Routine, Spanned, Tag,
+    Line, Spanned, Tag,
 };
 use tower_lsp::lsp_types::{
     Position, SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
@@ -22,10 +23,12 @@ pub static SEMANTIC_TOKENS_CAPABILITIES: LazyLock<Option<SemanticTokensServerCap
         ))
     });
 
-use crate::util::to_lsp_int;
 //NOTE: I am using a macro to define this type so the order of items always stays in sync.
 //The reference ordering must mach the variant ordering for the client/server to understand
 //each other.
+// Old Tree-sitter query.
+// Eventually want to get to feature parity again.
+
 macro_rules! tokens {
     ($( {$name:ident, $str_rep:expr, $semantic:expr})*) => {
         #[repr(u32)]
@@ -35,12 +38,14 @@ macro_rules! tokens {
         }
 
         impl TokenTypes {
+/*
             pub fn from_node_type(node_kind: &str) -> Self {
                 match node_kind {
                     $( $str_rep => Self::$name, )*
                     _ => Self::Other,
                 }
             }
+*/
 
             pub fn reference_ordering() -> Vec<SemanticTokenType> {
                 vec![
@@ -48,6 +53,7 @@ macro_rules! tokens {
                     SemanticTokenType::KEYWORD
                 ]
             }
+/*
             pub fn query()->tree_sitter::Query{
             tree_sitter::Query::new(
                 &tree_sitter_mumps::language(),
@@ -59,6 +65,7 @@ macro_rules! tokens {
                 )
                 .unwrap()
             }
+*/
         }
 
     };
@@ -74,8 +81,8 @@ tokens! {
     {BinOp,        "BinaryOpp",    SemanticTokenType::OPERATOR}
     {UnaryOpp,     "UnaryOpp",     SemanticTokenType::OPERATOR}
 }
+
 /// Wrapper around a Node that is known to correspond to a Token
-pub struct TokenNode<'a>(pub tree_sitter::Node<'a>);
 
 /// `SemanticToken` but position is measure in absolute rather than relative terms
 #[derive(Clone, Copy, Debug)]
@@ -84,21 +91,6 @@ pub struct AbsolutToken {
     pub length: u32,
     pub token_type: u32,
     pub token_modifiers_bitset: u32,
-}
-
-impl From<&TokenNode<'_>> for AbsolutToken {
-    fn from(TokenNode(node): &TokenNode) -> Self {
-        let start = node.start_position();
-        AbsolutToken {
-            start_position: Position {
-                line: to_lsp_int(start.row),
-                character: to_lsp_int(start.column),
-            },
-            length: to_lsp_int(node.end_byte() - node.start_byte()),
-            token_type: TokenTypes::from_node_type(node.kind()) as u32,
-            token_modifiers_bitset: 0,
-        }
-    }
 }
 
 impl AbsolutToken {
@@ -181,7 +173,7 @@ mod test {
                 token_type: 0,
                 token_modifiers_bitset: 0,
             },
-            //On new line (never overlapping)
+            //On newline (never overlapping)
             //Mumps tokens should not overlap
             SemanticToken {
                 delta_line: 1,
@@ -218,7 +210,7 @@ mod test {
                     token_type: 0,
                     token_modifiers_bitset: 0,
                 },
-                //On new line (never overlapping)
+                //On newline (never overlapping)
                 //Mumps tokens should not overlap
                 SemanticToken {
                     delta_line: 1,
@@ -262,7 +254,7 @@ impl ExtractTokens for Line {
 }
 impl ExtractTokens for Spanned<Command> {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        core::iter::once(Spanned {
+        once(Spanned {
             inner: TokenTypes::Command,
             start: self.start,
             end: self.end,
@@ -271,11 +263,12 @@ impl ExtractTokens for Spanned<Command> {
             Command::Write(post_condition) => Box::new(post_condition.value.tokens())
                 as Box<dyn Iterator<Item = Spanned<TokenTypes>>>,
 
-            Command::Error => Box::new(core::iter::once(Spanned {
+            Command::Error => Box::new(once(Spanned {
                 inner: TokenTypes::String,
                 start: self.start,
                 end: self.end,
             })),
+            Command::For(for_cmd) => Box::new(for_cmd.commands.tokens()),
             _ => Box::new(Option::<Spanned<Tag>>::None.tokens()),
         })
     }
@@ -283,7 +276,7 @@ impl ExtractTokens for Spanned<Command> {
 
 impl ExtractTokens for Spanned<Tag> {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        core::iter::once(Spanned {
+        once(Spanned {
             inner: TokenTypes::TagName,
             start: self.start,
             end: self.end,
@@ -293,7 +286,7 @@ impl ExtractTokens for Spanned<Tag> {
 impl ExtractTokens for Spanned<Write> {
     fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
         match &self.inner {
-            Write::Bang | Write::Clear => Box::new(core::iter::once(Spanned {
+            Write::Bang | Write::Clear => Box::new(once(Spanned {
                 inner: TokenTypes::Variable,
                 start: self.start,
                 end: self.end,

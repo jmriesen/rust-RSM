@@ -20,7 +20,6 @@ mod config;
 mod document;
 mod errors;
 mod tokens;
-mod util;
 pub use tokens::TokenTypes;
 
 pub struct MumpsLsp<Client: client::Client> {

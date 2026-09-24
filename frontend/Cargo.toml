@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-lang-model = {path = "../lang-model/"}
 value = {path = "../value/"}
 ir = {path = "../ir/"}
 thiserror = "1.0.63"

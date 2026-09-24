@@ -1,9 +1,7 @@
 [workspace]
 resolver = "2"
 members=[
-	"tree-sitter-M",
 	"lang-server",
-	"lang-model",
 	"interpreter",
 	"fuzz",
 	"ffi", "symbol_table", "value", "ir", "backend", "frontend", "demo/wasm_lsp"]
