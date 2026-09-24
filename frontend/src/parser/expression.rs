@@ -1,15 +1,15 @@
-use std::{array::from_fn, cell::LazyCell, str::FromStr, sync::LazyLock};
+use std::{array::from_fn, str::FromStr};
 
 use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
-    ExternalCalls, ExtrinsicFunction, IntrinsicFunction, IntrinsicVar, Variable,
+    ExternalCalls, IntrinsicFunction, IntrinsicVar, Variable,
     intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
 };
 use value::{Number, Value};
 
-use crate::parser::{function_args, parse_extrinsic_function};
+use crate::parser::parse_extrinsic_function;
 
 use super::{
     peek,
