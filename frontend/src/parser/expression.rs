@@ -3,19 +3,13 @@ use std::{array::from_fn, str::FromStr};
 use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
-    ExternalCalls, IntrinsicFunction, IntrinsicVar, Variable,
+    ExternalCalls, IntrinsicFunction, IntrinsicVar,
     intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
-    variable::VariableType::NakedVariable,
 };
 use value::{Number, Value};
 
-use crate::parser::{args_list, parse_extrinsic_function};
-
-use super::{
-    peek,
-    variable::{identifier, variable},
-};
+use super::{args_list, parse_extrinsic_function, peek, variable, variable::identifier};
 
 use super::Error;
 fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
@@ -347,10 +341,7 @@ where
         }
     } else {
         Output {
-            value: Variable {
-                var_type: NakedVariable,
-                subscripts: vec![],
-            },
+            value: variable::dummy_variable(),
             err: Some("First argument must be a variable."),
         }
     };

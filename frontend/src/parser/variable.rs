@@ -6,6 +6,17 @@ use ir::{
     Expression, Variable,
     variable::{Env, GlobleIdent, UserClassIdentifiers, VariableType},
 };
+
+pub fn dummy_variable() -> Variable {
+    Variable {
+        var_type: VariableType::Named {
+            name: "VAR_INSERTED_DURING_ERROR_RECOVERY".to_owned(),
+            globle_ident: None,
+        },
+        subscripts: vec![],
+    }
+}
+
 pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
     any()
         .filter(|start: &char| start.is_ascii_alphabetic()|| start == &'%')

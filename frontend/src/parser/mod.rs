@@ -22,6 +22,8 @@ mod expression;
 mod variable;
 use expression::expression;
 
+type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
+
 use crate::parser::variable::{identifier, local_variable_no_subscripts, variable};
 pub fn peek<'src, U, B>(item: B) -> AndIs<Empty<&'src str, Error<'src>>, B, U>
 where
@@ -50,7 +52,6 @@ fn args_list<'src, T>(
         .delimited_by(just("("), just(")"))
 }
 
-type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Error<'src>> {
     line_parser()
         .separated_by(just("\n"))
@@ -302,48 +303,31 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                     variable(expression().boxed())
                         .delimited_by(just("("), just(")"))
                         .validate(|var, extra, emiter| {
-                            let ir::Variable {
-                                var_type,
-                                subscripts,
-                            } = var;
-                            let (error, var) =
-                                if let VariableType::Named { name, globle_ident } = var_type {
-                                    if globle_ident.is_none() {
-                                        (false, name)
-                                    } else {
-                                        (true, name)
-                                    }
-                                } else {
-                                    (true, "VAR_INSERTED_DURING_ERROR_RECOVERY".to_owned())
-                                };
-                            if error || subscripts.len() != 0 {
+                            if matches!(&var.var_type,VariableType::Named { name:_, globle_ident:None }) && var.subscripts.is_empty(){
+                                var
+                            }else{
                                 emiter.emit(Rich::custom(extra.span(), "kill exclusive is only supported for local variables with no subscripts"));
+                                variable::dummy_variable()
                             }
-                            var
+
                         })
                         .map(|var| commands::kill::Kill {
                             r#type: E::Exclusive,
-                            variables: vec![ir::Variable {
-                                var_type: VariableType::Named {
-                                    name: var,
-                                    globle_ident: None,
-                                },
-                                subscripts: vec![],
-                            }],
+                            variables: vec![var],
                         }),
                 ))
-                .separated_by(just(","))
-                .collect::<Vec<_>>()
-                .map(|x| {
-                    if x.is_empty() {
-                        vec![commands::kill::Kill {
-                            r#type: E::Exclusive,
-                            variables: vec![],
-                        }]
-                    } else {
-                        x
-                    }
-                }),
+                    .separated_by(just(","))
+                    .collect::<Vec<_>>()
+                    .map(|x| {
+                        if x.is_empty() {
+                            vec![commands::kill::Kill {
+                                r#type: E::Exclusive,
+                                variables: vec![],
+                            }]
+                        } else {
+                            x
+                        }
+                    }),
             ),
         )
         .map(|value| Command::Kill(value))
