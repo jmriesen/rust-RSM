@@ -378,7 +378,6 @@ mod test {
         run_code_check_output(src, output, error);
     }
 
-    #[ignore = "error codes have changed. Ignoring to remove noise fix before pulling."]
     #[rstest]
     fn syntax_errors(#[files("tests/*/syntax_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();

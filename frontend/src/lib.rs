@@ -29,7 +29,7 @@ pub enum ParsingError {
     CloseRequiresArgs(ir::Spanned<()>),
     #[error("If always takes at least one argument")]
     IfRequireArgs(ir::Spanned<()>),
-    #[error("not yet supported:{}",.0)]
+    #[error("{}",.0)]
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
     KillExclusiveNonLocal(ir::Spanned<()>),
@@ -56,7 +56,7 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
                             )
                             .finish();
                         report.print(Source::from(source_code)).unwrap();
-                        format!("parsing_error:{error},{}", error.span())
+                        format!("{error},{}", error.span())
                     })
                     .collect::<String>()
                     .leak(),

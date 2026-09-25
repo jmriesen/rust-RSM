@@ -16,6 +16,7 @@ use ir::{
         Args,
         Location::{self},
     },
+    variable::VariableType,
 };
 mod expression;
 mod variable;
@@ -55,6 +56,8 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Error<'src>> {
         .separated_by(just("\n"))
         .allow_trailing()
         .collect::<Vec<_>>()
+        //Ignore the trailing metadata in the test files.
+        .then_ignore(just("---").then(any().repeated()).or_not())
 }
 
 fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Error<'src>> {
@@ -203,19 +206,27 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     keyword("quit")
         .ignore_then(post_condition())
         .then_ignore(space_or_eol())
-        .then(expression().or_not())
-        .validate(|(condition, return_value), extra, emiter| {
-            if return_value.is_some() {
-                emiter.emit(Rich::custom(
-                    extra.span(),
-                    "Not yet supported quit with args",
-                ));
-            }
-            Command::Quit(PostCondition {
-                condition,
-                value: commands::Quit(return_value),
-            })
-        })
+        .then(
+            expression()
+                .separated_by(just(","))
+                .collect::<Vec<_>>()
+                .validate(|mut return_value, extra, emiter| {
+                    if return_value.len() > 1 {
+                        emiter.emit(Rich::custom(
+                            extra.span(),
+                            "Quit can only have zero or one argument",
+                        ));
+                    }
+                    if return_value.len() == 1 {
+                        emiter.emit(Rich::custom(
+                            extra.span(),
+                            "Not yet supported quit with args",
+                        ));
+                    }
+                    commands::Quit(return_value.pop())
+                }),
+        )
+        .map(|(condition, value)| Command::Quit(PostCondition { condition, value }))
 }
 fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     keyword("do")
@@ -288,11 +299,37 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                         r#type: E::Inclusive,
                         variables: vec![var],
                     }),
-                    local_variable_no_subscripts()
+                    variable(expression().boxed())
                         .delimited_by(just("("), just(")"))
+                        .validate(|var, extra, emiter| {
+                            let ir::Variable {
+                                var_type,
+                                subscripts,
+                            } = var;
+                            let (error, var) =
+                                if let VariableType::Named { name, globle_ident } = var_type {
+                                    if globle_ident.is_none() {
+                                        (false, name)
+                                    } else {
+                                        (true, name)
+                                    }
+                                } else {
+                                    (true, "VAR_INSERTED_DURING_ERROR_RECOVERY".to_owned())
+                                };
+                            if error || subscripts.len() != 0 {
+                                emiter.emit(Rich::custom(extra.span(), "kill exclusive is only supported for local variables with no subscripts"));
+                            }
+                            var
+                        })
                         .map(|var| commands::kill::Kill {
                             r#type: E::Exclusive,
-                            variables: vec![var],
+                            variables: vec![ir::Variable {
+                                var_type: VariableType::Named {
+                                    name: var,
+                                    globle_ident: None,
+                                },
+                                subscripts: vec![],
+                            }],
                         }),
                 ))
                 .separated_by(just(","))
@@ -345,7 +382,7 @@ fn close_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
 }
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Error<'src>> {
-    choice((just(" ").ignored(), peek(just("\n")).ignored()))
+    choice((just(" ").ignored(), peek(just("\n")).ignored(), end()))
 }
 
 ///WARN: Look at warning on `variable`
