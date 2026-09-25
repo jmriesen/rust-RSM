@@ -426,10 +426,4 @@ mod test {
     fn recover_from_unknown_command() {
         insta::assert_debug_snapshot!(line_parser().parse(" foo bar").into_output_errors());
     }
-    #[test]
-    fn tmp() {
-        let mut file = File::create("temp.svg").unwrap();
-        file.write_all(format!("{}", line_parser().debug().to_railroad_svg()).as_bytes())
-            .unwrap()
-    }
 }
