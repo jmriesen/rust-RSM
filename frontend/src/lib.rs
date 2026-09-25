@@ -23,8 +23,8 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
 
 #[derive(Error, Debug, PartialEq, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
 pub enum ParsingError {
-    #[error("Error occurred when tree-sitter parsed the routine")]
-    TreeSitterError(()),
+    #[error("{}",.0)]
+    ParserError(&'static str),
     #[error("Quit can only have zero or one argument")]
     QuitExtraArgs,
     #[error("Close always takes at least one argument")]
@@ -53,7 +53,7 @@ pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
         .parse(source_code)
         .into_result()
         .map_err(|errors| {
-            ParsingError::NotYetSupported(
+            ParsingError::ParserError(
                 errors
                     .iter()
                     .map(|error| {
