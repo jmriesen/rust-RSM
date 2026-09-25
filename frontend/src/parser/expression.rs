@@ -6,6 +6,7 @@ use ir::{
     ExternalCalls, IntrinsicFunction, IntrinsicVar, Variable,
     intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
+    variable::VariableType::NakedVariable,
 };
 use value::{Number, Value};
 
@@ -269,16 +270,19 @@ impl<T> Output<T> {
         }
     }
 }
+impl<T> Output<Output<T>> {
+    fn flatten(self) -> Output<T> {
+        Output {
+            value: self.value.value,
+            err: self.err,
+        }
+    }
+}
 
 pub fn intrinsic_fn<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {
-    choice((
-        intrinsic_var_fn(exp.clone()),
-        intrinsic_non_var_fn(exp.clone()),
-        select(exp),
-    ))
-    .validate(|output, extra, emiter| {
+    choice((intrinsic_fn_normal(exp.clone()), select(exp))).validate(|output, extra, emiter| {
         if let Some(msg) = output.err {
             emiter.emit(Rich::custom(extra.span(), msg));
         }
@@ -286,38 +290,7 @@ pub fn intrinsic_fn<'src>(
     })
 }
 
-fn intrinsic_var_fn<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
-    just("$").ignore_then(
-        identifier()
-            .then(
-                variable(exp.clone())
-                    .then(
-                        just(",")
-                            .ignore_then(exp.clone())
-                            .repeated()
-                            .collect::<Vec<_>>(),
-                    )
-                    .delimited_by(just('('), just(')')),
-            )
-            //I want to keep parsing If I get the number of arguments wrong.
-            //I don't want to keep parsing if I got the function wrong.
-            .filter_map(|(name, (var, args))| match name.to_lowercase().as_str() {
-                "d" | "data" => Some(init_var_fn(IntrinsicFunction::Data, var, args)),
-                "ql" | "qlength" => Some(init_var_fn(IntrinsicFunction::QLength, var, args)),
-                "g" | "get" => Some(init_var_fn(IntrinsicFunction::Get, var, args)),
-                "i" | "increment" => Some(init_var_fn(IntrinsicFunction::Increment, var, args)),
-                "q" | "query" => Some(init_var_fn(IntrinsicFunction::Query, var, args)),
-                "o" | "order" => Some(init_var_fn(IntrinsicFunction::Order, var, args)),
-                "qs" | "qsubscript" => Some(init_var_fn(IntrinsicFunction::QSubscript, var, args)),
-                "na" | "name" => Some(init_var_fn(IntrinsicFunction::Name, var, args)),
-                "n" | "next" => Some(init_var_fn(IntrinsicFunction::Next, var, args)),
-                _ => None,
-            }),
-    )
-}
-fn intrinsic_non_var_fn<'src>(
+fn intrinsic_fn_normal<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
     just("$").ignore_then(
@@ -331,6 +304,17 @@ fn intrinsic_non_var_fn<'src>(
             //I want to keep parsing If I get the number of arguments wrong.
             //I don't want to keep parsing if I got the function wrong.
             .filter_map(|(name, args)| match name.to_lowercase().as_str() {
+                //Variable functions
+                "d" | "data" => Some(init_var_fn(IntrinsicFunction::Data, args)),
+                "ql" | "qlength" => Some(init_var_fn(IntrinsicFunction::QLength, args)),
+                "g" | "get" => Some(init_var_fn(IntrinsicFunction::Get, args)),
+                "i" | "increment" => Some(init_var_fn(IntrinsicFunction::Increment, args)),
+                "q" | "query" => Some(init_var_fn(IntrinsicFunction::Query, args)),
+                "o" | "order" => Some(init_var_fn(IntrinsicFunction::Order, args)),
+                "qs" | "qsubscript" => Some(init_var_fn(IntrinsicFunction::QSubscript, args)),
+                "na" | "name" => Some(init_var_fn(IntrinsicFunction::Name, args)),
+                "n" | "next" => Some(init_var_fn(IntrinsicFunction::Next, args)),
+                // None Variable functions
                 "v" | "view" => Some(init_fn(IntrinsicFunction::View, args)),
                 "t" | "text" => Some(init_fn(IntrinsicFunction::Text, args)),
                 "tr" | "translate" => Some(init_fn(IntrinsicFunction::Translate, args)),
@@ -347,37 +331,67 @@ fn intrinsic_non_var_fn<'src>(
                     err: None,
                 }),
                 "l" | "length" => Some(init_fn(IntrinsicFunction::Length, args)),
-                "st" | "stack" => Some(init_fn(IntrinsicFunction::Stack, args)),
+                "st" | "stack" => Some(init_fn(IntrinsicFunction::Stack, args.into_iter())),
+
                 _ => None,
             }),
     )
 }
 
-//Should I make my own output/errors result type?
-//Mach the style of above using monoids
-fn init_var_fn<const REQUIRED: usize, const OPTIONAL: usize>(
+fn init_var_fn<const REQUIRED: usize, const OPTIONAL: usize, T>(
     variant: fn(VarFunction<REQUIRED, OPTIONAL>) -> IntrinsicFunction,
-    var: Variable,
-    args: Vec<Expression>,
-) -> Output<IntrinsicFunction> {
-    map_args(args).map(move |args| {
-        variant(VarFunction {
-            variable: var,
-            function: args,
+    args: T,
+) -> Output<IntrinsicFunction>
+where
+    T: IntoIterator<Item = Expression>,
+    T::IntoIter: ExactSizeIterator,
+{
+    let mut args = args.into_iter();
+    let var = if let Some(Expression::Variable(var)) = args.next() {
+        Output {
+            value: var,
+            err: None,
+        }
+    } else {
+        Output {
+            value: Variable {
+                var_type: NakedVariable,
+                subscripts: vec![],
+            },
+            err: Some("First argument must be a variable."),
+        }
+    };
+    var.map(|var| {
+        map_args(args).map(move |args| {
+            variant(VarFunction {
+                variable: var,
+                function: args,
+            })
         })
     })
+    .flatten()
 }
-fn init_fn<const REQUIRED: usize, const OPTIONAL: usize>(
+
+fn init_fn<const REQUIRED: usize, const OPTIONAL: usize, T>(
     variant: fn(Function<REQUIRED, OPTIONAL>) -> IntrinsicFunction,
-    args: Vec<Expression>,
-) -> Output<IntrinsicFunction> {
+    args: T,
+) -> Output<IntrinsicFunction>
+where
+    T: IntoIterator<Item = Expression>,
+    T::IntoIter: ExactSizeIterator,
+{
     map_args(args).map(move |function| variant(function))
 }
 
 //Lets parse any number a variable and then validate to report an error.
-fn map_args<'src, const REQUIRED: usize, const OPTIONAL: usize>(
-    args: Vec<Expression>,
-) -> Output<Function<REQUIRED, OPTIONAL>> {
+fn map_args<'src, const REQUIRED: usize, const OPTIONAL: usize, T>(
+    args: T,
+) -> Output<Function<REQUIRED, OPTIONAL>>
+where
+    T: IntoIterator<Item = Expression>,
+    T::IntoIter: ExactSizeIterator,
+{
+    let args = args.into_iter();
     let err = if args.len() < REQUIRED {
         Some("Function Expects more arguments")
     } else if REQUIRED + OPTIONAL < args.len() {
