@@ -1,8 +1,4 @@
-use chumsky::{
-    extra::{Err, Full},
-    span::SimpleSpan,
-    ParseResult, Parser,
-};
+use chumsky::{span::SimpleSpan, ParseResult, Parser};
 use frontend::{parser::routine, ParsingError};
 pub use ir::Routine;
 use tower_lsp::lsp_types::{

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, sync::Mutex};
+use std::{collections::HashMap, str::FromStr, sync::RwLock};
 
 use backend::runtime::Job;
 use serde_json::Value;
@@ -42,7 +42,7 @@ impl Commands {
         &self,
         client: &impl Client,
         args: Vec<Value>,
-        documents: &Mutex<HashMap<Url, Document>>,
+        documents: &RwLock<HashMap<Url, Document>>,
     ) -> Option<Value> {
         match self {
             Commands::HelloWorld => {
@@ -52,7 +52,7 @@ impl Commands {
                 };
 
                 let output = {
-                    let documents = documents.lock().expect("The lock is not poisoned.");
+                    let documents = documents.read().unwrap();
                     let document = documents.get(&uri).unwrap();
                     let parse_result = document.ir().clone();
 
@@ -75,6 +75,7 @@ impl Commands {
                         }
                     }
                 };
+
                 client
                     .show_message(MessageType::INFO, format!("Result{}", output))
                     .await;

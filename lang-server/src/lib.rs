@@ -1,10 +1,6 @@
 #![warn(clippy::pedantic)]
 use commands::Commands as MyCommand;
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Mutex, RwLock},
-};
+use std::{collections::HashMap, str::FromStr, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
@@ -24,14 +20,14 @@ pub use tokens::TokenTypes;
 
 pub struct MumpsLsp<Client: client::Client> {
     client: Client,
-    documents: Mutex<HashMap<Url, Document>>,
+    documents: RwLock<HashMap<Url, Document>>,
     allow_overlapping_tokens: RwLock<bool>,
 }
 impl<Client: client::Client> MumpsLsp<Client> {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            documents: Mutex::default(),
+            documents: RwLock::default(),
             allow_overlapping_tokens: RwLock::new(false),
         }
     }
@@ -41,7 +37,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     /// Will Panic if the document lock is poisoned.
     pub fn did_open(&self, url: Url, text: String) {
         self.documents
-            .lock()
+            .write()
             .expect("The lock is not poisoned.")
             .insert(url, Document::new(text));
     }
@@ -49,7 +45,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     ///
     /// Will Panic if the document lock is poisoned.
     pub fn tokens(&self, document: &TextDocumentIdentifier) -> Vec<SemanticToken> {
-        let documents = self.documents.lock().expect("The lock is not poisoned.");
+        let documents = self.documents.read().expect("The lock is not poisoned.");
         let document = documents.get(&document.uri).unwrap();
         let tokens = AbsolutToken::to_relitive(document.tokens());
         if *self.allow_overlapping_tokens.read().unwrap() {
@@ -150,7 +146,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         &self,
         params: DocumentDiagnosticParams,
     ) -> Result<DocumentDiagnosticReportResult> {
-        let documents = self.documents.lock().unwrap();
+        let documents = self.documents.read().unwrap();
 
         let routine = documents
             .get(&params.text_document.uri)
@@ -180,7 +176,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
 
     async fn did_change(&self, change: DidChangeTextDocumentParams) {
         self.documents
-            .lock()
+            .write()
             .unwrap()
             .get_mut(&change.text_document.uri)
             .expect("The document should already be open before changes are made")
