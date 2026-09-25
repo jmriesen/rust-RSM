@@ -1,36 +1,4 @@
-/*
-IndirectVariable: $ => seq("@", $.Expression, "@"),
-    NakedVariable: $ => "^",
-    GlobalVariable: $ => "^",
-    GlobalUciVariable: $ => choice(
-      seq("^|", $.Expression, "|"),
-      //TODO check if square brackets are valid.
-      prec(1, seq("^[", $.Expression, "]"))
-    ),
-    GlobalUciEnvVariable: $ => prec(1, seq("^[", $.Expression, ",", $.Expression, "]")),
-    _VariableSubscripts: $ => seq("(", repeatDel($.Expression, ","), ")"),
-    Space: $ => " ",
-
-
-    Variable: $ => choice(
-      seq(
-        field('heading', choice(
-          $.IndirectVariable,
-          $.NakedVariable
-        )),
-        field('subs', $._VariableSubscripts)
-      ),
-      seq(
-        optional(field('heading', choice(
-          $.GlobalVariable,
-          $.GlobalUciVariable,
-          $.GlobalUciEnvVariable
-        ))),
-        field('name', $.identifier),
-        optional(field('subs', $._VariableSubscripts))
-      )
-    ),
-*/
+use crate::parser::args_list;
 
 use super::Error;
 use chumsky::{Parser, prelude::*};
@@ -61,11 +29,7 @@ pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>
 pub fn variable<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, Variable, Error<'src>> {
-    let subscripts = exp
-        .clone()
-        .separated_by(just(","))
-        .collect::<Vec<_>>()
-        .delimited_by(just("("), just(")"));
+    let subscripts = args_list(exp.clone());
 
     choice((
         //Named

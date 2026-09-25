@@ -10,7 +10,7 @@ use ir::{
 };
 use value::{Number, Value};
 
-use crate::parser::parse_extrinsic_function;
+use crate::parser::{args_list, parse_extrinsic_function};
 
 use super::{
     peek,
@@ -40,6 +40,7 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
     .labelled("String Literal")
     .as_terminal()
 }
+
 fn number<'src>() -> impl Parser<'src, &'src str, Number, Error<'src>> {
     choice((
         digits(10)
@@ -108,6 +109,7 @@ pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
             pat
                 //Or-ing
                 .separated_by(just(","))
+                //Note Note using `args_list` parser due to the at_least call
                 .at_least(1)
                 //Grouping
                 .delimited_by(just('('), just(')')),
@@ -180,7 +182,7 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
             //Expression based I can handle by just checking that the next
             //character is a @
             //literal based I can do vie the opposite approach.
-            //I kind of question if they shoudl be the same type? no it will
+            //I kind of question if they should be the same type? no it will
             //be fine
             |lhs, (op, rhs)| Expression::BinaryExpression {
                 left: Box::new(lhs),
@@ -250,11 +252,7 @@ pub fn external_calls<'src>(
                 _ => None,
             }),
         )
-        .then(
-            exp.separated_by(just(","))
-                .collect()
-                .delimited_by(just("("), just(")")),
-        )
+        .then(args_list(exp))
         .map(|(op_code, args)| Expression::ExternalCalls { args, op_code })
 }
 
@@ -295,12 +293,7 @@ fn intrinsic_fn_normal<'src>(
 ) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
     just("$").ignore_then(
         identifier()
-            .then(
-                exp.clone()
-                    .separated_by(just(","))
-                    .collect::<Vec<_>>()
-                    .delimited_by(just('('), just(')')),
-            )
+            .then(args_list(exp))
             //I want to keep parsing If I get the number of arguments wrong.
             //I don't want to keep parsing if I got the function wrong.
             .filter_map(|(name, args)| match name.to_lowercase().as_str() {
@@ -413,17 +406,16 @@ where
 fn select<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    let condition = exp.clone();
+    let value = exp;
     just("$").ignore_then(
         identifier()
-            .then(
-                exp.clone()
+            .then(args_list(
+                condition
                     .then_ignore(just(":"))
-                    .then(exp)
-                    .map(|(condition, value)| SelectTerm { condition, value })
-                    .separated_by(just(","))
-                    .collect::<Vec<_>>()
-                    .delimited_by(just("("), just(")")),
-            )
+                    .then(value)
+                    .map(|(condition, value)| SelectTerm { condition, value }),
+            ))
             .filter_map(|(name, terms)| match name.to_lowercase().as_str() {
                 "s" | "select" => Some(Output {
                     value: IntrinsicFunction::Select { terms },

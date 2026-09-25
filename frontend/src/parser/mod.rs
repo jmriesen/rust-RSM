@@ -41,6 +41,13 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
     .labelled(keyword)
     .as_terminal()
 }
+fn args_list<'src, T>(
+    term: impl Parser<'src, &'src str, T, Error<'src>>,
+) -> impl Parser<'src, &'src str, Vec<T>, Error<'src>> {
+    term.separated_by(just(","))
+        .collect::<Vec<_>>()
+        .delimited_by(just("("), just(")"))
+}
 
 type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Error<'src>> {
@@ -232,6 +239,7 @@ fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
         )
         .map(|(condition, value)| Command::Do(PostCondition { condition, value }))
 }
+
 fn parse_extrinsic_function<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
 ) -> impl Parser<'src, &'src str, ExtrinsicFunction, Error<'src>> {
@@ -254,16 +262,13 @@ fn parse_extrinsic_function<'src>(
 fn function_args<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
 ) -> impl Parser<'src, &'src str, Vec<Args>, Error<'src>> {
-    choice((
+    args_list(choice((
         exp.map(Args::Expression),
         just(".")
             .ignore_then(local_variable_no_subscripts())
             .map(Args::ByRef),
         empty().to(Args::VarUndefined),
-    ))
-    .separated_by(just(","))
-    .collect::<Vec<_>>()
-    .delimited_by(just("("), just(")"))
+    )))
     .map(|mut args| {
         // VarUndefined is not allowed if it is the last argument in the argument list.
         // It is easier to parse it as if it was allowed and then remove it after the fact. (fewer
@@ -306,6 +311,7 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
         )
         .map(|value| Command::Kill(value))
 }
+
 fn break_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
     keyword("brake")
         .ignore_then(post_condition())
