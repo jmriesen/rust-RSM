@@ -71,21 +71,18 @@ pub fn variable<'src>(
 pub fn globle_ident<'src>(
     exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, GlobleIdent, Error<'src>> {
+    let args = exp
+        .clone()
+        .separated_by(just(","))
+        .at_least(1)
+        .at_most(2)
+        .collect::<Vec<_>>();
+
     just("^")
         .ignore_then(
             choice((
-                exp.clone()
-                    .separated_by(just(","))
-                    .at_least(1)
-                    .at_most(2)
-                    .collect::<Vec<_>>()
-                    .delimited_by(just("["), just("]")),
-                exp.clone()
-                    .separated_by(just(","))
-                    .at_least(1)
-                    .at_most(2)
-                    .collect::<Vec<_>>()
-                    .delimited_by(just("|"), just("|")),
+                args.clone().delimited_by(just("["), just("]")),
+                args.delimited_by(just("|"), just("|")),
             ))
             .or_not(),
         )
