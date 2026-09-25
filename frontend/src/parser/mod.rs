@@ -235,7 +235,7 @@ fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
         .then(
             space_or_eol()
                 .ignore_then(
-                    parse_extrinsic_function(expression())
+                    parse_extrinsic_function(expression().boxed())
                         .then(post_condition())
                         .map(|(value, condition)| PostCondition { condition, value })
                         .separated_by(just(","))
@@ -253,7 +253,7 @@ fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
 }
 
 fn parse_extrinsic_function<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, ExtrinsicFunction, Error<'src>> {
     choice((
         identifier()
@@ -272,12 +272,12 @@ fn parse_extrinsic_function<'src>(
     })
 }
 fn function_args<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
 ) -> impl Parser<'src, &'src str, Vec<Args>, Error<'src>> {
     args_list(choice((
-        exp.map(Args::Expression),
+        exp.clone().map(Args::Expression),
         just(".")
-            .ignore_then(local_variable_no_subscripts())
+            .ignore_then(local_variable_no_subscripts(exp))
             .map(Args::ByRef),
         empty().to(Args::VarUndefined),
     )))
@@ -300,30 +300,12 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                         r#type: E::Inclusive,
                         variables: vec![var],
                     }),
-                    variable(expression().boxed())
-                        .delimited_by(just("("), just(")"))
-                        .validate(|var, extra, emiter| {
-                            if matches!(
-                                &var.var_type,
-                                VariableType::Named {
-                                    name: _,
-                                    globle_ident: None
-                                }
-                            ) && var.subscripts.is_empty()
-                            {
-                                var
-                            } else {
-                                emiter.emit(Rich::custom(
-                                    extra.span(),
-                                    ParsingError::KillExclusiveNonLocal,
-                                ));
-                                variable::dummy_variable()
-                            }
-                        })
+                    local_variable_no_subscripts(expression().boxed())
                         .map(|var| commands::kill::Kill {
                             r#type: E::Exclusive,
                             variables: vec![var],
-                        }),
+                        })
+                        .delimited_by(just("("), just(")")),
                 ))
                 .separated_by(just(","))
                 .collect::<Vec<_>>()

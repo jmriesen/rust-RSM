@@ -33,8 +33,8 @@ pub enum ParsingError {
     IfRequireArgs,
     #[error("Not yet supported:{}",.0)]
     NotYetSupported(&'static str),
-    #[error("kill exclusive is only supported for local variables with no subscripts")]
-    KillExclusiveNonLocal,
+    #[error("Expected local variables with no subscripts")]
+    ExpectedLocalVariableWithoutSubscripts,
     #[error(
         "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]

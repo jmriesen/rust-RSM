@@ -1,4 +1,4 @@
-use crate::parser::args_list;
+use crate::{ParsingError, parser::args_list};
 
 use super::Error;
 use chumsky::{Parser, prelude::*};
@@ -98,15 +98,27 @@ pub fn globle_ident<'src>(
             }
         })
 }
-pub fn local_variable_no_subscripts<'src>() -> impl Parser<'src, &'src str, Variable, Error<'src>> {
-    identifier()
-        .map(|name| Variable {
-            var_type: ir::variable::VariableType::Named {
-                name: name.to_owned(),
-                globle_ident: None,
-            },
-            subscripts: vec![],
-        })
-        .labelled("Local variable no subscripts")
-        .as_context()
+
+/// Parses a variable and then validates that it is local with no subscripts.
+pub fn local_variable_no_subscripts<'src>(
+    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Variable, Error<'src>> {
+    variable(exp).validate(|var, extra, emiter| {
+        if matches!(
+            &var.var_type,
+            VariableType::Named {
+                name: _,
+                globle_ident: None
+            }
+        ) && var.subscripts.is_empty()
+        {
+            var
+        } else {
+            emiter.emit(Rich::custom(
+                extra.span(),
+                ParsingError::ExpectedLocalVariableWithoutSubscripts,
+            ));
+            dummy_variable()
+        }
+    })
 }
