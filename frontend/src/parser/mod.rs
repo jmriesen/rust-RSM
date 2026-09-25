@@ -22,9 +22,12 @@ mod expression;
 mod variable;
 use expression::expression;
 
-type Error<'src> = chumsky::extra::Err<Rich<'src, char>>;
+pub type Error<'src> = chumsky::extra::Err<Rich<'src, char, SimpleSpan, ParsingError>>;
 
-use crate::parser::variable::{identifier, local_variable_no_subscripts, variable};
+use crate::{
+    ParsingError,
+    parser::variable::{identifier, local_variable_no_subscripts, variable},
+};
 pub fn peek<'src, U, B>(item: B) -> AndIs<Empty<&'src str, Error<'src>>, B, U>
 where
     B: Parser<'src, &'src str, U, Error<'src>>,
@@ -213,15 +216,12 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                 .collect::<Vec<_>>()
                 .validate(|mut return_value, extra, emiter| {
                     if return_value.len() > 1 {
-                        emiter.emit(Rich::custom(
-                            extra.span(),
-                            "Quit can only have zero or one argument",
-                        ));
+                        emiter.emit(Rich::custom(extra.span(), ParsingError::QuitExtraArgs));
                     }
                     if return_value.len() == 1 {
                         emiter.emit(Rich::custom(
                             extra.span(),
-                            "Not yet supported quit with args",
+                            ParsingError::NotYetSupported("quit with args"),
                         ));
                     }
                     commands::Quit(return_value.pop())
@@ -303,31 +303,40 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Error<'src>> {
                     variable(expression().boxed())
                         .delimited_by(just("("), just(")"))
                         .validate(|var, extra, emiter| {
-                            if matches!(&var.var_type,VariableType::Named { name:_, globle_ident:None }) && var.subscripts.is_empty(){
+                            if matches!(
+                                &var.var_type,
+                                VariableType::Named {
+                                    name: _,
+                                    globle_ident: None
+                                }
+                            ) && var.subscripts.is_empty()
+                            {
                                 var
-                            }else{
-                                emiter.emit(Rich::custom(extra.span(), "kill exclusive is only supported for local variables with no subscripts"));
+                            } else {
+                                emiter.emit(Rich::custom(
+                                    extra.span(),
+                                    ParsingError::KillExclusiveNonLocal,
+                                ));
                                 variable::dummy_variable()
                             }
-
                         })
                         .map(|var| commands::kill::Kill {
                             r#type: E::Exclusive,
                             variables: vec![var],
                         }),
                 ))
-                    .separated_by(just(","))
-                    .collect::<Vec<_>>()
-                    .map(|x| {
-                        if x.is_empty() {
-                            vec![commands::kill::Kill {
-                                r#type: E::Exclusive,
-                                variables: vec![],
-                            }]
-                        } else {
-                            x
-                        }
-                    }),
+                .separated_by(just(","))
+                .collect::<Vec<_>>()
+                .map(|x| {
+                    if x.is_empty() {
+                        vec![commands::kill::Kill {
+                            r#type: E::Exclusive,
+                            variables: vec![],
+                        }]
+                    } else {
+                        x
+                    }
+                }),
             ),
         )
         .map(|value| Command::Kill(value))

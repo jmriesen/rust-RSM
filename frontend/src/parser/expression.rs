@@ -9,6 +9,8 @@ use ir::{
 };
 use value::{Number, Value};
 
+use crate::ParsingError;
+
 use super::{args_list, parse_extrinsic_function, peek, variable, variable::identifier};
 
 use super::Error;
@@ -252,7 +254,7 @@ pub fn external_calls<'src>(
 
 struct Output<T> {
     value: T,
-    err: Option<&'static str>,
+    err: Option<crate::ParsingError>,
 }
 impl<T> Output<T> {
     fn map<U>(self, map: impl FnOnce(T) -> U) -> Output<U> {
@@ -342,7 +344,7 @@ where
     } else {
         Output {
             value: variable::dummy_variable(),
-            err: Some("First argument must be a variable."),
+            err: Some(crate::ParsingError::FunctionArgMustBeVariable),
         }
     };
     var.map(|var| {
@@ -377,9 +379,9 @@ where
 {
     let args = args.into_iter();
     let err = if args.len() < REQUIRED {
-        Some("Function Expects more arguments")
+        Some(ParsingError::FunctionExpectsMoreArguments)
     } else if REQUIRED + OPTIONAL < args.len() {
-        Some("Function Expects fewer arguments")
+        Some(ParsingError::FunctionExpectsFewerArguments)
     } else {
         None
     };

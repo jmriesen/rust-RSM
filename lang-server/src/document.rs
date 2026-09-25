@@ -1,5 +1,9 @@
-use chumsky::{ParseResult, Parser};
-use frontend::parser::routine;
+use chumsky::{
+    extra::{Err, Full},
+    span::SimpleSpan,
+    ParseResult, Parser,
+};
+use frontend::{parser::routine, ParsingError};
 pub use ir::Routine;
 use tower_lsp::lsp_types::{
     Position, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
@@ -70,7 +74,9 @@ impl Document {
     pub fn text(&self) -> &str {
         &self.source
     }
-    pub fn ir(&self) -> ParseResult<Routine, chumsky::error::Rich<'_, char>> {
+    pub fn ir(
+        &self,
+    ) -> ParseResult<Routine, chumsky::error::Rich<'_, char, SimpleSpan, ParsingError>> {
         //TODO: Might be nice to pre-compute/cash
         //Not doing it right now due to lifetimes of the error bounds
         routine().parse(&self.source)

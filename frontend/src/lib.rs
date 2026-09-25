@@ -1,5 +1,7 @@
+use std::fmt::Display;
+
 use ariadne::{Label, Report, ReportKind, Source};
-use chumsky::Parser;
+use chumsky::{Parser, error::RichReason};
 use ir::Routine;
 pub mod parser;
 use thiserror::Error;
@@ -19,24 +21,30 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
     }
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
 pub enum ParsingError {
     #[error("Error occurred when tree-sitter parsed the routine")]
     TreeSitterError(()),
     #[error("Quit can only have zero or one argument")]
-    QuitExtraArgs(ir::Spanned<()>),
+    QuitExtraArgs,
     #[error("Close always takes at least one argument")]
-    CloseRequiresArgs(ir::Spanned<()>),
+    CloseRequiresArgs,
     #[error("If always takes at least one argument")]
-    IfRequireArgs(ir::Spanned<()>),
-    #[error("{}",.0)]
+    IfRequireArgs,
+    #[error("Not yet supported:{}",.0)]
     NotYetSupported(&'static str),
     #[error("kill exclusive is only supported for local variables with no subscripts")]
-    KillExclusiveNonLocal(ir::Spanned<()>),
+    KillExclusiveNonLocal,
     #[error(
         "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]
     HitMaxLineLength,
+    #[error("First argument must be a variable.")]
+    FunctionArgMustBeVariable,
+    #[error("Function Expects more arguments")]
+    FunctionExpectsMoreArguments,
+    #[error("Function Expects Fewer arguments")]
+    FunctionExpectsFewerArguments,
 }
 
 pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
