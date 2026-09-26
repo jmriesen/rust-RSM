@@ -1,7 +1,5 @@
-use std::fmt::Display;
-
 use ariadne::{Label, Report, ReportKind, Source};
-use chumsky::{Parser, error::RichReason};
+use chumsky::Parser;
 use ir::Routine;
 pub mod parser;
 use thiserror::Error;

@@ -16,7 +16,6 @@ use ir::{
         Args,
         Location::{self},
     },
-    variable::VariableType,
 };
 mod expression;
 mod variable;
@@ -401,8 +400,6 @@ fn for_parser<'src>(
 
 #[cfg(test)]
 mod test {
-
-    use std::{fs::File, io::Write};
 
     use chumsky::Parser;
 
