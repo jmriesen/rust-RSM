@@ -2,4 +2,4 @@ tag w ""
  k (i("a"))
 
 ---
-kill exclusive is only supported for local variables with no subscripts
+Expected local variables with no subscripts,13..19

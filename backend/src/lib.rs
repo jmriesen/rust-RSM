@@ -1,4 +1,5 @@
 pub use bite_code::BiteCode;
+use ir::Spanned;
 pub mod bite_code;
 pub mod commands;
 mod conditional_jumps;
@@ -45,6 +46,16 @@ where
         }
     }
 }
+impl<T, C> Compile for Spanned<T>
+where
+    T: Compile,
+    T: Compile<Context = C>,
+{
+    type Context = C;
+    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+        self.inner.compile(bite_code, context)
+    }
+}
 
 pub fn compile_routine(routine: ir::Routine) -> Vec<u8> {
     let mut comp = BiteCode::new();
@@ -63,6 +74,7 @@ pub mod test {
     use crate::compile_routine;
     pub fn test_compile_command(source_code: &str) -> Vec<u8> {
         let commands = frontend::parse_routine(&format!("tag {source_code}\n")).unwrap();
+        dbg!(&commands);
         const LENGTH_OF_LINE_START: usize = 5;
         compile_routine(commands)[LENGTH_OF_LINE_START..].to_vec()
     }

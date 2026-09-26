@@ -1,14 +1,14 @@
-use crate::{Expression, Variable};
+use crate::{Expression, Spanned, Variable};
 
 use super::Command;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Argument {
     pub start: Expression,
     pub increment_end: Option<(Expression, Option<Expression>)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ForKind {
     Infinite,
     VarLoop {
@@ -17,8 +17,8 @@ pub enum ForKind {
         arguments: Vec<Argument>,
     },
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct For {
     pub kind: ForKind,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Spanned<Command>>,
 }

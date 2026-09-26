@@ -1,7 +1,10 @@
+use chumsky::{span::SimpleSpan, ParseResult, Parser};
+use frontend::{parser::routine, ParsingError};
+pub use ir::Routine;
 use tower_lsp::lsp_types::{
     Position, TextDocumentContentChangeEvent, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
-use tree_sitter::{Query, QueryCursor, QueryMatches};
+
 pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
     TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL),
 );
@@ -9,23 +12,11 @@ pub const DOCUMENT_SYNC_CAPABILITY: Option<TextDocumentSyncCapability> = Some(
 pub struct Document {
     ///Note the document and tree must always stay in sync.
     source: String,
-    tree: tree_sitter::Tree,
 }
 
 impl Document {
     pub fn new(source: String) -> Self {
-        Self {
-            tree: lang_model::create_tree(&source),
-            source,
-        }
-    }
-
-    pub fn query<'a, 'query>(
-        &'a self,
-        query: &'query Query,
-        query_cursor: &'a mut QueryCursor,
-    ) -> QueryMatches<'query, 'a, &'a [u8], &'a [u8]> {
-        query_cursor.matches(query, self.tree.root_node(), self.source.as_bytes())
+        Self { source }
     }
 
     pub fn line_start_index(&self, line_number: usize) -> Option<usize> {
@@ -39,6 +30,29 @@ impl Document {
         self.line_start_index(position.line as usize)
             .map(|line_start| line_start + position.character as usize)
     }
+    //Returns a function that can preform the conversations.
+    //Returning a closure since normally you need to do a lot of conversations in a batch
+    //And this lets me reuse the calculated newlines.
+    //Lifetime bound is there to prevent the converter from being used after our immutable barrow ends
+    pub fn index_converter<'a>(&'a self) -> impl Fn(usize) -> Position + 'a {
+        let new_lines: Vec<_> = std::iter::once(0)
+            .chain(self.text().match_indices('\n').map(
+                |(x, _)| x + 1, /*The +1 moves us to start of next line.*/
+            ))
+            .collect();
+        let index_to_position = move |index: usize| {
+            let line = new_lines
+                .iter()
+                .rposition(|line_pos| *line_pos <= index)
+                .unwrap_or(0);
+
+            Position {
+                line: line as u32,
+                character: (index - new_lines[line]) as u32,
+            }
+        };
+        index_to_position
+    }
 
     pub fn update(&mut self, changes: &[TextDocumentContentChangeEvent]) {
         for change in changes {
@@ -51,14 +65,17 @@ impl Document {
 
             self.source.replace_range(start..end, &change.text);
         }
-
-        //OPTIMIZATION OPPORTUNITY: tree sitter supports updating the tree based on edits.
-        self.tree = lang_model::create_tree(&self.source);
     }
 
-    #[cfg(test)]
     pub fn text(&self) -> &str {
         &self.source
+    }
+    pub fn ir(
+        &self,
+    ) -> ParseResult<Routine, chumsky::error::Rich<'_, char, SimpleSpan, ParsingError>> {
+        //TODO: Might be nice to pre-compute/cash
+        //Not doing it right now due to lifetimes of the error bounds
+        routine().parse(&self.source)
     }
 }
 

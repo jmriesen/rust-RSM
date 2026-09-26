@@ -1,0 +1,54 @@
+---
+source: frontend/src/parser/mod.rs
+expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
+---
+(
+    Some(
+        Line {
+            tag: None,
+            level: 0,
+            commands: [
+                Spanned {
+                    inner: Write(
+                        PostCondition {
+                            condition: None,
+                            value: [
+                                Spanned {
+                                    inner: Bang,
+                                    start: 3,
+                                    end: 4,
+                                },
+                            ],
+                        },
+                    ),
+                    start: 1,
+                    end: 4,
+                },
+                Spanned {
+                    inner: Error,
+                    start: 5,
+                    end: 5,
+                },
+                Spanned {
+                    inner: Write(
+                        PostCondition {
+                            condition: None,
+                            value: [
+                                Spanned {
+                                    inner: Bang,
+                                    start: 8,
+                                    end: 9,
+                                },
+                            ],
+                        },
+                    ),
+                    start: 6,
+                    end: 9,
+                },
+            ],
+        },
+    ),
+    [
+        found '' '' at 5..6 expected write, if, else, set, for, quit, kill, do, brake, or close,
+    ],
+)

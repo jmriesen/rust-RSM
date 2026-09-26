@@ -15,19 +15,19 @@ use r#if::If;
 use set::Set;
 pub use write::Write;
 
-use crate::commands::kill::Kill;
+use crate::{Spanned, commands::kill::Kill};
 
 use super::Expression;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PostCondition<T> {
     pub condition: Option<Expression>,
     pub value: T,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Command {
-    Write(PostCondition<Vec<Write>>),
+    Write(PostCondition<Vec<Spanned<Write>>>),
     Close(PostCondition<Vec<Close>>),
     Do(PostCondition<Do>),
     Break(PostCondition<Break>),
@@ -37,7 +37,8 @@ pub enum Command {
     If(Vec<If>),
     Kill(Vec<Kill>),
     Quit(PostCondition<Quit>),
+    Error,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Quit(pub Option<Expression>);

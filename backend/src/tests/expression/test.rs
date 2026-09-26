@@ -42,7 +42,7 @@ use rstest::rstest;
 #[case("SomeString?1\"quote \"\" literal\"")]
 fn parse_pattern(#[case] num: &str) {
     let source_code = format!("w {}", num);
-    let orignal = parse(&source_code);
+    let orignal = parse(dbg!(&source_code));
 
     assert_eq!(orignal, test_compile_command(&source_code));
 }
@@ -94,7 +94,10 @@ fn parse_unary_exp(#[case] num: &str) {
 }
 #[rstest]
 #[case("98+9")]
+#[case("98\\9")]
 #[case("-98\\var(7,9)")]
+#[case("var(7,9)\\-98")]
+#[case("var(7,9)+-98")]
 #[case("98+(something+9)")]
 fn parse_binary(#[case] num: &str) {
     let source_code = format!("w {}", num);

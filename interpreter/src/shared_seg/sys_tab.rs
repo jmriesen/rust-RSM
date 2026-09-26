@@ -310,8 +310,10 @@ fn clean_job(job: Option<usize>, par_tab: &mut PARTAB, sys_tab: &mut SystemTab) 
             job_tab.view[i] = null_mut();
         }
     }
-    job_tab.cur_do = 0;
-
+    #[expect(unused_assignments)]
+    {
+        job_tab.cur_do = 0;
+    }
     if job.is_some() {
         for i in 1..MAX_SEQ_IO as i32 {
             unsafe { SQ_Close(i) };

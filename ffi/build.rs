@@ -73,6 +73,7 @@ fn main() {
         .files(&c_src)
         .flag("-Wno-deprecated")
         .flag("-fsigned-char")
+        .flag("-Wno-alloc-size")
         .warnings(true)
         .std("gnu99")
         .compile("cCode");

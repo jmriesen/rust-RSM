@@ -1,22 +1,21 @@
 #![warn(clippy::pedantic)]
-use std::{collections::HashMap, sync::RwLock};
+use commands::Commands as MyCommand;
+use std::{collections::HashMap, str::FromStr, sync::RwLock};
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
-use tree_sitter::{QueryCursor, StreamingIterator};
 
 use crate::{
     document::{Document, DOCUMENT_SYNC_CAPABILITY},
-    errors::{ErrorNode, DIAGNOSTIC_CAPACITIES},
-    tokens::{remove_over_lapping, AbsolutToken, TokenNode, SEMANTIC_TOKENS_CAPABILITIES},
-    util::collect,
+    errors::DIAGNOSTIC_CAPACITIES,
+    tokens::{remove_over_lapping, AbsolutToken, SEMANTIC_TOKENS_CAPABILITIES},
 };
 
 mod client;
+mod commands;
 mod config;
 mod document;
 mod errors;
 mod tokens;
-mod util;
 pub use tokens::TokenTypes;
 
 pub struct MumpsLsp<Client: client::Client> {
@@ -48,15 +47,7 @@ impl<Client: client::Client> MumpsLsp<Client> {
     pub fn tokens(&self, document: &TextDocumentIdentifier) -> Vec<SemanticToken> {
         let documents = self.documents.read().expect("The lock is not poisoned.");
         let document = documents.get(&document.uri).unwrap();
-        let mut query_cursor = QueryCursor::new();
-        let tokens: Vec<_> = collect(
-            document
-                .query(&TokenTypes::query(), &mut query_cursor)
-                .map(|x| TokenNode(x.captures[0].node))
-                .map(|x| AbsolutToken::from(x)),
-        );
-
-        let tokens = AbsolutToken::to_relitive(tokens);
+        let tokens = AbsolutToken::to_relitive(document.tokens());
         if *self.allow_overlapping_tokens.read().unwrap() {
             tokens
         } else {
@@ -81,10 +72,54 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
                 text_document_sync: DOCUMENT_SYNC_CAPABILITY,
                 semantic_tokens_provider: SEMANTIC_TOKENS_CAPABILITIES.clone(),
                 diagnostic_provider: DIAGNOSTIC_CAPACITIES,
+                code_lens_provider: Some(CodeLensOptions {
+                    resolve_provider: Some(false),
+                }),
+                execute_command_provider: Some(ExecuteCommandOptions {
+                    commands: vec![MyCommand::HelloWorld.into()],
+                    ..Default::default()
+                }),
                 ..ServerCapabilities::default()
             },
             server_info: None,
         })
+    }
+    async fn code_lens(&self, params: CodeLensParams) -> Result<Option<Vec<CodeLens>>> {
+        let top_of_file = Range {
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 0,
+                character: 0,
+            },
+        };
+
+        let lens = CodeLens {
+            range: top_of_file,
+            command: Some(Command {
+                title: "▶ Run Hello World".to_string(),
+                command: MyCommand::HelloWorld.into(),
+                arguments: Some(vec![serde_json::Value::String(
+                    params.text_document.uri.into(),
+                )]),
+            }),
+            data: None,
+        };
+
+        Ok(Some(vec![lens]))
+    }
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<serde_json::Value>> {
+        match MyCommand::from_str(&params.command) {
+            Ok(comand) => Ok(comand
+                .run(&self.client, params.arguments, &self.documents)
+                .await),
+            Err(_) => Ok(None),
+        }
     }
 
     async fn initialized(&self, _: InitializedParams) {
@@ -117,19 +152,11 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             .get(&params.text_document.uri)
             .expect("diagnostic can only be requested for open documents");
 
-        let mut query_cursor = QueryCursor::new();
-        let errors = collect(
-            routine
-                .query(&errors::ERROR_QUERY, &mut query_cursor)
-                .map(|x| ErrorNode(x.captures[0].node))
-                .map(|x| x.into()),
-        );
-
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
                 related_documents: None,
                 full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                    items: errors,
+                    items: routine.errors(),
                     result_id: None,
                 },
             }),
