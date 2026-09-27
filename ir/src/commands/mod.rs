@@ -19,13 +19,20 @@ use crate::{Spanned, commands::kill::Kill};
 
 use super::Expression;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PostCondition<T> {
     pub condition: Option<Expression>,
     pub value: T,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+impl<T: derive_visitor::Drive> derive_visitor::Drive for PostCondition<T> {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        self.condition.drive(visitor);
+        self.value.drive(visitor);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Command {
     Write(PostCondition<Vec<Spanned<Write>>>),
     Close(PostCondition<Vec<Close>>),
@@ -40,5 +47,5 @@ pub enum Command {
     Error,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Quit(pub Option<Expression>);

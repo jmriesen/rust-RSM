@@ -1,12 +1,17 @@
 use std::ops::Deref;
 
+use derive_visitor::Event;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NumberLiteral(pub value::Number);
 
 impl derive_visitor::Drive for NumberLiteral {
-    fn drive<V: derive_visitor::Visitor>(&self, _: &mut V) {}
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
 }
 impl Deref for NumberLiteral {
     type Target = value::Number;
@@ -19,7 +24,10 @@ impl Deref for NumberLiteral {
 pub struct StringLiteral(pub value::Value);
 
 impl derive_visitor::Drive for StringLiteral {
-    fn drive<V: derive_visitor::Visitor>(&self, _: &mut V) {}
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
 }
 
 impl Deref for StringLiteral {

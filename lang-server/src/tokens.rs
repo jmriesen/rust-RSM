@@ -1,9 +1,9 @@
-use core::iter::once;
 use std::sync::LazyLock;
 
+use derive_visitor::{Drive, Visitor};
 use ir::{
     commands::{Command, Write},
-    Line, Spanned, Tag,
+    Spanned, Tag,
 };
 use tower_lsp::lsp_types::{
     Position, SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
@@ -227,12 +227,17 @@ impl crate::Document {
     pub fn tokens(&self) -> Vec<AbsolutToken> {
         if let Some(routine) = self.ir().clone().into_output() {
             let index_to_position = &self.index_converter();
-            routine
-                .tokens()
+            let mut tokens = TokensVisitor::default();
+            for line in routine {
+                line.drive(&mut tokens);
+            }
+
+            tokens
+                .tokens
                 .into_iter()
                 .map(|x| AbsolutToken {
-                    start_position: index_to_position(x.start),
-                    length: (x.end - x.start) as u32,
+                    start_position: index_to_position(x.span.start),
+                    length: (x.span.end - x.span.start) as u32,
                     token_type: x.inner as u32,
                     token_modifiers_bitset: 0,
                 })
@@ -243,67 +248,73 @@ impl crate::Document {
     }
 }
 
-trait ExtractTokens {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>>;
+use chumsky::span::SimpleSpan;
+
+type SpanW = Spanned<Write>;
+type SpanT = Spanned<Tag>;
+type SpanC = Spanned<Command>;
+#[derive(Visitor, Default)]
+#[visitor(SpanW, SpanT, SpanC, Tag, Write, Command)]
+struct TokensVisitor {
+    spans: Vec<SimpleSpan>,
+    tokens: Vec<chumsky::prelude::Spanned<TokenTypes, SimpleSpan>>,
+}
+use pastey::paste;
+macro_rules! enter_exit_span {
+    ($type:ident) => {
+        paste! {
+
+        fn [<enter_$type:snake>](&mut self, span: &$type) {
+            self.enter_span(span);
+        }
+        fn [<exit_$type:snake>](&mut self, _span: &$type) {
+            self.exit_span();
+        }
+        }
+    };
 }
 
-impl ExtractTokens for Line {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        self.tag.tokens().chain(self.commands.tokens())
-    }
-}
-impl ExtractTokens for Spanned<Command> {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        once(Spanned {
-            inner: TokenTypes::Command,
-            start: self.start,
-            end: self.end,
-        })
-        .chain(match &self.inner {
-            Command::Write(post_condition) => Box::new(post_condition.value.tokens())
-                as Box<dyn Iterator<Item = Spanned<TokenTypes>>>,
-
-            Command::Error => Box::new(once(Spanned {
-                inner: TokenTypes::String,
-                start: self.start,
-                end: self.end,
-            })),
-            Command::For(for_cmd) => Box::new(for_cmd.commands.tokens()),
-            _ => Box::new(Option::<Spanned<Tag>>::None.tokens()),
-        })
-    }
-}
-
-impl ExtractTokens for Spanned<Tag> {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        once(Spanned {
-            inner: TokenTypes::TagName,
-            start: self.start,
-            end: self.end,
-        })
-    }
-}
-impl ExtractTokens for Spanned<Write> {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        match &self.inner {
-            Write::Bang | Write::Clear => Box::new(once(Spanned {
-                inner: TokenTypes::Variable,
-                start: self.start,
-                end: self.end,
-            }))
-                as Box<dyn Iterator<Item = Spanned<TokenTypes>>>,
-            _ => Box::new(Option::<Spanned<Tag>>::None.tokens()),
+impl TokensVisitor {
+    fn enter_write(&mut self, write: &Write) {
+        match write {
+            Write::Bang => self.create_token(TokenTypes::Variable),
+            Write::Clear => self.create_token(TokenTypes::Variable),
+            Write::Tab(_) => self.create_token(TokenTypes::Variable),
+            Write::Expression(_) => {}
         }
     }
-}
 
-impl<E: ExtractTokens> ExtractTokens for Option<E> {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        self.as_ref().map(|x| x.tokens()).into_iter().flatten()
+    fn exit_write(&mut self, _: &Write) {}
+
+    fn enter_tag(&mut self, _: &Tag) {
+        self.create_token(TokenTypes::TagName);
     }
-}
-impl<E: ExtractTokens> ExtractTokens for Vec<E> {
-    fn tokens(&self) -> impl Iterator<Item = Spanned<TokenTypes>> {
-        self.iter().map(|x| x.tokens()).flatten()
+    fn exit_tag(&mut self, _: &Tag) {}
+
+    fn enter_command(&mut self, _: &Command) {
+        self.create_token(TokenTypes::Command);
+    }
+    fn exit_command(&mut self, _: &Command) {}
+
+    enter_exit_span!(SpanW);
+    enter_exit_span!(SpanT);
+    enter_exit_span!(SpanC);
+
+    fn enter_span<T>(&mut self, span: &Spanned<T>) {
+        self.spans.push(SimpleSpan {
+            start: span.start,
+            end: span.end,
+            context: (),
+        });
+    }
+    fn exit_span(&mut self) {
+        self.spans.pop();
+    }
+    fn create_token(&mut self, token: TokenTypes) {
+        let token = chumsky::prelude::Spanned {
+            inner: token,
+            span: self.spans.last().unwrap().clone(),
+        };
+        self.tokens.push(token);
     }
 }

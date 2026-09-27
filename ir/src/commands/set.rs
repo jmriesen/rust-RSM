@@ -1,6 +1,6 @@
 use crate::{Expression, Variable};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Set {
     pub variable: Variable,
     pub value: Expression,

@@ -1,6 +1,6 @@
 use crate::Variable;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum KillType {
     Inclusive,
     //TODO: Note elusive kills cant actually be used on all variables, only local without subscript.
@@ -8,7 +8,7 @@ pub enum KillType {
     Exclusive,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Kill {
     pub r#type: KillType,
     pub variables: Vec<Variable>,

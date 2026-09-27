@@ -14,19 +14,27 @@ pub mod variable;
 pub use variable::Variable;
 
 use crate::commands::Command;
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub inner: T,
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+impl<T: derive_visitor::Drive> derive_visitor::Drive for Spanned<T> {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, derive_visitor::Event::Enter);
+        self.inner.drive(visitor);
+        visitor.visit(self, derive_visitor::Event::Exit);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Tag {
     pub name: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Line {
     pub tag: Option<Spanned<Tag>>,
     pub level: u16,

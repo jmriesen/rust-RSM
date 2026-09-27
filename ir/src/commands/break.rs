@@ -1,6 +1,6 @@
 use crate::Expression;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Break {
     ArgumentLess,
     Arg(Vec<Expression>),

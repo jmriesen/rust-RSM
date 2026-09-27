@@ -1,10 +1,15 @@
+use derive_visitor::Event;
+
 use super::Expression;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ident(pub String);
 
 impl derive_visitor::Drive for Ident {
-    fn drive<V: derive_visitor::Visitor>(&self, _: &mut V) {}
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
