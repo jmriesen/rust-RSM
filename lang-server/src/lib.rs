@@ -76,7 +76,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
                     resolve_provider: Some(false),
                 }),
                 execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![MyCommand::HelloWorld.into()],
+                    commands: vec![MyCommand::RunRoutine.into()],
                     ..Default::default()
                 }),
                 ..ServerCapabilities::default()
@@ -99,8 +99,8 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
         let lens = CodeLens {
             range: top_of_file,
             command: Some(Command {
-                title: "▶ Run Hello World".to_string(),
-                command: MyCommand::HelloWorld.into(),
+                title: "▶ Run Routine".to_string(),
+                command: MyCommand::RunRoutine.into(),
                 arguments: Some(vec![serde_json::Value::String(
                     params.text_document.uri.into(),
                 )]),

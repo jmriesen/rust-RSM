@@ -34,7 +34,7 @@ macro_rules! commands {
     };
 }
 commands!(
-    {HelloWorld, "mumps.HelloWorld"}
+    {RunRoutine, "mumps.RunRoutine"}
 );
 
 impl Commands {
@@ -45,7 +45,7 @@ impl Commands {
         documents: &RwLock<HashMap<Url, Document>>,
     ) -> Option<Value> {
         match self {
-            Commands::HelloWorld => {
+            Commands::RunRoutine => {
                 let uri = match args.first().unwrap() {
                     Value::String(uri) => Url::parse(uri).unwrap(),
                     _ => panic!(),
@@ -61,13 +61,11 @@ impl Commands {
                             let byte_code = backend::compile_routine(routine);
                             let mut job = Job::new(&byte_code);
                             job.run();
-                            // End of problematic section
-
                             job.buffer.clone()
                         }
                         Err(errs) => {
                             format!(
-                                "Could not compile{:?}",
+                                "Could not compile {:?}",
                                 errs.into_iter()
                                     .map(|x| format!("{x:?}"))
                                     .collect::<String>()
@@ -79,8 +77,7 @@ impl Commands {
                 client
                     .show_message(MessageType::INFO, format!("Result{}", output))
                     .await;
-
-                Some(Value::String("Hello world".to_string()))
+                None
             }
         }
     }
