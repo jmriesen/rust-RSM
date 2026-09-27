@@ -4,6 +4,7 @@ use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
     ExternalCalls, IntrinsicFunction, IntrinsicVar,
+    expression::{NumberLiteral, StringLiteral},
     intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
 };
@@ -14,7 +15,7 @@ use crate::ParsingError;
 use super::{args_list, parse_extrinsic_function, peek, variable, variable::identifier};
 
 use super::Error;
-fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
+fn str_literal<'src>() -> impl Parser<'src, &'src str, StringLiteral, Error<'src>> {
     choice((
         none_of("\"").ignored(),
         just("\"").then(just("\"")).ignored(),
@@ -31,20 +32,20 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, Value, Error<'src>> {
             .unwrap()
             .to_owned()
             .replace("\"\"", "\"");
-        Value::from_str(&striped).unwrap()
+        StringLiteral(Value::from_str(&striped).unwrap())
     })
     .labelled("String Literal")
     .as_terminal()
 }
 
-fn number<'src>() -> impl Parser<'src, &'src str, Number, Error<'src>> {
+fn number<'src>() -> impl Parser<'src, &'src str, NumberLiteral, Error<'src>> {
     choice((
         digits(10)
             .then(just(".").then(digits(10)).or_not())
             .to_slice(),
         just(".").then(digits(10)).to_slice(),
     ))
-    .map(|x: &str| Number::from_str(x).unwrap())
+    .map(|x: &str| NumberLiteral(Number::from_str(x).unwrap()))
     .labelled("String Literal")
     .as_terminal()
 }
@@ -169,7 +170,11 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
                 pattern_match_op_code()
                     // Only grab when a literal value
                     .then_ignore(peek(just("@")).not())
-                    .then(pattern().map(|x| Expression::String(Value::from_str(x).unwrap()))),
+                    .then(
+                        pattern().map(|x| {
+                            Expression::String(StringLiteral(Value::from_str(x).unwrap()))
+                        }),
+                    ),
                 op_b_code().then(expr),
             ))
             .repeated(),
@@ -389,7 +394,10 @@ where
     Output {
         value: Function {
             //Fill with placeholder arguments so we can keep parsing
-            required: from_fn(|_| iter.next().unwrap_or(Expression::String(Value::empty()))),
+            required: from_fn(|_| {
+                iter.next()
+                    .unwrap_or(Expression::String(StringLiteral(Value::empty())))
+            }),
             optional: from_fn(|_| iter.next()),
         },
         err,

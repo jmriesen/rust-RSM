@@ -14,6 +14,7 @@ backend = {path = "../backend"}
 frontend = {path = "../frontend/"}
 ir = {path = "../ir/"}
 chumsky = {workspace=true}
+derive-visitor = {workspace=true}
 
 [dev-dependencies]
 insta = { version = "1.48.0", features = ["yaml"] }

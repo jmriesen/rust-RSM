@@ -45,9 +45,9 @@ impl Compile for ExtrinsicFunction {
 
         // Location
         let (tag, routine): (Option<&str>, Option<&str>) = match &self.location {
-            Location::Tag(tag) => (Some(tag), None),
-            Location::Routine(routine) => (None, Some(routine)),
-            Location::TagRoutine(tag, routine) => (Some(tag), Some(routine)),
+            Location::Tag(tag) => (Some(&tag.0), None),
+            Location::Routine(routine) => (None, Some(&routine.0)),
+            Location::TagRoutine(tag, routine) => (Some(&tag.0), Some(&routine.0)),
         };
         routine.compile(comp, &());
         tag.compile(comp, &());

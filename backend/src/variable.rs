@@ -100,7 +100,7 @@ impl Compile for Variable {
         }
 
         if let E::Named { name, .. } = &self.var_type {
-            name.as_str().compile(comp, &());
+            name.0.as_str().compile(comp, &());
         }
     }
 }

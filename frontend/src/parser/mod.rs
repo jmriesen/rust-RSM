@@ -16,6 +16,7 @@ use ir::{
         Args,
         Location::{self},
     },
+    variable::Ident,
 };
 mod expression;
 mod variable;
@@ -258,11 +259,13 @@ fn parse_extrinsic_function<'src>(
         identifier()
             .then_ignore(just("^"))
             .then(identifier())
-            .map(|(tag, routine)| Location::TagRoutine(tag.to_owned(), routine.to_owned())),
+            .map(|(tag, routine)| {
+                Location::TagRoutine(Ident(tag.to_owned()), Ident(routine.to_owned()))
+            }),
         just("^")
             .ignore_then(identifier())
-            .map(|x| Location::Routine(x.to_owned())),
-        identifier().map(|x| Location::Tag(x.to_owned())),
+            .map(|x| Location::Routine(Ident(x.to_owned()))),
+        identifier().map(|x| Location::Tag(Ident(x.to_owned()))),
     ))
     .then(function_args(exp).or_not())
     .map(|(location, args)| ExtrinsicFunction {

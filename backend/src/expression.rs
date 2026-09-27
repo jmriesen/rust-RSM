@@ -18,8 +18,8 @@ impl Compile for Expression {
     fn compile(&self, comp: &mut BiteCode, context: &ExpressionContext) {
         use Expression as E;
         match self {
-            E::Number(num) => Value::from(num.clone()).compile(comp, &()),
-            E::String(value) => value.compile(comp, &()),
+            E::Number(num) => Value::from(num.0.clone()).compile(comp, &()),
+            E::String(value) => value.0.compile(comp, &()),
             E::Variable(var) => var.compile(comp, &VarContext::Eval),
             E::IntrinsicVar(var) => var.compile(comp, &()),
             E::InderectExpression(exp) => {

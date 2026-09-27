@@ -21,9 +21,11 @@ expression: "write().parse(\"w !,#,\\\"test\\\"\").into_output_errors()"
                     Spanned {
                         inner: Expression(
                             String(
-                                Value {
-                                    content_as_utf8: "test",
-                                },
+                                StringLiteral(
+                                    Value {
+                                        content_as_utf8: "test",
+                                    },
+                                ),
                             ),
                         ),
                         start: 6,

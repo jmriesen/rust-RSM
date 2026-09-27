@@ -4,13 +4,13 @@ use super::Error;
 use chumsky::{Parser, prelude::*};
 use ir::{
     Expression, Variable,
-    variable::{Env, GlobleIdent, UserClassIdentifiers, VariableType},
+    variable::{Env, GlobleIdent, Ident, UserClassIdentifiers, VariableType},
 };
 
 pub fn dummy_variable() -> Variable {
     Variable {
         var_type: VariableType::Named {
-            name: "VAR_INSERTED_DURING_ERROR_RECOVERY".to_owned(),
+            name: Ident("VAR_INSERTED_DURING_ERROR_RECOVERY".to_owned()),
             globle_ident: None,
         },
         subscripts: vec![],
@@ -48,7 +48,7 @@ pub fn variable<'src>(
             .or_not()
             .then(identifier())
             .map(|(globle_ident, name)| VariableType::Named {
-                name: name.to_owned(),
+                name: Ident(name.to_owned()),
                 globle_ident,
             }),
         just("^").to(VariableType::NakedVariable),

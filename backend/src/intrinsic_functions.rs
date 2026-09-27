@@ -1,6 +1,7 @@
 use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, variable::VarContext};
 use ir::{
     Expression, IntrinsicFunction,
+    expression::NumberLiteral,
     intrinsic_functions::{Function, SelectTerm, VarFunction},
 };
 use value::Value;
@@ -137,7 +138,7 @@ impl Compile for IntrinsicFunction {
             IntrinsicFunction::Next(function) => {
                 //Next is just an Order with a hard coded argument
                 use std::str::FromStr;
-                let two = Expression::Number(Value::from_str("2").unwrap().into());
+                let two = Expression::Number(NumberLiteral(Value::from_str("2").unwrap().into()));
                 IntrinsicFunction::Order(VarFunction {
                     variable: function.variable.clone(),
                     function: Function {
@@ -153,7 +154,7 @@ impl Compile for IntrinsicFunction {
 
 #[cfg(test)]
 mod test {
-    use ir::Expression;
+    use ir::{Expression, expression::StringLiteral};
 
     use crate::{Compile, bite_code};
 
@@ -162,7 +163,7 @@ mod test {
     #[test]
     #[should_panic]
     fn max_number_of_args_pluse_1() {
-        let exps = std::iter::repeat(Expression::String("0".parse().unwrap()));
+        let exps = std::iter::repeat(Expression::String(StringLiteral("0".parse().unwrap())));
         IntrinsicFunction::Char {
             args: exps.take(255).collect(),
         }
@@ -170,7 +171,7 @@ mod test {
     }
     #[test]
     fn max_number_of_args() {
-        let exps = std::iter::repeat(Expression::String("0".parse().unwrap()));
+        let exps = std::iter::repeat(Expression::String(StringLiteral("0".parse().unwrap())));
         IntrinsicFunction::Char {
             args: exps.take(254).collect(),
         }
