@@ -27,7 +27,9 @@ pub struct PostCondition<T> {
 
 impl<T: derive_visitor::Drive> derive_visitor::Drive for PostCondition<T> {
     fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, derive_visitor::Event::Enter);
         self.condition.drive(visitor);
+        visitor.visit(self, derive_visitor::Event::Exit);
         self.value.drive(visitor);
     }
 }

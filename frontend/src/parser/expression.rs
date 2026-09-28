@@ -110,7 +110,7 @@ pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Extra<'src>> {
             pat
                 //Or-ing
                 .separated_by(just(","))
-                //Note Note using `args_list` parser due to the at_least call
+                //Note Not using `args_list` parser due to the at_least call
                 .at_least(1)
                 //Grouping
                 .delimited_by(just('('), just(')')),
