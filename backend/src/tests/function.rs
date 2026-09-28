@@ -108,7 +108,7 @@ mod test {
             let args = repeat("variable").take(val).collect::<Vec<_>>().join(",");
             {
                 let source_code = format!("w ${}({})", full, args);
-                let orignal = parse(&source_code);
+                let orignal = parse(dbg!(&source_code));
 
                 assert_eq!(orignal, test_compile_command(&source_code));
             }

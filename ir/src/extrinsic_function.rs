@@ -1,21 +1,23 @@
+use crate::{Spanned, variable::Ident};
+
 use super::{Expression, Variable};
 
 //NOTE: I am currently not validating the string size;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Location {
-    Tag(String),
-    Routine(String),
-    TagRoutine(String, String),
+    Tag(Ident),
+    Routine(Ident),
+    TagRoutine(Ident, Ident),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Args {
     VarUndefined,
-    ByRef(Variable),
+    ByRef(Spanned<Variable>),
     Expression(Expression),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct ExtrinsicFunction {
     pub location: Location,
     pub arguments: Vec<Args>,

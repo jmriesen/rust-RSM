@@ -1,11 +1,11 @@
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Unary {
     Minus,
     Plus,
     Not,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Binary {
     Add,
     Sub,

@@ -6,8 +6,8 @@ lspServer = create_mumps_lsp((message: any) => {
     self.postMessage(message);
   });
 
-self.onmessage = async (event: MessageEvent) => {
+self.onmessage = (event: MessageEvent) => {
     if (lspServer && event.data) {
-    await lspServer.handle_incoming_message(event.data);
+    lspServer.handle_incoming_message(event.data);
   }
 };

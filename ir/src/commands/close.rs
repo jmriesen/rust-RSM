@@ -1,4 +1,4 @@
 use crate::Expression;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Close(pub Expression);

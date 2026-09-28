@@ -1,0 +1,36 @@
+---
+source: frontend/src/parser/mod.rs
+expression: "line_parser().parse(\"tag w !\").into_output_errors()"
+---
+(
+    Some(
+        Line {
+            tag: Some(
+                Spanned {
+                    inner: Tag {
+                        name: "tag",
+                    },
+                    span: 0..3,
+                },
+            ),
+            level: 0,
+            commands: [
+                Spanned {
+                    inner: Write(
+                        PostCondition {
+                            condition: None,
+                            value: [
+                                Spanned {
+                                    inner: Bang,
+                                    span: 6..7,
+                                },
+                            ],
+                        },
+                    ),
+                    span: 4..7,
+                },
+            ],
+        },
+    ),
+    [],
+)

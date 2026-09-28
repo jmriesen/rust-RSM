@@ -1,12 +1,14 @@
-use super::expression::Expression;
+use crate::Spanned;
 
-#[derive(Clone, Debug)]
+use super::{Variable, expression::Expression};
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct SelectTerm {
     pub condition: Expression,
     pub value: Expression,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
     pub required: [Expression; REQUIRED],
     //Note this should really be thought of as a Vec with a fixed capacity but... whatever, this
@@ -14,13 +16,13 @@ pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
     pub optional: [Option<Expression>; OPTIONAL],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct VarFunction<const REQUIRED: usize, const OPTIONAL: usize> {
-    pub variable: super::Variable,
+    pub variable: Spanned<Variable>,
     pub function: Function<REQUIRED, OPTIONAL>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum IntrinsicFunction {
     Select {
         terms: Vec<SelectTerm>,

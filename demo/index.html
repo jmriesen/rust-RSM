@@ -4,15 +4,16 @@
     <meta charset="utf-8" />
     <title>Rust RSM Demo </title>
     <script type="module" src="./src/main.ts"></script>
+    <link rel="stylesheet" href="./src/views.css" />
   </head>
-  <body style="background-color: #D0872E; display: flex; flex-direction: row; min-height: 100vh; margin: 0;">
+  <body>
 
-    <div id="column-1" style="flex: 1; min-width: 0;">
+    <div id="column-1">
       <h1>Rust RSM Demo</h1>
-      <div id="monaco-editor-root" style="height: 100%; width: 100%;"></div>
+      <div id="monaco-editor-root" class="monaco-workbench"></div>
     </div>
 
-    <div id="column-2" style="flex: 1; min-width: 0;">
+    <div id="column-2">
       <h1>README</h1>
       <p>
         This is a test site to display the current capacities of the RSM Project.
@@ -43,7 +44,6 @@
         <li>
           Increasing the number of supported commands
         </li>
-        
       </ul>
       <h2>Future plans</h2>
       <ul>

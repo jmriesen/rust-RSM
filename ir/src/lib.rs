@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod expression;
+use chumsky::span::SimpleSpan;
 pub use expression::Expression;
 pub mod external_calls;
 pub use external_calls::ExternalCalls;
@@ -14,12 +15,39 @@ pub mod variable;
 pub use variable::Variable;
 
 use crate::commands::Command;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Spanned<T> {
+    pub inner: T,
+    pub span: SimpleSpan,
+}
 
-#[derive(Debug)]
+impl<T> From<chumsky::span::Spanned<T>> for Spanned<T> {
+    fn from(value: chumsky::span::Spanned<T>) -> Self {
+        Self {
+            inner: value.inner,
+            span: value.span,
+        }
+    }
+}
+
+impl<T: derive_visitor::Drive> derive_visitor::Drive for Spanned<T> {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, derive_visitor::Event::Enter);
+        self.inner.drive(visitor);
+        visitor.visit(self, derive_visitor::Event::Exit);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+pub struct Tag {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Line {
-    //TODO:TAG
+    pub tag: Option<Spanned<Tag>>,
     pub level: u16,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Spanned<Command>>,
 }
 
 pub type Routine = Vec<Line>;

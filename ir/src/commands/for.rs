@@ -1,24 +1,25 @@
-use crate::{Expression, Variable};
+use crate::{Expression, Spanned, Variable};
 
 use super::Command;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Argument {
     pub start: Expression,
     pub increment_end: Option<(Expression, Option<Expression>)>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum ForKind {
     Infinite,
     VarLoop {
-        variable: Variable,
+        variable: Spanned<Variable>,
         //TODO insure this vector is none empty
         arguments: Vec<Argument>,
     },
 }
-#[derive(Debug)]
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct For {
     pub kind: ForKind,
-    pub commands: Vec<Command>,
+    pub commands: Vec<Spanned<Command>>,
 }

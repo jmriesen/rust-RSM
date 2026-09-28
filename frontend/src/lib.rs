@@ -1,14 +1,14 @@
-#![feature(iter_array_chunks)]
+use ariadne::{Label, Report, ReportBuilder, ReportKind, Source};
+use chumsky::{
+    Parser,
+    error::Rich,
+    span::{SimpleSpan, SpanWrap},
+};
 use ir::Routine;
-pub mod commands;
-pub mod expression;
-pub mod external_calls;
-pub mod extrinsic_function;
-pub mod intrinsic_functions;
-pub mod intrinsic_var;
-pub mod operators;
-pub mod variable;
+pub mod parser;
 use thiserror::Error;
+
+use crate::parser::routine;
 //Introduced to prevent overflows during fuzzing.
 //TODO: This is not a perfect solutions, but allows me to keep fuzzing.
 const MAX_LINE_LENGTH: usize = 200;
@@ -23,46 +23,60 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
     }
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Clone, Copy, Eq, PartialOrd, Ord, Hash)]
 pub enum ParsingError {
-    #[error("Error occurred when tree-sitter parsed the routine")]
-    TreeSitterError(()),
+    #[error("{}",.0)]
+    ParserError(&'static str),
     #[error("Quit can only have zero or one argument")]
-    QuitExtraArgs(lang_model::Range),
+    QuitExtraArgs,
     #[error("Close always takes at least one argument")]
-    CloseRequiresArgs(lang_model::Range),
+    CloseRequiresArgs,
     #[error("If always takes at least one argument")]
-    IfRequireArgs(lang_model::Range),
-    #[error("not yet supported:{}",.0)]
+    IfRequireArgs,
+    #[error("Not yet supported:{}",.0)]
     NotYetSupported(&'static str),
-    #[error("kill exclusive is only supported for local variables with no subscripts")]
-    KillExclusiveNonLocal(lang_model::Range),
+    #[error("Expected local variables with no subscripts")]
+    ExpectedLocalVariableWithoutSubscripts,
     #[error(
         "Exceeded max line length {MAX_LINE_LENGTH} TODO: this constraint should be eventually remove. Currently here to prevent stack overflows during fuzzing"
     )]
     HitMaxLineLength,
+    #[error("First argument must be a variable.")]
+    FunctionArgMustBeVariable,
+    #[error("Function Expects more arguments")]
+    FunctionExpectsMoreArguments,
+    #[error("Function Expects Fewer arguments")]
+    FunctionExpectsFewerArguments,
 }
 
-pub trait TreeSitterParser<'a> {
-    type NodeType;
-    fn new(sitter: &Self::NodeType, source_code: &str) -> Self;
+#[cfg(any(test, feature = "fuzzing"))]
+pub fn parse_routine_print_errors(
+    source_code: &str,
+) -> Result<Routine, Vec<Rich<'_, char, SimpleSpan, ParsingError>>> {
+    check_line_lengths(source_code).map_err(|x| vec![Rich::custom((0..0).into(), x)])?;
+    routine()
+        .parse(source_code)
+        .into_result()
+        .inspect_err(|errors| {
+            for error in errors {
+                let report = build_report(error);
+                report.print(Source::from(source_code)).unwrap();
+            }
+        })
 }
-
-pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
-    check_line_lengths(source_code)?;
-    let tree = lang_model::create_tree(source_code);
-    let tree = lang_model::type_tree(&tree, source_code).map_err(ParsingError::TreeSitterError)?;
-
-    let lines = tree.children();
-    lines
-        .iter()
-        .map(|line| commands::new_line(line, source_code))
-        .collect()
+fn build_report<'a>(error: &Rich<'a, char, SimpleSpan, ParsingError>) -> Report<'a> {
+    Report::build(ReportKind::Error, error.span().into_range())
+        .with_message(error.reason())
+        .with_label(Label::new(error.span().into_range()).with_message(error.reason()))
+        .finish()
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{ParsingError, parse_routine};
+
+    use chumsky::error::RichReason;
+
+    use crate::{ParsingError, parse_routine_print_errors};
 
     #[test]
     fn stack_overflow() {
@@ -70,21 +84,12 @@ mod test {
         //example or rewriting to not use nesting.)
         //This test case was found though fuzz testing.
         let source_code = "qq q AAAAAAAAAOAAAAAAAOPFOlAAAAA]AAAA@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n";
+        let errors = parse_routine_print_errors(source_code).unwrap_err();
+        let errors: Vec<_> = errors.iter().map(|x| x.reason()).collect();
 
         assert_eq!(
-            parse_routine(source_code).map(|_| () /*I only care about the error case*/),
-            Err(ParsingError::HitMaxLineLength),
+            errors,
+            vec![&RichReason::Custom(ParsingError::HitMaxLineLength)]
         )
-    }
-
-    #[test]
-    #[should_panic]
-    #[ignore = "don't have time to track down root cause right now."]
-    fn todo_this_should_not_parse() {
-        let source_code = "foo k (^A\n";
-        let tree = lang_model::create_tree(source_code);
-        let _tree = lang_model::type_tree(&tree, source_code)
-            .map_err(ParsingError::TreeSitterError)
-            .unwrap();
     }
 }

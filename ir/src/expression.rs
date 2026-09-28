@@ -1,10 +1,48 @@
+use std::ops::Deref;
+
+use derive_visitor::Event;
+
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NumberLiteral(pub value::Number);
+
+impl derive_visitor::Drive for NumberLiteral {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
+}
+impl Deref for NumberLiteral {
+    type Target = value::Number;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StringLiteral(pub value::Value);
+
+impl derive_visitor::Drive for StringLiteral {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
+}
+
+impl Deref for StringLiteral {
+    type Target = value::Value;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Expression {
-    Number(value::Number),
-    String(value::Value),
-    Variable(Variable),
+    Number(Spanned<NumberLiteral>),
+    String(Spanned<StringLiteral>),
+    Variable(Spanned<Variable>),
     IntrinsicVar(IntrinsicVar),
     InderectExpression(Box<Self>),
     UnaryExpression {

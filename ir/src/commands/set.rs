@@ -1,7 +1,7 @@
-use crate::{Expression, Variable};
+use crate::{Expression, Spanned, Variable};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Set {
-    pub variable: Variable,
+    pub variable: Spanned<Variable>,
     pub value: Expression,
 }

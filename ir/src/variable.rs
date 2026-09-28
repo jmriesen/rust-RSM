@@ -1,21 +1,34 @@
+use derive_visitor::Event;
+
 use super::Expression;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Ident(pub String);
+
+impl derive_visitor::Drive for Ident {
+    fn drive<V: derive_visitor::Visitor>(&self, visitor: &mut V) {
+        visitor.visit(self, Event::Enter);
+        visitor.visit(self, Event::Exit);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct GlobleIdent {
     pub user_class: Option<Box<UserClassIdentifiers>>,
 }
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct UserClassIdentifiers {
     pub uci: Expression,
     pub env: Option<Env>,
 }
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Env(pub Expression);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum VariableType {
     Named {
-        name: String,
+        name: Ident,
         globle_ident: Option<GlobleIdent>,
     },
     NakedVariable,
@@ -24,7 +37,7 @@ pub enum VariableType {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Variable {
     pub var_type: VariableType,
     pub subscripts: Vec<Expression>,

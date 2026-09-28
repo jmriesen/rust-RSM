@@ -1,0 +1,39 @@
+---
+source: frontend/src/parser/mod.rs
+expression: "write().parse(\"w !,#,\\\"test\\\"\").into_output_errors()"
+---
+(
+    Some(
+        Write(
+            PostCondition {
+                condition: None,
+                value: [
+                    Spanned {
+                        inner: Bang,
+                        span: 2..3,
+                    },
+                    Spanned {
+                        inner: Clear,
+                        span: 4..5,
+                    },
+                    Spanned {
+                        inner: Expression(
+                            String(
+                                Spanned {
+                                    inner: StringLiteral(
+                                        Value {
+                                            content_as_utf8: "test",
+                                        },
+                                    ),
+                                    span: 6..12,
+                                },
+                            ),
+                        ),
+                        span: 6..12,
+                    },
+                ],
+            },
+        ),
+    ),
+    [],
+)

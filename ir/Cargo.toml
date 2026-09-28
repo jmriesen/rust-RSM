@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 value = {path = "../value/"}
+derive-visitor = {workspace=true}
+chumsky = {workspace=true}
