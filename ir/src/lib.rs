@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod expression;
+use chumsky::span::SimpleSpan;
 pub use expression::Expression;
 pub mod external_calls;
 pub use external_calls::ExternalCalls;
@@ -17,8 +18,16 @@ use crate::commands::Command;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub inner: T,
-    pub start: usize,
-    pub end: usize,
+    pub span: SimpleSpan,
+}
+
+impl<T> From<chumsky::span::Spanned<T>> for Spanned<T> {
+    fn from(value: chumsky::span::Spanned<T>) -> Self {
+        Self {
+            inner: value.inner,
+            span: value.span,
+        }
+    }
 }
 
 impl<T: derive_visitor::Drive> derive_visitor::Drive for Spanned<T> {

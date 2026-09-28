@@ -12,7 +12,7 @@ pub struct Argument {
 pub enum ForKind {
     Infinite,
     VarLoop {
-        variable: Variable,
+        variable: Spanned<Variable>,
         //TODO insure this vector is none empty
         arguments: Vec<Argument>,
     },

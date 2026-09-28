@@ -1,4 +1,4 @@
-use crate::variable::Ident;
+use crate::{Spanned, variable::Ident};
 
 use super::{Expression, Variable};
 
@@ -13,7 +13,7 @@ pub enum Location {
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Args {
     VarUndefined,
-    ByRef(Variable),
+    ByRef(Spanned<Variable>),
     Expression(Expression),
 }
 

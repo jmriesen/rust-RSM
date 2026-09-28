@@ -3,7 +3,7 @@ use std::{array::from_fn, str::FromStr};
 use chumsky::{prelude::*, text::digits};
 use ir::{
     Expression::{self},
-    ExternalCalls, IntrinsicFunction, IntrinsicVar,
+    ExternalCalls, IntrinsicFunction, IntrinsicVar, Spanned,
     expression::{NumberLiteral, StringLiteral},
     intrinsic_functions::{Function, SelectTerm, VarFunction},
     operators::{Binary, Unary},
@@ -14,8 +14,8 @@ use crate::ParsingError;
 
 use super::{args_list, parse_extrinsic_function, peek, variable, variable::identifier};
 
-use super::Error;
-fn str_literal<'src>() -> impl Parser<'src, &'src str, StringLiteral, Error<'src>> {
+use super::Extra;
+fn str_literal<'src>() -> impl Parser<'src, &'src str, Spanned<StringLiteral>, Extra<'src>> {
     choice((
         none_of("\"").ignored(),
         just("\"").then(just("\"")).ignored(),
@@ -34,11 +34,13 @@ fn str_literal<'src>() -> impl Parser<'src, &'src str, StringLiteral, Error<'src
             .replace("\"\"", "\"");
         StringLiteral(Value::from_str(&striped).unwrap())
     })
+    .spanned()
+    .map(Spanned::from)
     .labelled("String Literal")
     .as_terminal()
 }
 
-fn number<'src>() -> impl Parser<'src, &'src str, NumberLiteral, Error<'src>> {
+fn number<'src>() -> impl Parser<'src, &'src str, Spanned<NumberLiteral>, Extra<'src>> {
     choice((
         digits(10)
             .then(just(".").then(digits(10)).or_not())
@@ -46,11 +48,13 @@ fn number<'src>() -> impl Parser<'src, &'src str, NumberLiteral, Error<'src>> {
         just(".").then(digits(10)).to_slice(),
     ))
     .map(|x: &str| NumberLiteral(Number::from_str(x).unwrap()))
+    .spanned()
+    .map(Spanned::from)
     .labelled("String Literal")
     .as_terminal()
 }
 
-fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, Error<'src>> {
+fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, Extra<'src>> {
     choice((
         //
         just("+").to(Unary::Plus),
@@ -58,7 +62,7 @@ fn op_u_code<'src>() -> impl Parser<'src, &'src str, Unary, Error<'src>> {
         just("'").to(Unary::Not),
     ))
 }
-fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
+fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Extra<'src>> {
     choice((
         //
         just("+").to(Binary::Add),
@@ -75,7 +79,7 @@ fn op_b_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
     ))
 }
 
-fn pattern_match_op_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'src>> {
+fn pattern_match_op_code<'src>() -> impl Parser<'src, &'src str, Binary, Extra<'src>> {
     choice((
         //
         just("?").to(Binary::Pattern),
@@ -83,7 +87,7 @@ fn pattern_match_op_code<'src>() -> impl Parser<'src, &'src str, Binary, Error<'
     ))
 }
 
-pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
+pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Extra<'src>> {
     let repetition = choice((
         // between
         text::int(10).then(just(".")).then(text::int(10)).ignored(),
@@ -116,7 +120,7 @@ pub fn pattern<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
     })
 }
 
-pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src>> {
+pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Extra<'src>> {
     recursive(|expr| {
         let expr = expr.boxed();
         let atom = choice((
@@ -171,9 +175,11 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
                     // Only grab when a literal value
                     .then_ignore(peek(just("@")).not())
                     .then(
-                        pattern().map(|x| {
-                            Expression::String(StringLiteral(Value::from_str(x).unwrap()))
-                        }),
+                        pattern()
+                            .map(|x| StringLiteral(Value::from_str(x).unwrap()))
+                            .spanned()
+                            .map(Spanned::from)
+                            .map(Expression::String),
                     ),
                 op_b_code().then(expr),
             ))
@@ -196,7 +202,7 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Error<'src
     .labelled("expression")
 }
 
-pub fn intrinsic_var<'src>() -> impl Parser<'src, &'src str, IntrinsicVar, Error<'src>> {
+pub fn intrinsic_var<'src>() -> impl Parser<'src, &'src str, IntrinsicVar, Extra<'src>> {
     just("$").ignore_then(identifier().filter_map(|x| {
         //
         match x.to_lowercase().as_str() {
@@ -223,8 +229,8 @@ pub fn intrinsic_var<'src>() -> impl Parser<'src, &'src str, IntrinsicVar, Error
 }
 
 pub fn external_calls<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>>,
-) -> impl Parser<'src, &'src str, Expression, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>>,
+) -> impl Parser<'src, &'src str, Expression, Extra<'src>> {
     just("$&")
         .ignore_then(
             identifier().filter_map(|x| match x.to_uppercase().as_str() {
@@ -279,8 +285,8 @@ impl<T> Output<Output<T>> {
 }
 
 pub fn intrinsic_fn<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, IntrinsicFunction, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, IntrinsicFunction, Extra<'src>> {
     choice((intrinsic_fn_normal(exp.clone()), select(exp))).validate(|output, extra, emiter| {
         if let Some(msg) = output.err {
             emiter.emit(Rich::custom(extra.span(), msg));
@@ -290,8 +296,8 @@ pub fn intrinsic_fn<'src>(
 }
 
 fn intrinsic_fn_normal<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Extra<'src>> {
     just("$").ignore_then(
         identifier()
             .then(args_list(exp))
@@ -348,7 +354,10 @@ where
         }
     } else {
         Output {
-            value: variable::dummy_variable(),
+            value: Spanned {
+                inner: variable::dummy_variable(),
+                span: (0..0).into(),
+            },
             err: Some(crate::ParsingError::FunctionArgMustBeVariable),
         }
     };
@@ -395,8 +404,10 @@ where
         value: Function {
             //Fill with placeholder arguments so we can keep parsing
             required: from_fn(|_| {
-                iter.next()
-                    .unwrap_or(Expression::String(StringLiteral(Value::empty())))
+                iter.next().unwrap_or(Expression::String(Spanned {
+                    inner: StringLiteral(Value::empty()),
+                    span: (0..0).into(),
+                }))
             }),
             optional: from_fn(|_| iter.next()),
         },
@@ -405,8 +416,8 @@ where
 }
 
 fn select<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Output<IntrinsicFunction>, Extra<'src>> {
     let condition = exp.clone();
     let value = exp;
     just("$").ignore_then(

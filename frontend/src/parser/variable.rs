@@ -1,9 +1,9 @@
 use crate::{ParsingError, parser::args_list};
 
-use super::Error;
+use super::Extra;
 use chumsky::{Parser, prelude::*};
 use ir::{
-    Expression, Variable,
+    Expression, Spanned, Variable,
     variable::{Env, GlobleIdent, Ident, UserClassIdentifiers, VariableType},
 };
 
@@ -17,7 +17,7 @@ pub fn dummy_variable() -> Variable {
     }
 }
 
-pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>> {
+pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Extra<'src>> {
     any()
         .filter(|start: &char| start.is_ascii_alphabetic()|| start == &'%')
         .then(
@@ -38,8 +38,8 @@ pub fn identifier<'src>() -> impl Parser<'src, &'src str, &'src str, Error<'src>
 /// NOTE: these functions are called when setting up the parsers, not when actually
 /// parsing.(circular dependencies during parsing is fine, just not during setup)
 pub fn variable<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, Variable, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Spanned<Variable>, Extra<'src>> {
     let subscripts = args_list(exp.clone());
 
     choice((
@@ -63,14 +63,16 @@ pub fn variable<'src>(
         var_type,
         subscripts: subscripts.unwrap_or_default(),
     })
+    .spanned()
+    .map(Spanned::from)
     .labelled("Variable")
     .as_non_terminal()
     .as_context()
 }
 
 pub fn globle_ident<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, GlobleIdent, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, GlobleIdent, Extra<'src>> {
     let args = exp
         .clone()
         .separated_by(just(","))
@@ -101,16 +103,16 @@ pub fn globle_ident<'src>(
 
 /// Parses a variable and then validates that it is local with no subscripts.
 pub fn local_variable_no_subscripts<'src>(
-    exp: impl Parser<'src, &'src str, Expression, Error<'src>> + Clone,
-) -> impl Parser<'src, &'src str, Variable, Error<'src>> {
+    exp: impl Parser<'src, &'src str, Expression, Extra<'src>> + Clone,
+) -> impl Parser<'src, &'src str, Spanned<Variable>, Extra<'src>> {
     variable(exp).validate(|var, extra, emiter| {
         if matches!(
-            &var.var_type,
+            &var.inner.var_type,
             VariableType::Named {
                 name: _,
                 globle_ident: None
             }
-        ) && var.subscripts.is_empty()
+        ) && var.inner.subscripts.is_empty()
         {
             var
         } else {
@@ -118,7 +120,10 @@ pub fn local_variable_no_subscripts<'src>(
                 extra.span(),
                 ParsingError::ExpectedLocalVariableWithoutSubscripts,
             ));
-            dummy_variable()
+            Spanned {
+                inner: dummy_variable(),
+                span: var.span,
+            }
         }
     })
 }

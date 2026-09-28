@@ -1,4 +1,6 @@
-use super::expression::Expression;
+use crate::Spanned;
+
+use super::{Variable, expression::Expression};
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct SelectTerm {
@@ -16,7 +18,7 @@ pub struct Function<const REQUIRED: usize, const OPTIONAL: usize> {
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct VarFunction<const REQUIRED: usize, const OPTIONAL: usize> {
-    pub variable: super::Variable,
+    pub variable: Spanned<Variable>,
     pub function: Function<REQUIRED, OPTIONAL>,
 }
 

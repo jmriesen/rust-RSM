@@ -138,7 +138,10 @@ impl Compile for IntrinsicFunction {
             IntrinsicFunction::Next(function) => {
                 //Next is just an Order with a hard coded argument
                 use std::str::FromStr;
-                let two = Expression::Number(NumberLiteral(Value::from_str("2").unwrap().into()));
+                let two = Expression::Number(ir::Spanned {
+                    inner: NumberLiteral(Value::from_str("2").unwrap().into()),
+                    span: (0..0).into(),
+                });
                 IntrinsicFunction::Order(VarFunction {
                     variable: function.variable.clone(),
                     function: Function {

@@ -40,9 +40,9 @@ impl Deref for StringLiteral {
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Expression {
-    Number(NumberLiteral),
-    String(StringLiteral),
-    Variable(Variable),
+    Number(Spanned<NumberLiteral>),
+    String(Spanned<StringLiteral>),
+    Variable(Spanned<Variable>),
     IntrinsicVar(IntrinsicVar),
     InderectExpression(Box<Self>),
     UnaryExpression {

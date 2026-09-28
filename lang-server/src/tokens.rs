@@ -3,7 +3,8 @@ use std::sync::LazyLock;
 use derive_visitor::{Drive, Visitor};
 use ir::{
     commands::{Command, Write},
-    Spanned, Tag,
+    expression::{NumberLiteral, StringLiteral},
+    Spanned, Tag, Variable,
 };
 use tower_lsp::lsp_types::{
     Position, SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
@@ -77,7 +78,7 @@ tokens! {
     {Variable,     "Variable",     SemanticTokenType::VARIABLE}
     {TagName,      "TagName",      SemanticTokenType::METHOD}
     {Command,      "command",      SemanticTokenType::KEYWORD}
-    {Bang,         "Bang",         SemanticTokenType::OPERATOR}
+    {Bang,         "Bang",         SemanticTokenType::KEYWORD}
     {BinOp,        "BinaryOpp",    SemanticTokenType::OPERATOR}
     {UnaryOpp,     "UnaryOpp",     SemanticTokenType::OPERATOR}
 }
@@ -253,11 +254,27 @@ use chumsky::span::SimpleSpan;
 type SpanW = Spanned<Write>;
 type SpanT = Spanned<Tag>;
 type SpanC = Spanned<Command>;
+type SpanN = Spanned<NumberLiteral>;
+type SpanS = Spanned<StringLiteral>;
+type SpanV = Spanned<Variable>;
 #[derive(Visitor, Default)]
-#[visitor(SpanW, SpanT, SpanC, Tag, Write, Command)]
+#[visitor(
+    SpanW,
+    SpanT,
+    SpanC,
+    SpanN,
+    SpanS,
+    SpanV,
+    Tag,
+    Write,
+    Command,
+    NumberLiteral,
+    StringLiteral,
+    Variable
+)]
 struct TokensVisitor {
     spans: Vec<SimpleSpan>,
-    tokens: Vec<chumsky::prelude::Spanned<TokenTypes, SimpleSpan>>,
+    tokens: Vec<Spanned<TokenTypes>>,
 }
 use pastey::paste;
 macro_rules! enter_exit_span {
@@ -275,43 +292,54 @@ macro_rules! enter_exit_span {
 }
 
 impl TokensVisitor {
+    fn exit_write(&mut self, _: &Write) {}
     fn enter_write(&mut self, write: &Write) {
         match write {
-            Write::Bang => self.create_token(TokenTypes::Variable),
-            Write::Clear => self.create_token(TokenTypes::Variable),
-            Write::Tab(_) => self.create_token(TokenTypes::Variable),
+            Write::Bang => self.create_token(TokenTypes::Bang),
+            Write::Clear => self.create_token(TokenTypes::Bang),
+            Write::Tab(_) => self.create_token(TokenTypes::Bang),
             Write::Expression(_) => {}
         }
     }
 
-    fn exit_write(&mut self, _: &Write) {}
-
+    fn exit_tag(&mut self, _: &Tag) {}
     fn enter_tag(&mut self, _: &Tag) {
         self.create_token(TokenTypes::TagName);
     }
-    fn exit_tag(&mut self, _: &Tag) {}
+    fn exit_number_literal(&mut self, _: &NumberLiteral) {}
+    fn enter_number_literal(&mut self, _: &NumberLiteral) {
+        self.create_token(TokenTypes::Number);
+    }
+    fn exit_string_literal(&mut self, _: &StringLiteral) {}
+    fn enter_string_literal(&mut self, _: &StringLiteral) {
+        self.create_token(TokenTypes::String);
+    }
 
+    fn exit_command(&mut self, _: &Command) {}
     fn enter_command(&mut self, _: &Command) {
         self.create_token(TokenTypes::Command);
     }
-    fn exit_command(&mut self, _: &Command) {}
+
+    fn exit_variable(&mut self, _: &Variable) {}
+    fn enter_variable(&mut self, _: &Variable) {
+        self.create_token(TokenTypes::Variable);
+    }
 
     enter_exit_span!(SpanW);
     enter_exit_span!(SpanT);
     enter_exit_span!(SpanC);
+    enter_exit_span!(SpanN);
+    enter_exit_span!(SpanS);
+    enter_exit_span!(SpanV);
 
-    fn enter_span<T>(&mut self, span: &Spanned<T>) {
-        self.spans.push(SimpleSpan {
-            start: span.start,
-            end: span.end,
-            context: (),
-        });
+    fn enter_span<T>(&mut self, spanned: &Spanned<T>) {
+        self.spans.push(spanned.span);
     }
     fn exit_span(&mut self) {
         self.spans.pop();
     }
     fn create_token(&mut self, token: TokenTypes) {
-        let token = chumsky::prelude::Spanned {
+        let token = Spanned {
             inner: token,
             span: self.spans.last().unwrap().clone(),
         };
