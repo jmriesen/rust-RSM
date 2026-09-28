@@ -249,100 +249,48 @@ impl crate::Document {
     }
 }
 
-use chumsky::span::SimpleSpan;
-
-type SpanW = Spanned<Write>;
-type SpanT = Spanned<Tag>;
-type SpanC = Spanned<Command>;
-type SpanN = Spanned<NumberLiteral>;
-type SpanS = Spanned<StringLiteral>;
-type SpanV = Spanned<Variable>;
-#[derive(Visitor, Default)]
-#[visitor(
-    SpanW,
-    SpanT,
-    SpanC,
-    SpanN,
-    SpanS,
-    SpanV,
-    Tag,
-    Write,
-    Command,
-    NumberLiteral,
-    StringLiteral,
-    Variable
-)]
-struct TokensVisitor {
-    spans: Vec<SimpleSpan>,
-    tokens: Vec<Spanned<TokenTypes>>,
-}
 use pastey::paste;
-macro_rules! enter_exit_span {
-    ($type:ident) => {
-        paste! {
 
-        fn [<enter_$type:snake>](&mut self, span: &$type) {
-            self.enter_span(span);
+macro_rules! token_visitor {
+    ($(($type:ty,$token:expr),)*) => {
+paste!{
+        $(
+            type [<Spanned$type>] = Spanned<$type>;
+        )*
+
+        #[derive(Visitor, Default)]
+        #[visitor(
+        $(
+            [<Spanned$type>],
+        )*
+        )]
+        struct TokensVisitor {
+            tokens: Vec<Spanned<TokenTypes>>,
         }
-        fn [<exit_$type:snake>](&mut self, _span: &$type) {
-            self.exit_span();
+
+        impl TokensVisitor {
+
+        $(
+        fn [<enter_spanned_$type:snake>](&mut self, span: &[<Spanned$type>]) {
+            self.tokens.push(
+                Spanned {
+                    inner: $token,
+                    span: span.span.clone(),
+                }
+            );
         }
+        fn [<exit_spanned_$type:snake>](&mut self, _span: &[<Spanned$type>]) {
         }
+        )*
+        }
+}
     };
 }
-
-impl TokensVisitor {
-    fn exit_write(&mut self, _: &Write) {}
-    fn enter_write(&mut self, write: &Write) {
-        match write {
-            Write::Bang => self.create_token(TokenTypes::Bang),
-            Write::Clear => self.create_token(TokenTypes::Bang),
-            Write::Tab(_) => self.create_token(TokenTypes::Bang),
-            Write::Expression(_) => {}
-        }
-    }
-
-    fn exit_tag(&mut self, _: &Tag) {}
-    fn enter_tag(&mut self, _: &Tag) {
-        self.create_token(TokenTypes::TagName);
-    }
-    fn exit_number_literal(&mut self, _: &NumberLiteral) {}
-    fn enter_number_literal(&mut self, _: &NumberLiteral) {
-        self.create_token(TokenTypes::Number);
-    }
-    fn exit_string_literal(&mut self, _: &StringLiteral) {}
-    fn enter_string_literal(&mut self, _: &StringLiteral) {
-        self.create_token(TokenTypes::String);
-    }
-
-    fn exit_command(&mut self, _: &Command) {}
-    fn enter_command(&mut self, _: &Command) {
-        self.create_token(TokenTypes::Command);
-    }
-
-    fn exit_variable(&mut self, _: &Variable) {}
-    fn enter_variable(&mut self, _: &Variable) {
-        self.create_token(TokenTypes::Variable);
-    }
-
-    enter_exit_span!(SpanW);
-    enter_exit_span!(SpanT);
-    enter_exit_span!(SpanC);
-    enter_exit_span!(SpanN);
-    enter_exit_span!(SpanS);
-    enter_exit_span!(SpanV);
-
-    fn enter_span<T>(&mut self, spanned: &Spanned<T>) {
-        self.spans.push(spanned.span);
-    }
-    fn exit_span(&mut self) {
-        self.spans.pop();
-    }
-    fn create_token(&mut self, token: TokenTypes) {
-        let token = Spanned {
-            inner: token,
-            span: self.spans.last().unwrap().clone(),
-        };
-        self.tokens.push(token);
-    }
-}
+token_visitor!(
+    (Write, TokenTypes::Bang),
+    (Tag, TokenTypes::Bang),
+    (Command, TokenTypes::Command),
+    (NumberLiteral, TokenTypes::Number),
+    (StringLiteral, TokenTypes::String),
+    (Variable, TokenTypes::Variable),
+);
