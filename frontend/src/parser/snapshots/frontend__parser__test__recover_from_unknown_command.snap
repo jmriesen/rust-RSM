@@ -10,13 +10,11 @@ expression: "line_parser().parse(\" foo bar\").into_output_errors()"
             commands: [
                 Spanned {
                     inner: Error,
-                    start: 1,
-                    end: 4,
+                    span: 1..4,
                 },
                 Spanned {
                     inner: Error,
-                    start: 5,
-                    end: 8,
+                    span: 5..8,
                 },
             ],
         },

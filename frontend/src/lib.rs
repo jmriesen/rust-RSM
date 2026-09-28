@@ -1,5 +1,9 @@
-use ariadne::{Label, Report, ReportKind, Source};
-use chumsky::Parser;
+use ariadne::{Label, Report, ReportBuilder, ReportKind, Source};
+use chumsky::{
+    Parser,
+    error::Rich,
+    span::{SimpleSpan, SpanWrap},
+};
 use ir::Routine;
 pub mod parser;
 use thiserror::Error;
@@ -45,35 +49,34 @@ pub enum ParsingError {
     FunctionExpectsFewerArguments,
 }
 
-pub fn parse_routine(source_code: &str) -> Result<Routine, ParsingError> {
-    check_line_lengths(source_code)?;
+#[cfg(any(test, feature = "fuzzing"))]
+pub fn parse_routine_print_errors(
+    source_code: &str,
+) -> Result<Routine, Vec<Rich<'_, char, SimpleSpan, ParsingError>>> {
+    check_line_lengths(source_code).map_err(|x| vec![Rich::custom((0..0).into(), x)])?;
     routine()
         .parse(source_code)
         .into_result()
-        .map_err(|errors| {
-            ParsingError::ParserError(
-                errors
-                    .iter()
-                    .map(|error| {
-                        let report = Report::build(ReportKind::Error, error.span().into_range())
-                            .with_message(error.reason())
-                            .with_label(
-                                Label::new(error.span().into_range()).with_message(error.reason()),
-                            )
-                            .finish();
-                        report.print(Source::from(source_code)).unwrap();
-                        format!("{error},{}", error.span())
-                    })
-                    .collect::<String>()
-                    .leak(),
-            )
+        .inspect_err(|errors| {
+            for error in errors {
+                let report = build_report(error);
+                report.print(Source::from(source_code)).unwrap();
+            }
         })
+}
+fn build_report<'a>(error: &Rich<'a, char, SimpleSpan, ParsingError>) -> Report<'a> {
+    Report::build(ReportKind::Error, error.span().into_range())
+        .with_message(error.reason())
+        .with_label(Label::new(error.span().into_range()).with_message(error.reason()))
+        .finish()
 }
 
 #[cfg(test)]
 mod test {
 
-    use crate::{ParsingError, parse_routine};
+    use chumsky::error::RichReason;
+
+    use crate::{ParsingError, parse_routine_print_errors};
 
     #[test]
     fn stack_overflow() {
@@ -81,10 +84,12 @@ mod test {
         //example or rewriting to not use nesting.)
         //This test case was found though fuzz testing.
         let source_code = "qq q AAAAAAAAAOAAAAAAAOPFOlAAAAA]AAAA@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n";
+        let errors = parse_routine_print_errors(source_code).unwrap_err();
+        let errors: Vec<_> = errors.iter().map(|x| x.reason()).collect();
 
         assert_eq!(
-            parse_routine(source_code).map(|_| () /*I only care about the error case*/),
-            Err(ParsingError::HitMaxLineLength),
+            errors,
+            vec![&RichReason::Custom(ParsingError::HitMaxLineLength)]
         )
     }
 }

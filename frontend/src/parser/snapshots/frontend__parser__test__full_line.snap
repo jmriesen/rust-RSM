@@ -10,8 +10,7 @@ expression: "line_parser().parse(\"tag w !\").into_output_errors()"
                     inner: Tag {
                         name: "tag",
                     },
-                    start: 0,
-                    end: 3,
+                    span: 0..3,
                 },
             ),
             level: 0,
@@ -23,14 +22,12 @@ expression: "line_parser().parse(\"tag w !\").into_output_errors()"
                             value: [
                                 Spanned {
                                     inner: Bang,
-                                    start: 6,
-                                    end: 7,
+                                    span: 6..7,
                                 },
                             ],
                         },
                     ),
-                    start: 4,
-                    end: 7,
+                    span: 4..7,
                 },
             ],
         },

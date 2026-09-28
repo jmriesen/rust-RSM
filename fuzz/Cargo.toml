@@ -14,13 +14,13 @@ serde = { version = "1.0.210", features = ["derive"] }
 ffi = {path = "../ffi"}
 value = { path = "../value"  }
 symbol_table = { path = "../symbol_table", features = ["arbitrary"] }
-frontend = {path = "../frontend"}
+frontend = {path = "../frontend", features = ["fuzzing"]}
 backend = {path = "../backend"}
 
 
 [[bin]]
 name = "front_end"
-path = "./fuzz_targets/front_end.rs/"
+path = "./fuzz_targets/front_end.rs"
 test = false
 doc = false
 bench = false

@@ -15,19 +15,16 @@ expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
                             value: [
                                 Spanned {
                                     inner: Bang,
-                                    start: 3,
-                                    end: 4,
+                                    span: 3..4,
                                 },
                             ],
                         },
                     ),
-                    start: 1,
-                    end: 4,
+                    span: 1..4,
                 },
                 Spanned {
                     inner: Error,
-                    start: 5,
-                    end: 5,
+                    span: 5..5,
                 },
                 Spanned {
                     inner: Write(
@@ -36,14 +33,12 @@ expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
                             value: [
                                 Spanned {
                                     inner: Bang,
-                                    start: 8,
-                                    end: 9,
+                                    span: 8..9,
                                 },
                             ],
                         },
                     ),
-                    start: 6,
-                    end: 9,
+                    span: 6..9,
                 },
             ],
         },

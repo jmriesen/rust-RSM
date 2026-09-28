@@ -163,20 +163,26 @@ mod test {
 
     use super::IntrinsicFunction;
 
+    fn exps() -> std::iter::Repeat<Expression> {
+        let exps = std::iter::repeat(Expression::String(ir::Spanned {
+            inner: StringLiteral("0".parse().unwrap()),
+            span: (0..0).into(),
+        }));
+        exps
+    }
     #[test]
     #[should_panic]
     fn max_number_of_args_pluse_1() {
-        let exps = std::iter::repeat(Expression::String(StringLiteral("0".parse().unwrap())));
         IntrinsicFunction::Char {
-            args: exps.take(255).collect(),
+            args: exps().take(255).collect(),
         }
         .compile(&mut bite_code::BiteCode::new(), &());
     }
+
     #[test]
     fn max_number_of_args() {
-        let exps = std::iter::repeat(Expression::String(StringLiteral("0".parse().unwrap())));
         IntrinsicFunction::Char {
-            args: exps.take(254).collect(),
+            args: exps().take(254).collect(),
         }
         .compile(&mut bite_code::BiteCode::new(), &());
     }

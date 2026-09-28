@@ -10,26 +10,26 @@ expression: "write().parse(\"w !,#,\\\"test\\\"\").into_output_errors()"
                 value: [
                     Spanned {
                         inner: Bang,
-                        start: 2,
-                        end: 3,
+                        span: 2..3,
                     },
                     Spanned {
                         inner: Clear,
-                        start: 4,
-                        end: 5,
+                        span: 4..5,
                     },
                     Spanned {
                         inner: Expression(
                             String(
-                                StringLiteral(
-                                    Value {
-                                        content_as_utf8: "test",
-                                    },
-                                ),
+                                Spanned {
+                                    inner: StringLiteral(
+                                        Value {
+                                            content_as_utf8: "test",
+                                        },
+                                    ),
+                                    span: 6..12,
+                                },
                             ),
                         ),
-                        start: 6,
-                        end: 12,
+                        span: 6..12,
                     },
                 ],
             },

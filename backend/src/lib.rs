@@ -73,13 +73,14 @@ pub mod test {
 
     use crate::compile_routine;
     pub fn test_compile_command(source_code: &str) -> Vec<u8> {
-        let commands = frontend::parse_routine(&format!("tag {source_code}\n")).unwrap();
+        let commands =
+            frontend::parse_routine_print_errors(&format!("tag {source_code}\n")).unwrap();
         dbg!(&commands);
         const LENGTH_OF_LINE_START: usize = 5;
         compile_routine(commands)[LENGTH_OF_LINE_START..].to_vec()
     }
 
     pub fn parse_routine(source_code: &str) -> Routine {
-        frontend::parse_routine(source_code).unwrap()
+        frontend::parse_routine_print_errors(source_code).unwrap()
     }
 }
