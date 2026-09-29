@@ -40,6 +40,7 @@
     "vite-plugin-wasm": "^3.6.0"
   },
   "overrides": {
+    "@swc/core": "1.12.14",
     "@codingame/monaco-vscode-api": "$@codingame/monaco-vscode-api",
     "@codingame/monaco-vscode-bulk-edit-service-override": "36.2.7",
     "@codingame/monaco-vscode-languages-service-override": "36.2.7",
