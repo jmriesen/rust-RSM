@@ -17,5 +17,6 @@ export default {
     esbuildOptions: {
       plugins: [importMetaUrlPlugin]
     }
-  }
+  },
+  base:"./"
 };
