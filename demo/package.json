@@ -1,6 +1,6 @@
 {
+"type": "module",
   "dependencies": {
-    "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",
     "@codingame/monaco-vscode-api": "^36.2.7",
     "@codingame/monaco-vscode-environment-service-override": "^36.2.7",
     "@codingame/monaco-vscode-explorer-service-override": "^36.2.7",
@@ -34,9 +34,8 @@
     "wtd-core": "~4.0.1"
   },
   "devDependencies": {
+    "vite": "^8.3.1",
     "typescript": "^7.0.2",
-    "vite": "^6.4.3",
-    "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.6.0"
   },
   "overrides": {
