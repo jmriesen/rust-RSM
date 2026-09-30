@@ -74,9 +74,7 @@ impl Commands {
                     }
                 };
 
-                client
-                    .show_message(MessageType::INFO, format!("Result{}", output))
-                    .await;
+                client.show_message(MessageType::INFO, output).await;
                 None
             }
         }
