@@ -29,6 +29,7 @@ import { configureDefaultWorkerFactory } from 'monaco-languageclient/workerFacto
 import { start_language_server } from './language-server-launcher.ts';
 import { mumps_language_id, mumpsExampleContent, mumpsExtension } from './mumps-extension.ts';
 
+
 const createDefaultWorkspaceContent = (workspacePath: string) =>
   JSON.stringify({ folders: [{ path: workspacePath }] }, null, 2);
 
@@ -115,8 +116,7 @@ export const configure = async (htmlContainer?: HTMLElement): Promise<ConfigResu
     monacoWorkerFactory: configureDefaultWorkerFactory
   };
 
-  const workspaceUri = vscode.Uri.file('/workspace');
-  const mumpsUris = ['mumps1.m', 'mumps2.m', 'mumps3.m'].map((name) => vscode.Uri.file(`/workspace/${name}`));
+
   const fileSystemProvider = new InMemoryFileSystemProvider();
   const textEncoder = new TextEncoder();
 
@@ -126,10 +126,23 @@ export const configure = async (htmlContainer?: HTMLElement): Promise<ConfigResu
     create: true,
     overwrite: true
   };
+
+  const workspaceUri = vscode.Uri.file('/workspace');
   await fileSystemProvider.mkdir(workspaceUri);
-  for (const uri of mumpsUris) {
-    await fileSystemProvider.writeFile(uri, textEncoder.encode(mumpsExampleContent), options);
-  }
+
+  const moduleStrings = import.meta.glob('../../backend/tests/**/*.test', {
+    as: 'raw',
+    eager: true,
+  });
+  let files = Object.entries(moduleStrings)
+    let mumpsUris=await Promise.all(files.map(async ([file_path,content])=>{
+    let name = file_path.replaceAll("../../backend/","").replace(".test",".m").replaceAll("/","-");
+    let uri = vscode.Uri.file(`/workspace/${name}`);
+    await fileSystemProvider.writeFile(uri, textEncoder.encode(content), options);
+    return uri
+  }));
+
+
   await fileSystemProvider.writeFile(workspaceFileUri, textEncoder.encode(createDefaultWorkspaceContent('/workspace')), options);
   registerFileSystemOverlay(1, fileSystemProvider);
 
