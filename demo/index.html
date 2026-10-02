@@ -17,40 +17,55 @@
       <h1>README</h1>
       <p>
         This is a test site to display the current capacities of the RSM Project.
-        The at the moment the demo is only supports (limited) syntax highlighting, however I plan to expand this soon.
       </p>
       <h2>Demo Current Capacity</h2>
-      <ul>
-        <li>Syntax highlighting
-          <p>
-            Note: the current development has been focused on expressions, and implementing a few basic commands (set, write, for, etc). 
-            So much of the syntax regarding tags are not supported yet.
-          </p>
-        </li>
-      </ul>
-      <h2>In Development</h2>
+      All the included test files are run on every merge to main as part of the CICD pipeline.
       <ul>
         <li>
-          Connecting up "run code" to the web demo.
-          <br>
-          Partially supported Commands:
-          <ul>
-            <li>Set (local variable only)</li>
-            <li>Write</li>
-            <li>If/Else</li>
-            <li>For</li>
+          Most test files have the format of:
+          <ul> 
+            <li> routine </li>
+            <li> --- </li>
+            <li> write buffer output </li>
+            <li> --- </li>
+            <li> runtime errors </li>
           </ul>
         </li>
         <li>
-          Increasing the number of supported commands
+          Syntax Error files have the format of :
+          <ul> 
+            <li> routine </li>
+            <li> --- </li>
+            <li> --- </li>
+            <li> Compile Errors </li>
+          </ul>
         </li>
       </ul>
+      <p>
+        Note: the current development has been focused on expressions, and implementing a few basic commands (set, write, for, if, else, do etc). 
+      </p>
+
+      <h2>Current focus/priories</h2>
+      <ul>
+        <li><input type="checkbox" checked>Basic expressions (+, -, not, and variables) </input></li>
+        <li><input type="checkbox" checked>Observable output (basic write commands) </input></li>
+        <li><input type="checkbox" checked>Set/Kill variables </input></li>
+        <li><input type="checkbox" checked>basic control flow (if, else, for, do(no arguments))</input></li>
+        <li><input type="checkbox">Function calling </input></li>
+        <li><input type="checkbox">Making Parser more fault tolerant/report better error messages</input></li>
+      </ul>
+      <h2>On my Radar but not a focus</h2>
+        <li><input type="checkbox">Anything to do with indirection </input></li>
+        <li><input type="checkbox">Anything to do with global variables </input></li>
+
       <h2>Future plans</h2>
+      I eventually want to get to the point of adding:
       <ul>
         <li>Variable renaming</li>
         <li>Linting framework</li>
         <li>Extract/Inline function</li>
         <li>Testing Framework</li>
       </ul>
+      but that is quite a ways of yet.
     </div>
 </html>
