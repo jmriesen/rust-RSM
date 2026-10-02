@@ -1,3 +1,7 @@
+# Demo Site
+A [web editor](https://jmriesen.github.io/rust-RSM/) that is connected to the Mumps LSP and includes all of my integration test files.
+This is a static site, the editor and the LSP are run locally in the browser.
+
 # Project Motivation 
 I think that in order to truly understand an idea or a practice you must actually try it and live with it for a while.
 
@@ -66,26 +70,11 @@ They frequently assume that type A will be immediately followed by type B,
 so we end up with the logical composite type AB.
 This is mostly just a logical construction, and it is fairly easy to spot and handle once you know what to look for. 
 
-## [tree-sitter-m](./tree-sitter-M)
-For this project, I have chosen to use a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) parser.
-This crate is responsible for:
-- Using JavaScript to specify the grammar
-- Using an [external scanner](https://tree-sitter.github.io/tree-sitter/creating-parsers.html#external-scanners) to deal with indentation
-- Running the `tree-sitter-cli` as part of the [build script](./tree-sitter-M/bindings/rust/build.rs)
-- Generating
-  - A C library that contains the parser
-  - A Rust crate that wraps that C library
-  - A [node-types.json](./tree-sitter-M/src/node-types.json) file that describes the grammar's structure
-
-## [lang-model](./lang-model/)
-This holds the Rust type wrappers for each of the nodes in the M grammar.
-The [models.rs](./lang-model/src/models.rs) file is generated from the [node-types.json](./tree-sitter-M/src/node-types.json) using a separate personal project.
-
 ## [ir](./ir/)
 IR stands for intermediate representation; this crate holds the abstract syntax tree definition that is output by the frontend and consumed by the backend.
 
 ## [frontend](./frontend/)
-The Frontend is responsible for taking in text input, invoking the tree-sitter-parser, and converting the result into IR.
+The Frontend is responsible for parsing text input, and converting the result into IR.
 
 ## [backend](./backend/)
 The Backend is responsible for taking the IR and converting it into bytecode.
@@ -105,9 +94,10 @@ Currently, the crate is responsible for:
 - Setting up the shared memory segment
 
 ## [lang-server](./lang-server)
-This is a language server for M and was a spur-of-the-moment weekend project that only provides some basic syntax highlighting/syntax error detection.
-There are many useful features I would like to see from an M language server;
-however, the rest of the project will have to mature before I can start working on those features. 
+A language server for mumps.
+Currently supports:
+- Syntax highlighting.
+- A Run Routine command.
 
 Future feature ideas:
 - Find all assumed variables and indirection calls
@@ -139,7 +129,7 @@ This makes it rather challenging to create automatic refactoring tools even for 
 
 # Running the Project
 
-This project does not currently produce a working executable.
+This project is currently vary feature incomplete, and not recommenced to be used.
 If you need a working M interpreter, please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
 Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 
