@@ -27,7 +27,7 @@ import { createDefaultLocaleConfiguration } from 'monaco-languageclient/vscodeAp
 import { defaultHtmlAugmentationInstructions, defaultViewsInit, type MonacoVscodeApiConfig } from 'monaco-languageclient/vscodeApiWrapper';
 import { configureDefaultWorkerFactory } from 'monaco-languageclient/workerFactory';
 import { start_language_server } from './language-server-launcher.ts';
-import { mumps_language_id, mumpsExampleContent, mumpsExtension } from './mumps-extension.ts';
+import { mumps_language_id, mumpsExtension } from './mumps-extension.ts';
 
 
 const createDefaultWorkspaceContent = (workspacePath: string) =>
@@ -131,7 +131,8 @@ export const configure = async (htmlContainer?: HTMLElement): Promise<ConfigResu
   await fileSystemProvider.mkdir(workspaceUri);
 
   const testFiles = import.meta.glob('../../backend/tests/**/*.test', {
-    as: 'raw',
+    query: '?raw',
+    import: 'default',
     eager: true,
   });
   let mumpsUris=await Promise.all((Object.entries(testFiles)).map(async ([file_path,content])=>{
