@@ -1,5 +1,5 @@
 # Demo Site
-A [web editor](https://jmriesen.github.io/rust-RSM/) that is connected to the Mumps LSP and includes all of my integration test files..
+A [web editor](https://jmriesen.github.io/rust-RSM/) that is connected to the Mumps LSP and includes all of my integration test files.
 This is a static site, the editor and the LSP are run locally in the browser.
 
 # Project Motivation 
@@ -129,7 +129,7 @@ This makes it rather challenging to create automatic refactoring tools even for 
 
 # Running the Project
 
-This project is is currently vary feature incomplete, and not recommenced to be used.
+This project is currently vary feature incomplete, and not recommenced to be used.
 If you need a working M interpreter, please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
 Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 

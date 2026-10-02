@@ -130,12 +130,11 @@ export const configure = async (htmlContainer?: HTMLElement): Promise<ConfigResu
   const workspaceUri = vscode.Uri.file('/workspace');
   await fileSystemProvider.mkdir(workspaceUri);
 
-  const moduleStrings = import.meta.glob('../../backend/tests/**/*.test', {
+  const testFiles = import.meta.glob('../../backend/tests/**/*.test', {
     as: 'raw',
     eager: true,
   });
-  let files = Object.entries(moduleStrings)
-    let mumpsUris=await Promise.all(files.map(async ([file_path,content])=>{
+  let mumpsUris=await Promise.all((Object.entries(testFiles)).map(async ([file_path,content])=>{
     let name = file_path.replaceAll("../../backend/","").replace(".test",".m").replaceAll("/","-");
     let uri = vscode.Uri.file(`/workspace/${name}`);
     await fileSystemProvider.writeFile(uri, textEncoder.encode(content), options);
