@@ -60,6 +60,7 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
         .separated_by(just("\n"))
         .allow_trailing()
         .collect::<Vec<_>>()
+        .then_ignore(just("\n").repeated())
         //Ignore the trailing metadata in the test files.
         .then_ignore(just("---").then(any().repeated()).or_not())
 }
