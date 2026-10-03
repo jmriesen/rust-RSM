@@ -4,6 +4,7 @@ use crate::{
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
+        new::NewStackAsm,
         quit::QuitCodes,
         set::SetCodes,
         write::WriteCodes,
@@ -15,7 +16,10 @@ use crate::{
     runtime::program_counter::{AssemblyDecoder, ProgramCounter},
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
-use ir::operators::{Binary, Unary};
+use ir::{
+    commands::NewKind,
+    operators::{Binary, Unary},
+};
 use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
@@ -106,16 +110,19 @@ StackAssembally! {
     Jump,
     DoArgLess,
     Test,
+    NewStackAsm,
     TEMP,
 }
 
 impl<'a> Job<'a> {
     pub fn new(byte_code: &'a [u8]) -> Self {
+        let mut symbol_table = SymbolTable::default();
+        symbol_table.push_new_frame();
         Self {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
-            symbol_table: SymbolTable::default(),
+            symbol_table,
             error: None,
             stack: vec![DoFrame {
                 pc: ProgramCounter::new(byte_code),
@@ -155,6 +162,7 @@ impl<'a> Job<'a> {
                         match line_info.level.cmp(&do_frame.line_level) {
                             Ordering::Less => {
                                 self.stack.pop();
+                                self.symbol_table.pop_new_frame();
                             }
                             Ordering::Equal => { /*continue*/ }
                             Ordering::Greater => {
@@ -174,6 +182,7 @@ impl<'a> Job<'a> {
                             line_level: do_frame.line_level + 1,
                         };
                         self.stack.push(new_frame);
+                        self.symbol_table.push_new_frame();
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
@@ -288,9 +297,26 @@ impl<'a> Job<'a> {
                     StackAssembally::Test(_) => {
                         self.r_values.push(do_frame.test.into());
                     }
+                    StackAssembally::NewStackAsm(new) => {
+                        let NewStackAsm {
+                            number_of_variables,
+                            kind,
+                        } = new;
+
+                        let vars = self
+                            .l_values
+                            .drain((self.l_values.len() - number_of_variables as usize)..)
+                            .map(|x| x.name);
+
+                        match kind {
+                            NewKind::Inclusive => self.symbol_table.new_var(vars).unwrap(),
+                            NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
+                        }
+                    }
                 }
             } else {
                 self.stack.pop();
+                self.symbol_table.pop_new_frame();
             }
         }
     }

@@ -8,6 +8,7 @@ pub mod r#do;
 pub mod r#for;
 pub mod r#if;
 pub mod kill;
+pub mod new;
 pub mod quit;
 pub mod set;
 pub mod write;
@@ -41,6 +42,7 @@ impl Compile for Command {
             Command::If(x) => x.compile(bite_code, &()),
             Command::Kill(x) => x.compile(bite_code, &()),
             Command::Quit(x) => x.compile(bite_code, &()),
+            Command::New(x) => x.compile(bite_code, &()),
             Command::Error => todo!("refactor so I can claim this in a type safe way"),
         }
         bite_code.push(EndCommand.encode());
