@@ -1212,7 +1212,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "monaco-tower-lsp-bridge"
 version = "0.1.0"
-source = "git+https://github.com/jmriesen/Monaco-Tower-Lsp-Bridge?rev=4d6c01c1ecff13f2e2a8183bb5d35578c6216722#4d6c01c1ecff13f2e2a8183bb5d35578c6216722"
+source = "git+https://github.com/jmriesen/Monaco-Tower-Lsp-Bridge?rev=6c400f488cef52995ef40e798985f066ea55b7a1#6c400f488cef52995ef40e798985f066ea55b7a1"
 dependencies = [
  "futures",
  "js-sys",
