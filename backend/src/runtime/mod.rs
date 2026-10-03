@@ -4,7 +4,7 @@ use crate::{
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
-        new::{NewCodes, NewStackAsm},
+        new::NewStackAsm,
         quit::QuitCodes,
         set::SetCodes,
         write::WriteCodes,
@@ -16,7 +16,10 @@ use crate::{
     runtime::program_counter::{AssemblyDecoder, ProgramCounter},
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
-use ir::operators::{Binary, Unary};
+use ir::{
+    commands::NewKind,
+    operators::{Binary, Unary},
+};
 use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
@@ -297,24 +300,23 @@ impl<'a> Job<'a> {
                     StackAssembally::NewStackAsm(new) => {
                         let NewStackAsm {
                             number_of_variables,
-                            r#type,
+                            kind,
                         } = new;
-                        let mut vars = vec![];
-                        for _ in 0..number_of_variables {
-                            vars.push(self.l_values.pop().unwrap());
-                        }
-                        let vars: Vec<&_> = vars.iter().map(|x| &x.name).collect();
 
-                        match r#type {
-                            NewCodes::Inclusive => self.symbol_table.new_var(&vars[..]).unwrap(),
-                            NewCodes::Exclusive => {
-                                self.symbol_table.new_all_but(&vars[..]).unwrap()
-                            }
+                        let vars = self
+                            .l_values
+                            .drain((self.l_values.len() - number_of_variables as usize)..)
+                            .map(|x| x.name);
+
+                        match kind {
+                            NewKind::Inclusive => self.symbol_table.new_var(vars).unwrap(),
+                            NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
                         }
                     }
                 }
             } else {
                 self.stack.pop();
+                self.symbol_table.pop_new_frame();
             }
         }
     }

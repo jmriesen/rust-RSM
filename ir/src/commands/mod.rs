@@ -54,7 +54,13 @@ pub enum Command {
 pub struct Quit(pub Option<Expression>);
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
-pub enum New {
-    Inclusive(Vec<Spanned<Variable>>),
-    Exclusive(Vec<Spanned<Variable>>),
+pub enum NewKind {
+    Inclusive,
+    Exclusive,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+pub struct New {
+    pub kind: NewKind,
+    pub vars: Vec<Spanned<Variable>>,
 }

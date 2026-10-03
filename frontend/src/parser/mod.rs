@@ -3,7 +3,7 @@ use ir::{
     Expression::{self},
     ExtrinsicFunction, Line, Routine, Spanned, Tag,
     commands::{
-        self, Command, New, PostCondition,
+        self, Command, New, NewKind, PostCondition,
         Write::{self},
         r#break::Break,
         close::Close,
@@ -358,14 +358,16 @@ fn new<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
 
     keyword("new")
         .ignore_then(
-            space_or_eol().ignore_then(choice((
-                //
-                vars().map(New::Inclusive),
-                vars()
-                    .delimited_by(just("("), just(")"))
-                    .map(New::Exclusive),
-                empty().to(New::Exclusive(vec![])),
-            ))),
+            space_or_eol()
+                .ignore_then(choice((
+                    //
+                    vars().map(|x| (x, NewKind::Inclusive)),
+                    vars()
+                        .delimited_by(just("("), just(")"))
+                        .map(|x| (x, NewKind::Exclusive)),
+                    empty().to((vec![], NewKind::Exclusive)),
+                )))
+                .map(|(vars, typ)| New { kind: typ, vars }),
         )
         .map(Command::New)
 }

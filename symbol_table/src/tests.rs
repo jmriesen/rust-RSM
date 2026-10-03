@@ -158,7 +158,7 @@ fn keep_slot_open_if_variable_was_new_ed() {
     let mut table = SymbolTable::new();
     let var = var_m("foo", &[]);
     table.push_new_frame();
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     table.kill(&var);
 
     //Hash table should still have the slot reserved.
@@ -234,15 +234,15 @@ fn newing_stores_a_copy() {
     table.set(&var, &level_zero).unwrap();
 
     table.push_new_frame();
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     table.set(&var, &level_one).unwrap();
 
     table.push_new_frame();
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     table.set(&var, &level_two).unwrap();
 
     table.push_new_frame();
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     assert_eq!(table.get(&var), None);
 
     table.pop_new_frame();
@@ -266,7 +266,7 @@ fn assumed_variables_are_accessible() {
     table.set(&assumed_var, &assumed_value).unwrap();
 
     table.push_new_frame();
-    table.new_var(&[&new_ed_var.name]).unwrap();
+    table.new_var([new_ed_var.name.clone()]).unwrap();
     table.set(&new_ed_var, &assumed_value).unwrap();
 
     assert_eq!(table.get(&assumed_var), Some(&assumed_value));
@@ -288,11 +288,11 @@ fn calling_new_on_the_same_variable_multiple_times() {
 
     table.push_new_frame();
 
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     assert_eq!(table.get(&var), None);
     table.set(&var, &second_value).unwrap();
 
-    table.new_var(&[&var.name]).unwrap();
+    table.new_var([var.name.clone()]).unwrap();
     assert_eq!(table.get(&var), None);
     table.set(&var, &third_value).unwrap();
 
@@ -312,7 +312,7 @@ fn new_all_does_not_new_excluded_or_intrinsic_vars() {
     table.set(&included, &value).unwrap();
     table.set(&excluded, &value).unwrap();
 
-    table.new_all_but(&[&excluded.name]).unwrap();
+    table.new_all_but([excluded.name.clone()]).unwrap();
     //New-ed value
     assert_eq!(table.get(&included), None);
     //Not new-ed
