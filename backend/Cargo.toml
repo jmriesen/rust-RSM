@@ -10,7 +10,7 @@ symbol_table= {path = "../symbol_table/"}
 thiserror = "1.0.63"
 
 [dev-dependencies]
-frontend= {path="../frontend/"}
+frontend= {path="../frontend/", features = ["fuzzing"]}
 rstest = "0.22.0"
 ffi= {path = "../ffi/"}
 mutants = "0.0.3"
