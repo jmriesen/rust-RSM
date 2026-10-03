@@ -40,9 +40,6 @@ jobs:
 
     - name: Mutants
       run: |
-          # using tee to echo to both file and standered out. Or with true to insure first command never fails
-            cargo mutants --test-workspace true --no-shuffle -vV --in-diff git.diff 2>&1 | tee mutants.log || true
-            if grep -q "MISSED" mutants.log; then
-              echo "❌ Mutants missed!"
-              exit 1
-            fi
+          # Exit codes: 0 => all mutants killed. 3=> All killed or timed out 
+          #https://mutants.rs/exit-codes.html?highlight=exi#exit-codes
+            cargo mutants --test-workspace true --no-shuffle -vV --in-diff git.diff  || [ $? -eq 3 ]
