@@ -15,7 +15,7 @@ use r#if::If;
 use set::Set;
 pub use write::Write;
 
-use crate::{Spanned, commands::kill::Kill};
+use crate::{Spanned, Variable, commands::kill::Kill};
 
 use super::Expression;
 
@@ -46,8 +46,15 @@ pub enum Command {
     If(Vec<If>),
     Kill(Vec<Kill>),
     Quit(PostCondition<Quit>),
+    New(New),
     Error,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Quit(pub Option<Expression>);
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+pub enum New {
+    Inclusive(Vec<Spanned<Variable>>),
+    Exclusive(Vec<Spanned<Variable>>),
+}

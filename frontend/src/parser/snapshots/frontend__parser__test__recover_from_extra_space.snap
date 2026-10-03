@@ -44,6 +44,6 @@ expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
         },
     ),
     [
-        found '' '' at 5..6 expected write, if, else, set, for, quit, kill, do, brake, or close,
+        found '' '' at 5..6 expected write, if, else, set, for, quit, kill, do, brake, close, or new,
     ],
 )

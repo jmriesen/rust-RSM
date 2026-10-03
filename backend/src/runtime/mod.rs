@@ -4,6 +4,7 @@ use crate::{
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
         r#if::{ElseOp, IfOp},
         kill::KillInstruction,
+        new::{NewCodes, NewStackAsm},
         quit::QuitCodes,
         set::SetCodes,
         write::WriteCodes,
@@ -106,16 +107,19 @@ StackAssembally! {
     Jump,
     DoArgLess,
     Test,
+    NewStackAsm,
     TEMP,
 }
 
 impl<'a> Job<'a> {
     pub fn new(byte_code: &'a [u8]) -> Self {
+        let mut symbol_table = SymbolTable::default();
+        symbol_table.push_new_frame();
         Self {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
-            symbol_table: SymbolTable::default(),
+            symbol_table,
             error: None,
             stack: vec![DoFrame {
                 pc: ProgramCounter::new(byte_code),
@@ -155,6 +159,7 @@ impl<'a> Job<'a> {
                         match line_info.level.cmp(&do_frame.line_level) {
                             Ordering::Less => {
                                 self.stack.pop();
+                                self.symbol_table.pop_new_frame();
                             }
                             Ordering::Equal => { /*continue*/ }
                             Ordering::Greater => {
@@ -174,6 +179,7 @@ impl<'a> Job<'a> {
                             line_level: do_frame.line_level + 1,
                         };
                         self.stack.push(new_frame);
+                        self.symbol_table.push_new_frame();
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
@@ -287,6 +293,24 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::Test(_) => {
                         self.r_values.push(do_frame.test.into());
+                    }
+                    StackAssembally::NewStackAsm(new) => {
+                        let NewStackAsm {
+                            number_of_variables,
+                            r#type,
+                        } = new;
+                        let mut vars = vec![];
+                        for _ in 0..number_of_variables {
+                            vars.push(self.l_values.pop().unwrap());
+                        }
+                        let vars: Vec<&_> = vars.iter().map(|x| &x.name).collect();
+
+                        match r#type {
+                            NewCodes::Inclusive => self.symbol_table.new_var(&vars[..]).unwrap(),
+                            NewCodes::Exclusive => {
+                                self.symbol_table.new_all_but(&vars[..]).unwrap()
+                            }
+                        }
                     }
                 }
             } else {

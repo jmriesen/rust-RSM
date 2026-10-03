@@ -3,7 +3,7 @@ use ir::{
     Expression::{self},
     ExtrinsicFunction, Line, Routine, Spanned, Tag,
     commands::{
-        self, Command, PostCondition,
+        self, Command, New, PostCondition,
         Write::{self},
         r#break::Break,
         close::Close,
@@ -118,6 +118,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>
             do_parser(),
             break_parser(),
             close_parser(),
+            new(),
         ))
         .boxed()
         .recover_with(via_parser(choice((
@@ -346,6 +347,27 @@ fn close_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                 .map(|x| x.into_iter().map(Close).collect()),
         )
         .map(|(condition, value)| Command::Close(PostCondition { condition, value }))
+}
+fn new<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
+    let vars = || {
+        local_variable_no_subscripts(expression().boxed())
+            .separated_by(just(","))
+            .at_least(1)
+            .collect::<Vec<_>>()
+    };
+
+    keyword("new")
+        .ignore_then(
+            space_or_eol().ignore_then(choice((
+                //
+                vars().map(New::Inclusive),
+                vars()
+                    .delimited_by(just("("), just(")"))
+                    .map(New::Exclusive),
+                empty().to(New::Exclusive(vec![])),
+            ))),
+        )
+        .map(Command::New)
 }
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
