@@ -21,6 +21,6 @@ expression: "line_parser().parse(\" foo bar\").into_output_errors()"
     ),
     [
         found ''o'' at 3..4 expected ''r'',
-        found ''a'' at 6..7 expected ''r'', '':'', or '' '',
+        found ''a'' at 6..7 expected ''r'', '':'', '' '', ''\n'', or end of input,
     ],
 )
