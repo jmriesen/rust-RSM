@@ -3,14 +3,14 @@ use ir::{
     Expression::{self},
     ExtrinsicFunction, Line, Routine, Spanned, Tag,
     commands::{
-        self, Command, New, NewKind, PostCondition,
+        Command, New, NewKind, PostCondition, Quit,
         Write::{self},
         r#break::Break,
         close::Close,
         r#do::Do,
         r#for::{Argument, For, ForKind},
         r#if::If,
-        set::Set,
+        kill,
     },
     extrinsic_function::{
         Args,
@@ -18,6 +18,7 @@ use ir::{
     },
     variable::Ident,
 };
+mod commands;
 mod expression;
 mod variable;
 use expression::expression;
@@ -26,8 +27,12 @@ pub type Extra<'src> = chumsky::extra::Err<Rich<'src, char, SimpleSpan, ParsingE
 
 use crate::{
     ParsingError,
-    parser::variable::{identifier, local_variable_no_subscripts, variable},
+    parser::{
+        commands::set_parser,
+        variable::{identifier, local_variable_no_subscripts, variable},
+    },
 };
+
 pub fn peek<'src, U, B>(item: B) -> AndIs<Empty<&'src str, Extra<'src>>, B, U>
 where
     B: Parser<'src, &'src str, U, Extra<'src>>,
@@ -47,6 +52,7 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
     .labelled(keyword)
     .as_terminal()
 }
+
 fn args_list<'src, T>(
     term: impl Parser<'src, &'src str, T, Extra<'src>>,
 ) -> impl Parser<'src, &'src str, Vec<T>, Extra<'src>> {
@@ -111,7 +117,7 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>
             write(),
             if_parser(),
             else_parser(),
-            set_parser(),
+            set_parser().map(Command::Set),
             for_parser(cmd),
             quit_parser(),
             kill_parser(),
@@ -124,14 +130,11 @@ fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>
         .recover_with(via_parser(choice((
             //Consumes arbitrary text and treats is as a command.
             //We don't want to consume our delimiters
-            none_of(" \n")
-                .repeated()
-                .at_least(1)
-                .to(commands::Command::Error),
+            none_of(" \n").repeated().at_least(1).to(Command::Error),
             //Handles detecting "extra spaces"
             //Rather than trying to consume the space I am just injecting an error command (without
             //consuming anything and letting the "extra" space be treated as a deliminator.
-            peek(just(" ")).to(commands::Command::Error),
+            peek(just(" ")).to(Command::Error),
         ))))
         .spanned()
         .map(|x| Spanned::from(x))
@@ -193,14 +196,6 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Extra<'src>
     .map(|x| Spanned::from(x))
 }
 
-fn set_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    cmd_p("set")
-        .ignore_then(variable(expression().boxed()))
-        .then_ignore(just("="))
-        .then(expression())
-        .map(|(variable, value)| Command::Set(Set { variable, value }))
-}
-
 fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
     cmd_p("quit")
         .then(
@@ -218,7 +213,7 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                             ParsingError::NotYetSupported("quit with args"),
                         ));
                     }
-                    commands::Quit(return_value.pop())
+                    Quit(return_value.pop())
                 }),
         )
         .map(|(condition, value)| Command::Quit(PostCondition { condition, value }))
@@ -284,7 +279,7 @@ fn function_args<'src>(
 }
 
 fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    use commands::kill::{Kill, KillType as E};
+    use kill::{Kill, KillType as E};
     cmd("kill")
         .ignore_then(
             choice((
