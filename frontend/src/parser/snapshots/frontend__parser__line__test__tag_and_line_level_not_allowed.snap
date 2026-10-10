@@ -1,0 +1,38 @@
+---
+source: frontend/src/parser/line.rs
+expression: "line_parser().parse(\"foo ...w !\").into_output_errors()"
+---
+(
+    Some(
+        Line {
+            tag: Some(
+                Spanned {
+                    inner: Tag {
+                        name: "foo",
+                    },
+                    span: 0..3,
+                },
+            ),
+            level: 3,
+            commands: [
+                Spanned {
+                    inner: Write(
+                        PostCondition {
+                            condition: None,
+                            value: [
+                                Spanned {
+                                    inner: Bang,
+                                    span: 9..10,
+                                },
+                            ],
+                        },
+                    ),
+                    span: 7..10,
+                },
+            ],
+        },
+    ),
+    [
+        Tags can only be found at line level zero at 0..10,
+    ],
+)
