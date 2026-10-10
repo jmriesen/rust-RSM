@@ -34,6 +34,7 @@ pub fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'
         .map(|x| Spanned::from(x))
     })
 }
+
 #[cfg(test)]
 mod test {
     use super::*;

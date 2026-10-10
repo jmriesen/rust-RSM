@@ -20,6 +20,7 @@ use ir::{
 };
 mod commands;
 mod expression;
+mod line;
 mod variable;
 use expression::expression;
 
@@ -28,7 +29,7 @@ pub type Extra<'src> = chumsky::extra::Err<Rich<'src, char, SimpleSpan, ParsingE
 use crate::{
     ParsingError,
     parser::{
-        commands::{command, set::set_parser},
+        line::line_parser,
         variable::{identifier, local_variable_no_subscripts, variable},
     },
 };
@@ -69,46 +70,6 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
         .then_ignore(just("\n").repeated())
         //Ignore the trailing metadata in the test files.
         .then_ignore(just("---").then(any().repeated()).or_not())
-}
-
-fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
-    let tag = text::ascii::ident()
-        .map(|tag: &str| Tag {
-            name: tag.to_owned(),
-        })
-        .spanned()
-        .map(|x| Spanned::from(x));
-    let line_level = just(".").repeated().count();
-
-    let commands = command().separated_by(just(" ")).allow_trailing().collect();
-    let commands2 = command().separated_by(just(" ")).allow_trailing().collect();
-
-    //Tag\n
-    //Tag Commands\n
-    // line_levelCommands\n
-    //TODO: This feels like this can be simplified
-    choice((
-        tag.then_ignore(just(" "))
-            .then(commands)
-            .map(|(tag, commands)| Line {
-                tag: Some(tag),
-                level: 0,
-                commands,
-            }),
-        just(" ")
-            .ignore_then(line_level)
-            .then(commands2)
-            .map(|(level, commands)| Line {
-                tag: None,
-                level: level as u16,
-                commands,
-            }),
-        tag.map(|tag| Line {
-            tag: Some(tag),
-            level: 0,
-            commands: vec![],
-        }),
-    ))
 }
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
