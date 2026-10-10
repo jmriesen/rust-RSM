@@ -28,7 +28,7 @@ pub type Extra<'src> = chumsky::extra::Err<Rich<'src, char, SimpleSpan, ParsingE
 use crate::{
     ParsingError,
     parser::{
-        commands::set_parser,
+        commands::{command, set::set_parser},
         variable::{identifier, local_variable_no_subscripts, variable},
     },
 };
@@ -111,35 +111,6 @@ fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     ))
 }
 
-fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>> {
-    recursive(|cmd| {
-        choice((
-            write(),
-            if_parser(),
-            else_parser(),
-            set_parser().map(Command::Set),
-            for_parser(cmd),
-            quit_parser(),
-            kill_parser(),
-            do_parser(),
-            break_parser(),
-            close_parser(),
-            new(),
-        ))
-        .boxed()
-        .recover_with(via_parser(choice((
-            //Consumes arbitrary text and treats is as a command.
-            //We don't want to consume our delimiters
-            none_of(" \n").repeated().at_least(1).to(Command::Error),
-            //Handles detecting "extra spaces"
-            //Rather than trying to consume the space I am just injecting an error command (without
-            //consuming anything and letting the "extra" space be treated as a deliminator.
-            peek(just(" ")).to(Command::Error),
-        ))))
-        .spanned()
-        .map(|x| Spanned::from(x))
-    })
-}
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
     choice((just(" ").ignored(), peek(just("\n")).ignored(), end()))
 }
@@ -414,9 +385,5 @@ mod test {
     #[test]
     fn recover_from_extra_space() {
         insta::assert_debug_snapshot!(line_parser().parse(" w !  w ! ").into_output_errors());
-    }
-    #[test]
-    fn recover_from_unknown_command() {
-        insta::assert_debug_snapshot!(line_parser().parse(" foo bar").into_output_errors());
     }
 }
