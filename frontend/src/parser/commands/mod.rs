@@ -1,3 +1,5 @@
+use crate::parser::commands::set::set_parser;
+
 use super::*;
 pub mod set;
 
