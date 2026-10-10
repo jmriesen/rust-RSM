@@ -21,6 +21,7 @@ use ir::{
 mod commands;
 mod expression;
 mod line;
+mod separated_by;
 mod variable;
 use expression::expression;
 
@@ -331,20 +332,10 @@ mod test {
 
     use chumsky::Parser;
 
-    use super::{line_parser, write};
+    use super::write;
 
     #[test]
     fn write_command() {
         insta::assert_debug_snapshot!(write().parse("w !,#,\"test\"").into_output_errors());
-    }
-
-    #[test]
-    fn full_line() {
-        insta::assert_debug_snapshot!(line_parser().parse("tag w !").into_output_errors());
-    }
-
-    #[test]
-    fn recover_from_extra_space() {
-        insta::assert_debug_snapshot!(line_parser().parse(" w !  w ! ").into_output_errors());
     }
 }

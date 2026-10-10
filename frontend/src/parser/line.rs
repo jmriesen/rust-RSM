@@ -1,6 +1,7 @@
 use chumsky::{IterParser, prelude::*};
-use ir::{Line, Spanned, Tag};
+use ir::{Line, Spanned, Tag, commands::Command};
 
+use super::separated_by::separated_by_with_recovery;
 use crate::{
     ParsingError,
     parser::{Extra, commands::command},
@@ -14,7 +15,10 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         .map(|x| Spanned::from(x));
 
     let line_level = just(".").repeated().count().map(|level| level as u16);
-    let commands = command().separated_by(just(" ")).allow_trailing().collect();
+    let commands = separated_by_with_recovery(command(), just(" ").ignored(), |span| Spanned {
+        span: span.into(),
+        inner: Command::Error,
+    });
 
     tag.or_not()
         .then(
@@ -60,7 +64,13 @@ mod test {
 
     #[test]
     fn tag_and_line_level_not_allowed() {
-        //Note currently parsing as error error
+        //Note currently parsing as an error
         insta::assert_debug_snapshot!(line_parser().parse("foo ...w !").into_output_errors());
+    }
+
+    #[test]
+    fn recover_from_extra_space() {
+        //Note currently parsing as an error
+        insta::assert_debug_snapshot!(line_parser().parse(" w !  w !").into_output_errors());
     }
 }

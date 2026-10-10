@@ -1,0 +1,15 @@
+---
+source: frontend/src/parser/separated_by.rs
+expression: "separated_by_with_recovery(just(\"a\"), just(\",\").ignored(),\n\"c\").parse(\"a,a,a,a\").into_output_errors()"
+---
+(
+    Some(
+        [
+            "a",
+            "a",
+            "a",
+            "a",
+        ],
+    ),
+    [],
+)

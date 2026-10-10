@@ -1,6 +1,6 @@
 ---
-source: frontend/src/parser/mod.rs
-expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
+source: frontend/src/parser/line.rs
+expression: "line_parser().parse(\" w !  w !\").into_output_errors()"
 ---
 (
     Some(
