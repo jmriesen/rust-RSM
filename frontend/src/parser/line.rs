@@ -18,7 +18,8 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let commands = separated_by_with_recovery(command(), just(" ").ignored(), |span| Spanned {
         span: span.into(),
         inner: Command::Error,
-    });
+    })
+    .collect();
 
     tag.or_not()
         .then(
