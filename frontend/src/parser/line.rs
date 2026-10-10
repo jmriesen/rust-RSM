@@ -9,10 +9,9 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         })
         .spanned()
         .map(|x| Spanned::from(x));
-    let line_level = just(".").repeated().count();
 
-    let commands = command().separated_by(just(" ")).allow_trailing().collect();
-    let commands2 = command().separated_by(just(" ")).allow_trailing().collect();
+    let line_level = just(".").repeated().count();
+    let commands = || command().separated_by(just(" ")).allow_trailing().collect();
 
     //Tag\n
     //Tag Commands\n
@@ -20,7 +19,7 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     //TODO: This feels like this can be simplified
     choice((
         tag.then_ignore(just(" "))
-            .then(commands)
+            .then(commands())
             .map(|(tag, commands)| Line {
                 tag: Some(tag),
                 level: 0,
@@ -28,7 +27,7 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
             }),
         just(" ")
             .ignore_then(line_level)
-            .then(commands2)
+            .then(commands())
             .map(|(level, commands)| Line {
                 tag: None,
                 level: level as u16,
