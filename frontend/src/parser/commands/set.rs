@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use ir::commands::{Command, set::Set};
+use ir::commands::set::Set;
 
 use crate::{
     ParsingError::ParserError,

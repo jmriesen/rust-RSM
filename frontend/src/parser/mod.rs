@@ -65,8 +65,7 @@ fn args_list<'src, T>(
 
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
     line_parser()
-        .separated_by(just("\n"))
-        .allow_trailing()
+        .repeated()
         .collect::<Vec<_>>()
         .then_ignore(just("\n").repeated())
         //Ignore the trailing metadata in the test files.
@@ -75,6 +74,10 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
     choice((just(" ").ignored(), peek(just("\n")).ignored(), end()))
+}
+
+fn eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
+    choice((just("\n").ignored(), end()))
 }
 
 /// Command with a optional post condition

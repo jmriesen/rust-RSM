@@ -24,7 +24,7 @@ expression: "line_parser().parse(\" w !  w !\").into_output_errors()"
                 },
                 Spanned {
                     inner: Error,
-                    span: 5..5,
+                    span: 5..6,
                 },
                 Spanned {
                     inner: Write(

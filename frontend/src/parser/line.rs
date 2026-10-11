@@ -1,10 +1,9 @@
 use chumsky::{IterParser, prelude::*};
 use ir::{Line, Spanned, Tag, commands::Command};
 
-use super::separated_by::separated_by_with_recovery;
 use crate::{
     ParsingError,
-    parser::{Extra, commands::command},
+    parser::{Extra, commands::command, eol},
 };
 pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let tag = text::ascii::ident()
@@ -15,13 +14,16 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         .map(|x| Spanned::from(x));
 
     let line_level = just(".").repeated().count().map(|level| level as u16);
-    let commands = separated_by_with_recovery(command(), just(" ").ignored(), |span| Spanned {
-        span: span.into(),
-        inner: Command::Error,
-    })
-    .collect();
 
-    tag.or_not()
+    let commands = command()
+        .recover_with(via_parser(just(" ").map_with(|_, extra| Spanned {
+            span: extra.span(),
+            inner: Command::Error,
+        })))
+        .repeated()
+        .collect();
+
+    (tag.or_not()
         .then(
             just(" ")
                 .ignore_then(line_level)
@@ -33,16 +35,27 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
             tag,
             level,
             commands,
-        })
-        .validate(|line, extra, emitter| {
-            if line.tag.is_some() && line.level != 0 {
-                emitter.emit(Rich::custom(
-                    extra.span(),
-                    ParsingError::TagsLineLevelMustBeZero,
-                ));
-            }
-            line
-        })
+        }))
+    .validate(|line, extra, emitter| {
+        if line.tag.is_some() && line.level != 0 {
+            emitter.emit(Rich::custom(
+                extra.span(),
+                ParsingError::TagsLineLevelMustBeZero,
+            ));
+        }
+        line
+    })
+    .then_ignore(
+        // End of line or skip to end of line.
+        eol().recover_with(via_parser(
+            any()
+                .and_is(eol().not())
+                .repeated()
+                .at_least(1)
+                .then(eol())
+                .ignored(),
+        )),
+    )
 }
 
 #[cfg(test)]
@@ -73,5 +86,10 @@ mod test {
     fn recover_from_extra_space() {
         //Note currently parsing as an error
         insta::assert_debug_snapshot!(line_parser().parse(" w !  w !").into_output_errors());
+    }
+    #[test]
+    fn debug() {
+        //Note currently parsing as an error
+        insta::assert_debug_snapshot!(line_parser().parse(" set i=1 w !, ").into_output_errors());
     }
 }

@@ -19,8 +19,18 @@ pub fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'
             new(),
         ))
         .boxed()
-        //.recover_with(via_parser(recover_parser().to(Command::Error)))
         .spanned()
         .map(|x| Spanned::from(x))
     })
+    .recover_with(via_parser(
+        any()
+            .filter(|x: &char| x.is_ascii_alphanumeric())
+            .repeated()
+            .at_least(1)
+            .map_with(|_, extra| Spanned {
+                span: extra.span(),
+                inner: Command::Error,
+            }),
+    ))
+    .then_ignore(space_or_eol())
 }
