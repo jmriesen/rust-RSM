@@ -1,9 +1,9 @@
 use chumsky::{IterParser, prelude::*};
-use ir::{Line, Spanned, Tag, commands::Command};
+use ir::{Line, Spanned, Tag};
 
 use crate::{
     ParsingError,
-    parser::{Extra, commands::command, eol},
+    parser::{Extra, commands::command, eol, space_or_eol},
 };
 pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let tag = text::ascii::ident()
@@ -16,12 +16,14 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let line_level = just(".").repeated().count().map(|level| level as u16);
 
     let commands = command()
-        .recover_with(via_parser(just(" ").map_with(|_, extra| Spanned {
-            span: extra.span(),
-            inner: Command::Error,
-        })))
+        //Try to find next command
+        .recover_with(skip_then_retry_until(
+            any().and_is(eol().not()).ignored(),
+            eol(),
+        ))
         .repeated()
-        .collect();
+        .collect()
+        .then_ignore(space_or_eol().or_not());
 
     (tag.or_not()
         .then(
@@ -31,6 +33,12 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
                 .or_not()
                 .map(|level_commands| level_commands.unwrap_or((0, vec![]))),
         )
+        //If there is anything left we don't understand (probably a bad command skip it and move to
+        //end of line)
+        .then_ignore(eol().recover_with(skip_then_retry_until(any().ignored(), eol())))
+        // Explicitly disallowing matching to just end
+        // Without this the routine parser can get into an infinite loop
+        .and_is(end().not())
         .map(|(tag, (level, commands))| Line {
             tag,
             level,
@@ -45,17 +53,6 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         }
         line
     })
-    .then_ignore(
-        // End of line or skip to end of line.
-        eol().recover_with(via_parser(
-            any()
-                .and_is(eol().not())
-                .repeated()
-                .at_least(1)
-                .then(eol())
-                .ignored(),
-        )),
-    )
 }
 
 #[cfg(test)]
@@ -88,8 +85,22 @@ mod test {
         insta::assert_debug_snapshot!(line_parser().parse(" w !  w !").into_output_errors());
     }
     #[test]
-    fn debug() {
+    fn recover_by_skipping_to_end_of_line() {
         //Note currently parsing as an error
-        insta::assert_debug_snapshot!(line_parser().parse(" set i=1 w !, ").into_output_errors());
+        insta::assert_debug_snapshot!(
+            line_parser()
+                //                -><- write is missing and argument
+                .parse(" set i=1 w !, ")
+                .into_output_errors()
+        );
+    }
+    #[test]
+    fn recover_from_bad_command_by_looking_for_next_good_one() {
+        insta::assert_debug_snapshot!(
+            line_parser()
+                //                -><- write is missing and argument
+                .parse(" set i=1 w !, s i=1")
+                .into_output_errors()
+        );
     }
 }

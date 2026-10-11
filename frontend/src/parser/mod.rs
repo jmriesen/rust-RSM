@@ -65,6 +65,7 @@ fn args_list<'src, T>(
 
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
     line_parser()
+        .and_is(just("---").not())
         .repeated()
         .collect::<Vec<_>>()
         .then_ignore(just("\n").repeated())

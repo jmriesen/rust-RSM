@@ -23,10 +23,6 @@ expression: "line_parser().parse(\" w !  w !\").into_output_errors()"
                     span: 1..4,
                 },
                 Spanned {
-                    inner: Error,
-                    span: 5..6,
-                },
-                Spanned {
                     inner: Write(
                         PostCondition {
                             condition: None,
