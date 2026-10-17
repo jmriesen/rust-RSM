@@ -30,7 +30,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::{mem::MaybeUninit, ptr::null_mut, usize};
+    use std::{mem::MaybeUninit, ptr::null_mut};
 
     use ffi::jobtab;
     use std::ptr::from_ref;

@@ -12,6 +12,7 @@ use crate::parser::Extra;
 //This is because, it automatically inserts a error on an empty term.
 //And trailing is indistinguishable from an empty term.
 //as far as I can tell.
+#[allow(unused)]
 pub fn separated_by_with_recovery<
     'src,
     'b,

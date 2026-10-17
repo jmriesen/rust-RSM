@@ -1,7 +1,7 @@
 use chumsky::{IterParser, combinator::AndIs, prelude::*, primitive::Empty};
 use ir::{
     Expression::{self},
-    ExtrinsicFunction, Line, Routine, Spanned, Tag,
+    ExtrinsicFunction, Routine, Spanned,
     commands::{
         Command, New, NewKind, PostCondition, Quit,
         Write::{self},
