@@ -49,5 +49,14 @@ pub struct Line {
     pub level: u16,
     pub commands: Vec<Spanned<Command>>,
 }
+impl Line {
+    pub const fn blank() -> Self {
+        Self {
+            tag: None,
+            level: 0,
+            commands: Vec::new(),
+        }
+    }
+}
 
 pub type Routine = Vec<Line>;

@@ -3,14 +3,14 @@ use ir::{
     Expression::{self},
     ExtrinsicFunction, Line, Routine, Spanned, Tag,
     commands::{
-        self, Command, New, NewKind, PostCondition,
+        Command, New, NewKind, PostCondition, Quit,
         Write::{self},
         r#break::Break,
         close::Close,
         r#do::Do,
         r#for::{Argument, For, ForKind},
         r#if::If,
-        set::Set,
+        kill,
     },
     extrinsic_function::{
         Args,
@@ -18,7 +18,10 @@ use ir::{
     },
     variable::Ident,
 };
+mod commands;
 mod expression;
+mod line;
+mod separated_by;
 mod variable;
 use expression::expression;
 
@@ -26,8 +29,12 @@ pub type Extra<'src> = chumsky::extra::Err<Rich<'src, char, SimpleSpan, ParsingE
 
 use crate::{
     ParsingError,
-    parser::variable::{identifier, local_variable_no_subscripts, variable},
+    parser::{
+        line::line_parser,
+        variable::{identifier, local_variable_no_subscripts, variable},
+    },
 };
+
 pub fn peek<'src, U, B>(item: B) -> AndIs<Empty<&'src str, Extra<'src>>, B, U>
 where
     B: Parser<'src, &'src str, U, Extra<'src>>,
@@ -47,6 +54,7 @@ pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), 
     .labelled(keyword)
     .as_terminal()
 }
+
 fn args_list<'src, T>(
     term: impl Parser<'src, &'src str, T, Extra<'src>>,
 ) -> impl Parser<'src, &'src str, Vec<T>, Extra<'src>> {
@@ -57,106 +65,50 @@ fn args_list<'src, T>(
 
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
     line_parser()
-        .separated_by(just("\n"))
-        .allow_trailing()
+        .and_is(just("---").not())
+        .repeated()
         .collect::<Vec<_>>()
         .then_ignore(just("\n").repeated())
         //Ignore the trailing metadata in the test files.
         .then_ignore(just("---").then(any().repeated()).or_not())
 }
 
-fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
-    let tag = text::ascii::ident()
-        .map(|tag: &str| Tag {
-            name: tag.to_owned(),
-        })
-        .spanned()
-        .map(|x| Spanned::from(x));
-    let line_level = just(".").repeated().count();
-
-    let commands = command().separated_by(just(" ")).allow_trailing().collect();
-    let commands2 = command().separated_by(just(" ")).allow_trailing().collect();
-
-    //Tag\n
-    //Tag Commands\n
-    // line_levelCommands\n
-    //TODO: This feels like this can be simplified
-    choice((
-        tag.then_ignore(just(" "))
-            .then(commands)
-            .map(|(tag, commands)| Line {
-                tag: Some(tag),
-                level: 0,
-                commands,
-            }),
-        just(" ")
-            .ignore_then(line_level)
-            .then(commands2)
-            .map(|(level, commands)| Line {
-                tag: None,
-                level: level as u16,
-                commands,
-            }),
-        tag.map(|tag| Line {
-            tag: Some(tag),
-            level: 0,
-            commands: vec![],
-        }),
-    ))
+fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
+    choice((just(" ").ignored(), peek(just("\n")).ignored(), end()))
 }
 
-fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>> {
-    recursive(|cmd| {
-        choice((
-            write(),
-            if_parser(),
-            else_parser(),
-            set_parser(),
-            for_parser(cmd),
-            quit_parser(),
-            kill_parser(),
-            do_parser(),
-            break_parser(),
-            close_parser(),
-            new(),
-        ))
-        .boxed()
-        .recover_with(via_parser(choice((
-            //Consumes arbitrary text and treats is as a command.
-            //We don't want to consume our delimiters
-            none_of(" \n")
-                .repeated()
-                .at_least(1)
-                .to(commands::Command::Error),
-            //Handles detecting "extra spaces"
-            //Rather than trying to consume the space I am just injecting an error command (without
-            //consuming anything and letting the "extra" space be treated as a deliminator.
-            peek(just(" ")).to(commands::Command::Error),
-        ))))
-        .spanned()
-        .map(|x| Spanned::from(x))
-    })
+fn eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
+    choice((just("\n").ignored(), end()))
+}
+
+/// Command with no post condition
+fn cmd<'src>(name: &'static str) -> impl Parser<'src, &'src str, (), Extra<'src>> {
+    keyword(name).then_ignore(space_or_eol())
+}
+fn post_condition<'src>() -> impl Parser<'src, &'src str, Option<Expression>, Extra<'src>> {
+    just(":").ignore_then(expression()).or_not()
+}
+/// Command with a optional post condition
+fn cmd_p<'src>(
+    name: &'static str,
+) -> impl Parser<'src, &'src str, Option<Expression>, Extra<'src>> {
+    keyword(name)
+        .ignore_then(post_condition())
+        .then_ignore(space_or_eol())
 }
 
 fn write<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("write")
-        .then_ignore(just(" "))
-        .ignore_then(
+    cmd_p("write")
+        .then(
             write_arg()
                 .separated_by(just(","))
                 .at_least(1)
                 .collect::<Vec<_>>(),
         )
-        .map(|x| {
-            Command::Write(PostCondition {
-                condition: None,
-                value: x,
-            })
-        })
+        .map(|(condition, value)| Command::Write(PostCondition { condition, value }))
 }
 fn if_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("if")
-        .then_ignore(just(" "))
+    cmd("if")
         .ignore_then(
             expression()
                 .map(If)
@@ -164,17 +116,14 @@ fn if_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                 .at_least(1)
                 .collect::<Vec<_>>(),
         )
-        .map(|x| Command::If(dbg!(x)))
+        .map(|x| Command::If(x))
 }
 fn else_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("else")
-        .then_ignore(just(" "))
-        .map(|_| Command::Else)
+    cmd("else").map(|_| Command::Else)
 }
 
 fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Extra<'src>> {
     choice((
-        //
         just("!").to(Write::Bang),
         just("#").to(Write::Clear),
         just("?").ignore_then(expression()).map(|x| Write::Tab(x)),
@@ -184,27 +133,13 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Extra<'src>
     .map(|x| Spanned::from(x))
 }
 
-fn set_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("set")
-        .then_ignore(just(" "))
-        .ignore_then(variable(expression().boxed()))
-        .then_ignore(just("="))
-        .then(expression())
-        .map(|(variable, value)| Command::Set(Set { variable, value }))
-}
-
-fn post_condition<'src>() -> impl Parser<'src, &'src str, Option<Expression>, Extra<'src>> {
-    just(":").ignore_then(expression()).or_not()
-}
-
 fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("quit")
-        .ignore_then(post_condition())
-        .then_ignore(space_or_eol())
+    cmd_p("quit")
         .then(
             expression()
                 .separated_by(just(","))
                 .collect::<Vec<_>>()
+                //Validation logic
                 .validate(|mut return_value, extra, emiter| {
                     if return_value.len() > 1 {
                         emiter.emit(Rich::custom(extra.span(), ParsingError::QuitExtraArgs));
@@ -215,30 +150,27 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                             ParsingError::NotYetSupported("quit with args"),
                         ));
                     }
-                    commands::Quit(return_value.pop())
+                    Quit(return_value.pop())
                 }),
         )
         .map(|(condition, value)| Command::Quit(PostCondition { condition, value }))
 }
+
 fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("do")
-        .ignore_then(post_condition())
+    cmd_p("do")
         .then(
-            space_or_eol()
-                .ignore_then(
-                    parse_extrinsic_function(expression().boxed())
-                        .then(post_condition())
-                        .map(|(value, condition)| PostCondition { condition, value })
-                        .separated_by(just(","))
-                        .collect::<Vec<_>>(),
-                )
-                .map(|x| {
-                    if x.is_empty() {
-                        Do::ArgumentLess
-                    } else {
-                        Do::FunctionCall(x)
-                    }
-                }),
+            (parse_extrinsic_function(expression().boxed())
+                .then(post_condition())
+                .map(|(value, condition)| PostCondition { condition, value })
+                .separated_by(just(","))
+                .collect::<Vec<_>>())
+            .map(|x| {
+                if x.is_empty() {
+                    Do::ArgumentLess
+                } else {
+                    Do::FunctionCall(x)
+                }
+            }),
         )
         .map(|(condition, value)| Command::Do(PostCondition { condition, value }))
 }
@@ -284,67 +216,58 @@ fn function_args<'src>(
 }
 
 fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    use commands::kill::KillType as E;
-    keyword("kill")
+    use kill::{Kill, KillType as E};
+    cmd("kill")
         .ignore_then(
-            space_or_eol().ignore_then(
-                choice((
-                    variable(expression().boxed()).map(|var| commands::kill::Kill {
-                        r#type: E::Inclusive,
-                        variables: vec![var],
-                    }),
-                    local_variable_no_subscripts(expression().boxed())
-                        .map(|var| commands::kill::Kill {
-                            r#type: E::Exclusive,
-                            variables: vec![var],
-                        })
-                        .delimited_by(just("("), just(")")),
-                ))
-                .separated_by(just(","))
-                .collect::<Vec<_>>()
-                .map(|x| {
-                    if x.is_empty() {
-                        vec![commands::kill::Kill {
-                            r#type: E::Exclusive,
-                            variables: vec![],
-                        }]
-                    } else {
-                        x
-                    }
+            choice((
+                variable(expression().boxed()).map(|var| Kill {
+                    r#type: E::Inclusive,
+                    variables: vec![var],
                 }),
-            ),
+                local_variable_no_subscripts(expression().boxed())
+                    .map(|var| Kill {
+                        r#type: E::Exclusive,
+                        variables: vec![var],
+                    })
+                    .delimited_by(just("("), just(")")),
+            ))
+            .separated_by(just(","))
+            .collect::<Vec<_>>()
+            .map(|x| {
+                if x.is_empty() {
+                    vec![Kill {
+                        r#type: E::Exclusive,
+                        variables: vec![],
+                    }]
+                } else {
+                    x
+                }
+            }),
         )
         .map(|value| Command::Kill(value))
 }
 
 fn break_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("brake")
-        .ignore_then(post_condition())
+    cmd_p("brake")
         .then(
-            just(" ")
-                .ignore_then(expression().separated_by(just(",")).collect::<Vec<_>>())
-                .map(|x| {
-                    if x.is_empty() {
-                        Break::ArgumentLess
-                    } else {
-                        Break::Arg(x)
-                    }
-                }),
+            (expression().separated_by(just(",")).collect::<Vec<_>>()).map(|x| {
+                if x.is_empty() {
+                    Break::ArgumentLess
+                } else {
+                    Break::Arg(x)
+                }
+            }),
         )
         .map(|(condition, value)| Command::Break(PostCondition { condition, value }))
 }
 fn close_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
-    keyword("close")
-        .ignore_then(post_condition())
+    cmd_p("close")
         .then(
-            just(" ")
-                .ignore_then(
-                    expression()
-                        .separated_by(just(","))
-                        .at_least(1)
-                        .collect::<Vec<_>>(),
-                )
-                .map(|x| x.into_iter().map(Close).collect()),
+            (expression()
+                .separated_by(just(","))
+                .at_least(1)
+                .collect::<Vec<_>>())
+            .map(|x| x.into_iter().map(Close).collect()),
         )
         .map(|(condition, value)| Command::Close(PostCondition { condition, value }))
 }
@@ -356,29 +279,23 @@ fn new<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
             .collect::<Vec<_>>()
     };
 
-    keyword("new")
+    cmd("new")
         .ignore_then(
-            space_or_eol()
-                .ignore_then(choice((
-                    //
-                    vars().map(|x| (x, NewKind::Inclusive)),
-                    vars()
-                        .delimited_by(just("("), just(")"))
-                        .map(|x| (x, NewKind::Exclusive)),
-                    empty().to((vec![], NewKind::Exclusive)),
-                )))
-                .map(|(vars, typ)| New { kind: typ, vars }),
+            choice((
+                vars().map(|x| (x, NewKind::Inclusive)),
+                vars()
+                    .delimited_by(just("("), just(")"))
+                    .map(|x| (x, NewKind::Exclusive)),
+                empty().to((vec![], NewKind::Exclusive)),
+            ))
+            .map(|(vars, typ)| New { kind: typ, vars }),
         )
         .map(Command::New)
 }
 
-fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
-    choice((just(" ").ignored(), peek(just("\n")).ignored(), end()))
-}
-
 ///WARN: Look at warning on `variable`
 fn for_parser<'src>(
-    cmd: impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>>,
+    cmd_parser: impl Parser<'src, &'src str, Spanned<Command>, Extra<'src>>,
 ) -> impl Parser<'src, &'src str, Command, Extra<'src>> {
     let for_args = expression()
         .separated_by(just(":"))
@@ -398,8 +315,7 @@ fn for_parser<'src>(
             }
         });
 
-    keyword("for")
-        .then_ignore(just(" "))
+    cmd("for")
         .ignore_then(choice((
             variable(expression().boxed())
                 .then_ignore(just("="))
@@ -411,7 +327,7 @@ fn for_parser<'src>(
             empty().to(ForKind::Infinite),
         )))
         .then_ignore(just(" "))
-        .then(cmd.separated_by(just(" ")).collect())
+        .then(cmd_parser.separated_by(just(" ")).collect())
         .map(|(kind, commands)| Command::For(For { kind, commands }))
 }
 
@@ -420,24 +336,10 @@ mod test {
 
     use chumsky::Parser;
 
-    use super::{line_parser, write};
+    use super::write;
 
     #[test]
     fn write_command() {
         insta::assert_debug_snapshot!(write().parse("w !,#,\"test\"").into_output_errors());
-    }
-
-    #[test]
-    fn full_line() {
-        insta::assert_debug_snapshot!(line_parser().parse("tag w !").into_output_errors());
-    }
-
-    #[test]
-    fn recover_from_extra_space() {
-        insta::assert_debug_snapshot!(line_parser().parse(" w !  w ! ").into_output_errors());
-    }
-    #[test]
-    fn recover_from_unknown_command() {
-        insta::assert_debug_snapshot!(line_parser().parse(" foo bar").into_output_errors());
     }
 }

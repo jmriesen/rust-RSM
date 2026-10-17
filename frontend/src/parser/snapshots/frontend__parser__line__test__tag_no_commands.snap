@@ -1,0 +1,21 @@
+---
+source: frontend/src/parser/line.rs
+expression: "line_parser().parse(\"foo\").into_output_errors()"
+---
+(
+    Some(
+        Line {
+            tag: Some(
+                Spanned {
+                    inner: Tag {
+                        name: "foo",
+                    },
+                    span: 0..3,
+                },
+            ),
+            level: 0,
+            commands: [],
+        },
+    ),
+    [],
+)
