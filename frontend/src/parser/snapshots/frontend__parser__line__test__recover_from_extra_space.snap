@@ -1,6 +1,6 @@
 ---
-source: frontend/src/parser/mod.rs
-expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
+source: frontend/src/parser/line.rs
+expression: "line_parser().parse(\" w !  w !\").into_output_errors()"
 ---
 (
     Some(
@@ -21,10 +21,6 @@ expression: "line_parser().parse(\" w !  w ! \").into_output_errors()"
                         },
                     ),
                     span: 1..4,
-                },
-                Spanned {
-                    inner: Error,
-                    span: 5..5,
                 },
                 Spanned {
                     inner: Write(

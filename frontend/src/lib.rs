@@ -27,6 +27,9 @@ fn check_line_lengths(source_code: &str) -> Result<(), ParsingError> {
 pub enum ParsingError {
     #[error("{}",.0)]
     ParserError(&'static str),
+    //TODO: verify if this is strictly true according to the speck.
+    #[error("Tags can only be found at line level zero")]
+    TagsLineLevelMustBeZero,
     #[error("Quit can only have zero or one argument")]
     QuitExtraArgs,
     #[error("Close always takes at least one argument")]
