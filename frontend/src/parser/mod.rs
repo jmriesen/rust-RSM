@@ -81,7 +81,7 @@ fn eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
     choice((just("\n").ignored(), end()))
 }
 
-/// Command with a optional post condition
+/// Command with no post condition
 fn cmd<'src>(name: &'static str) -> impl Parser<'src, &'src str, (), Extra<'src>> {
     keyword(name).then_ignore(space_or_eol())
 }
