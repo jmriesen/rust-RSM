@@ -111,10 +111,9 @@ fn if_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
     cmd("if")
         .ignore_then(
             expression()
-                .map(If)
                 .separated_by(just(","))
-                .at_least(1)
-                .collect::<Vec<_>>(),
+                .collect::<Vec<_>>()
+                .map(If),
         )
         .map(|x| Command::If(x))
 }

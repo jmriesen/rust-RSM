@@ -2,7 +2,7 @@ use crate::{
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
-        r#if::{ElseOp, IfOp},
+        r#if::{ElseOp, IfOp, IfTest},
         kill::KillInstruction,
         new::NewStackAsm,
         quit::QuitCodes,
@@ -103,6 +103,7 @@ StackAssembally! {
     ForEnd,
     NoOpCode,
     IfOp,
+    IfTest,
     ElseOp,
     KillInstruction,
     PushVar,
@@ -225,6 +226,16 @@ impl<'a> Job<'a> {
                     StackAssembally::IfOp(_) => {
                         let condition = self.r_values.pop().expect("Value to store on the stack");
                         do_frame.test = bool::from(condition);
+                        if !do_frame.test {
+                            Self::quit_line(
+                                &mut do_frame.for_stack,
+                                &mut self.symbol_table,
+                                &mut do_frame.pc,
+                                &mut self.error,
+                            );
+                        }
+                    }
+                    StackAssembally::IfTest(_) => {
                         if !do_frame.test {
                             Self::quit_line(
                                 &mut do_frame.for_stack,
