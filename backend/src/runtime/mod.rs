@@ -2,7 +2,7 @@ use crate::{
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
-        r#if::{ElseOp, IfOp, IfTest},
+        r#if::IfElse,
         kill::KillInstruction,
         new::NewStackAsm,
         quit::QuitCodes,
@@ -102,9 +102,7 @@ StackAssembally! {
     ForRangeType,
     ForEnd,
     NoOpCode,
-    IfOp,
-    IfTest,
-    ElseOp,
+    IfElse,
     KillInstruction,
     PushVar,
     QuitCodes,
@@ -223,37 +221,24 @@ impl<'a> Job<'a> {
                         }
                     },
                     StackAssembally::TEMP { .. } => {}
-                    StackAssembally::IfOp(_) => {
-                        let condition = self.r_values.pop().expect("Value to store on the stack");
-                        do_frame.test = bool::from(condition);
-                        if !do_frame.test {
+                    StackAssembally::IfElse(command) => {
+                        use IfElse as E;
+                        if let E::If = command {
+                            let condition =
+                                self.r_values.pop().expect("Value to store on the stack");
+                            do_frame.test = bool::from(condition);
+                        }
+                        if match command {
+                            E::IfNoArgs | E::If => !do_frame.test,
+                            E::Else => do_frame.test,
+                        } {
                             Self::quit_line(
                                 &mut do_frame.for_stack,
                                 &mut self.symbol_table,
                                 &mut do_frame.pc,
                                 &mut self.error,
                             );
-                        }
-                    }
-                    StackAssembally::IfTest(_) => {
-                        if !do_frame.test {
-                            Self::quit_line(
-                                &mut do_frame.for_stack,
-                                &mut self.symbol_table,
-                                &mut do_frame.pc,
-                                &mut self.error,
-                            );
-                        }
-                    }
-                    StackAssembally::ElseOp(_) => {
-                        if do_frame.test {
-                            Self::quit_line(
-                                &mut do_frame.for_stack,
-                                &mut self.symbol_table,
-                                &mut do_frame.pc,
-                                &mut self.error,
-                            );
-                        }
+                        };
                     }
                     StackAssembally::KillInstruction(kill) => {
                         use ir::commands::kill::KillType as E;

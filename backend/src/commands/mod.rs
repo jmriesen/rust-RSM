@@ -1,6 +1,6 @@
 use ir::commands::{Command, PostCondition};
 
-use crate::{Compile, bite_code::BiteCode, commands::r#if::ElseOp, runtime::EndCommand};
+use crate::{Compile, bite_code::BiteCode, commands::r#if::IfElse, runtime::EndCommand};
 
 pub mod r#break;
 pub mod close;
@@ -36,7 +36,7 @@ impl Compile for Command {
             Command::Close(x) => x.compile(bite_code, &()),
             Command::Do(x) => x.compile(bite_code, &()),
             Command::Break(x) => x.compile(bite_code, &()),
-            Command::Else => bite_code.push(ElseOp.encode()),
+            Command::Else => bite_code.push(IfElse::Else as u8),
             Command::For(x) => x.compile(bite_code, &()),
             Command::Set(x) => x.compile(bite_code, &()),
             Command::If(x) => x.compile(bite_code, &()),
