@@ -1,9 +1,5 @@
-use ariadne::{Label, Report, ReportBuilder, ReportKind, Source};
-use chumsky::{
-    Parser,
-    error::Rich,
-    span::{SimpleSpan, SpanWrap},
-};
+use ariadne::{Label, Report, ReportKind, Source};
+use chumsky::{Parser, error::Rich, span::SimpleSpan};
 use ir::Routine;
 pub mod parser;
 use thiserror::Error;
@@ -52,20 +48,22 @@ pub enum ParsingError {
     FunctionExpectsFewerArguments,
 }
 
+pub fn parse_routine(
+    source_code: &str,
+) -> Result<Routine, Vec<Rich<'_, char, SimpleSpan, ParsingError>>> {
+    check_line_lengths(source_code).map_err(|x| vec![Rich::custom((0..0).into(), x)])?;
+    routine().parse(source_code).into_result()
+}
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn parse_routine_print_errors(
     source_code: &str,
 ) -> Result<Routine, Vec<Rich<'_, char, SimpleSpan, ParsingError>>> {
-    check_line_lengths(source_code).map_err(|x| vec![Rich::custom((0..0).into(), x)])?;
-    routine()
-        .parse(source_code)
-        .into_result()
-        .inspect_err(|errors| {
-            for error in errors {
-                let report = build_report(error);
-                report.print(Source::from(source_code)).unwrap();
-            }
-        })
+    parse_routine(source_code).inspect_err(|errors| {
+        for error in errors {
+            let report = build_report(error);
+            report.print(Source::from(source_code)).unwrap();
+        }
+    })
 }
 fn build_report<'a>(error: &Rich<'a, char, SimpleSpan, ParsingError>) -> Report<'a> {
     Report::build(ReportKind::Error, error.span().into_range())

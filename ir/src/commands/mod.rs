@@ -43,7 +43,7 @@ pub enum Command {
     Else,
     For(For),
     Set(Set),
-    If(Vec<If>),
+    If(If),
     Kill(Vec<Kill>),
     Quit(PostCondition<Quit>),
     New(New),
