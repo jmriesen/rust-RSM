@@ -15,7 +15,7 @@ To learn and explore how best to develop software.
 To me, best currently means creating software that is correct (has no bugs), I am confident is correct (I can confidently say it has no bugs), and is easy to change. 
 # Project Goals
 - Learn how to efficiently refactor code
-- Lean how to efficiently test my code, and test my tests
+- Learn how to efficiently test my code, and test my tests
 - Live with the code
 
 Some ideas seem really convenient at the start but become a tangled mess later on.
@@ -27,14 +27,14 @@ This project is a port of the [Reference Standard M](https://gitlab.com/Referenc
 
 ## Why RSM?
 I have always found language design interesting.
-When I was learning M workings at Epic, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
+When I was learning M while working at Epic, I thought it seemed like a "simple" language and wondered if I could write an interpreter for it.
 I quickly realized that M was not as simple as I assumed, especially when I tried to add indirection and goto support to my half-baked interpreter.
 Eventually I ended up poking around online looking at how other interpreters worked and found RSM.
 On a whim, I experimented with converting some of the code to Rust, and after a while the project became the main codebase I would use to try stuff out.
 
 # Project Structure
 ## [ffi](./ffi/)
-The purpose of this crate is to store/manage the ordinal C code from RSM and the Foreign Function Interface (i.e., making C and Rust play nicely together in the same binary).
+The purpose of this crate is to store/manage the original C code from RSM and the Foreign Function Interface (i.e., making C and Rust play nicely together in the same binary).
 
 This crate is responsible for:
 - Building the C code
@@ -56,14 +56,14 @@ Additionally, C uses a shared memory segment to manage cross process communicati
 There are of course all the normal C vs Rust type considerations.
 However, in addition to those, the original C code makes heavy use of un-sized types and quasi self referential types.
 
-###### Dynamically Sized Types
-One fairly common dynamically sized type used in the ordinal C code is `CSTRING`.
+##### Dynamically Sized Types
+One fairly common dynamically sized type used in the original C code is `CSTRING`.
 The struct definition claims to hold a `[u_char;65535]`; however, in practice that is only the max size for this type.
 If the string is smaller than 65535 bytes (most of the time), then the C code only allocates enough space to hold the string.
 
 Rust does have a way of creating dynamically sized types, but I have not explored that yet.
 
-###### Quasi Self Referential Types.
+##### Quasi Self Referential Types.
 Self references in Rust are challenging since, unless you use [Pin](https://doc.rust-lang.org/std/pin/index.html), Rust assumes that everything can be moved.
 Fortunately, the C types are only kind of self referential.
 They frequently assume that type A will be immediately followed by type B,
@@ -129,7 +129,7 @@ This makes it rather challenging to create automatic refactoring tools even for 
 
 # Running the Project
 
-This project is currently vary feature incomplete, and not recommenced to be used.
+This project is currently very feature incomplete, and not recommended to be used.
 If you need a working M interpreter, please see [Reference-Standard-M](https://gitlab.com/Reference-Standard-M/rsm).
 Any bugs that I find during the course of creating this clone will be reported back upstream to RSM.
 
@@ -189,7 +189,7 @@ As I see it, there are two main benefits to writing unit tests before writing yo
 - First, it allows you to imagine how your code will be called. 
 If the unit tests are hard to write, then the application code is going to be hard to write/maintain.
 - Second, once code behavior has been pinned down with unit tests, you can fearlessly refactor without worrying about breaking changes.
-Frequency it is only after a first draft solution that I truly understand the problem I am trying to solve.
+Frequently it is only after a first draft solution that I truly understand the problem I am trying to solve.
 Therefore I will nearly always want to refactor my code at some point in the future.
 With a robust set of unit tests this is a fairly painless and simple process.
 Without them I have to be hyper aware of every change I make, as any change could introduce a bug.
@@ -256,7 +256,7 @@ There are a couple of different testing paradigms that can be viewed as verifyin
 | Fuzz testing       | The code does not crash, and there are no memory access violations.|
 
 ### Use in Rust-RSM
-When I started this project I was primarily combining regression testing with property basted testing.
+When I started this project I was primarily combining regression testing with property based testing.
 I would run both the original code and my port and compare their results.
 Regression testing in this manner is fairly situation specific and only really applies when porting legacy code.
 
