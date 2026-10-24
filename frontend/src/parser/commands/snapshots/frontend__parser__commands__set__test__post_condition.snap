@@ -1,9 +1,0 @@
----
-source: frontend/src/parser/commands/set.rs
-expression: "set_parser().parse(\"s:0 foo=1\").into_result()"
----
-Err(
-    [
-        post_conditions of set are not yet supported at 0..4,
-    ],
-)
