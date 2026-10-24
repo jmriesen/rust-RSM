@@ -1,4 +1,4 @@
-tag w ""
+tag
  s i("foo")=1
  s i("bar")=2
  s i("foo","bar")=3

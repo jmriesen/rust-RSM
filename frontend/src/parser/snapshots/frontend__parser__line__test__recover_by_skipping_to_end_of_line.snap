@@ -10,33 +10,38 @@ expression: "line_parser().parse(\" set i=1 w !, \").into_output_errors()"
             commands: [
                 Spanned {
                     inner: Set(
-                        Set {
-                            variable: Spanned {
-                                inner: Variable {
-                                    var_type: Named {
-                                        name: Ident(
-                                            "i",
-                                        ),
-                                        globle_ident: None,
+                        PostCondition {
+                            condition: None,
+                            value: [
+                                Set {
+                                    variable: Spanned {
+                                        inner: Variable {
+                                            var_type: Named {
+                                                name: Ident(
+                                                    "i",
+                                                ),
+                                                globle_ident: None,
+                                            },
+                                            subscripts: [],
+                                        },
+                                        span: 5..6,
                                     },
-                                    subscripts: [],
-                                },
-                                span: 5..6,
-                            },
-                            value: Number(
-                                Spanned {
-                                    inner: NumberLiteral(
-                                        Number {
-                                            exponent: 1,
-                                            mantissa: [
-                                                0,
-                                                1,
-                                            ],
+                                    value: Number(
+                                        Spanned {
+                                            inner: NumberLiteral(
+                                                Number {
+                                                    exponent: 1,
+                                                    mantissa: [
+                                                        0,
+                                                        1,
+                                                    ],
+                                                },
+                                            ),
+                                            span: 7..8,
                                         },
                                     ),
-                                    span: 7..8,
                                 },
-                            ),
+                            ],
                         },
                     ),
                     span: 1..8,

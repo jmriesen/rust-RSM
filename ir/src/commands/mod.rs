@@ -42,7 +42,7 @@ pub enum Command {
     Break(PostCondition<Break>),
     Else,
     For(For),
-    Set(Set),
+    Set(PostCondition<Vec<Set>>),
     If(If),
     Kill(Vec<Kill>),
     Quit(PostCondition<Quit>),
