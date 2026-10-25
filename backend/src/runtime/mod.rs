@@ -1,4 +1,5 @@
 use crate::{
+    CompiledRoutine,
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
@@ -60,6 +61,7 @@ pub struct Job<'a> {
     stack: Vec<DoFrame<'a>>,
 
     error: Option<RuntimeError>,
+    routine: &'a CompiledRoutine,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -114,9 +116,8 @@ StackAssembally! {
     ExtrinsicFunctionCall,
     TEMP,
 }
-
 impl<'a> Job<'a> {
-    pub fn new(byte_code: &'a [u8]) -> Self {
+    pub fn new(routine: &'a CompiledRoutine) -> Self {
         let mut symbol_table = SymbolTable::default();
         symbol_table.push_new_frame();
         Self {
@@ -126,11 +127,12 @@ impl<'a> Job<'a> {
             symbol_table,
             error: None,
             stack: vec![DoFrame {
-                pc: ProgramCounter::new(byte_code),
+                pc: routine.beginning_of_file(),
                 for_stack: vec![],
                 test: false,
                 line_level: 0,
             }],
+            routine,
         }
     }
     pub fn run(&mut self) {
@@ -184,6 +186,16 @@ impl<'a> Job<'a> {
                         };
                         self.stack.push(new_frame);
                         self.symbol_table.push_new_frame();
+                    }
+                    StackAssembally::ExtrinsicFunctionCall(extrinsic_function_call) => {
+                        let new_frame = DoFrame {
+                            pc: self.routine.tag(extrinsic_function_call.tag.unwrap()),
+                            for_stack: vec![],
+                            test: do_frame.test,
+                            line_level: 0,
+                        };
+                        self.stack.push(new_frame);
+                        //TODO Deal with argument passing
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
@@ -310,10 +322,6 @@ impl<'a> Job<'a> {
                             NewKind::Inclusive => self.symbol_table.new_var(vars).unwrap(),
                             NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
                         }
-                    }
-                    StackAssembally::ExtrinsicFunctionCall(extrinsic_function_call) => {
-                        dbg!(extrinsic_function_call);
-                        panic!()
                     }
                 }
             } else {

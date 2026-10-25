@@ -17,7 +17,7 @@ static _VAR_IDENT_NAME_LENGTH: () = {
     //crate?
     assert!(VAR_LEN as usize == MAX_VAR_NAME_SIZE);
 };
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Ident([u8; 32]);
 impl Debug for Ident {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -59,7 +59,7 @@ impl Decode for Ident {
 }
 impl Into<VariableName> for Ident {
     fn into(self) -> VariableName {
-        //TODO Check if thes end makes since I am not sure if Ident is allowed to have null
+        //TODO Check if this end makes since I am not sure if Ident is allowed to have null
         //bytes.
         let end = self.0.iter().position(|x| x == &0).unwrap_or(self.0.len());
         VariableName::new(&self.0[..end])

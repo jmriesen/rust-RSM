@@ -71,7 +71,8 @@ impl Compile for ExtrinsicFunction {
 
 #[derive(Debug)]
 pub struct ExtrinsicFunctionCall {
-    tag: Option<var_u::Ident>,
+    pub tag: Option<var_u::Ident>,
+    #[expect(dead_code)]
     routine: Option<var_u::Ident>,
     //eval:bool
     //args: u8,

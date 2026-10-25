@@ -1,5 +1,9 @@
+use std::{collections::HashMap, fmt::Debug};
+
 pub use bite_code::BiteCode;
 use ir::Spanned;
+
+use crate::{bite_code::Location, runtime::program_counter::ProgramCounter, var_u::Ident};
 pub mod bite_code;
 pub mod commands;
 mod conditional_jumps;
@@ -56,13 +60,53 @@ where
         self.inner.compile(bite_code, context)
     }
 }
+pub struct CompiledRoutine {
+    byte_code: Vec<u8>,
+    tags: HashMap<Ident, Location>,
+}
+impl Debug for CompiledRoutine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //TODO Clean up the debugging experience.
+        let mut tags = self.tags.iter().collect::<Vec<_>>();
+        tags.sort_by_key(|x| x.1);
+        f.debug_struct("CompiledRoutine")
+            .field("tags", &tags)
+            .field("byte_code", &self.beginning_of_file())
+            .finish()
+    }
+}
+impl CompiledRoutine {
+    fn beginning_of_file(&self) -> ProgramCounter<'_> {
+        ProgramCounter::new(&self.byte_code)
+    }
+    fn tag(&self, ident: Ident) -> ProgramCounter<'_> {
+        let mut pc = ProgramCounter::new(&self.byte_code);
+        pc.jump(crate::runtime::program_counter::Location(
+            self.tags.get(&ident).unwrap().0,
+        ));
+        pc
+    }
+}
 
-pub fn compile_routine(routine: ir::Routine) -> Vec<u8> {
+pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
     let mut comp = BiteCode::new();
+    let mut tags = HashMap::new();
     for (i, line) in routine.iter().enumerate() {
+        if let Some(tag) = &line.tag {
+            let tag = &tag.inner;
+
+            tags.insert(
+                tag.name.as_str().try_into().unwrap(),
+                comp.current_location(),
+            );
+        }
+
         line.compile(&mut comp, &(i as u16));
     }
-    comp.get_raw()
+    CompiledRoutine {
+        byte_code: comp.get_raw(),
+        tags,
+    }
 }
 
 #[cfg(test)]
@@ -76,7 +120,7 @@ pub mod test {
         let commands = frontend::parse_routine_print_errors(&format!(" {source_code}")).unwrap();
         dbg!(&commands);
         const LENGTH_OF_LINE_START: usize = 5;
-        compile_routine(commands)[LENGTH_OF_LINE_START..].to_vec()
+        compile_routine(commands).byte_code[LENGTH_OF_LINE_START..].to_vec()
     }
 
     pub fn parse_routine(source_code: &str) -> Routine {
