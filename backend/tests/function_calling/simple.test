@@ -1,0 +1,13 @@
+entry
+ d TagB
+ q
+TagA
+ w "TagA"
+ q
+TagB
+ w "TagB"
+ q
+---
+TagB
+---
+

@@ -10,6 +10,7 @@ use crate::{
         write::WriteCodes,
     },
     conditional_jumps::{Jump, JumpCodes},
+    extrinsic_function::ExtrinsicFunctionCall,
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
@@ -110,6 +111,7 @@ StackAssembally! {
     DoArgLess,
     Test,
     NewStackAsm,
+    ExtrinsicFunctionCall,
     TEMP,
 }
 
@@ -308,6 +310,10 @@ impl<'a> Job<'a> {
                             NewKind::Inclusive => self.symbol_table.new_var(vars).unwrap(),
                             NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
                         }
+                    }
+                    StackAssembally::ExtrinsicFunctionCall(extrinsic_function_call) => {
+                        dbg!(extrinsic_function_call);
+                        panic!()
                     }
                 }
             } else {

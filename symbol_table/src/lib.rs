@@ -46,7 +46,7 @@ pub use m_var::MVar;
 use value::Value;
 use value_tree::ValueTree;
 pub use value_tree::{DataResult, Direction};
-pub use variable_name::VariableName;
+pub use variable_name::{MAX_VAR_NAME_SIZE, VariableName};
 
 impl hash::Key for VariableName {
     fn error() -> Self {

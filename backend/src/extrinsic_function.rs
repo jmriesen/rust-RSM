@@ -4,10 +4,17 @@ use ir::{
 };
 
 use super::Compile;
-use crate::{bite_code::BiteCode, expression::ExpressionContext, variable::VarContext};
+use crate::{
+    bite_code::BiteCode,
+    expression::ExpressionContext,
+    macros::OpCodes,
+    runtime::{Decode, program_counter::AssemblyDecoder},
+    var_u,
+    variable::VarContext,
+};
 #[derive(Clone, Copy)]
 pub enum ExtrinsicFunctionContext {
-    Eval = 129,
+    Eval = 0b10000001,
     Do = 0,
 }
 
@@ -16,11 +23,13 @@ enum ArgmentCodes {
     ByRef = 168_isize,
 }
 
-enum CallCode {
-    Tag = 141,
-    Routine = 142,
-    TagRoutine = 143,
-}
+OpCodes!(
+    CallCode {
+        Tag = 141,
+        Routine = 142,
+        TagRoutine = 143,
+    }
+);
 
 impl Compile for ExtrinsicFunction {
     type Context = ExtrinsicFunctionContext;
@@ -49,10 +58,49 @@ impl Compile for ExtrinsicFunction {
             Location::Routine(routine) => (None, Some(&routine.0)),
             Location::TagRoutine(tag, routine) => (Some(&tag.0), Some(&routine.0)),
         };
-        routine.compile(comp, &());
-        tag.compile(comp, &());
+        routine
+            .map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
+            .compile(comp, &());
+        tag.map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
+            .compile(comp, &());
 
         // End marker + number of args
         comp.push(self.arguments.len() as u8 + (*context as u8));
+    }
+}
+
+#[derive(Debug)]
+pub struct ExtrinsicFunctionCall {
+    tag: Option<var_u::Ident>,
+    routine: Option<var_u::Ident>,
+    //eval:bool
+    //args: u8,
+}
+
+impl Decode for ExtrinsicFunctionCall {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
+        let r#type = CallCode::decode(decoder)?;
+        let (tag, routine) = match r#type {
+            CallCode::Tag => (Decode::decode(decoder), None),
+            CallCode::Routine => (None, Decode::decode(decoder)),
+            CallCode::TagRoutine => (Decode::decode(decoder), Decode::decode(decoder)),
+        };
+        assert_eq!(routine, None, "Routine calling not yet supported");
+        assert!(tag.is_some(), "default tag calling not yet supported");
+        let [arg_and_type] = decoder.consume_n();
+        //TODO Check/fix this Note this is not quite the code used to encode.
+        //Is there a "hidden/added" argument when in the eval context?
+        let _type = if arg_and_type & 0b10000000 != 0 {
+            ExtrinsicFunctionContext::Eval
+        } else {
+            ExtrinsicFunctionContext::Do
+        };
+        let _args = arg_and_type & 0b1111111;
+        assert_eq!(
+            arg_and_type, 0,
+            "argument passing is not yet supported nor is function calls in expressions"
+        );
+
+        Some(Self { tag, routine })
     }
 }

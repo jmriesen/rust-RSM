@@ -2,6 +2,7 @@ use crate::{
     Compile,
     bite_code::BiteCode,
     runtime::{Decode, program_counter::AssemblyDecoder},
+    var_u,
 };
 use ir::{
     Variable,
@@ -100,7 +101,9 @@ impl Compile for Variable {
         }
 
         if let E::Named { name, .. } = &self.var_type {
-            name.0.as_str().compile(comp, &());
+            var_u::Ident::try_from(name.0.as_str())
+                .unwrap()
+                .compile(comp, &());
         }
     }
 }
