@@ -1,0 +1,14 @@
+entry
+ d Print("foo","bar")
+ w !
+ d Print
+ d Print("foo","bar","buzz")
+ q
+Print(x,y)
+ w "pre-",x,"-",y,"-post"
+ q
+---
+pre-foo-bar-post
+pre---post
+---
+Too few formal parameters

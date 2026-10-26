@@ -17,7 +17,7 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         )
         .map(|(tag, parameters)| Tag {
             name: tag.to_owned(),
-            parameters: parameters.unwrap_or_default(),
+            parameters: parameters,
         })
         .spanned()
         .map(|x| Spanned::from(x));

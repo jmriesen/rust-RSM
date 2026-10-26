@@ -20,10 +20,13 @@ use crate::{
 };
 use ir::{
     commands::NewKind,
-    extrinsic_function,
     operators::{Binary, Unary},
 };
-use std::{cmp::Ordering, fmt::Debug};
+use std::{
+    cmp::Ordering,
+    fmt::Debug,
+    iter::{from_fn, repeat_n},
+};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
@@ -35,6 +38,10 @@ pub(crate) enum RuntimeError {
     UndefinedIndexVariable,
     #[error("Not yet supported {}",.0)]
     NotYetSupported(&'static str),
+    #[error("Too few formal parameters")]
+    ToManyArgumentsPassed,
+    #[error("Line must have a formal list")]
+    NoParameterListDefined,
 }
 
 #[derive(Debug)]
@@ -189,36 +196,56 @@ impl<'a> Job<'a> {
                         self.stack.push(new_frame);
                         self.symbol_table.push_new_frame();
                     }
-                    StackAssembally::ExtrinsicFunctionCall(extrinsic_function_call) => {
-                        let (pc, param_names) =
-                            self.routine.tag(extrinsic_function_call.tag.unwrap());
+                    StackAssembally::ExtrinsicFunctionCall(call) => {
+                        let (pc, parameters) = self.routine.tag(call.tag.unwrap());
+                        let parameter_list_defined = parameters.is_some();
+                        let parameters = parameters.clone().unwrap_or_default();
 
-                        let new_frame = DoFrame {
-                            pc,
-                            for_stack: vec![],
-                            test: do_frame.test,
-                            line_level: 0,
-                        };
-                        //Duplicate code.
-                        self.stack.push(new_frame);
-                        self.symbol_table.push_new_frame();
-                        //End of duplicate code.
-                        self.symbol_table
-                            .new_var(param_names.iter().cloned())
-                            .unwrap();
+                        let number_of_arguments_passed = call.args;
+                        let arguments_passed = from_fn(|| self.r_values.pop())
+                            .take(number_of_arguments_passed as usize);
 
-                        //TODO: Error if incorrect number of args.
-                        for _ in extrinsic_function_call.args as usize..param_names.len() {
-                            self.r_values.push(Value::empty());
-                        }
+                        let num_missing_arguments =
+                            parameters.len() as isize - number_of_arguments_passed as isize;
 
-                        for name in param_names.iter().rev() {
+                        if num_missing_arguments.is_negative() {
+                            //We supplied too many arguments
+                            for _ in arguments_passed {
+                                //Pulling off arguments that were passed.
+                            }
+                            if parameter_list_defined {
+                                self.error = Some(RuntimeError::ToManyArgumentsPassed);
+                            } else {
+                                self.error = Some(RuntimeError::NoParameterListDefined);
+                            }
+                        } else {
+                            let arguments = parameters
+                                .iter()
+                                .rev()
+                                .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
+                                //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
+                                .zip(
+                                    repeat_n(Value::empty(), num_missing_arguments as usize)
+                                        .chain(arguments_passed),
+                                );
+
+                            let new_frame = DoFrame {
+                                pc,
+                                for_stack: vec![],
+                                test: do_frame.test,
+                                line_level: 0,
+                            };
+                            //Duplicate code.
+                            self.stack.push(new_frame);
+                            self.symbol_table.push_new_frame();
+                            //End of duplicate code.
                             self.symbol_table
-                                .set(
-                                    &MVar::new(name.clone(), Path::new([]).unwrap()),
-                                    &self.r_values.pop().unwrap(),
-                                )
+                                .new_var(parameters.iter().cloned())
                                 .unwrap();
+
+                            for (var, value) in arguments {
+                                self.symbol_table.set(&var, &value).unwrap();
+                            }
                         }
                     }
                     StackAssembally::ForMetaData(meta_data) => {

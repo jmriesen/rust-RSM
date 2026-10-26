@@ -9,7 +9,7 @@ expression: "line_parser().parse(\"foo\").into_output_errors()"
                 Spanned {
                     inner: Tag {
                         name: "foo",
-                        parameters: [],
+                        parameters: None,
                     },
                     span: 0..3,
                 },

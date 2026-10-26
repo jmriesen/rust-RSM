@@ -63,7 +63,7 @@ where
 }
 pub struct CompiledRoutine {
     byte_code: Vec<u8>,
-    tags: HashMap<Ident, (Location, Vec<VariableName>)>,
+    tags: HashMap<Ident, (Location, Option<Vec<VariableName>>)>,
 }
 impl Debug for CompiledRoutine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -80,7 +80,7 @@ impl CompiledRoutine {
     fn beginning_of_file(&self) -> ProgramCounter<'_> {
         ProgramCounter::new(&self.byte_code)
     }
-    fn tag(&self, ident: Ident) -> (ProgramCounter<'_>, &Vec<VariableName>) {
+    fn tag(&self, ident: Ident) -> (ProgramCounter<'_>, &Option<Vec<VariableName>>) {
         let (Location(index), parameters) = self.tags.get(&ident).unwrap();
         let mut pc = ProgramCounter::new(&self.byte_code);
         pc.jump(crate::runtime::program_counter::Location(*index));
@@ -99,10 +99,11 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
                 tag.name.as_str().try_into().unwrap(),
                 (
                     comp.current_location(),
-                    tag.parameters
-                        .iter()
-                        .map(|x| VariableName::new(x.0.as_bytes()).unwrap())
-                        .collect(),
+                    tag.parameters.as_ref().map(|x| {
+                        x.iter()
+                            .map(|x| VariableName::new(x.0.as_bytes()).unwrap())
+                            .collect()
+                    }),
                 ),
             );
         }
