@@ -75,7 +75,7 @@ pub struct ExtrinsicFunctionCall {
     #[expect(dead_code)]
     routine: Option<var_u::Ident>,
     //eval:bool
-    //args: u8,
+    pub args: u8,
 }
 
 impl Decode for ExtrinsicFunctionCall {
@@ -92,16 +92,14 @@ impl Decode for ExtrinsicFunctionCall {
         //TODO Check/fix this Note this is not quite the code used to encode.
         //Is there a "hidden/added" argument when in the eval context?
         let _type = if arg_and_type & 0b10000000 != 0 {
+            unimplemented!("Eval context do is not yet supported");
+            #[expect(unreachable_code)]
             ExtrinsicFunctionContext::Eval
         } else {
             ExtrinsicFunctionContext::Do
         };
-        let _args = arg_and_type & 0b1111111;
-        assert_eq!(
-            arg_and_type, 0,
-            "argument passing is not yet supported nor is function calls in expressions"
-        );
+        let args = arg_and_type & 0b1111111;
 
-        Some(Self { tag, routine })
+        Some(Self { tag, routine, args })
     }
 }

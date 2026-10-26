@@ -20,6 +20,7 @@ use crate::{
 };
 use ir::{
     commands::NewKind,
+    extrinsic_function,
     operators::{Binary, Unary},
 };
 use std::{cmp::Ordering, fmt::Debug};
@@ -184,18 +185,41 @@ impl<'a> Job<'a> {
                             test: do_frame.test,
                             line_level: do_frame.line_level + 1,
                         };
+                        //Duplicate code.
                         self.stack.push(new_frame);
                         self.symbol_table.push_new_frame();
                     }
                     StackAssembally::ExtrinsicFunctionCall(extrinsic_function_call) => {
+                        let (pc, param_names) =
+                            self.routine.tag(extrinsic_function_call.tag.unwrap());
+
                         let new_frame = DoFrame {
-                            pc: self.routine.tag(extrinsic_function_call.tag.unwrap()),
+                            pc,
                             for_stack: vec![],
                             test: do_frame.test,
                             line_level: 0,
                         };
+                        //Duplicate code.
                         self.stack.push(new_frame);
-                        //TODO Deal with argument passing
+                        self.symbol_table.push_new_frame();
+                        //End of duplicate code.
+                        self.symbol_table
+                            .new_var(param_names.iter().cloned())
+                            .unwrap();
+
+                        //TODO: Error if incorrect number of args.
+                        for _ in extrinsic_function_call.args as usize..param_names.len() {
+                            self.r_values.push(Value::empty());
+                        }
+
+                        for name in param_names.iter().rev() {
+                            self.symbol_table
+                                .set(
+                                    &MVar::new(name.clone(), Path::new([]).unwrap()),
+                                    &self.r_values.pop().unwrap(),
+                                )
+                                .unwrap();
+                        }
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(

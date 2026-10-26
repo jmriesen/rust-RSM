@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 pub use bite_code::BiteCode;
 use ir::Spanned;
+use symbol_table::VariableName;
 
 use crate::{bite_code::Location, runtime::program_counter::ProgramCounter, var_u::Ident};
 pub mod bite_code;
@@ -62,13 +63,13 @@ where
 }
 pub struct CompiledRoutine {
     byte_code: Vec<u8>,
-    tags: HashMap<Ident, Location>,
+    tags: HashMap<Ident, (Location, Vec<VariableName>)>,
 }
 impl Debug for CompiledRoutine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //TODO Clean up the debugging experience.
         let mut tags = self.tags.iter().collect::<Vec<_>>();
-        tags.sort_by_key(|x| x.1);
+        tags.sort_by_key(|x| x.1.0);
         f.debug_struct("CompiledRoutine")
             .field("tags", &tags)
             .field("byte_code", &self.beginning_of_file())
@@ -79,12 +80,11 @@ impl CompiledRoutine {
     fn beginning_of_file(&self) -> ProgramCounter<'_> {
         ProgramCounter::new(&self.byte_code)
     }
-    fn tag(&self, ident: Ident) -> ProgramCounter<'_> {
+    fn tag(&self, ident: Ident) -> (ProgramCounter<'_>, &Vec<VariableName>) {
+        let (Location(index), parameters) = self.tags.get(&ident).unwrap();
         let mut pc = ProgramCounter::new(&self.byte_code);
-        pc.jump(crate::runtime::program_counter::Location(
-            self.tags.get(&ident).unwrap().0,
-        ));
-        pc
+        pc.jump(crate::runtime::program_counter::Location(*index));
+        (pc, parameters)
     }
 }
 
@@ -97,7 +97,13 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
 
             tags.insert(
                 tag.name.as_str().try_into().unwrap(),
-                comp.current_location(),
+                (
+                    comp.current_location(),
+                    tag.parameters
+                        .iter()
+                        .map(|x| VariableName::new(x.0.as_bytes()).unwrap())
+                        .collect(),
+                ),
             );
         }
 
