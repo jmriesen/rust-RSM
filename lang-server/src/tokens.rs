@@ -287,8 +287,8 @@ paste!{
     };
 }
 token_visitor!(
-    (Write, TokenTypes::Bang),
-    (Tag, TokenTypes::Bang),
+    (Write, TokenTypes::Command),
+    (Tag, TokenTypes::TagName),
     (Command, TokenTypes::Command),
     (NumberLiteral, TokenTypes::Number),
     (StringLiteral, TokenTypes::String),
