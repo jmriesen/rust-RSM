@@ -1,0 +1,13 @@
+entry
+ d TagC
+ q
+TagA
+ w "TagA"
+ q
+TagB
+ w "TagB"
+ q
+---
+
+---
+Invalid line reference (line not found)

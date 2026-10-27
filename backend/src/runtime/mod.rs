@@ -130,20 +130,26 @@ impl<'a> Job<'a> {
     pub fn new(routine: &'a CompiledRoutine) -> Self {
         let mut symbol_table = SymbolTable::default();
         symbol_table.push_new_frame();
-        Self {
+        let mut job = Self {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
             symbol_table,
             error: None,
-            stack: vec![DoFrame {
-                pc: routine.beginning_of_file(),
-                for_stack: vec![],
-                test: false,
-                line_level: 0,
-            }],
+            stack: vec![],
             routine,
-        }
+        };
+        Self::push_do_frame(
+            &mut job.symbol_table,
+            &mut job.stack,
+            routine.beginning_of_file(),
+            PushFrameArgs {
+                parameters: &None,
+                arguments: [].into_iter(),
+                line_level_zero: true,
+            },
+        );
+        job
     }
     pub fn run(&mut self) {
         while let Some(do_frame) = self.stack.last_mut() {
@@ -187,19 +193,15 @@ impl<'a> Job<'a> {
                     StackAssembally::DoArgLess(_) => {
                         let mut pc = do_frame.pc.clone();
                         pc.advance_to_next_line();
-
-                        let new_frame = DoFrame {
-                            pc,
-                            for_stack: vec![],
-                            test: do_frame.test,
-                            line_level: do_frame.line_level + 1,
-                        };
                         Self::push_do_frame(
                             &mut self.symbol_table,
                             &mut self.stack,
-                            new_frame,
-                            &None,
-                            [].into_iter(),
+                            pc,
+                            PushFrameArgs {
+                                parameters: &None,
+                                arguments: [].into_iter(),
+                                line_level_zero: false,
+                            },
                         );
                     }
                     StackAssembally::ExtrinsicFunctionCall(call) => {
@@ -211,18 +213,15 @@ impl<'a> Job<'a> {
                             Ok((pc, parameters)) => {
                                 match Self::build_arguments(&call, parameters, &mut self.r_values) {
                                     Ok(arguments) => {
-                                        let new_frame = DoFrame {
-                                            pc,
-                                            for_stack: vec![],
-                                            test: do_frame.test,
-                                            line_level: 0,
-                                        };
                                         Self::push_do_frame(
                                             &mut self.symbol_table,
                                             &mut self.stack,
-                                            new_frame,
-                                            parameters,
-                                            arguments,
+                                            pc,
+                                            PushFrameArgs {
+                                                parameters,
+                                                arguments,
+                                                line_level_zero: true,
+                                            },
                                         );
                                     }
                                     Err(error) => self.error = Some(error),
@@ -368,10 +367,24 @@ impl<'a> Job<'a> {
     fn push_do_frame(
         symbol_table: &mut SymbolTable,
         stack: &mut Vec<DoFrame<'a>>,
-        new_frame: DoFrame<'a>,
-        parameters: &Option<Vec<VariableName>>,
-        arguments: impl Iterator<Item = (MVar<Path>, Value)>,
+        pc: ProgramCounter<'a>,
+        PushFrameArgs {
+            parameters,
+            arguments,
+            line_level_zero,
+        }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, Value)>>,
     ) {
+        let new_frame = DoFrame {
+            pc,
+            for_stack: vec![],
+            test: stack.last().map_or(false, |x| x.test),
+            line_level: if line_level_zero {
+                0
+            } else {
+                stack.last().expect("The only time the stack is empty is if we are starting a new job, and in that case line_level_zero should have been set.").line_level + 1
+            },
+        };
+
         stack.push(new_frame);
         symbol_table.push_new_frame();
         symbol_table
@@ -444,6 +457,11 @@ impl<'a> Job<'a> {
             Ok(arguments)
         }
     }
+}
+struct PushFrameArgs<'a, A: Iterator<Item = (MVar<Path>, Value)>> {
+    parameters: &'a Option<Vec<VariableName>>,
+    arguments: A,
+    line_level_zero: bool,
 }
 
 #[cfg(test)]
