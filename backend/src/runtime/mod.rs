@@ -27,7 +27,7 @@ use std::{
     fmt::Debug,
     iter::{from_fn, repeat_n},
 };
-use symbol_table::{MVar, SymbolTable, key::Path};
+use symbol_table::{MVar, SymbolTable, VariableName, key::Path};
 use thiserror::Error;
 use value::Value;
 pub mod program_counter;
@@ -42,6 +42,8 @@ pub(crate) enum RuntimeError {
     ToManyArgumentsPassed,
     #[error("Line must have a formal list")]
     NoParameterListDefined,
+    #[error("Invalid line reference (line not found)")]
+    CouldNotFindTagOrCouldNotFindRoutine,
 }
 
 #[derive(Debug)]
@@ -192,60 +194,41 @@ impl<'a> Job<'a> {
                             test: do_frame.test,
                             line_level: do_frame.line_level + 1,
                         };
-                        //Duplicate code.
-                        self.stack.push(new_frame);
-                        self.symbol_table.push_new_frame();
+                        Self::push_do_frame(
+                            &mut self.symbol_table,
+                            &mut self.stack,
+                            new_frame,
+                            &None,
+                            [].into_iter(),
+                        );
                     }
                     StackAssembally::ExtrinsicFunctionCall(call) => {
-                        let (pc, parameters) = self.routine.tag(call.tag.unwrap());
-                        let parameter_list_defined = parameters.is_some();
-                        let parameters = parameters.clone().unwrap_or_default();
-
-                        let number_of_arguments_passed = call.args;
-                        let arguments_passed = from_fn(|| self.r_values.pop())
-                            .take(number_of_arguments_passed as usize);
-
-                        let num_missing_arguments =
-                            parameters.len() as isize - number_of_arguments_passed as isize;
-
-                        if num_missing_arguments.is_negative() {
-                            //We supplied too many arguments
-                            for _ in arguments_passed {
-                                //Pulling off arguments that were passed.
+                        match self
+                            .routine
+                            .tag(call.tag.expect("Only supporting 'do tag' for write now."))
+                            .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
+                        {
+                            Ok((pc, parameters)) => {
+                                match Self::build_arguments(&call, parameters, &mut self.r_values) {
+                                    Ok(arguments) => {
+                                        let new_frame = DoFrame {
+                                            pc,
+                                            for_stack: vec![],
+                                            test: do_frame.test,
+                                            line_level: 0,
+                                        };
+                                        Self::push_do_frame(
+                                            &mut self.symbol_table,
+                                            &mut self.stack,
+                                            new_frame,
+                                            parameters,
+                                            arguments,
+                                        );
+                                    }
+                                    Err(error) => self.error = Some(error),
+                                }
                             }
-                            if parameter_list_defined {
-                                self.error = Some(RuntimeError::ToManyArgumentsPassed);
-                            } else {
-                                self.error = Some(RuntimeError::NoParameterListDefined);
-                            }
-                        } else {
-                            let arguments = parameters
-                                .iter()
-                                .rev()
-                                .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
-                                //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
-                                .zip(
-                                    repeat_n(Value::empty(), num_missing_arguments as usize)
-                                        .chain(arguments_passed),
-                                );
-
-                            let new_frame = DoFrame {
-                                pc,
-                                for_stack: vec![],
-                                test: do_frame.test,
-                                line_level: 0,
-                            };
-                            //Duplicate code.
-                            self.stack.push(new_frame);
-                            self.symbol_table.push_new_frame();
-                            //End of duplicate code.
-                            self.symbol_table
-                                .new_var(parameters.iter().cloned())
-                                .unwrap();
-
-                            for (var, value) in arguments {
-                                self.symbol_table.set(&var, &value).unwrap();
-                            }
+                            Err(error) => self.error = Some(error),
                         }
                     }
                     StackAssembally::ForMetaData(meta_data) => {
@@ -382,6 +365,24 @@ impl<'a> Job<'a> {
         }
     }
 
+    fn push_do_frame(
+        symbol_table: &mut SymbolTable,
+        stack: &mut Vec<DoFrame<'a>>,
+        new_frame: DoFrame<'a>,
+        parameters: &Option<Vec<VariableName>>,
+        arguments: impl Iterator<Item = (MVar<Path>, Value)>,
+    ) {
+        stack.push(new_frame);
+        symbol_table.push_new_frame();
+        symbol_table
+            .new_var(parameters.iter().flatten().cloned())
+            .unwrap();
+
+        for (var, value) in arguments {
+            symbol_table.set(&var, &value).unwrap();
+        }
+    }
+
     /// Exit the current line.
     /// This handles the case where we are in a for loop.
     pub(crate) fn quit_line(
@@ -403,6 +404,45 @@ impl<'a> Job<'a> {
             subscripts.push(r_values.pop().unwrap());
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
+    }
+    /// Attempts to build an argument list based on a parameter list signature.
+    fn build_arguments(
+        call: &ExtrinsicFunctionCall,
+        parameters: &Option<Vec<VariableName>>,
+        r_values: &mut Vec<Value>,
+    ) -> Result<impl Iterator<Item = (MVar<Path>, Value)>, RuntimeError> {
+        let parameter_list_defined = parameters.is_some();
+
+        let number_of_arguments_passed = call.args;
+        let arguments_passed = from_fn(|| r_values.pop()).take(number_of_arguments_passed as usize);
+
+        let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
+        let num_missing_arguments =
+            expected_numb_parameters as isize - number_of_arguments_passed as isize;
+
+        if num_missing_arguments.is_negative() {
+            //We supplied too many arguments
+            for _ in arguments_passed {
+                //Pulling off arguments that were passed.
+            }
+            if parameter_list_defined {
+                Err(RuntimeError::ToManyArgumentsPassed)
+            } else {
+                Err(RuntimeError::NoParameterListDefined)
+            }
+        } else {
+            let arguments = parameters
+                .iter()
+                .flatten()
+                .rev()
+                .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
+                //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
+                .zip(
+                    repeat_n(Value::empty(), num_missing_arguments as usize)
+                        .chain(arguments_passed),
+                );
+            Ok(arguments)
+        }
     }
 }
 

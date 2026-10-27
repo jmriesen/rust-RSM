@@ -80,11 +80,11 @@ impl CompiledRoutine {
     fn beginning_of_file(&self) -> ProgramCounter<'_> {
         ProgramCounter::new(&self.byte_code)
     }
-    fn tag(&self, ident: Ident) -> (ProgramCounter<'_>, &Option<Vec<VariableName>>) {
-        let (Location(index), parameters) = self.tags.get(&ident).unwrap();
+    fn tag(&self, ident: Ident) -> Option<(ProgramCounter<'_>, &Option<Vec<VariableName>>)> {
+        let (Location(index), parameters) = self.tags.get(&ident)?;
         let mut pc = ProgramCounter::new(&self.byte_code);
         pc.jump(crate::runtime::program_counter::Location(*index));
-        (pc, parameters)
+        Some((pc, parameters))
     }
 }
 
