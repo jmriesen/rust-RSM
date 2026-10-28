@@ -15,21 +15,21 @@ use crate::{
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
-    runtime::program_counter::{AssemblyDecoder, ProgramCounter},
+    runtime::{
+        do_calls::{PushFrameArgs, build_arguments, push_do_frame},
+        program_counter::{AssemblyDecoder, ProgramCounter},
+    },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 use ir::{
     commands::NewKind,
     operators::{Binary, Unary},
 };
-use std::{
-    cmp::Ordering,
-    fmt::Debug,
-    iter::{from_fn, repeat_n},
-};
-use symbol_table::{MVar, SymbolTable, VariableName, key::Path};
+use std::{cmp::Ordering, fmt::Debug};
+use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
+mod do_calls;
 pub mod program_counter;
 
 #[derive(Error, PartialEq, Debug)]
@@ -47,7 +47,7 @@ pub(crate) enum RuntimeError {
 }
 
 #[derive(Debug)]
-struct DoFrame<'a> {
+pub struct DoFrame<'a> {
     pc: ProgramCounter<'a>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
@@ -139,12 +139,11 @@ impl<'a> Job<'a> {
             stack: vec![],
             routine,
         };
-        Self::push_do_frame(
+        push_do_frame(
             &mut job.symbol_table,
             &mut job.stack,
             routine.beginning_of_file(),
             PushFrameArgs {
-                parameters: &None,
                 arguments: [].into_iter(),
                 line_level_zero: true,
             },
@@ -193,12 +192,11 @@ impl<'a> Job<'a> {
                     StackAssembally::DoArgLess(_) => {
                         let mut pc = do_frame.pc.clone();
                         pc.advance_to_next_line();
-                        Self::push_do_frame(
+                        push_do_frame(
                             &mut self.symbol_table,
                             &mut self.stack,
                             pc,
                             PushFrameArgs {
-                                parameters: &None,
                                 arguments: [].into_iter(),
                                 line_level_zero: false,
                             },
@@ -207,26 +205,23 @@ impl<'a> Job<'a> {
                     StackAssembally::ExtrinsicFunctionCall(call) => {
                         match self
                             .routine
-                            .tag(call.tag.expect("Only supporting 'do tag' for write now."))
+                            .tag(call.tag)
                             .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
+                            .map(|(pc, parameters)| {
+                                (pc, build_arguments(&call, parameters, &mut self.r_values))
+                            })
+                            .map(|(pc, arguments)| arguments.map(|x| (pc, x)))
+                            .flatten()
                         {
-                            Ok((pc, parameters)) => {
-                                match Self::build_arguments(&call, parameters, &mut self.r_values) {
-                                    Ok(arguments) => {
-                                        Self::push_do_frame(
-                                            &mut self.symbol_table,
-                                            &mut self.stack,
-                                            pc,
-                                            PushFrameArgs {
-                                                parameters,
-                                                arguments,
-                                                line_level_zero: true,
-                                            },
-                                        );
-                                    }
-                                    Err(error) => self.error = Some(error),
-                                }
-                            }
+                            Ok((pc, arguments)) => push_do_frame(
+                                &mut self.symbol_table,
+                                &mut self.stack,
+                                pc,
+                                PushFrameArgs {
+                                    arguments,
+                                    line_level_zero: true,
+                                },
+                            ),
                             Err(error) => self.error = Some(error),
                         }
                     }
@@ -364,38 +359,6 @@ impl<'a> Job<'a> {
         }
     }
 
-    fn push_do_frame(
-        symbol_table: &mut SymbolTable,
-        stack: &mut Vec<DoFrame<'a>>,
-        pc: ProgramCounter<'a>,
-        PushFrameArgs {
-            parameters,
-            arguments,
-            line_level_zero,
-        }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, Value)>>,
-    ) {
-        let new_frame = DoFrame {
-            pc,
-            for_stack: vec![],
-            test: stack.last().map_or(false, |x| x.test),
-            line_level: if line_level_zero {
-                0
-            } else {
-                stack.last().expect("The only time the stack is empty is if we are starting a new job, and in that case line_level_zero should have been set.").line_level + 1
-            },
-        };
-
-        stack.push(new_frame);
-        symbol_table.push_new_frame();
-        symbol_table
-            .new_var(parameters.iter().flatten().cloned())
-            .unwrap();
-
-        for (var, value) in arguments {
-            symbol_table.set(&var, &value).unwrap();
-        }
-    }
-
     /// Exit the current line.
     /// This handles the case where we are in a for loop.
     pub(crate) fn quit_line(
@@ -418,50 +381,6 @@ impl<'a> Job<'a> {
         }
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
-    /// Attempts to build an argument list based on a parameter list signature.
-    fn build_arguments(
-        call: &ExtrinsicFunctionCall,
-        parameters: &Option<Vec<VariableName>>,
-        r_values: &mut Vec<Value>,
-    ) -> Result<impl Iterator<Item = (MVar<Path>, Value)>, RuntimeError> {
-        let parameter_list_defined = parameters.is_some();
-
-        let number_of_arguments_passed = call.args;
-        let arguments_passed = from_fn(|| r_values.pop()).take(number_of_arguments_passed as usize);
-
-        let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
-        let num_missing_arguments =
-            expected_numb_parameters as isize - number_of_arguments_passed as isize;
-
-        if num_missing_arguments.is_negative() {
-            //We supplied too many arguments
-            for _ in arguments_passed {
-                //Pulling off arguments that were passed.
-            }
-            if parameter_list_defined {
-                Err(RuntimeError::ToManyArgumentsPassed)
-            } else {
-                Err(RuntimeError::NoParameterListDefined)
-            }
-        } else {
-            let arguments = parameters
-                .iter()
-                .flatten()
-                .rev()
-                .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
-                //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
-                .zip(
-                    repeat_n(Value::empty(), num_missing_arguments as usize)
-                        .chain(arguments_passed),
-                );
-            Ok(arguments)
-        }
-    }
-}
-struct PushFrameArgs<'a, A: Iterator<Item = (MVar<Path>, Value)>> {
-    parameters: &'a Option<Vec<VariableName>>,
-    arguments: A,
-    line_level_zero: bool,
 }
 
 #[cfg(test)]

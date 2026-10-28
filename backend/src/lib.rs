@@ -80,11 +80,21 @@ impl CompiledRoutine {
     fn beginning_of_file(&self) -> ProgramCounter<'_> {
         ProgramCounter::new(&self.byte_code)
     }
-    fn tag(&self, ident: Ident) -> Option<(ProgramCounter<'_>, &Option<Vec<VariableName>>)> {
-        let (Location(index), parameters) = self.tags.get(&ident)?;
-        let mut pc = ProgramCounter::new(&self.byte_code);
-        pc.jump(crate::runtime::program_counter::Location(*index));
-        Some((pc, parameters))
+    /// Returns position + parameter list details for the requested tag.
+    /// NOTE: Follows do calling convention so None -> start of the routine.
+    fn tag(
+        &self,
+        tag_name: Option<Ident>,
+    ) -> Option<(ProgramCounter<'_>, &Option<Vec<VariableName>>)> {
+        match tag_name {
+            Some(tag) => {
+                let (Location(index), parameters) = self.tags.get(&tag)?;
+                let mut pc = ProgramCounter::new(&self.byte_code);
+                pc.jump(crate::runtime::program_counter::Location(*index));
+                Some((pc, parameters))
+            }
+            None => Some((self.beginning_of_file(), &None)),
+        }
     }
 }
 
