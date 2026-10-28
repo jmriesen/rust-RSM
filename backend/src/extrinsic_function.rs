@@ -98,7 +98,7 @@ impl Decode for ExtrinsicFunctionCall {
         } else {
             ExtrinsicFunctionContext::Do
         };
-        let args = arg_and_type & 0b1111111;
+        let args = arg_and_type & 0b01111111;
 
         Some(Self { tag, routine, args })
     }
