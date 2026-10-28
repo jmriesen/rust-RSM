@@ -19,6 +19,8 @@ static _VAR_IDENT_NAME_LENGTH: () = {
 };
 #[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Ident([u8; 32]);
+
+#[cfg_attr(test, mutants::skip)]
 impl Debug for Ident {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inner: VariableName = self.clone().into();

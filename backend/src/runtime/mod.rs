@@ -1,5 +1,4 @@
 use crate::{
-    CompiledRoutine,
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
@@ -15,6 +14,7 @@ use crate::{
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
+    routine::CompiledRoutine,
     runtime::{
         do_calls::{PushFrameArgs, build_arguments, push_do_frame},
         program_counter::{AssemblyDecoder, ProgramCounter},
