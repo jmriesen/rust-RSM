@@ -1,0 +1,14 @@
+entry
+ d tag
+ d tag()
+ d tag("foo")
+ q
+tag
+ w "called",!
+ q
+---
+called
+called
+
+---
+Line must have a formal list

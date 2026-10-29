@@ -1,14 +1,23 @@
 use chumsky::{IterParser, prelude::*};
-use ir::{Line, Spanned, Tag};
+use ir::{Line, Spanned, Tag, variable::Ident};
 
 use crate::{
     ParsingError,
-    parser::{Extra, commands::command, eol, space_or_eol},
+    parser::{Extra, commands::command, eol, space_or_eol, variable::identifier},
 };
 pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
-    let tag = text::ascii::ident()
-        .map(|tag: &str| Tag {
+    let tag = identifier()
+        .then(
+            (identifier()
+                .map(|ident| Ident(ident.to_owned()))
+                .separated_by(just(",")))
+            .collect()
+            .delimited_by(just("("), just(")"))
+            .or_not(),
+        )
+        .map(|(tag, parameters)| Tag {
             name: tag.to_owned(),
+            parameters: parameters,
         })
         .spanned()
         .map(|x| Spanned::from(x));

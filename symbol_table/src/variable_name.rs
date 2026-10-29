@@ -29,7 +29,7 @@
  */
 
 //NOTE I am specificity not using an ArraryString since it could contain non utf-8 data.
-const MAX_VAR_NAME_SIZE: usize = 32;
+pub const MAX_VAR_NAME_SIZE: usize = 32;
 use core::fmt;
 use std::{hash::Hash, os::raw::c_uchar};
 

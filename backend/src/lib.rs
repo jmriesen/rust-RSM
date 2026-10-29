@@ -1,5 +1,6 @@
 pub use bite_code::BiteCode;
 use ir::Spanned;
+
 pub mod bite_code;
 pub mod commands;
 mod conditional_jumps;
@@ -11,6 +12,8 @@ pub mod intrinsic_var;
 mod line_info;
 mod macros;
 pub mod operators;
+mod routine;
+pub use routine::compile_routine;
 pub mod runtime;
 pub mod value;
 pub mod var_u;
@@ -57,29 +60,7 @@ where
     }
 }
 
-pub fn compile_routine(routine: ir::Routine) -> Vec<u8> {
-    let mut comp = BiteCode::new();
-    for (i, line) in routine.iter().enumerate() {
-        line.compile(&mut comp, &(i as u16));
-    }
-    comp.get_raw()
-}
-
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub mod test {
-    use ir::Routine;
-
-    use crate::compile_routine;
-    pub fn test_compile_command(source_code: &str) -> Vec<u8> {
-        let commands = frontend::parse_routine_print_errors(&format!(" {source_code}")).unwrap();
-        dbg!(&commands);
-        const LENGTH_OF_LINE_START: usize = 5;
-        compile_routine(commands)[LENGTH_OF_LINE_START..].to_vec()
-    }
-
-    pub fn parse_routine(source_code: &str) -> Routine {
-        frontend::parse_routine_print_errors(source_code).unwrap()
-    }
-}
+pub use routine::test::test_compile_command;

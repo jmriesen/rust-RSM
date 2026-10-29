@@ -10,10 +10,15 @@ use crate::{
         write::WriteCodes,
     },
     conditional_jumps::{Jump, JumpCodes},
+    extrinsic_function::ExtrinsicFunctionCall,
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
-    runtime::program_counter::{AssemblyDecoder, ProgramCounter},
+    routine::CompiledRoutine,
+    runtime::{
+        do_calls::{PushFrameArgs, build_arguments, push_do_frame},
+        program_counter::{AssemblyDecoder, ProgramCounter},
+    },
     variable::{BuildVarInstructions, LoadVar, PushVar},
 };
 use ir::{
@@ -24,6 +29,7 @@ use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
+mod do_calls;
 pub mod program_counter;
 
 #[derive(Error, PartialEq, Debug)]
@@ -32,6 +38,12 @@ pub(crate) enum RuntimeError {
     UndefinedIndexVariable,
     #[error("Not yet supported {}",.0)]
     NotYetSupported(&'static str),
+    #[error("Too few formal parameters")]
+    ToManyArgumentsPassed,
+    #[error("Line must have a formal list")]
+    NoParameterListDefined,
+    #[error("Invalid line reference (line not found)")]
+    CouldNotFindTagOrCouldNotFindRoutine,
 }
 
 #[derive(Debug)]
@@ -59,6 +71,7 @@ pub struct Job<'a> {
     stack: Vec<DoFrame<'a>>,
 
     error: Option<RuntimeError>,
+    routine: &'a CompiledRoutine,
 }
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
@@ -110,26 +123,32 @@ StackAssembally! {
     DoArgLess,
     Test,
     NewStackAsm,
+    ExtrinsicFunctionCall,
     TEMP,
 }
-
 impl<'a> Job<'a> {
-    pub fn new(byte_code: &'a [u8]) -> Self {
+    pub fn new(routine: &'a CompiledRoutine) -> Self {
         let mut symbol_table = SymbolTable::default();
         symbol_table.push_new_frame();
-        Self {
+        let mut job = Self {
             buffer: String::new(),
             r_values: vec![],
             l_values: vec![],
             symbol_table,
             error: None,
-            stack: vec![DoFrame {
-                pc: ProgramCounter::new(byte_code),
-                for_stack: vec![],
-                test: false,
-                line_level: 0,
-            }],
-        }
+            stack: vec![],
+            routine,
+        };
+        push_do_frame(
+            &mut job.symbol_table,
+            &mut job.stack,
+            routine.beginning_of_file(),
+            PushFrameArgs {
+                arguments: [].into_iter(),
+                line_level_zero: true,
+            },
+        );
+        job
     }
     pub fn run(&mut self) {
         while let Some(do_frame) = self.stack.last_mut() {
@@ -173,15 +192,38 @@ impl<'a> Job<'a> {
                     StackAssembally::DoArgLess(_) => {
                         let mut pc = do_frame.pc.clone();
                         pc.advance_to_next_line();
-
-                        let new_frame = DoFrame {
+                        push_do_frame(
+                            &mut self.symbol_table,
+                            &mut self.stack,
                             pc,
-                            for_stack: vec![],
-                            test: do_frame.test,
-                            line_level: do_frame.line_level + 1,
-                        };
-                        self.stack.push(new_frame);
-                        self.symbol_table.push_new_frame();
+                            PushFrameArgs {
+                                arguments: [].into_iter(),
+                                line_level_zero: false,
+                            },
+                        );
+                    }
+                    StackAssembally::ExtrinsicFunctionCall(call) => {
+                        match self
+                            .routine
+                            .tag(call.tag)
+                            .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
+                            .map(|(pc, parameters)| {
+                                (pc, build_arguments(&call, parameters, &mut self.r_values))
+                            })
+                            .map(|(pc, arguments)| arguments.map(|x| (pc, x)))
+                            .flatten()
+                        {
+                            Ok((pc, arguments)) => push_do_frame(
+                                &mut self.symbol_table,
+                                &mut self.stack,
+                                pc,
+                                PushFrameArgs {
+                                    arguments,
+                                    line_level_zero: true,
+                                },
+                            ),
+                            Err(error) => self.error = Some(error),
+                        }
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(

@@ -14,7 +14,7 @@ pub mod operators;
 pub mod variable;
 pub use variable::Variable;
 
-use crate::commands::Command;
+use crate::{commands::Command, variable::Ident};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub inner: T,
@@ -41,6 +41,7 @@ impl<T: derive_visitor::Drive> derive_visitor::Drive for Spanned<T> {
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Tag {
     pub name: String,
+    pub parameters: Option<Vec<Ident>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]

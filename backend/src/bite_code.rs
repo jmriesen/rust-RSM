@@ -11,8 +11,9 @@ pub struct BiteCode(Vec<u8>);
 #[derive(Debug)]
 pub struct JumpTargetSlot(usize);
 
-#[derive(Debug)]
-pub struct Location(usize);
+//TODO remove duplicate location types.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct Location(pub usize);
 
 impl Default for BiteCode {
     fn default() -> Self {
