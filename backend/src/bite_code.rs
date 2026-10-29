@@ -1,6 +1,10 @@
 use ir::Expression;
 
-use crate::{Compile, conditional_jumps::JumpCodes};
+use crate::{
+    Compile,
+    conditional_jumps::JumpCodes,
+    runtime::{Decode, program_counter::AssemblyDecoder},
+};
 
 pub struct BiteCode(Vec<u8>);
 
@@ -14,6 +18,17 @@ pub struct JumpTargetSlot(usize);
 //TODO remove duplicate location types.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Location(pub usize);
+impl Decode for Location {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
+        let jump_distance = i16::from_le_bytes(decoder.consume_n());
+        let Location(here) = decoder.current_location();
+        Some(Self(
+            here + usize::try_from(jump_distance).expect(
+                "Currently only supporting forward jumps. May change if new functionality needs it.",
+            ),
+        ))
+    }
+}
 
 impl Default for BiteCode {
     fn default() -> Self {

@@ -1,22 +1,7 @@
-use std::fmt::Debug;
-
-use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
-
-/// A location in the byte code.
-/// Used by jumps and program counters
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Location(pub usize);
-impl Decode for Location {
-    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
-        let jump_distance = i16::from_le_bytes(decoder.consume_n());
-        let Location(here) = decoder.program_counter;
-        Some(Self(
-            here + usize::try_from(jump_distance).expect(
-                "Currently only supporting forward jumps. May change if new functionality needs it.",
-            ),
-        ))
-    }
-}
+use crate::{
+    bite_code::Location,
+    runtime::{StackAssembally, StackAssemblyTrait},
+};
 
 /// Responsible for parsing assembly instruction.
 /// This **is allowed** to decode partial instructions.

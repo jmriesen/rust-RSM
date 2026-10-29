@@ -1,9 +1,7 @@
 use crate::{
+    bite_code::Location,
     macros::OpCodes,
-    runtime::{
-        Decode,
-        program_counter::{self, AssemblyDecoder},
-    },
+    runtime::{Decode, program_counter::AssemblyDecoder},
 };
 OpCodes! {
     JumpCodes {
@@ -13,7 +11,7 @@ OpCodes! {
 #[derive(Debug)]
 pub struct Jump {
     pub r#type: JumpCodes,
-    pub target: program_counter::Location,
+    pub target: Location,
 }
 impl Decode for Jump {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {

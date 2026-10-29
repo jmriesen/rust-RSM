@@ -35,9 +35,9 @@ impl CompiledRoutine {
     ) -> Option<(ProgramCounter<'_>, &Option<Vec<VariableName>>)> {
         match tag_name {
             Some(tag) => {
-                let (Location(index), parameters) = self.tags.get(&tag)?;
+                let (index, parameters) = self.tags.get(&tag)?;
                 let mut pc = ProgramCounter::new(&self.byte_code);
-                pc.jump(crate::runtime::program_counter::Location(*index));
+                pc.jump(*index);
                 Some((pc, parameters))
             }
             None => Some((self.beginning_of_file(), &None)),
