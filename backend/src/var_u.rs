@@ -31,6 +31,7 @@ impl Debug for Ident {
 impl TryFrom<&str> for Ident {
     type Error = &'static str;
 
+    #[cfg_attr(test, mutants::skip)]
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let bytes = value.as_bytes();
         if bytes.len() > VAR_LEN as usize {
@@ -60,6 +61,7 @@ impl Decode for Ident {
     }
 }
 impl Into<VariableName> for Ident {
+    #[cfg_attr(test, mutants::skip)]
     fn into(self) -> VariableName {
         //TODO Check if this end makes since I am not sure if Ident is allowed to have null
         //bytes.
