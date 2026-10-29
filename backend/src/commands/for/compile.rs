@@ -2,7 +2,7 @@ use ir::commands::r#for::{For, ForKind};
 
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::{ByteCode, Location},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
     runtime::{Decode, EndCommand, NoOpCode, program_counter::AssemblyDecoder},
@@ -28,13 +28,13 @@ OpCode! {ForEnd =178}
 pub struct ForArgMetaData {
     pub loop_variable: BuildVarInstructions,
     /// tracks source code for next `Range` group.
-    pub range_pc: crate::runtime::program_counter::Location,
+    pub range_pc: Location,
 }
 
 #[derive(Debug)]
 pub struct ForMetaData {
-    pub loop_body: crate::runtime::program_counter::Location,
-    pub r#break: crate::runtime::program_counter::Location,
+    pub loop_body: Location,
+    pub r#break: Location,
     pub args: Option<ForArgMetaData>,
 }
 
@@ -51,7 +51,7 @@ impl Compile for For {
      * but that is going down the same route as for_preamble (which I am trying to get rid of, due
      * to barrow checking/state being weird with incomplete objects.)
      * */
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match &self.kind {
             ForKind::VarLoop {
                 variable,

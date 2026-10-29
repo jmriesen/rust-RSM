@@ -1,6 +1,6 @@
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     runtime::{Decode, program_counter::AssemblyDecoder},
     var_u,
 };
@@ -8,7 +8,7 @@ use ir::{
     Variable,
     variable::{Env, GlobleIdent, VariableType},
 };
-use symbol_table::VariableName;
+use symbol_table::Ident;
 
 #[derive(Clone, Copy)]
 pub enum VarContext {
@@ -31,7 +31,7 @@ pub enum VarCodes {
 const INDIRECT_VAR: u8 = 66;
 impl Compile for Variable {
     type Context = VarContext;
-    fn compile(&self, comp: &mut BiteCode, context: &VarContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &VarContext) {
         use crate::expression::ExpressionContext;
         use VariableType as E;
         match &self.var_type {
@@ -101,7 +101,7 @@ impl Compile for Variable {
         }
 
         if let E::Named { name, .. } = &self.var_type {
-            var_u::Ident::try_from(name.0.as_str())
+            symbol_table::Ident::try_from(name.0.as_str())
                 .unwrap()
                 .compile(comp, &());
         }
@@ -110,7 +110,7 @@ impl Compile for Variable {
 
 #[derive(Debug)]
 pub struct BuildVarInstructions {
-    pub name: VariableName,
+    pub name: Ident,
     pub subscripts: usize,
 }
 impl Decode for BuildVarInstructions {
@@ -124,7 +124,7 @@ impl Decode for BuildVarInstructions {
             .cloned()
             .collect();
         Some(Self {
-            name: VariableName::new(&variable_string).unwrap(),
+            name: Ident::new(&variable_string).unwrap(),
             //TODO: handle parsing different types of variables.
             subscripts: code_num_subscriptions as usize,
         })

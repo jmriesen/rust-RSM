@@ -1,7 +1,7 @@
-pub use bite_code::BiteCode;
+pub use byte_code::ByteCode;
 use ir::Spanned;
 
-pub mod bite_code;
+pub mod byte_code;
 pub mod commands;
 mod conditional_jumps;
 pub mod expression;
@@ -21,7 +21,7 @@ pub mod variable;
 
 pub trait Compile {
     type Context;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context);
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context);
 }
 
 impl<T, C> Compile for Vec<T>
@@ -30,7 +30,7 @@ where
     T: Compile<Context = C>,
 {
     type Context = C;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         for term in self {
             term.compile(bite_code, context)
         }
@@ -43,7 +43,7 @@ where
     T: Compile<Context = C>,
 {
     type Context = C;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         if let Some(inner) = self {
             inner.compile(bite_code, context)
         }
@@ -55,7 +55,7 @@ where
     T: Compile<Context = C>,
 {
     type Context = C;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         self.inner.compile(bite_code, context)
     }
 }

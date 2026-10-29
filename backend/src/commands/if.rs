@@ -13,7 +13,7 @@ OpCodes! {
 impl Compile for If {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
+    fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
         if self.0.is_empty() {
             bite_code.push(IfElse::IfNoArgs as u8);
         } else {

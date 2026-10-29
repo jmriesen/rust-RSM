@@ -1,6 +1,6 @@
 use ir::commands::{Command, PostCondition};
 
-use crate::{Compile, bite_code::BiteCode, commands::r#if::IfElse, runtime::EndCommand};
+use crate::{Compile, byte_code::ByteCode, commands::r#if::IfElse, runtime::EndCommand};
 
 pub mod r#break;
 pub mod close;
@@ -19,7 +19,7 @@ where
     T: Compile<Context = C>,
 {
     type Context = C;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         if let Some(condition) = &self.condition {
             bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
         } else {
@@ -30,7 +30,7 @@ where
 
 impl Compile for Command {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match self {
             Command::Write(x) => x.compile(bite_code, &()),
             Command::Close(x) => x.compile(bite_code, &()),

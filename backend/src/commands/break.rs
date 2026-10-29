@@ -1,6 +1,6 @@
 use ir::{Expression, commands::r#break::Break};
 
-use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext};
+use crate::{Compile, byte_code::ByteCode, expression::ExpressionContext};
 enum BreakCode {
     ArgumentLess = 70,
     Arg = 71,
@@ -8,7 +8,7 @@ enum BreakCode {
 
 impl Compile for Break {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match self {
             Self::ArgumentLess => {
                 bite_code.push(BreakCode::ArgumentLess as u8);

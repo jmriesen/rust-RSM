@@ -1,6 +1,6 @@
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     macros::OpCodesForeign,
     runtime::{Decode, Encode, program_counter::AssemblyDecoder},
     variable::VarContext,
@@ -14,7 +14,7 @@ OpCodesForeign!(NewKind{
 
 impl Compile for New {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         self.vars.compile(bite_code, &VarContext::Build);
         bite_code.push(self.kind.encode());
         bite_code.push(self.vars.len() as u8);

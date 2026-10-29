@@ -1,9 +1,7 @@
 use crate::{
+    byte_code::Location,
     commands::r#for::{ForMetaData, ForRangeType},
-    runtime::{
-        Job, RuntimeError,
-        program_counter::{Location, ProgramCounter},
-    },
+    runtime::{Job, RuntimeError, program_counter::ProgramCounter},
 };
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};

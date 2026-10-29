@@ -1,10 +1,10 @@
 use ir::IntrinsicVar;
 
-use crate::{Compile, bite_code::BiteCode};
+use crate::{Compile, byte_code::ByteCode};
 
 impl Compile for IntrinsicVar {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         use IntrinsicVar::*;
         bite_code.push(match self {
             Device => 80,

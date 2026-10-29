@@ -1,7 +1,7 @@
 use ir::Line;
 
 use crate::{
-    BiteCode, Compile,
+    ByteCode, Compile,
     macros::OpCode,
     runtime::{Decode, program_counter::AssemblyDecoder},
 };
@@ -12,7 +12,7 @@ OpCode! {LineNum=170}
 impl Compile for Line {
     type Context = u16;
 
-    fn compile(&self, bite_code: &mut BiteCode, line_numb: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, line_numb: &Self::Context) {
         StartLine {
             line_numb: *line_numb,
             level: self.level,
@@ -45,7 +45,7 @@ impl Decode for StartLine {
 impl Compile for StartLine {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
+    fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
         bite_code.push(LineNum.encode());
         bite_code.extend(self.line_numb.to_le_bytes());
         bite_code.extend(self.level.to_le_bytes());

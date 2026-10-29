@@ -1,8 +1,24 @@
+use std::fmt::Debug;
+
 use ir::Expression;
 
-use crate::{Compile, conditional_jumps::JumpCodes};
+use crate::{
+    Compile,
+    conditional_jumps::JumpCodes,
+    runtime::{
+        Decode,
+        program_counter::{AssemblyDecoder, ProgramCounter},
+    },
+};
 
-pub struct BiteCode(Vec<u8>);
+pub struct ByteCode(pub(crate) Vec<u8>);
+impl Debug for ByteCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("BiteCode")
+            .field(&ProgramCounter::new(self))
+            .finish()
+    }
+}
 
 /// The JumpTarget is the bytecode location where we should resume execution from if we take the jump.
 /// We store the JumpTarget before the code we might be jumping over.
@@ -14,14 +30,25 @@ pub struct JumpTargetSlot(usize);
 //TODO remove duplicate location types.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Location(pub usize);
+impl Decode for Location {
+    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
+        let jump_distance = i16::from_le_bytes(decoder.consume_n());
+        let Location(here) = decoder.current_location();
+        Some(Self(
+            here + usize::try_from(jump_distance).expect(
+                "Currently only supporting forward jumps. May change if new functionality needs it.",
+            ),
+        ))
+    }
+}
 
-impl Default for BiteCode {
+impl Default for ByteCode {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BiteCode {
+impl ByteCode {
     pub fn new() -> Self {
         Self(Vec::new())
     }

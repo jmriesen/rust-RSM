@@ -17,7 +17,7 @@ OpCodesForeign! {
 impl Compile for Kill {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
+    fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
         self.variables.compile(bite_code, &VarContext::Build);
         KillInstruction {
             r#type: self.r#type,
@@ -35,7 +35,7 @@ pub struct KillInstruction {
 impl Compile for KillInstruction {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
+    fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
         bite_code.push(self.r#type.encode());
         bite_code.push(self.number_of_variables);
     }

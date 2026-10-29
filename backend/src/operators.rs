@@ -2,7 +2,7 @@ use ir::operators::{Binary, Unary};
 
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     macros::OpCodesForeign,
     runtime::{Decode, Encode},
 };
@@ -17,13 +17,13 @@ OpCodesForeign! {
 
 impl Compile for Unary {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         bite_code.push(self.encode());
     }
 }
 impl Compile for Binary {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         bite_code.push(self.encode());
     }
 }

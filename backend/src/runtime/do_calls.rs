@@ -1,12 +1,9 @@
 use std::iter::{from_fn, repeat_n};
 
-use symbol_table::{MVar, SymbolTable, VariableName, key::Path};
+use symbol_table::{Ident, MVar, SymbolTable, key::Path};
 use value::Value;
 
-use crate::{
-    extrinsic_function::ExtrinsicFunctionCall,
-    runtime::{DoFrame, RuntimeError, program_counter::ProgramCounter},
-};
+use crate::runtime::{DoFrame, RuntimeError, program_counter::ProgramCounter};
 
 pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, Value)>> {
     pub arguments: A,
@@ -16,13 +13,12 @@ pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, Value)>> {
 //
 // Attempts to build an argument list based on a parameter list signature.
 pub fn build_arguments(
-    call: &ExtrinsicFunctionCall,
-    parameters: &Option<Vec<VariableName>>,
+    number_of_arguments_passed: u8,
+    parameters: &Option<Vec<Ident>>,
     r_values: &mut Vec<Value>,
 ) -> Result<impl Iterator<Item = (MVar<Path>, Value)>, RuntimeError> {
     let parameter_list_defined = parameters.is_some();
 
-    let number_of_arguments_passed = call.args;
     let arguments_passed = from_fn(|| r_values.pop()).take(number_of_arguments_passed as usize);
 
     let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
