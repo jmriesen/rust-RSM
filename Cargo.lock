@@ -146,6 +146,7 @@ dependencies = [
  "ir",
  "mutants",
  "rstest",
+ "serde",
  "symbol_table",
  "thiserror 1.0.69",
  "value",
@@ -993,6 +994,7 @@ version = "0.1.0"
 dependencies = [
  "chumsky",
  "derive-visitor",
+ "serde",
  "value",
 ]
 

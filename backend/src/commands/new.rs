@@ -6,6 +6,7 @@ use crate::{
     variable::VarContext,
 };
 use ir::commands::{New, NewKind};
+use serde::{Deserialize, Serialize};
 
 OpCodesForeign!(NewKind{
     Inclusive => 164,
@@ -21,7 +22,7 @@ impl Compile for New {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NewStackAsm {
     pub kind: NewKind,
     pub number_of_variables: u8,

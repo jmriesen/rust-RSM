@@ -12,6 +12,7 @@ use close::Close;
 use r#do::Do;
 use r#for::For;
 use r#if::If;
+use serde::{Deserialize, Serialize};
 use set::Set;
 pub use write::Write;
 
@@ -53,7 +54,7 @@ pub enum Command {
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub struct Quit(pub Option<Expression>);
 
-#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive, Serialize, Deserialize)]
 pub enum NewKind {
     Inclusive,
     Exclusive,

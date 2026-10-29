@@ -8,6 +8,7 @@ use ir::{
     Variable,
     variable::{Env, GlobleIdent, VariableType},
 };
+use serde::{Deserialize, Serialize};
 use symbol_table::Ident;
 
 #[derive(Clone, Copy)]
@@ -108,7 +109,7 @@ impl Compile for Variable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct BuildVarInstructions {
     pub name: Ident,
     pub subscripts: usize,
@@ -131,7 +132,7 @@ impl Decode for BuildVarInstructions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoadVar {
     pub var: BuildVarInstructions,
 }
@@ -148,7 +149,7 @@ impl Decode for LoadVar {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PushVar {
     pub var: BuildVarInstructions,
 }

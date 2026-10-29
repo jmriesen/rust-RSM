@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use ir::Expression;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Compile,
@@ -28,7 +29,7 @@ impl Debug for ByteCode {
 pub struct JumpTargetSlot(usize);
 
 //TODO remove duplicate location types.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub struct Location(pub usize);
 impl Decode for Location {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {

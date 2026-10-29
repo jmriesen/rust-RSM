@@ -1,11 +1,13 @@
-#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive, Serialize, Deserialize)]
 pub enum Unary {
     Minus,
     Plus,
     Not,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive, Serialize, Deserialize)]
 pub enum Binary {
     Add,
     Sub,

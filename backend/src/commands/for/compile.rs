@@ -1,4 +1,5 @@
 use ir::commands::r#for::{For, ForKind};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Compile,
@@ -24,14 +25,14 @@ ForStart {
 }}
 OpCode! {ForEnd =178}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ForArgMetaData {
     pub loop_variable: BuildVarInstructions,
     /// tracks source code for next `Range` group.
     pub range_pc: Location,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ForMetaData {
     pub loop_body: Location,
     pub r#break: Location,

@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     byte_code::Location,
     macros::OpCodes,
@@ -8,7 +10,7 @@ OpCodes! {
         Conditional = 5,
         Unconditional = 172,
 }}
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Jump {
     pub r#type: JumpCodes,
     pub target: Location,

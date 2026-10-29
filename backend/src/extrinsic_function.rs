@@ -2,6 +2,7 @@ use ir::{
     ExtrinsicFunction,
     extrinsic_function::{Args, Location},
 };
+use serde::{Deserialize, Serialize};
 use symbol_table::Ident;
 
 use super::Compile;
@@ -70,7 +71,7 @@ impl Compile for ExtrinsicFunction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExtrinsicFunctionCall {
     pub tag: Option<Ident>,
     #[expect(dead_code)]

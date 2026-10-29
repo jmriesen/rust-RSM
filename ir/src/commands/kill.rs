@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{Spanned, Variable};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_visitor::Drive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_visitor::Drive, Serialize, Deserialize)]
 pub enum KillType {
     Inclusive,
     //TODO: Note elusive kills cant actually be used on all variables, only local without subscript.

@@ -1,4 +1,5 @@
 use ir::Line;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ByteCode, Compile,
@@ -26,7 +27,7 @@ impl Compile for Line {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartLine {
     pub line_numb: u16,
     pub level: u16,

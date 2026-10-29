@@ -1,6 +1,6 @@
 macro_rules! OpCode {
     ($name:ident=$code:expr) => {
-        #[derive(Debug)]
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct $name;
         impl Decode for $name {
             fn decode(
@@ -27,7 +27,7 @@ $name:ident{
     $($var:ident=$code:expr,)*
 }
 ) => {
-        #[derive(Debug)]
+        #[derive(Debug,serde::Deserialize, serde::Serialize)]
         pub enum $name {
             $($var = $code,)*
         }
@@ -73,7 +73,7 @@ macro_rules! StackAssembally{
     (
         $($instruction:ident,)*
 ) => {
-#[derive(Debug)]
+#[derive(Debug,serde::Deserialize, serde::Serialize)]
 pub enum StackAssembally {
     $($instruction($instruction),)*
     }

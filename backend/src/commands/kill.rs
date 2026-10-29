@@ -1,4 +1,5 @@
 use ir::commands::kill::{Kill, KillType};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Compile,
@@ -27,7 +28,7 @@ impl Compile for Kill {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct KillInstruction {
     pub r#type: KillType,
     pub number_of_variables: u8,

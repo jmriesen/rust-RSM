@@ -25,6 +25,7 @@ use ir::{
     commands::NewKind,
     operators::{Binary, Unary},
 };
+use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
@@ -87,7 +88,7 @@ OpCode! {Test=94}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub struct TEMP(u8);
 #[cfg_attr(test, mutants::skip)]
