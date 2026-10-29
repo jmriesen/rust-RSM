@@ -47,7 +47,7 @@ pub(crate) enum RuntimeError {
 }
 
 #[derive(Debug)]
-pub struct DoFrame<'a> {
+struct DoFrame<'a> {
     pc: ProgramCounter<'a>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,

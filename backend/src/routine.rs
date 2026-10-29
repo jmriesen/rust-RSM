@@ -52,7 +52,7 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
         if let Some(tag) = &line.tag {
             let tag = &tag.inner;
 
-            tags.insert(
+            if let Some(_) = tags.insert(
                 tag.name.as_str().try_into().unwrap(),
                 (
                     comp.current_location(),
@@ -62,7 +62,9 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
                             .collect()
                     }),
                 ),
-            );
+            ) {
+                panic!("Duplicate key");
+            };
         }
 
         line.compile(&mut comp, &(i as u16));
