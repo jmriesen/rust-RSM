@@ -2,6 +2,7 @@ use ir::{
     ExtrinsicFunction,
     extrinsic_function::{Args, Location},
 };
+use symbol_table::Ident;
 
 use super::Compile;
 use crate::{
@@ -59,9 +60,9 @@ impl Compile for ExtrinsicFunction {
             Location::TagRoutine(tag, routine) => (Some(&tag.0), Some(&routine.0)),
         };
         routine
-            .map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
+            .map(|ident| Ident::try_from(ident).unwrap())
             .compile(comp, &());
-        tag.map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
+        tag.map(|ident| Ident::try_from(ident).unwrap())
             .compile(comp, &());
 
         // End marker + number of args
@@ -71,11 +72,11 @@ impl Compile for ExtrinsicFunction {
 
 #[derive(Debug)]
 pub struct ExtrinsicFunctionCall {
-    pub tag: Option<var_u::Ident>,
+    pub tag: Option<Ident>,
     #[expect(dead_code)]
-    routine: Option<var_u::Ident>,
+    routine: Option<Ident>,
     //eval:bool
-    pub args: u8,
+    pub number_of_arguments_passed: u8,
 }
 
 impl Decode for ExtrinsicFunctionCall {
@@ -100,6 +101,10 @@ impl Decode for ExtrinsicFunctionCall {
         };
         let args = arg_and_type & 0b01111111;
 
-        Some(Self { tag, routine, args })
+        Some(Self {
+            tag,
+            routine,
+            number_of_arguments_passed: args,
+        })
     }
 }

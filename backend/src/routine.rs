@@ -1,15 +1,13 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use symbol_table::VariableName;
+use symbol_table::Ident;
 
-use crate::{
-    ByteCode, Compile, byte_code::Location, runtime::program_counter::ProgramCounter, var_u::Ident,
-};
+use crate::{ByteCode, Compile, byte_code::Location, runtime::program_counter::ProgramCounter};
 
 #[derive(Debug)]
 pub struct CompiledRoutine {
     byte_code: ByteCode,
-    tags: HashMap<Ident, (Location, Option<Vec<VariableName>>)>,
+    tags: HashMap<Ident, (Location, Option<Vec<Ident>>)>,
 }
 
 impl CompiledRoutine {
@@ -21,7 +19,7 @@ impl CompiledRoutine {
     pub fn tag(
         &self,
         tag_name: Option<Ident>,
-    ) -> Option<(ProgramCounter<'_>, &Option<Vec<VariableName>>)> {
+    ) -> Option<(ProgramCounter<'_>, &Option<Vec<Ident>>)> {
         match tag_name {
             Some(tag) => {
                 let (index, parameters) = self.tags.get(&tag)?;
@@ -47,7 +45,7 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
                     byte_code.current_location(),
                     tag.parameters.as_ref().map(|x| {
                         x.iter()
-                            .map(|x| VariableName::new(x.0.as_bytes()).unwrap())
+                            .map(|x| Ident::new(x.0.as_bytes()).unwrap())
                             .collect()
                     }),
                 ),

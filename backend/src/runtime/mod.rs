@@ -208,7 +208,14 @@ impl<'a> Job<'a> {
                             .tag(call.tag)
                             .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
                             .map(|(pc, parameters)| {
-                                (pc, build_arguments(&call, parameters, &mut self.r_values))
+                                (
+                                    pc,
+                                    build_arguments(
+                                        call.number_of_arguments_passed,
+                                        parameters,
+                                        &mut self.r_values,
+                                    ),
+                                )
                             })
                             .map(|(pc, arguments)| arguments.map(|x| (pc, x)))
                             .flatten()

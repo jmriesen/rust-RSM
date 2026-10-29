@@ -27,7 +27,7 @@
  *
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-use super::variable_name::VariableName;
+use super::variable_name::Ident;
 use serde::{Deserialize, Serialize};
 
 use crate::key::{self, PathBound};
@@ -37,7 +37,7 @@ use std::ffi::c_uchar;
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MVar<Key: key::PathType> {
-    pub name: VariableName,
+    pub name: Ident,
     pub volset: c_uchar,
     pub uci: c_uchar,
     pub key: Key,
@@ -69,7 +69,7 @@ impl<Key: key::PathType> From<MVar<Key>> for Value {
 }
 
 impl<Key: key::PathType> MVar<Key> {
-    pub fn new(name: VariableName, key: Key) -> Self {
+    pub fn new(name: Ident, key: Key) -> Self {
         //TODO All M vars are currently assumed to be local and have a vol set of 0;
         Self {
             name,
@@ -134,7 +134,7 @@ pub mod test_helpers {
             .collect::<Vec<_>>();
         let key = PathBound::new(&values).unwrap();
 
-        MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
+        MVar::new(Ident::new(name.as_bytes()).unwrap(), key)
     }
     #[must_use]
     pub fn var_m(name: &str, values: &[&str]) -> MVar<Path> {
@@ -144,14 +144,14 @@ pub mod test_helpers {
             .collect::<Vec<_>>();
         let key = Path::new(&values).unwrap();
 
-        MVar::new(VariableName::new(name.as_bytes()).unwrap(), key)
+        MVar::new(Ident::new(name.as_bytes()).unwrap(), key)
     }
 }
 
 #[cfg(feature = "arbitrary")]
 pub mod helpers {
 
-    use super::{MVar, VariableName};
+    use super::{Ident, MVar};
     use arbitrary::Arbitrary;
 
     #[cfg_attr(test, mutants::skip)]
@@ -160,7 +160,7 @@ pub mod helpers {
         Key: Arbitrary<'a> + crate::key::PathType,
     {
         fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-            Ok(MVar::new(VariableName::arbitrary(u)?, Key::arbitrary(u)?))
+            Ok(MVar::new(Ident::arbitrary(u)?, Key::arbitrary(u)?))
         }
     }
 }
