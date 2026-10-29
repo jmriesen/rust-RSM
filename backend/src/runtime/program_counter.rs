@@ -1,5 +1,6 @@
 use crate::{
-    bite_code::Location,
+    ByteCode,
+    byte_code::Location,
     runtime::{StackAssembally, StackAssemblyTrait},
 };
 
@@ -38,9 +39,9 @@ pub struct ProgramCounter<'a> {
 }
 
 impl<'a> ProgramCounter<'a> {
-    pub fn new(source: &'a [u8]) -> Self {
+    pub fn new(source: &'a ByteCode) -> Self {
         Self {
-            source,
+            source: &source.0,
             program_counter: Location(0),
         }
     }

@@ -2,7 +2,7 @@ use ir::commands::r#for::{For, ForKind};
 
 use crate::{
     Compile,
-    bite_code::{BiteCode, Location},
+    byte_code::{ByteCode, Location},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
     runtime::{Decode, EndCommand, NoOpCode, program_counter::AssemblyDecoder},
@@ -51,7 +51,7 @@ impl Compile for For {
      * but that is going down the same route as for_preamble (which I am trying to get rid of, due
      * to barrow checking/state being weird with incomplete objects.)
      * */
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match &self.kind {
             ForKind::VarLoop {
                 variable,

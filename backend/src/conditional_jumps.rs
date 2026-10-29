@@ -1,5 +1,5 @@
 use crate::{
-    bite_code::Location,
+    byte_code::Location,
     macros::OpCodes,
     runtime::{Decode, program_counter::AssemblyDecoder},
 };

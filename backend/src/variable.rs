@@ -1,6 +1,6 @@
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     runtime::{Decode, program_counter::AssemblyDecoder},
     var_u,
 };
@@ -31,7 +31,7 @@ pub enum VarCodes {
 const INDIRECT_VAR: u8 = 66;
 impl Compile for Variable {
     type Context = VarContext;
-    fn compile(&self, comp: &mut BiteCode, context: &VarContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &VarContext) {
         use crate::expression::ExpressionContext;
         use VariableType as E;
         match &self.var_type {

@@ -5,7 +5,7 @@ use ir::{
 
 use super::Compile;
 use crate::{
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
     runtime::{Decode, program_counter::AssemblyDecoder},
@@ -33,7 +33,7 @@ OpCodes!(
 
 impl Compile for ExtrinsicFunction {
     type Context = ExtrinsicFunctionContext;
-    fn compile(&self, comp: &mut BiteCode, context: &ExtrinsicFunctionContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
                 Args::VarUndefined => comp.push(ArgmentCodes::VarUndefined as u8),

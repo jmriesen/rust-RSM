@@ -1,5 +1,5 @@
 use crate::{
-    bite_code::Location,
+    byte_code::Location,
     commands::r#for::{ForMetaData, ForRangeType},
     runtime::{Job, RuntimeError, program_counter::ProgramCounter},
 };

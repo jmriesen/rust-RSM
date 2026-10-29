@@ -1,5 +1,5 @@
 use crate::{
-    Compile, bite_code::BiteCode, extrinsic_function::ExtrinsicFunctionContext, macros::OpCode,
+    Compile, byte_code::ByteCode, extrinsic_function::ExtrinsicFunctionContext, macros::OpCode,
     runtime::Decode,
 };
 use ir::commands::r#do::Do;
@@ -7,7 +7,7 @@ use ir::commands::r#do::Do;
 OpCode! {DoArgLess=145}
 impl Compile for Do {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match self {
             Do::ArgumentLess => bite_code.push(DoArgLess.encode()),
             Do::FunctionCall(x) => x.compile(bite_code, &ExtrinsicFunctionContext::Do),

@@ -3,7 +3,7 @@ use extrinsic_function::ExtrinsicFunctionContext;
 use ir::Expression;
 use variable::VarContext;
 
-use crate::bite_code::BiteCode;
+use crate::byte_code::ByteCode;
 
 use super::*;
 #[derive(Clone, Copy)]
@@ -15,7 +15,7 @@ pub enum ExpressionContext {
 
 impl Compile for Expression {
     type Context = ExpressionContext;
-    fn compile(&self, comp: &mut BiteCode, context: &ExpressionContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &ExpressionContext) {
         use Expression as E;
         match self {
             E::Number(num) => Value::from(num.inner.0.clone()).compile(comp, &()),

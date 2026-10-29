@@ -1,7 +1,7 @@
 use ir::commands::Quit;
 
 use crate::{
-    Compile, bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
+    Compile, byte_code::ByteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
 };
 
 OpCodes! {QuitCodes {
@@ -10,7 +10,7 @@ OpCodes! {QuitCodes {
 }}
 impl Compile for Quit {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
         match &self.0 {
             Some(arg) => {
                 arg.compile(bite_code, &ExpressionContext::Eval);

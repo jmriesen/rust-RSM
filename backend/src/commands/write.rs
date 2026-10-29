@@ -1,7 +1,7 @@
 use ir::{Expression, commands::Write};
 
 use crate::{
-    Compile, bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
+    Compile, byte_code::ByteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
 };
 
 OpCodes! {WriteCodes {
@@ -12,7 +12,7 @@ OpCodes! {WriteCodes {
 }}
 impl Compile for Write {
     type Context = ();
-    fn compile(&self, comp: &mut BiteCode, _: &()) {
+    fn compile(&self, comp: &mut ByteCode, _: &()) {
         match self {
             Self::Bang => comp.push(WriteCodes::Bang as u8),
             Self::Clear => comp.push(WriteCodes::Clear as u8),

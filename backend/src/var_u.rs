@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use symbol_table::{MAX_VAR_NAME_SIZE, VariableName};
 
 use crate::{
-    BiteCode, Compile,
+    ByteCode, Compile,
     runtime::{Decode, program_counter::AssemblyDecoder},
 };
 const VAR_LEN: i32 = 32;
@@ -50,7 +50,7 @@ impl TryFrom<&str> for Ident {
 impl Compile for Ident {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut BiteCode, _: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, _: &Self::Context) {
         bite_code.extend(self.0);
     }
 }

@@ -1,4 +1,4 @@
-use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, variable::VarContext};
+use crate::{Compile, byte_code::ByteCode, expression::ExpressionContext, variable::VarContext};
 use ir::{
     Expression, IntrinsicFunction,
     expression::NumberLiteral,
@@ -35,7 +35,7 @@ pub enum FunctionCodes {
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED, OPTIONAL> {
     type Context = FunctionCodes;
-    fn compile(&self, comp: &mut BiteCode, fn_code_base: &FunctionCodes) {
+    fn compile(&self, comp: &mut ByteCode, fn_code_base: &FunctionCodes) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
@@ -47,7 +47,7 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for VarFunction<REQUIRED, OPTIONAL> {
     type Context = (VarContext, FunctionCodes);
-    fn compile(&self, comp: &mut BiteCode, (context, fn_code_base): &Self::Context) {
+    fn compile(&self, comp: &mut ByteCode, (context, fn_code_base): &Self::Context) {
         self.variable.compile(comp, context);
         self.function.compile(comp, fn_code_base);
     }
@@ -57,7 +57,7 @@ const NO_TRUE_CONDITION_IN_SELECT: i16 = 4_i16;
 
 impl Compile for IntrinsicFunction {
     type Context = ();
-    fn compile(&self, comp: &mut BiteCode, _: &()) {
+    fn compile(&self, comp: &mut ByteCode, _: &()) {
         match self {
             IntrinsicFunction::Select { terms } => {
                 let jump_indexs: Vec<_> = terms
@@ -159,7 +159,7 @@ impl Compile for IntrinsicFunction {
 mod test {
     use ir::{Expression, expression::StringLiteral};
 
-    use crate::{Compile, bite_code};
+    use crate::{Compile, byte_code};
 
     use super::IntrinsicFunction;
 
@@ -176,7 +176,7 @@ mod test {
         IntrinsicFunction::Char {
             args: exps().take(255).collect(),
         }
-        .compile(&mut bite_code::BiteCode::new(), &());
+        .compile(&mut byte_code::ByteCode::new(), &());
     }
 
     #[test]
@@ -184,6 +184,6 @@ mod test {
         IntrinsicFunction::Char {
             args: exps().take(254).collect(),
         }
-        .compile(&mut bite_code::BiteCode::new(), &());
+        .compile(&mut byte_code::ByteCode::new(), &());
     }
 }
