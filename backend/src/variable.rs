@@ -1,7 +1,7 @@
 use crate::{
-    Compile,
+    Compile, Compile2, StackAssembally,
     byte_code::ByteCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{Decode, TEMP, program_counter::AssemblyDecoder},
     var_u,
 };
 use ir::{
@@ -106,6 +106,117 @@ impl Compile for Variable {
                 .unwrap()
                 .compile(comp, &());
         }
+    }
+}
+impl Compile2 for Variable {
+    type Context = VarContext;
+    fn compile_new(&self, comp: &mut Vec<StackAssembally>, context: &VarContext) {
+        use crate::expression::ExpressionContext;
+        use VariableType as E;
+        //TODO: Deal with restructuring the variable encoding logic.
+        match &self.var_type {
+            E::Named {
+                globle_ident: None | Some(GlobleIdent { user_class: None }),
+                ..
+            } => {}
+            E::Named {
+                globle_ident:
+                    Some(GlobleIdent {
+                        user_class: Some(user_class),
+                    }),
+                ..
+            } => {
+                user_class.uci.compile_new(comp, &ExpressionContext::Eval);
+                if let Some(Env(env)) = &user_class.env {
+                    env.compile_new(comp, &ExpressionContext::Eval);
+                }
+            }
+            E::NakedVariable => {}
+            E::IndirectVariable { expression } => {
+                expression.compile_new(comp, &ExpressionContext::Eval);
+                comp.push(StackAssembally::TEMP(TEMP(INDIRECT_VAR)));
+            }
+        }
+
+        self.subscripts.compile_new(comp, &ExpressionContext::Eval);
+
+        let op_code = match &self.var_type {
+            E::Named {
+                globle_ident: None, ..
+            } => VarCodes::Named,
+            E::Named {
+                globle_ident: Some(GlobleIdent { user_class: None }),
+                ..
+            } => VarCodes::Global,
+            E::Named {
+                globle_ident:
+                    Some(GlobleIdent {
+                        user_class: Some(user_class),
+                    }),
+                ..
+            } => {
+                if user_class.env.is_none() {
+                    VarCodes::GlobalUci
+                } else {
+                    VarCodes::GlobalUciEnv
+                }
+            }
+            E::NakedVariable => VarCodes::Naked,
+            E::IndirectVariable { .. } => VarCodes::IndirectVariable,
+        } as u8;
+
+        if op_code != VarCodes::Named as u8 {
+            todo!("not yet implemented")
+        }
+        let name = if let E::Named { name, .. } = &self.var_type {
+            Some(symbol_table::Ident::try_from(name.0.as_str()).unwrap())
+        } else {
+            None
+        };
+        let var = BuildVarInstructions {
+            name: name.expect("Only supporting named variables right now."),
+            subscripts: self.subscripts.len(),
+        };
+        let asm = match context {
+            VarContext::Eval => StackAssembally::LoadVar(LoadVar { var }),
+            VarContext::Build => StackAssembally::PushVar(PushVar { var }),
+            VarContext::BuildNullable | VarContext::For => {
+                let mut push_raw = |value| {
+                    comp.push(StackAssembally::TEMP(TEMP(value)));
+                };
+                if matches!(
+                    self.var_type,
+                    E::Named {
+                        globle_ident: None | Some(GlobleIdent { user_class: None }),
+                        ..
+                    }
+                ) {
+                    //This is the path I have always being going down.
+                    push_raw(*context as u8);
+                    push_raw(op_code + self.subscripts.len() as u8);
+                } else {
+                    //This is the path I have not being going down.
+                    push_raw(*context as u8);
+                    push_raw(op_code);
+                    push_raw(self.subscripts.len() as u8);
+                }
+                let mut comp = ByteCode::new();
+
+                if let E::Named { name, .. } = &self.var_type {
+                    symbol_table::Ident::try_from(name.0.as_str())
+                        .unwrap()
+                        .compile(&mut comp, &());
+                };
+                let mut comp = comp.get_raw();
+                let last = comp.pop().expect("variable name");
+
+                for i in comp {
+                    push_raw(i);
+                }
+                StackAssembally::TEMP(TEMP(last))
+            }
+        };
+        comp.push(asm);
     }
 }
 

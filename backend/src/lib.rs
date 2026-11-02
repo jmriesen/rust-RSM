@@ -18,6 +18,12 @@ pub mod runtime;
 pub mod value;
 pub mod var_u;
 pub mod variable;
+trait Compile2 {
+    type Context;
+    //This dose not really need to be a vector it can be a generic sink type.
+    //This would allow us to do a streaming serialization if we needed.
+    fn compile_new(&self, byte_code: &mut Vec<StackAssembally>, context: &Self::Context);
+}
 
 pub trait Compile {
     type Context;
@@ -59,8 +65,45 @@ where
         self.inner.compile(bite_code, context)
     }
 }
+impl<T, C> Compile2 for Vec<T>
+where
+    T: Compile2,
+    T: Compile2<Context = C>,
+{
+    type Context = C;
+    fn compile_new(&self, bite_code: &mut Vec<StackAssembally>, context: &Self::Context) {
+        for term in self {
+            term.compile_new(bite_code, context)
+        }
+    }
+}
+
+impl<T, C> Compile2 for Option<T>
+where
+    T: Compile2,
+    T: Compile2<Context = C>,
+{
+    type Context = C;
+    fn compile_new(&self, bite_code: &mut Vec<StackAssembally>, context: &Self::Context) {
+        if let Some(inner) = self {
+            inner.compile_new(bite_code, context)
+        }
+    }
+}
+impl<T, C> Compile2 for Spanned<T>
+where
+    T: Compile2,
+    T: Compile2<Context = C>,
+{
+    type Context = C;
+    fn compile_new(&self, bite_code: &mut Vec<StackAssembally>, context: &Self::Context) {
+        self.inner.compile_new(bite_code, context)
+    }
+}
 
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 pub use routine::test::test_compile_command;
+
+use crate::runtime::StackAssembally;

@@ -90,7 +90,7 @@ OpCode! {NoOpCode=179}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
-pub struct TEMP(u8);
+pub struct TEMP(pub u8);
 #[cfg_attr(test, mutants::skip)]
 impl Decode for TEMP {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
