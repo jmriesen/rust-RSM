@@ -59,7 +59,7 @@ pub fn push_do_frame<'a>(
     let new_frame = DoFrame {
         pc,
         for_stack: vec![],
-        test: stack.last().map_or(false, |x| x.test),
+        test: stack.last().is_some_and(|x| x.test),
         line_level: if line_level_zero {
             0
         } else {

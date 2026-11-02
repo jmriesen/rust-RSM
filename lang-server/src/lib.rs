@@ -118,7 +118,7 @@ impl<Client: client::Client + 'static> LanguageServer for MumpsLsp<Client> {
             Ok(comand) => Ok(comand
                 .run(&self.client, params.arguments, &self.documents)
                 .await),
-            Err(_) => Ok(None),
+            Err(()) => Ok(None),
         }
     }
 

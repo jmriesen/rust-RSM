@@ -17,10 +17,10 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         )
         .map(|(tag, parameters)| Tag {
             name: tag.to_owned(),
-            parameters: parameters,
+            parameters,
         })
         .spanned()
-        .map(|x| Spanned::from(x));
+        .map(Spanned::from);
 
     let line_level = just(".").repeated().count().map(|level| level as u16);
 

@@ -224,8 +224,7 @@ impl<'a> Job<'a> {
                                     ),
                                 )
                             })
-                            .map(|(pc, arguments)| arguments.map(|x| (pc, x)))
-                            .flatten()
+                            .and_then(|(pc, arguments)| arguments.map(|x| (pc, x)))
                         {
                             Ok((pc, arguments)) => push_do_frame(
                                 &mut self.symbol_table,

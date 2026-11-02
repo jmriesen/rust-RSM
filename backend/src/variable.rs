@@ -115,7 +115,7 @@ impl Compile for Variable {
             let name = symbol_table::Ident::try_from(name.0.as_str()).unwrap();
 
             let var = BuildVarInstructions {
-                name: name,
+                name,
                 //"Only supporting named variables right now."),
                 subscripts: self.subscripts.len(),
             };

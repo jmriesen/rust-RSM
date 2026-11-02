@@ -13,7 +13,7 @@ pub const DIAGNOSTIC_CAPACITIES: Option<DiagnosticServerCapabilities> =
     }));
 
 impl crate::Document {
-    pub fn errors<'a>(&'a self) -> Vec<Diagnostic> {
+    pub fn errors(&self) -> Vec<Diagnostic> {
         let converter = self.index_converter();
         self.ir()
             .errors()

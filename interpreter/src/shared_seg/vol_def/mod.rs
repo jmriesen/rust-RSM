@@ -323,7 +323,7 @@ pub fn init_header_section<'a>(
         Label::ref_cast_mut(unsafe { header.as_mut_ptr().cast::<LABEL_BLOCK>().as_mut() }.unwrap());
     let map = unsafe { from_mut(label).add(1).cast() };
     //Panic if header size on file does not match the header allocation's size
-    assert!(buf_size == label.header_size());
+    assert_eq!(buf_size, label.header_size());
 
     //NOTE the C code says this was to facilitate forking.
     //I am not comfortable really comfortable forking so this may not be needed.
