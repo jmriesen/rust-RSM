@@ -18,13 +18,13 @@ OpCodesForeign! {
 impl Compile for Unary {
     type Context = ();
     fn compile(&self, bite_code: &mut ByteCode, _: &()) {
-        bite_code.push(self.encode());
+        bite_code.push(Encode::encode(self));
     }
 }
 impl Compile for Binary {
     type Context = ();
     fn compile(&self, bite_code: &mut ByteCode, _: &()) {
-        bite_code.push(self.encode());
+        bite_code.push(Encode::encode(self));
     }
 }
 

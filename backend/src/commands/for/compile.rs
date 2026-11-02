@@ -135,4 +135,7 @@ impl Decode for ForMetaData {
             args,
         })
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }

@@ -19,9 +19,10 @@ impl Compile for Expression {
     type Context = ExpressionContext;
     fn compile(&self, comp: &mut ByteCode, context: &ExpressionContext) {
         use Expression as E;
+        use StackAssembally as Asm;
         match self {
-            E::Number(num) => Value::from(num.inner.0.clone()).compile(comp, &()),
-            E::String(value) => value.inner.0.compile(comp, &()),
+            E::Number(num) => comp.push_asm(Asm::Value(num.inner.0.clone().into())),
+            E::String(value) => comp.push_asm(Asm::Value(value.inner.0.clone())),
             E::Variable(var) => var.compile(comp, &VarContext::Eval),
             E::IntrinsicVar(var) => var.compile(comp, &()),
             E::InderectExpression(exp) => {

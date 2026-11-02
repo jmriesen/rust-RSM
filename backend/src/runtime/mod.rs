@@ -1,4 +1,5 @@
 use crate::{
+    byte_code,
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
@@ -77,6 +78,7 @@ pub struct Job<'a> {
 // Partial (or whole) assembly instruction.
 pub trait Decode: Sized {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self>;
+    fn encode(&self, decoder: &mut byte_code::ByteCode);
 }
 pub trait Encode: Sized {
     fn encode(&self) -> u8;
@@ -97,6 +99,9 @@ impl Decode for TEMP {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))
+    }
+    fn encode(&self, _decoder: &mut byte_code::ByteCode) {
+        todo!()
     }
 }
 

@@ -29,4 +29,7 @@ impl Decode for Value {
             None
         }
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        self.compile(_decoder, &mut ());
+    }
 }

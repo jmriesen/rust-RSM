@@ -7,7 +7,7 @@ use crate::{
     Compile,
     conditional_jumps::JumpCodes,
     runtime::{
-        Decode,
+        Decode, StackAssembally,
         program_counter::{AssemblyDecoder, ProgramCounter},
     },
 };
@@ -40,6 +40,10 @@ impl Decode for Location {
                 "Currently only supporting forward jumps. May change if new functionality needs it.",
             ),
         ))
+    }
+
+    fn encode(&self, _decoder: &mut self::ByteCode) {
+        todo!()
     }
 }
 
@@ -74,6 +78,9 @@ impl ByteCode {
     }
     pub fn extend(&mut self, iter: impl IntoIterator<Item = u8>) {
         self.0.extend(iter);
+    }
+    pub fn push_asm(&mut self, asm: StackAssembally) {
+        asm.encode(self);
     }
 
     /// In general you should use the other jump methods

@@ -37,7 +37,7 @@ impl Compile for KillInstruction {
     type Context = ();
 
     fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
-        bite_code.push(self.r#type.encode());
+        bite_code.push(Encode::encode(&self.r#type));
         bite_code.push(self.number_of_variables);
     }
 }
@@ -47,5 +47,8 @@ impl Decode for KillInstruction {
             r#type: KillType::decode(decoder)?,
             number_of_variables: decoder.consume_n::<1>()[0],
         })
+    }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
     }
 }

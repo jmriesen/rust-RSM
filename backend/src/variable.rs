@@ -177,6 +177,17 @@ impl Compile2 for Variable {
             name: name.expect("Only supporting named variables right now."),
             subscripts: self.subscripts.len(),
         };
+
+        /*
+                What does the intermidate converions look like?
+                Createing a type that accepts staca assemaly and then emideantly compiles them?
+                Do I then implement a non emiddatly compiling one.
+                    this keeps the output type the same longer and just updates the impout type stuff.
+                this would allow to a continues transition in a not unexpected way.
+                    I would need to flag unimplemented fo rcopliing everythnig else in stack assembally
+                Yes this is I think the way I want to go.
+                    I can also maintain an internal vec of all the pushed commands for debugin prupuses.(for now and depricate the raw push.)
+        */
         let asm = match context {
             VarContext::Eval => StackAssembally::LoadVar(LoadVar { var }),
             VarContext::Build => StackAssembally::PushVar(PushVar { var }),
@@ -241,6 +252,9 @@ impl Decode for BuildVarInstructions {
             subscripts: code_num_subscriptions as usize,
         })
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -258,6 +272,9 @@ impl Decode for LoadVar {
             None
         }
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -273,5 +290,8 @@ impl Decode for PushVar {
         } else {
             None
         }
+    }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
     }
 }

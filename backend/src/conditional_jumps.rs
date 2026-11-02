@@ -22,4 +22,7 @@ impl Decode for Jump {
             target: Decode::decode(decoder)?,
         })
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }

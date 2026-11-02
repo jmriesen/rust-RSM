@@ -108,4 +108,7 @@ impl Decode for ExtrinsicFunctionCall {
             number_of_arguments_passed: args,
         })
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }

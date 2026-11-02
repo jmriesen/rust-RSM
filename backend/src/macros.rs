@@ -12,6 +12,9 @@ macro_rules! OpCode {
                     None
                 }
             }
+            fn encode(&self, _decoder: &mut crate::ByteCode) {
+                todo!()
+            }
         }
         impl $name {
             pub fn encode(self) -> u8 {
@@ -39,6 +42,9 @@ $name:ident{
                         _ => None,
                     }
             }
+        fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
     }
 }
 }
@@ -56,6 +62,10 @@ macro_rules! OpCodesForeign {
                         _ => None,
                     }
             }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+            todo!()
+        }
+
     }
 
         impl Encode for $name{
@@ -76,6 +86,14 @@ macro_rules! StackAssembally{
 #[derive(Debug,serde::Deserialize, serde::Serialize)]
 pub enum StackAssembally {
     $($instruction($instruction),)*
+    }
+    impl StackAssembally {
+    pub fn encode(&self, decoder: &mut crate::ByteCode) {
+        match self {
+        $(StackAssembally::$instruction(x) => Decode::encode(x,decoder),)*
+
+        }
+    }
     }
 
 $(impl StackAssemblyTrait for $instruction{})*

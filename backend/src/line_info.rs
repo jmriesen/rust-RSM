@@ -41,6 +41,9 @@ impl Decode for StartLine {
             level: u16::from_le_bytes(decoder.consume_n()),
         })
     }
+    fn encode(&self, _decoder: &mut crate::ByteCode) {
+        todo!()
+    }
 }
 
 impl Compile for StartLine {
