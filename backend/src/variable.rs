@@ -1,7 +1,7 @@
 use crate::{
     Compile, StackAssembally,
     byte_code::ByteCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{Decode, TEMP, program_counter::AssemblyDecoder},
 };
 use ir::{
     Variable,
@@ -54,7 +54,7 @@ impl Compile for Variable {
             E::NakedVariable => {}
             E::IndirectVariable { expression } => {
                 expression.compile(comp, &ExpressionContext::Eval);
-                comp.push(INDIRECT_VAR);
+                comp.push_asm(StackAssembally::TEMP(TEMP(INDIRECT_VAR)));
             }
         }
 
@@ -86,8 +86,11 @@ impl Compile for Variable {
         } as u8;
 
         let mut old_encoding = || {
+            let mut push_old = |value| {
+                comp.push_asm(StackAssembally::TEMP(TEMP(value)));
+            };
             //TOOD: remove branch eventually
-            comp.push(*context as u8);
+            push_old(*context as u8);
             //Use a slightly more compact format if all we have to worry about is subscripts
             if matches!(
                 self.var_type,
@@ -96,10 +99,10 @@ impl Compile for Variable {
                     ..
                 }
             ) {
-                comp.push(op_code + self.subscripts.len() as u8);
+                push_old(op_code + self.subscripts.len() as u8);
             } else {
-                comp.push(op_code);
-                comp.push(self.subscripts.len() as u8);
+                push_old(op_code);
+                push_old(self.subscripts.len() as u8);
             }
             if let E::Named { name, .. } = &self.var_type {
                 symbol_table::Ident::try_from(name.0.as_str())
@@ -178,7 +181,8 @@ impl Decode for LoadVar {
         }
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
-        byte_code.push(VarContext::Eval as u8);
+        use crate::byte_code::EncoderExt;
+        byte_code.push_raw(VarContext::Eval as u8);
         self.var.encode(byte_code);
     }
 }

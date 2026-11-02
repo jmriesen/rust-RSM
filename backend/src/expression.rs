@@ -24,7 +24,7 @@ impl Compile for Expression {
             E::Number(num) => comp.push_asm(Asm::Value(num.inner.0.clone().into())),
             E::String(value) => comp.push_asm(Asm::Value(value.inner.0.clone())),
             E::Variable(var) => var.compile(comp, &VarContext::Eval),
-            E::IntrinsicVar(var) => var.compile(comp, &()),
+            E::IntrinsicVar(var) => var.encode(comp),
             E::InderectExpression(exp) => {
                 exp.compile(comp, &ExpressionContext::Eval);
                 comp.push_asm(Asm::TEMP(TEMP(*context as u8)));

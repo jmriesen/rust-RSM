@@ -1,4 +1,10 @@
-use crate::{Compile, byte_code::ByteCode, expression::ExpressionContext, variable::VarContext};
+use crate::{
+    Compile,
+    byte_code::ByteCode,
+    expression::ExpressionContext,
+    runtime::{StackAssembally, TEMP},
+    variable::VarContext,
+};
 use ir::{
     Expression, IntrinsicFunction,
     expression::NumberLiteral,
@@ -41,7 +47,9 @@ impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED
         for arg in required_args.chain(optional_args.clone()) {
             arg.compile(comp, &ExpressionContext::Eval);
         }
-        comp.push(*fn_code_base as u8 + optional_args.count() as u8);
+        comp.push_asm(StackAssembally::TEMP(TEMP(
+            *fn_code_base as u8 + optional_args.count() as u8,
+        )));
     }
 }
 
@@ -69,9 +77,11 @@ impl Compile for IntrinsicFunction {
                         })
                     })
                     .collect();
-                comp.push(ERROR_CODE_OP);
+                comp.push_asm(StackAssembally::TEMP(TEMP(ERROR_CODE_OP)));
                 let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
-                comp.extend_old(errm4);
+                for i in errm4 {
+                    comp.push_asm(StackAssembally::TEMP(TEMP(i)));
+                }
 
                 for jump_to_end in jump_indexs {
                     comp.write_jump(jump_to_end, comp.current_location());
@@ -84,8 +94,8 @@ impl Compile for IntrinsicFunction {
                     for arg in args {
                         arg.compile(comp, &ExpressionContext::Eval);
                     }
-                    comp.push(FunctionCodes::Char as u8);
-                    comp.push(args.len() as u8);
+                    comp.push_asm(StackAssembally::TEMP(TEMP(FunctionCodes::Char as u8)));
+                    comp.push_asm(StackAssembally::TEMP(TEMP(args.len() as u8)));
                 }
             }
             IntrinsicFunction::View(function) => function.compile(comp, &(FunctionCodes::View)),

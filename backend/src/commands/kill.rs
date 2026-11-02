@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Compile,
     macros::OpCodesForeign,
-    runtime::{Decode, Encode, program_counter::AssemblyDecoder},
+    runtime::{Decode, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 

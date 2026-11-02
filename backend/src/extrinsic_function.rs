@@ -48,13 +48,6 @@ impl Compile for ExtrinsicFunction {
             }
         }
 
-        //Op code
-        comp.push(match self.location {
-            Location::Tag(_) => CallCode::Tag,
-            Location::Routine(_) => CallCode::Routine,
-            Location::TagRoutine(_, _) => CallCode::TagRoutine,
-        } as u8);
-
         // Location
         let (tag, routine): (Option<&str>, Option<&str>) = match &self.location {
             Location::Tag(tag) => (Some(&tag.0), None),
@@ -111,6 +104,14 @@ impl Decode for ExtrinsicFunctionCall {
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
         use crate::byte_code::EncoderExt;
+        //Op code
+        byte_code.push_raw(match (&self.tag, &self.routine) {
+            (Some(_), None) => CallCode::Tag,
+            (None, Some(_)) => CallCode::Routine,
+            (Some(_), Some(_)) => CallCode::TagRoutine,
+            _ => unreachable!(),
+        } as u8);
+
         self.routine.compile(byte_code, &());
         self.tag.compile(byte_code, &());
         byte_code.push_raw(self.number_of_arguments_passed);

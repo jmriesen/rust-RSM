@@ -2,7 +2,7 @@ use crate::{
     Compile,
     byte_code::{ByteCode, EncoderExt},
     macros::OpCodesForeign,
-    runtime::{Decode, Encode, program_counter::AssemblyDecoder},
+    runtime::{Decode, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 use ir::commands::{New, NewKind};
