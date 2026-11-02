@@ -60,7 +60,6 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
 }
 #[cfg(test)]
 pub mod test {
-    use ir::Routine;
 
     use crate::compile_routine;
     pub fn test_compile_command(source_code: &str) -> Vec<u8> {
@@ -68,9 +67,5 @@ pub mod test {
         dbg!(&commands);
         const LENGTH_OF_LINE_START: usize = 5;
         compile_routine(commands).byte_code.0[LENGTH_OF_LINE_START..].to_vec()
-    }
-
-    pub fn parse_routine(source_code: &str) -> Routine {
-        frontend::parse_routine_print_errors(source_code).unwrap()
     }
 }

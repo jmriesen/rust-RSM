@@ -30,7 +30,7 @@ $name:ident{
     $($var:ident=$code:expr,)*
 }
 ) => {
-        #[derive(Debug,serde::Deserialize, serde::Serialize)]
+        #[derive(Debug,serde::Deserialize, serde::Serialize,Copy,Clone)]
         pub enum $name {
             $($var = $code,)*
         }
@@ -42,8 +42,8 @@ $name:ident{
                         _ => None,
                     }
             }
-        fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+        fn encode(&self, byte_code: &mut crate::ByteCode) {
+                byte_code.push(self.clone() as u8);
     }
     }
 }
@@ -62,8 +62,8 @@ macro_rules! OpCodesForeign {
                         _ => None,
                     }
             }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-            todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        byte_code.push(Encode::encode(self))
         }
 
     }

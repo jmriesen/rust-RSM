@@ -33,7 +33,7 @@ impl Decode for Ident {
                 .expect("Should never fail because we only decode what we have encoded."),
         )
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        self.compile(byte_code, &mut ());
     }
 }

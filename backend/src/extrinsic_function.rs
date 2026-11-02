@@ -11,7 +11,6 @@ use crate::{
     expression::ExpressionContext,
     macros::OpCodes,
     runtime::{Decode, program_counter::AssemblyDecoder},
-    var_u,
     variable::VarContext,
 };
 #[derive(Clone, Copy)]
@@ -74,7 +73,6 @@ impl Compile for ExtrinsicFunction {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExtrinsicFunctionCall {
     pub tag: Option<Ident>,
-    #[expect(dead_code)]
     routine: Option<Ident>,
     //eval:bool
     pub number_of_arguments_passed: u8,
