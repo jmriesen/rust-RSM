@@ -10,7 +10,7 @@ use crate::{
     byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{Decode, StackAssembally, TEMP, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 #[derive(Clone, Copy)]
@@ -37,10 +37,12 @@ impl Compile for ExtrinsicFunction {
     fn compile(&self, comp: &mut ByteCode, context: &ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
-                Args::VarUndefined => comp.push(ArgmentCodes::VarUndefined as u8),
+                Args::VarUndefined => comp.push_asm(StackAssembally::TEMP(TEMP(
+                    ArgmentCodes::VarUndefined as u8,
+                ))),
                 Args::ByRef(variable) => {
                     variable.compile(comp, &VarContext::Build);
-                    comp.push(ArgmentCodes::ByRef as u8);
+                    comp.push_asm(StackAssembally::TEMP(TEMP(ArgmentCodes::ByRef as u8)));
                 }
                 Args::Expression(expression) => expression.compile(comp, &ExpressionContext::Eval),
             }
@@ -59,14 +61,15 @@ impl Compile for ExtrinsicFunction {
             Location::Routine(routine) => (None, Some(&routine.0)),
             Location::TagRoutine(tag, routine) => (Some(&tag.0), Some(&routine.0)),
         };
-        routine
-            .map(|ident| Ident::try_from(ident).unwrap())
-            .compile(comp, &());
-        tag.map(|ident| Ident::try_from(ident).unwrap())
-            .compile(comp, &());
-
-        // End marker + number of args
-        comp.push(self.arguments.len() as u8 + (*context as u8));
+        let routine = routine.map(|ident| Ident::try_from(ident).unwrap());
+        let tag = tag.map(|ident| Ident::try_from(ident).unwrap());
+        ExtrinsicFunctionCall {
+            tag,
+            routine,
+            //TODO: Context should be passed separably
+            number_of_arguments_passed: self.arguments.len() as u8 + (*context as u8),
+        }
+        .encode(comp);
     }
 }
 
@@ -106,7 +109,10 @@ impl Decode for ExtrinsicFunctionCall {
             number_of_arguments_passed: args,
         })
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        self.routine.compile(byte_code, &());
+        self.tag.compile(byte_code, &());
+        byte_code.push_raw(self.number_of_arguments_passed);
     }
 }

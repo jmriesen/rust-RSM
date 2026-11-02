@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ByteCode, Compile,
     macros::OpCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{Decode, StackAssembally, program_counter::AssemblyDecoder},
 };
 
 OpCode! {EndLine=0}
@@ -23,7 +23,7 @@ impl Compile for Line {
         //In the ordinal C the line level/check is part of the stack machine instructions.
         //In this version it will be unconditional included as part of the line encoding.
         self.commands.compile(bite_code, &());
-        bite_code.push(EndLine.encode());
+        bite_code.push_asm(StackAssembally::EndLine(EndLine));
     }
 }
 
@@ -41,17 +41,18 @@ impl Decode for StartLine {
             level: u16::from_le_bytes(decoder.consume_n()),
         })
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        LineNum.encode(byte_code);
+        byte_code.extend(self.line_numb.to_le_bytes());
+        byte_code.extend(self.level.to_le_bytes());
     }
 }
 
 impl Compile for StartLine {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
-        bite_code.push(LineNum.encode());
-        bite_code.extend_old(self.line_numb.to_le_bytes());
-        bite_code.extend_old(self.level.to_le_bytes());
+    fn compile(&self, byte_code: &mut crate::ByteCode, _context: &Self::Context) {
+        self.encode(byte_code);
     }
 }

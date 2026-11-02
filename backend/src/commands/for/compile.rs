@@ -6,7 +6,7 @@ use crate::{
     byte_code::{ByteCode, Location},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
-    runtime::{Decode, EndCommand, NoOpCode, program_counter::AssemblyDecoder},
+    runtime::{Decode, EndCommand, NoOpCode, StackAssembally, program_counter::AssemblyDecoder},
     variable::{BuildVarInstructions, VarContext},
 };
 
@@ -100,13 +100,13 @@ impl Compile for For {
         bite_code.write_jump(loop_body, bite_code.current_location());
         self.commands.compile(bite_code, &());
         //Inserting an extra `EndCommand` command (probably not needed)
-        bite_code.push(EndCommand.encode());
+        bite_code.push_asm(StackAssembally::EndCommand(EndCommand));
         //Insert end off loop logic
-        bite_code.push(ForEnd.encode());
+        bite_code.push_asm(StackAssembally::ForEnd(ForEnd));
         // Jump out of for loop
         bite_code.write_jump(r#break, bite_code.current_location());
         // Insure the break jump always lands on a no-op
-        bite_code.push(NoOpCode.encode());
+        bite_code.push_asm(StackAssembally::NoOpCode(NoOpCode));
     }
 }
 

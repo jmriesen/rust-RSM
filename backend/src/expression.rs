@@ -2,7 +2,10 @@ use extrinsic_function::ExtrinsicFunctionContext;
 use ir::Expression;
 use variable::VarContext;
 
-use crate::{byte_code::ByteCode, runtime::StackAssembally};
+use crate::{
+    byte_code::ByteCode,
+    runtime::{Decode, StackAssembally, TEMP},
+};
 
 use super::*;
 #[derive(Clone, Copy)]
@@ -24,7 +27,7 @@ impl Compile for Expression {
             E::IntrinsicVar(var) => var.compile(comp, &()),
             E::InderectExpression(exp) => {
                 exp.compile(comp, &ExpressionContext::Eval);
-                comp.push(*context as u8);
+                comp.push_asm(Asm::TEMP(TEMP(*context as u8)));
             }
             E::UnaryExpression {
                 op_code,
@@ -53,7 +56,7 @@ impl Compile for Expression {
                 for _ in args.len()..2 {
                     ::value::Value::empty().compile(comp, &());
                 }
-                op_code.compile(comp, &())
+                op_code.encode(comp);
             }
             E::IntrinsicFunction(intrinsic) => {
                 intrinsic.compile(comp, &());

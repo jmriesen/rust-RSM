@@ -1,11 +1,6 @@
 use ir::operators::{Binary, Unary};
 
-use crate::{
-    Compile,
-    byte_code::ByteCode,
-    macros::OpCodesForeign,
-    runtime::{Decode, Encode},
-};
+use crate::{Compile, byte_code::ByteCode, macros::OpCodesForeign, runtime::Decode};
 
 OpCodesForeign! {
     Unary {
@@ -17,14 +12,14 @@ OpCodesForeign! {
 
 impl Compile for Unary {
     type Context = ();
-    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
-        bite_code.push(Encode::encode(self));
+    fn compile(&self, byte_code: &mut ByteCode, _: &()) {
+        self.encode(byte_code);
     }
 }
 impl Compile for Binary {
     type Context = ();
-    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
-        bite_code.push(Encode::encode(self));
+    fn compile(&self, byte_code: &mut ByteCode, _: &()) {
+        self.encode(byte_code);
     }
 }
 

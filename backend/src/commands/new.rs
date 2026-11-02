@@ -1,6 +1,6 @@
 use crate::{
     Compile,
-    byte_code::ByteCode,
+    byte_code::{ByteCode, EncoderExt},
     macros::OpCodesForeign,
     runtime::{Decode, Encode, program_counter::AssemblyDecoder},
     variable::VarContext,
@@ -15,10 +15,13 @@ OpCodesForeign!(NewKind{
 
 impl Compile for New {
     type Context = ();
-    fn compile(&self, bite_code: &mut ByteCode, _: &()) {
-        self.vars.compile(bite_code, &VarContext::Build);
-        bite_code.push(Encode::encode(&self.kind));
-        bite_code.push(self.vars.len() as u8);
+    fn compile(&self, byte_code: &mut ByteCode, _: &()) {
+        self.vars.compile(byte_code, &VarContext::Build);
+        NewStackAsm {
+            kind: self.kind.clone(),
+            number_of_variables: self.vars.len() as u8,
+        }
+        .encode(byte_code);
     }
 }
 
@@ -35,7 +38,8 @@ impl Decode for NewStackAsm {
             number_of_variables: decoder.consume_n::<1>()[0],
         })
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        self.kind.encode(byte_code);
+        byte_code.push_raw(self.number_of_variables);
     }
 }

@@ -12,13 +12,9 @@ macro_rules! OpCode {
                     None
                 }
             }
-            fn encode(&self, _decoder: &mut crate::ByteCode) {
-                todo!()
-            }
-        }
-        impl $name {
-            pub fn encode(self) -> u8 {
-                $code
+            fn encode(&self, byte_code: &mut crate::ByteCode) {
+                use crate::byte_code::EncoderExt;
+                byte_code.push_raw($code);
             }
         }
     };
@@ -65,18 +61,14 @@ macro_rules! OpCodesForeign {
             }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
         use crate::byte_code::EncoderExt;
-        byte_code.push_raw(Encode::encode(self))
+        byte_code.push_raw(
+            match self{
+                $(Self::$var => $code,)*
+            }
+        )
         }
 
     }
-
-        impl Encode for $name{
-            fn encode(&self) -> u8 {
-                match self{
-                $(Self::$var => $code,)*
-                }
-            }
-        }
     };
 }
 pub(crate) use OpCodesForeign;

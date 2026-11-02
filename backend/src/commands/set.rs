@@ -1,4 +1,4 @@
-use crate::Compile;
+use crate::{Compile, runtime::StackAssembally};
 use ir::commands::set::Set;
 
 use crate::{
@@ -19,6 +19,6 @@ impl Compile for Set {
     fn compile(&self, comp: &mut ByteCode, _: &()) {
         self.value.compile(comp, &ExpressionContext::Eval);
         self.variable.compile(comp, &VarContext::Build);
-        comp.push(SetCodes::Var as u8);
+        comp.push_asm(StackAssembally::SetCodes(SetCodes::Var));
     }
 }
