@@ -10,12 +10,7 @@ impl Compile for Value {
     type Context = ();
 
     fn compile(&self, bite_code: &mut ByteCode, _: &Self::Context) {
-        let len = self.content().len() as u16;
-
-        bite_code.push(STRING_OP);
-        bite_code.extend(len.to_le_bytes());
-        bite_code.extend(self.content().iter().cloned());
-        bite_code.push(0);
+        self.encode(bite_code);
     }
 }
 impl Decode for Value {
@@ -29,7 +24,13 @@ impl Decode for Value {
             None
         }
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        self.compile(_decoder, &mut ());
+    fn encode(&self, bite_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        let len = self.content().len() as u16;
+
+        bite_code.push_raw(STRING_OP);
+        bite_code.extend(len.to_le_bytes());
+        bite_code.extend(self.content().iter().cloned());
+        bite_code.push_raw(0);
     }
 }

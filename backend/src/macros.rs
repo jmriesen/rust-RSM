@@ -43,7 +43,8 @@ $name:ident{
                     }
             }
         fn encode(&self, byte_code: &mut crate::ByteCode) {
-                byte_code.push(self.clone() as u8);
+            use crate::byte_code::EncoderExt;
+            byte_code.push_raw(self.clone() as u8);
     }
     }
 }
@@ -63,7 +64,8 @@ macro_rules! OpCodesForeign {
                     }
             }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
-        byte_code.push(Encode::encode(self))
+        use crate::byte_code::EncoderExt;
+        byte_code.push_raw(Encode::encode(self))
         }
 
     }

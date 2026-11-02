@@ -71,7 +71,7 @@ impl Compile for IntrinsicFunction {
                     .collect();
                 comp.push(ERROR_CODE_OP);
                 let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
-                comp.extend(errm4);
+                comp.extend_old(errm4);
 
                 for jump_to_end in jump_indexs {
                     comp.write_jump(jump_to_end, comp.current_location());

@@ -100,8 +100,9 @@ impl Decode for TEMP {
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))
     }
-    fn encode(&self, _decoder: &mut byte_code::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut byte_code::ByteCode) {
+        use byte_code::EncoderExt;
+        byte_code.push_raw(self.0);
     }
 }
 

@@ -10,14 +10,8 @@ use crate::{
 impl Compile for Ident {
     type Context = ();
 
-    fn compile(&self, bite_code: &mut ByteCode, _: &Self::Context) {
-        bite_code.extend(
-            self.contents()
-                .iter()
-                .cloned()
-                .chain(repeat(0))
-                .take(MAX_VAR_NAME_SIZE),
-        );
+    fn compile(&self, byte_code: &mut ByteCode, _: &Self::Context) {
+        self.encode(byte_code);
     }
 }
 
@@ -34,6 +28,13 @@ impl Decode for Ident {
         )
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
-        self.compile(byte_code, &mut ());
+        use crate::byte_code::EncoderExt;
+        byte_code.extend(
+            self.contents()
+                .iter()
+                .cloned()
+                .chain(repeat(0))
+                .take(MAX_VAR_NAME_SIZE),
+        );
     }
 }

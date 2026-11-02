@@ -57,6 +57,7 @@ impl ByteCode {
     pub fn new() -> Self {
         Self(Vec::new())
     }
+    #[deprecated]
     pub fn push(&mut self, bite_code: u8) {
         self.0.push(bite_code);
     }
@@ -76,7 +77,8 @@ impl ByteCode {
     pub fn get_raw(self) -> Vec<u8> {
         self.0
     }
-    pub fn extend(&mut self, iter: impl IntoIterator<Item = u8>) {
+    #[deprecated]
+    pub fn extend_old(&mut self, iter: impl IntoIterator<Item = u8>) {
         self.0.extend(iter);
     }
     pub fn push_asm(&mut self, asm: StackAssembally) {
@@ -110,5 +112,18 @@ impl ByteCode {
     pub fn unconditional_jump(&mut self) -> JumpTargetSlot {
         self.push(JumpCodes::Unconditional as u8);
         self.reserve_jump()
+    }
+}
+pub trait EncoderExt {
+    fn push_raw(&mut self, bite_code: u8);
+    fn extend(&mut self, iter: impl IntoIterator<Item = u8>);
+}
+
+impl EncoderExt for ByteCode {
+    fn push_raw(&mut self, bite_code: u8) {
+        self.0.push(bite_code);
+    }
+    fn extend(&mut self, iter: impl IntoIterator<Item = u8>) {
+        self.0.extend(iter);
     }
 }

@@ -19,8 +19,8 @@ impl Compile for Write {
     fn compile(&self, comp: &mut ByteCode, _: &()) {
         use StackAssembally as Asm;
         match self {
-            Self::Bang => comp.push(WriteCodes::Bang as u8),
-            Self::Clear => comp.push(WriteCodes::Clear as u8),
+            Self::Bang => comp.push_asm(Asm::WriteCodes(WriteCodes::Bang)),
+            Self::Clear => comp.push_asm(Asm::WriteCodes(WriteCodes::Clear)),
             Self::Tab(tab) => {
                 tab.compile(comp, &ExpressionContext::Eval);
                 comp.push_asm(Asm::WriteCodes(WriteCodes::Tab))

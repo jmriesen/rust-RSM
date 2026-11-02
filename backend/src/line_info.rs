@@ -51,7 +51,7 @@ impl Compile for StartLine {
 
     fn compile(&self, bite_code: &mut crate::ByteCode, _context: &Self::Context) {
         bite_code.push(LineNum.encode());
-        bite_code.extend(self.line_numb.to_le_bytes());
-        bite_code.extend(self.level.to_le_bytes());
+        bite_code.extend_old(self.line_numb.to_le_bytes());
+        bite_code.extend_old(self.level.to_le_bytes());
     }
 }

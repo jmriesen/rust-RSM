@@ -152,7 +152,8 @@ impl Decode for BuildVarInstructions {
         })
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
-        byte_code.push(
+        use crate::byte_code::EncoderExt;
+        byte_code.push_raw(
             self.subscripts
                 .try_into()
                 .expect("TODO: to many variable detection"),
@@ -197,7 +198,8 @@ impl Decode for PushVar {
         }
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
-        byte_code.push(VarContext::Build as u8);
+        use crate::byte_code::EncoderExt;
+        byte_code.push_raw(VarContext::Build as u8);
         self.var.encode(byte_code);
     }
 }
