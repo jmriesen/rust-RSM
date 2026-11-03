@@ -2,9 +2,11 @@ use ir::commands::{Command, PostCondition};
 
 use crate::{
     Compile,
-    byte_code::ByteCode,
+    byte_code::{self, ByteCode, Location},
     commands::r#if::IfElse,
-    runtime::{EndCommand, StackAssembally},
+    conditional_jumps::{Jump, JumpCodes},
+    expression::ExpressionContext,
+    runtime::{EndCommand, StackAssembally, program_counter::ProgramCounter},
 };
 
 pub mod r#break;
@@ -26,7 +28,20 @@ where
     type Context = C;
     fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         if let Some(condition) = &self.condition {
-            bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
+            condition.compile(bite_code, &ExpressionContext::Eval);
+
+            let mut command_body = ByteCode::new();
+            self.value.compile(&mut command_body, context);
+            let command_body_len = command_body.0.len();
+
+            bite_code.push_asm(StackAssembally::Jump(Jump {
+                r#type: JumpCodes::Conditional,
+                //Should this not be a location but just a jump offset?
+                target: Location(command_body_len),
+            }));
+            bite_code.0.extend(command_body.0);
+
+            //bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
         } else {
             self.value.compile(bite_code, context);
         }

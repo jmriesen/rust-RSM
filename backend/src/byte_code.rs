@@ -36,14 +36,21 @@ impl Decode for Location {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
         let Location(here) = decoder.current_location();
         Some(Self(
-            here + usize::try_from(jump_distance).expect(
+            here + usize::try_from(dbg!(jump_distance)).expect(
                 "Currently only supporting forward jumps. May change if new functionality needs it.",
             ),
         ))
     }
 
-    fn encode(&self, _decoder: &mut self::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut self::ByteCode) {
+        //TODO: NOTE THIS IS NOT SYMMETRICAL WITH DECODE.
+        //I WILL HAVE TO DO SOME Finagling TO MAKE SURE THIS IS HOW I WANT IT TO BE.
+        use crate::byte_code::EncoderExt;
+        byte_code.extend(
+            i16::try_from(self.0)
+                .expect("Only jumping forward right now")
+                .to_le_bytes(),
+        );
     }
 }
 

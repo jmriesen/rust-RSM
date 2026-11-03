@@ -127,7 +127,7 @@ mod debug {
                     &InstructionDebugIter(self.clone())
                         //Pulling out just what is useful for the current debugging
                         //session.
-                        .map(|x| x.stack_asm)
+                        .map(|x| (x.byte_code_range, x.stack_asm))
                         .collect::<Vec<_>>(),
                 )
                 .finish()
