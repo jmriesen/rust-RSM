@@ -1,9 +1,10 @@
 use ir::commands::r#for::{For, ForKind};
 use serde::{Deserialize, Serialize};
+use symbol_table::Ident;
 
 use crate::{
     Compile,
-    byte_code::{ByteCode, Location},
+    byte_code::{ByteCode, EncoderExt, Location},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
     runtime::{Decode, EndCommand, NoOpCode, StackAssembally, program_counter::AssemblyDecoder},
@@ -26,17 +27,10 @@ ForStart {
 OpCode! {ForEnd =178}
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ForArgMetaData {
-    pub loop_variable: BuildVarInstructions,
-    /// tracks source code for next `Range` group.
-    pub range_pc: Location,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct ForMetaData {
     pub loop_body: Location,
     pub r#break: Location,
-    pub args: Option<ForArgMetaData>,
+    pub kind: ForStart,
 }
 
 impl Compile for For {
@@ -53,58 +47,88 @@ impl Compile for For {
      * to barrow checking/state being weird with incomplete objects.)
      * */
     fn compile(&self, bite_code: &mut ByteCode, _: &()) {
+        let mut loop_body_byte_code = ByteCode::new();
+        self.commands.compile(&mut loop_body_byte_code, &());
+        //Inserting an extra `EndCommand` command (probably not needed)
+        loop_body_byte_code.push_asm(StackAssembally::EndCommand(EndCommand));
+        //Insert end off loop logic
+        loop_body_byte_code.push_asm(StackAssembally::ForEnd(ForEnd));
+
         match &self.kind {
             ForKind::VarLoop {
                 variable,
-                arguments: _,
+                arguments,
             } => {
+                variable.compile(bite_code, &VarContext::Build);
+                //-----
+                let mut args_byte_code = ByteCode::new();
+                for range in arguments {
+                    range
+                        .start
+                        .compile(&mut args_byte_code, &ExpressionContext::Eval);
+
+                    if let Some((inc, end)) = &range.increment_end {
+                        inc.compile(&mut args_byte_code, &ExpressionContext::Eval);
+
+                        if let Some(end) = end {
+                            end.compile(&mut args_byte_code, &ExpressionContext::Eval);
+                        }
+                    }
+
+                    args_byte_code.push(match range.increment_end {
+                        None => ForRangeType::One,
+                        Some((_, None)) => ForRangeType::Two,
+                        Some((_, Some(_))) => ForRangeType::Three,
+                    } as u8);
+                }
+                //-----
+
+                dbg!(&args_byte_code);
+                ForMetaData {
+                    loop_body: Location(args_byte_code.0.len() + 2), //+2 to compensate for position
+                    //deference of loop body not being the last thing in the structure.
+                    r#break: Location(args_byte_code.0.len() + loop_body_byte_code.0.len()),
+                    kind: match self.kind {
+                        ForKind::Infinite => ForStart::ArgumentLess,
+                        ForKind::VarLoop { .. } => ForStart::Arguments,
+                    },
+                }
+                .encode(bite_code);
+                bite_code.extend(args_byte_code.0);
+                bite_code.extend(loop_body_byte_code.0);
+
                 //TODO:
                 //VarContext is the same as `ForStart::Arguments`
                 //make them the same in the type system.
                 const _: () = const {
                     assert!(VarContext::For as u8 == ForStart::Arguments as u8);
                 };
-                variable.compile(bite_code, &VarContext::For)
             }
-            ForKind::Infinite => bite_code.push(ForStart::ArgumentLess as u8),
-        }
-
-        let loop_body = bite_code.reserve_jump();
-        let r#break = bite_code.reserve_jump();
-
-        if let ForKind::VarLoop {
-            variable: _,
-            arguments,
-        } = &self.kind
-        {
-            for range in arguments {
-                range.start.compile(bite_code, &ExpressionContext::Eval);
-
-                if let Some((inc, end)) = &range.increment_end {
-                    inc.compile(bite_code, &ExpressionContext::Eval);
-
-                    if let Some(end) = end {
-                        end.compile(bite_code, &ExpressionContext::Eval);
-                    }
+            ForKind::Infinite => {
+                ForMetaData {
+                    loop_body: Location(0),
+                    r#break: Location(loop_body_byte_code.0.len()),
+                    kind: match self.kind {
+                        ForKind::Infinite => ForStart::ArgumentLess,
+                        ForKind::VarLoop { .. } => ForStart::Arguments,
+                    },
                 }
-
-                bite_code.push(match range.increment_end {
-                    None => ForRangeType::One,
-                    Some((_, None)) => ForRangeType::Two,
-                    Some((_, Some(_))) => ForRangeType::Three,
-                } as u8);
+                .encode(bite_code);
+                bite_code.extend(loop_body_byte_code.0);
             }
         }
 
         // Inserting loop body
-        bite_code.write_jump(loop_body, bite_code.current_location());
-        self.commands.compile(bite_code, &());
+        //////bite_code.write_jump(loop_body, bite_code.current_location());
+
+        //bite_code.extend(loop_body_byte_code.0);
+
         //Inserting an extra `EndCommand` command (probably not needed)
-        bite_code.push_asm(StackAssembally::EndCommand(EndCommand));
+        //bite_code.push_asm(StackAssembally::EndCommand(EndCommand));
         //Insert end off loop logic
-        bite_code.push_asm(StackAssembally::ForEnd(ForEnd));
+        //bite_code.push_asm(StackAssembally::ForEnd(ForEnd));
         // Jump out of for loop
-        bite_code.write_jump(r#break, bite_code.current_location());
+        //     bite_code.write_jump(r#break, bite_code.current_location());
         // Insure the break jump always lands on a no-op
         bite_code.push_asm(StackAssembally::NoOpCode(NoOpCode));
     }
@@ -112,30 +136,19 @@ impl Compile for For {
 
 impl Decode for ForMetaData {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
-        let r#type = ForStart::decode(decoder)?;
-
-        let variable = match r#type {
-            ForStart::ArgumentLess => None,
-            ForStart::Arguments => {
-                let loop_variable = Decode::decode(decoder).unwrap();
-                Some(loop_variable)
-            }
-        };
+        let kind = ForStart::decode(decoder)?;
         let loop_body = Decode::decode(decoder).expect("already verified we are in for set");
         let r#break = Decode::decode(decoder).expect("already verified we are in for set");
-
-        let args = variable.map(|loop_variable| ForArgMetaData {
-            loop_variable,
-            range_pc: decoder.current_location(),
-        });
 
         Some(ForMetaData {
             loop_body,
             r#break,
-            args,
+            kind,
         })
     }
-    fn encode(&self, _decoder: &mut crate::ByteCode) {
-        todo!()
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        self.kind.encode(byte_code);
+        self.loop_body.encode(byte_code);
+        self.r#break.encode(byte_code);
     }
 }

@@ -36,7 +36,7 @@ impl Decode for Location {
         let jump_distance = i16::from_le_bytes(decoder.consume_n());
         let Location(here) = decoder.current_location();
         Some(Self(
-            here + usize::try_from(dbg!(jump_distance)).expect(
+            here + usize::try_from(jump_distance).expect(
                 "Currently only supporting forward jumps. May change if new functionality needs it.",
             ),
         ))

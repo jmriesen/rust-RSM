@@ -81,23 +81,25 @@ impl ForFrame {
 
 impl<'a> Job<'a> {
     pub(crate) fn initialize_for_loop(
+        pc: ProgramCounter<'a>,
         for_stack: &mut Vec<ForFrame>,
-        r_values: &mut Vec<Value>,
+        l_values: &mut Vec<MVar<Path>>,
         for_meta_data: ForMetaData,
     ) {
         let ForMetaData {
             loop_body,
             r#break,
-            args,
+            kind,
         } = for_meta_data;
-        let args = args.map(|args| {
-            let var = Self::build_var(r_values, args.loop_variable);
-            ForArgFrame {
-                pc: args.range_pc,
-                var,
+        let args = match kind {
+            super::ForStart::Arguments => Some(ForArgFrame {
+                pc: pc.current_location(),
+                var: l_values.pop().expect("a built value."),
                 current_range: None,
-            }
-        });
+            }),
+            super::ForStart::ArgumentLess => None,
+        };
+
         let new_frame = ForFrame {
             loop_body,
             r#break,

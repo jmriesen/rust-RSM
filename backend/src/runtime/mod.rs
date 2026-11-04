@@ -240,8 +240,9 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
+                            do_frame.pc.clone(),
                             &mut do_frame.for_stack,
-                            &mut self.r_values,
+                            &mut self.l_values,
                             meta_data,
                         );
                     }
