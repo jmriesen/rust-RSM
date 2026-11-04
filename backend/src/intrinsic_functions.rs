@@ -1,6 +1,7 @@
 use crate::{
     Compile,
-    byte_code::ByteCode,
+    byte_code::{ByteCode, EncoderExt, JumpOffset},
+    conditional_jumps::{Jump, JumpCodes},
     expression::ExpressionContext,
     runtime::{StackAssembally, TEMP},
     variable::VarContext,
@@ -68,24 +69,41 @@ impl Compile for IntrinsicFunction {
     fn compile(&self, comp: &mut ByteCode, _: &()) {
         match self {
             IntrinsicFunction::Select { terms } => {
-                let jump_indexs: Vec<_> = terms
-                    .iter()
-                    .map(|SelectTerm { condition, value }| {
-                        comp.conditional_jump(condition, |bite_code| {
-                            value.compile(bite_code, &ExpressionContext::Eval);
-                            bite_code.unconditional_jump()
-                        })
-                    })
-                    .collect();
-                comp.push_asm(StackAssembally::TEMP(TEMP(ERROR_CODE_OP)));
-                let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
-                for i in errm4 {
-                    comp.push_asm(StackAssembally::TEMP(TEMP(i)));
-                }
+                //NOTE: We work from back to front since we need to know the size of the blocks we
+                //are skipping over.
+                //
+                // So we start with the no mach found error condition then move on to the Nth term
+                // then (N-1)th, (N-2)th ext.
+                //
 
-                for jump_to_end in jump_indexs {
-                    comp.write_jump(jump_to_end, comp.current_location());
+                // Error could not find case.
+                let mut tail = ByteCode::new();
+                tail.push_asm(StackAssembally::TEMP(TEMP(ERROR_CODE_OP)));
+                let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
+
+                for i in errm4 {
+                    tail.push_asm(StackAssembally::TEMP(TEMP(i)));
                 }
+                // Nth -> (N-1)th, (N-2)th, ext
+                for SelectTerm { condition, value } in terms.iter().rev() {
+                    let mut body = ByteCode::new();
+                    value.compile(&mut body, &ExpressionContext::Eval);
+                    body.push_asm(StackAssembally::Jump(Jump {
+                        r#type: JumpCodes::Unconditional,
+                        target: JumpOffset(tail.0.len() as i16),
+                    }));
+
+                    let mut term = ByteCode::new();
+                    condition.compile(&mut term, &ExpressionContext::Eval);
+                    term.push_asm(StackAssembally::Jump(Jump {
+                        r#type: JumpCodes::Conditional,
+                        target: JumpOffset(body.0.len() as i16),
+                    }));
+                    term.extend(body.0);
+                    term.extend(tail.0);
+                    tail = term;
+                }
+                comp.extend(tail.0);
             }
             IntrinsicFunction::Char { args } => {
                 if args.len() > 254 {
