@@ -1,6 +1,6 @@
 use crate::{
     Compile,
-    byte_code::{ByteCode, EncoderExt, JumpOffset},
+    byte_code::{ByteCode, JumpOffset},
     conditional_jumps::{Jump, JumpCodes},
     expression::ExpressionContext,
     runtime::{StackAssembally, TEMP},
@@ -90,20 +90,20 @@ impl Compile for IntrinsicFunction {
                     value.compile(&mut body, &ExpressionContext::Eval);
                     body.push_asm(StackAssembally::Jump(Jump {
                         r#type: JumpCodes::Unconditional,
-                        target: JumpOffset(tail.0.len() as i16),
+                        target: JumpOffset(tail.len() as i16),
                     }));
 
                     let mut term = ByteCode::new();
                     condition.compile(&mut term, &ExpressionContext::Eval);
                     term.push_asm(StackAssembally::Jump(Jump {
                         r#type: JumpCodes::Conditional,
-                        target: JumpOffset(body.0.len() as i16),
+                        target: JumpOffset(body.len() as i16),
                     }));
-                    term.extend(body.0);
-                    term.extend(tail.0);
+                    term.append(body);
+                    term.append(tail);
                     tail = term;
                 }
-                comp.extend(tail.0);
+                comp.append(tail);
             }
             IntrinsicFunction::Char { args } => {
                 if args.len() > 254 {

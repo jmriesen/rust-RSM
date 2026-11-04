@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Compile,
-    byte_code::{ByteCode, EncoderExt, JumpOffset},
+    byte_code::{ByteCode, JumpOffset},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
     runtime::{Decode, EndCommand, NoOpCode, StackAssembally, program_counter::AssemblyDecoder},
@@ -81,16 +81,16 @@ impl Compile for For {
         }
 
         ForMetaData {
-            loop_body: JumpOffset(args_byte_code.0.len() as i16),
-            r#break: JumpOffset(args_byte_code.0.len() as i16 + loop_body_byte_code.0.len() as i16),
+            loop_body: JumpOffset(args_byte_code.len() as i16),
+            r#break: JumpOffset(args_byte_code.len() as i16 + loop_body_byte_code.len() as i16),
             kind: match self.kind {
                 ForKind::Infinite => ForStart::ArgumentLess,
                 ForKind::VarLoop { .. } => ForStart::Arguments,
             },
         }
         .encode(bite_code);
-        bite_code.extend(args_byte_code.0);
-        bite_code.extend(loop_body_byte_code.0);
+        bite_code.append(args_byte_code);
+        bite_code.append(loop_body_byte_code);
 
         bite_code.push_asm(StackAssembally::NoOpCode(NoOpCode));
     }

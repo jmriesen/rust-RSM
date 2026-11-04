@@ -8,7 +8,7 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-pub struct ByteCode(pub(crate) Vec<u8>);
+pub struct ByteCode(Vec<u8>);
 impl Debug for ByteCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("BiteCode")
@@ -63,12 +63,15 @@ impl ByteCode {
     pub fn current_location(&self) -> Location {
         Location(self.0.len())
     }
-    pub fn get_raw(self) -> Vec<u8> {
-        self.0
-    }
 
     pub fn push_asm(&mut self, asm: StackAssembally) {
         asm.encode(self);
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn append(&mut self, other: ByteCode) {
+        self.0.extend(other.0);
     }
 }
 pub trait EncoderExt {

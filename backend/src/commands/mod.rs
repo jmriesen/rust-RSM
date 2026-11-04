@@ -32,18 +32,17 @@ where
 
             let mut command_body = ByteCode::new();
             self.value.compile(&mut command_body, context);
-            let command_body_len = command_body.0.len();
-
             bite_code.push_asm(StackAssembally::Jump(Jump {
                 r#type: JumpCodes::Conditional,
                 //Should this not be a location but just a jump offset?
                 target: JumpOffset(
-                    command_body_len
+                    command_body
+                        .len()
                         .try_into()
                         .expect("Block length should be less then JumpOffset size"),
                 ),
             }));
-            bite_code.0.extend(command_body.0);
+            bite_code.append(command_body);
         } else {
             self.value.compile(bite_code, context);
         }
