@@ -240,7 +240,7 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
-                            do_frame.pc.clone(),
+                            do_frame.pc.current_location(),
                             &mut do_frame.for_stack,
                             &mut self.l_values,
                             meta_data,
@@ -343,7 +343,7 @@ impl<'a> Job<'a> {
                             }
                         };
                         if should_jump {
-                            do_frame.pc.jump(jump.target)
+                            do_frame.pc.jump_offset(jump.target)
                         }
                     }
                     StackAssembally::Test(_) => {

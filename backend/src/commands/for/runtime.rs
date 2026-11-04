@@ -81,7 +81,7 @@ impl ForFrame {
 
 impl<'a> Job<'a> {
     pub(crate) fn initialize_for_loop(
-        pc: ProgramCounter<'a>,
+        current_location: Location,
         for_stack: &mut Vec<ForFrame>,
         l_values: &mut Vec<MVar<Path>>,
         for_meta_data: ForMetaData,
@@ -93,7 +93,7 @@ impl<'a> Job<'a> {
         } = for_meta_data;
         let args = match kind {
             super::ForStart::Arguments => Some(ForArgFrame {
-                pc: pc.current_location(),
+                pc: current_location,
                 var: l_values.pop().expect("a built value."),
                 current_range: None,
             }),
@@ -101,8 +101,8 @@ impl<'a> Job<'a> {
         };
 
         let new_frame = ForFrame {
-            loop_body,
-            r#break,
+            loop_body: current_location + loop_body,
+            r#break: current_location + r#break,
             args_frame: args,
         };
 

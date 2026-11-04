@@ -1,6 +1,6 @@
 use crate::{
     ByteCode,
-    byte_code::Location,
+    byte_code::{JumpOffset, Location},
     runtime::{StackAssembally, StackAssemblyTrait},
 };
 
@@ -69,6 +69,10 @@ impl<'a> ProgramCounter<'a> {
     pub fn jump(&mut self, location: Location) {
         self.program_counter = location
     }
+    pub fn jump_offset(&mut self, offset: JumpOffset) {
+        self.program_counter += offset
+    }
+
     pub fn advance_to_next_line(&mut self) {
         loop {
             if let StackAssembally::EndLine(_) = self

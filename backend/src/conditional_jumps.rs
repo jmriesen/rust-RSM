@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    byte_code::Location,
+    byte_code::JumpOffset,
     macros::OpCodes,
     runtime::{Decode, program_counter::AssemblyDecoder},
 };
@@ -13,7 +13,7 @@ OpCodes! {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Jump {
     pub r#type: JumpCodes,
-    pub target: Location,
+    pub target: JumpOffset,
 }
 impl Decode for Jump {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {

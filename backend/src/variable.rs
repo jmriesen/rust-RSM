@@ -15,7 +15,6 @@ pub enum VarContext {
     Eval = 61_isize,
     Build = 62_isize,
     BuildNullable = 63_isize,
-    For = 177_isize,
 }
 
 pub enum VarCodes {

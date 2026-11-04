@@ -2,11 +2,11 @@ use ir::commands::{Command, PostCondition};
 
 use crate::{
     Compile,
-    byte_code::{self, ByteCode, Location},
+    byte_code::{ByteCode, JumpOffset},
     commands::r#if::IfElse,
     conditional_jumps::{Jump, JumpCodes},
     expression::ExpressionContext,
-    runtime::{EndCommand, StackAssembally, program_counter::ProgramCounter},
+    runtime::{EndCommand, StackAssembally},
 };
 
 pub mod r#break;
@@ -37,11 +37,13 @@ where
             bite_code.push_asm(StackAssembally::Jump(Jump {
                 r#type: JumpCodes::Conditional,
                 //Should this not be a location but just a jump offset?
-                target: Location(command_body_len),
+                target: JumpOffset(
+                    command_body_len
+                        .try_into()
+                        .expect("Block length should be less then JumpOffset size"),
+                ),
             }));
             bite_code.0.extend(command_body.0);
-
-            //bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
         } else {
             self.value.compile(bite_code, context);
         }

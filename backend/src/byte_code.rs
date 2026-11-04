@@ -1,8 +1,3 @@
-use std::fmt::Debug;
-
-use ir::Expression;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     Compile,
     conditional_jumps::JumpCodes,
@@ -10,6 +5,12 @@ use crate::{
         Decode, StackAssembally,
         program_counter::{AssemblyDecoder, ProgramCounter},
     },
+};
+use ir::Expression;
+use serde::{Deserialize, Serialize};
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign},
 };
 
 pub struct ByteCode(pub(crate) Vec<u8>);
@@ -28,29 +29,35 @@ impl Debug for ByteCode {
 #[derive(Debug)]
 pub struct JumpTargetSlot(usize);
 
-//TODO remove duplicate location types.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub struct Location(pub usize);
-impl Decode for Location {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
+pub struct JumpOffset(pub i16);
+impl Decode for JumpOffset {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
-        let jump_distance = i16::from_le_bytes(decoder.consume_n());
-        let Location(here) = decoder.current_location();
-        Some(Self(
-            here + usize::try_from(jump_distance).expect(
-                "Currently only supporting forward jumps. May change if new functionality needs it.",
-            ),
-        ))
+        Some(Self(i16::from_le_bytes(decoder.consume_n())))
     }
-
     fn encode(&self, byte_code: &mut self::ByteCode) {
-        //TODO: NOTE THIS IS NOT SYMMETRICAL WITH DECODE.
-        //I WILL HAVE TO DO SOME Finagling TO MAKE SURE THIS IS HOW I WANT IT TO BE.
         use crate::byte_code::EncoderExt;
-        byte_code.extend(
-            i16::try_from(self.0)
-                .expect("Only jumping forward right now")
-                .to_le_bytes(),
-        );
+        byte_code.extend(i16::to_le_bytes(self.0));
+    }
+}
+
+impl Add<JumpOffset> for Location {
+    type Output = Location;
+    fn add(self, rhs: JumpOffset) -> Self::Output {
+        Location(
+            usize::try_from(
+                isize::try_from(self.0).expect("jump pointer overflow issue.") + isize::from(rhs.0),
+            )
+            .expect("jump pointer overflow issue."),
+        )
+    }
+}
+
+impl AddAssign<JumpOffset> for Location {
+    fn add_assign(&mut self, rhs: JumpOffset) {
+        *self = *self + rhs;
     }
 }
 
