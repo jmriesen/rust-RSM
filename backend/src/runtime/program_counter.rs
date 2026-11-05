@@ -41,7 +41,7 @@ pub struct ProgramCounter<'a> {
 impl<'a> ProgramCounter<'a> {
     pub fn new(source: &'a ByteCode) -> Self {
         Self {
-            source: &source.0,
+            source: source.get_raw(),
             program_counter: Location(0),
         }
     }

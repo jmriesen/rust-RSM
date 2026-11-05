@@ -66,6 +66,6 @@ pub mod test {
         let commands = frontend::parse_routine_print_errors(&format!(" {source_code}")).unwrap();
         dbg!(&commands);
         const LENGTH_OF_LINE_START: usize = 5;
-        compile_routine(commands).byte_code.0[LENGTH_OF_LINE_START..].to_vec()
+        compile_routine(commands).byte_code.get_raw()[LENGTH_OF_LINE_START..].to_vec()
     }
 }

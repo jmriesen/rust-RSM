@@ -19,7 +19,7 @@ pub mod value;
 pub mod var_u;
 pub mod variable;
 
-pub trait Compile {
+trait Compile {
     type Context;
     fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context);
 }

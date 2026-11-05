@@ -73,6 +73,12 @@ impl ByteCode {
     pub fn append(&mut self, other: ByteCode) {
         self.0.extend(other.0);
     }
+
+    /// Try Not to use this.
+    /// Will Likely go away in the future.
+    pub fn get_raw(&self) -> &[u8] {
+        &self.0
+    }
 }
 pub trait EncoderExt {
     fn push_raw(&mut self, bite_code: u8);
