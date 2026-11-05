@@ -2,7 +2,7 @@ macro_rules! OpCode {
     ($name:ident=$code:expr) => {
         #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct $name;
-        impl Decode for $name {
+        impl LegacyEncoding for $name {
             fn decode(
                 decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>,
             ) -> Option<Self> {
@@ -30,7 +30,7 @@ $name:ident{
         pub enum $name {
             $($var = $code,)*
         }
-        impl Decode for $name{
+        impl LegacyEncoding for $name{
             fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
@@ -51,7 +51,7 @@ macro_rules! OpCodesForeign {
     ($name:ident{
         $($var:ident=>$code:expr,)*
 }) => {
-        impl Decode for $name{
+        impl LegacyEncoding for $name{
             fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
@@ -84,7 +84,7 @@ pub enum StackAssembally {
     impl StackAssembally {
     pub fn encode(&self, decoder: &mut crate::ByteCode) {
         match self {
-        $(StackAssembally::$instruction(x) => Decode::encode(x,decoder),)*
+        $(StackAssembally::$instruction(x) => LegacyEncoding::encode(x,decoder),)*
 
         }
     }

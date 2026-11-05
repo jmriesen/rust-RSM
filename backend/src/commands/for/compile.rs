@@ -6,7 +6,9 @@ use crate::{
     byte_code::{ByteCode, JumpOffset},
     expression::ExpressionContext,
     macros::{OpCode, OpCodes},
-    runtime::{Decode, EndCommand, NoOpCode, StackAssembally, program_counter::AssemblyDecoder},
+    runtime::{
+        EndCommand, LegacyEncoding, NoOpCode, StackAssembally, program_counter::AssemblyDecoder,
+    },
     variable::VarContext,
 };
 
@@ -96,11 +98,12 @@ impl Compile for For {
     }
 }
 
-impl Decode for ForMetaData {
+impl LegacyEncoding for ForMetaData {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let kind = ForStart::decode(decoder)?;
-        let loop_body = Decode::decode(decoder).expect("already verified we are in for set");
-        let r#break = Decode::decode(decoder).expect("already verified we are in for set");
+        let loop_body =
+            LegacyEncoding::decode(decoder).expect("already verified we are in for set");
+        let r#break = LegacyEncoding::decode(decoder).expect("already verified we are in for set");
 
         Some(ForMetaData {
             loop_body,

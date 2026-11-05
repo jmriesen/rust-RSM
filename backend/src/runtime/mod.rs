@@ -75,13 +75,14 @@ pub struct Job<'a> {
     error: Option<RuntimeError>,
     routine: &'a CompiledRoutine,
 }
-// Partial (or whole) assembly instruction.
-pub trait Decode: Sized {
+/// This encoding scheme is based of what the original C code does.
+/// NOTE: It is not 100% comparable and I have deviated when I found the original encoding cumbersome .
+/// This is still used by regression testing code, but should not be considered stable.
+/// This will likely be replaced by a more Rusty (serde) implementation once decide that I can
+/// delete the reference encoding tests.
+pub trait LegacyEncoding: Sized {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self>;
     fn encode(&self, decoder: &mut byte_code::ByteCode);
-}
-pub trait Encode: Sized {
-    fn encode(&self) -> u8;
 }
 
 use crate::macros::OpCode;
@@ -94,7 +95,7 @@ OpCode! {NoOpCode=179}
 #[allow(dead_code)]
 pub struct TEMP(pub u8);
 #[cfg_attr(test, mutants::skip)]
-impl Decode for TEMP {
+impl LegacyEncoding for TEMP {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
@@ -107,7 +108,7 @@ impl Decode for TEMP {
 }
 
 /// Marks something as a whole assembly instruction
-pub(crate) trait StackAssemblyTrait: Decode {}
+pub(crate) trait StackAssemblyTrait: LegacyEncoding {}
 StackAssembally! {
     LoadVar,
     SetCodes,

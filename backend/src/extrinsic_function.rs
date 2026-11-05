@@ -10,7 +10,7 @@ use crate::{
     byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{Decode, StackAssembally, TEMP, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, StackAssembally, TEMP, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 #[derive(Clone, Copy)]
@@ -74,13 +74,16 @@ pub struct ExtrinsicFunctionCall {
     pub number_of_arguments_passed: u8,
 }
 
-impl Decode for ExtrinsicFunctionCall {
+impl LegacyEncoding for ExtrinsicFunctionCall {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let r#type = CallCode::decode(decoder)?;
         let (tag, routine) = match r#type {
-            CallCode::Tag => (Decode::decode(decoder), None),
-            CallCode::Routine => (None, Decode::decode(decoder)),
-            CallCode::TagRoutine => (Decode::decode(decoder), Decode::decode(decoder)),
+            CallCode::Tag => (LegacyEncoding::decode(decoder), None),
+            CallCode::Routine => (None, LegacyEncoding::decode(decoder)),
+            CallCode::TagRoutine => (
+                LegacyEncoding::decode(decoder),
+                LegacyEncoding::decode(decoder),
+            ),
         };
         assert_eq!(routine, None, "Routine calling not yet supported");
         assert!(tag.is_some(), "default tag calling not yet supported");

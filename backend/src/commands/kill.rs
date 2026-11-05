@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Compile,
     macros::OpCodesForeign,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 
@@ -40,7 +40,7 @@ impl Compile for KillInstruction {
         self.encode(bite_code);
     }
 }
-impl Decode for KillInstruction {
+impl LegacyEncoding for KillInstruction {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         Some(Self {
             r#type: KillType::decode(decoder)?,

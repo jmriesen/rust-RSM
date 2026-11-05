@@ -2,9 +2,9 @@ use std::iter::repeat;
 
 use symbol_table::{Ident, MAX_VAR_NAME_SIZE};
 
-use crate::runtime::{Decode, program_counter::AssemblyDecoder};
+use crate::runtime::{LegacyEncoding, program_counter::AssemblyDecoder};
 
-impl Decode for Ident {
+impl LegacyEncoding for Ident {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let raw: [u8; MAX_VAR_NAME_SIZE] = decoder.consume_n();
         let end = raw

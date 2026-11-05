@@ -1,6 +1,6 @@
 use ir::IntrinsicVar;
 
-use crate::{macros::OpCodesForeign, runtime::Decode};
+use crate::{macros::OpCodesForeign, runtime::LegacyEncoding};
 OpCodesForeign!(
     IntrinsicVar {
     Device => 80,

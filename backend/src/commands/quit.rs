@@ -5,7 +5,7 @@ use crate::{
     byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{Decode, StackAssembally},
+    runtime::{LegacyEncoding, StackAssembally},
 };
 
 OpCodes! {QuitCodes {

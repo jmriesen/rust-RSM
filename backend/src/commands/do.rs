@@ -3,7 +3,7 @@ use crate::{
     byte_code::ByteCode,
     extrinsic_function::ExtrinsicFunctionContext,
     macros::OpCode,
-    runtime::{Decode, StackAssembally},
+    runtime::{LegacyEncoding, StackAssembally},
 };
 use ir::commands::r#do::Do;
 

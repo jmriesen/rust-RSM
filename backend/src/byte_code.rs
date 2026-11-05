@@ -1,5 +1,5 @@
 use crate::runtime::{
-    Decode, StackAssembally,
+    LegacyEncoding, StackAssembally,
     program_counter::{AssemblyDecoder, ProgramCounter},
 };
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ impl Debug for ByteCode {
 pub struct Location(pub usize);
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub struct JumpOffset(pub i16);
-impl Decode for JumpOffset {
+impl LegacyEncoding for JumpOffset {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         Some(Self(i16::from_le_bytes(decoder.consume_n())))
     }

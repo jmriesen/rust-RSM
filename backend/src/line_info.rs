@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ByteCode, Compile,
     macros::OpCode,
-    runtime::{Decode, StackAssembally, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, StackAssembally, program_counter::AssemblyDecoder},
 };
 
 OpCode! {EndLine=0}
@@ -33,7 +33,7 @@ pub struct StartLine {
     pub level: u16,
 }
 
-impl Decode for StartLine {
+impl LegacyEncoding for StartLine {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         LineNum::decode(decoder)?;
         Some(StartLine {

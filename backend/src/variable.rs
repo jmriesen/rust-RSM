@@ -1,7 +1,7 @@
 use crate::{
     Compile, StackAssembally,
     byte_code::ByteCode,
-    runtime::{Decode, TEMP, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, TEMP, program_counter::AssemblyDecoder},
 };
 use ir::{
     Variable,
@@ -137,7 +137,7 @@ pub struct BuildVarInstructions {
     pub name: Ident,
     pub subscripts: usize,
 }
-impl Decode for BuildVarInstructions {
+impl LegacyEncoding for BuildVarInstructions {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         //TODO: handle other types
         let [code_num_subscriptions] = decoder.consume_n();
@@ -168,12 +168,12 @@ impl Decode for BuildVarInstructions {
 pub struct LoadVar {
     pub var: BuildVarInstructions,
 }
-impl Decode for LoadVar {
+impl LegacyEncoding for LoadVar {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         const CODE: u8 = VarContext::Eval as u8;
         if let [CODE] = decoder.consume_n() {
             Some(Self {
-                var: Decode::decode(decoder).unwrap(),
+                var: LegacyEncoding::decode(decoder).unwrap(),
             })
         } else {
             None
@@ -190,11 +190,11 @@ impl Decode for LoadVar {
 pub struct PushVar {
     pub var: BuildVarInstructions,
 }
-impl Decode for PushVar {
+impl LegacyEncoding for PushVar {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         const BUILD: u8 = VarContext::Build as u8;
         if let [BUILD] = decoder.consume_n() {
-            let name = Decode::decode(decoder).unwrap();
+            let name = LegacyEncoding::decode(decoder).unwrap();
             Some(Self { var: name })
         } else {
             None

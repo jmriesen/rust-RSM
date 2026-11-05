@@ -1,9 +1,9 @@
 use value::Value;
 
 pub const STRING_OP: u8 = 60;
-use crate::runtime::{Decode, program_counter::AssemblyDecoder};
+use crate::runtime::{LegacyEncoding, program_counter::AssemblyDecoder};
 
-impl Decode for Value {
+impl LegacyEncoding for Value {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         if let [STRING_OP] = decoder.consume_n() {
             let len = u16::from_le_bytes(decoder.consume_n());

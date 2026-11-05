@@ -2,7 +2,7 @@ use crate::{
     Compile,
     byte_code::{ByteCode, EncoderExt},
     macros::OpCodesForeign,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 use ir::commands::{New, NewKind};
@@ -31,7 +31,7 @@ pub struct NewStackAsm {
     pub number_of_variables: u8,
 }
 
-impl Decode for NewStackAsm {
+impl LegacyEncoding for NewStackAsm {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         Some(Self {
             kind: NewKind::decode(decoder)?,

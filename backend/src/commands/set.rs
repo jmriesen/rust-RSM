@@ -2,7 +2,7 @@ use crate::{Compile, runtime::StackAssembally};
 use ir::commands::set::Set;
 
 use crate::{
-    byte_code::ByteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
+    byte_code::ByteCode, expression::ExpressionContext, macros::OpCodes, runtime::LegacyEncoding,
     variable::VarContext,
 };
 

@@ -1,6 +1,6 @@
 use ir::ExternalCalls;
 
-use crate::{macros::OpCodesForeign, runtime::Decode};
+use crate::{macros::OpCodesForeign, runtime::LegacyEncoding};
 
 OpCodesForeign!(
 ExternalCalls {

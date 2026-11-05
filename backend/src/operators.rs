@@ -1,6 +1,6 @@
 use ir::operators::{Binary, Unary};
 
-use crate::{macros::OpCodesForeign, runtime::Decode};
+use crate::{macros::OpCodesForeign, runtime::LegacyEncoding};
 
 OpCodesForeign! {
     Unary {

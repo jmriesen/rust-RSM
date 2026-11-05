@@ -4,7 +4,7 @@ use crate::{
     Compile,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{Decode, StackAssembally},
+    runtime::{LegacyEncoding, StackAssembally},
 };
 
 OpCodes! {

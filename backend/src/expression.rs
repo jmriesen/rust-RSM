@@ -4,7 +4,7 @@ use variable::VarContext;
 
 use crate::{
     byte_code::ByteCode,
-    runtime::{Decode, StackAssembally, TEMP},
+    runtime::{LegacyEncoding, StackAssembally, TEMP},
 };
 
 use super::*;
