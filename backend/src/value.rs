@@ -1,18 +1,8 @@
 use value::Value;
 
 pub const STRING_OP: u8 = 60;
-use crate::{
-    Compile,
-    byte_code::ByteCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
-};
-impl Compile for Value {
-    type Context = ();
+use crate::runtime::{Decode, program_counter::AssemblyDecoder};
 
-    fn compile(&self, bite_code: &mut ByteCode, _: &Self::Context) {
-        self.encode(bite_code);
-    }
-}
 impl Decode for Value {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         if let [STRING_OP] = decoder.consume_n() {

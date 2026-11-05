@@ -18,7 +18,7 @@ impl Compile for Line {
             line_numb: *line_numb,
             level: self.level,
         }
-        .compile(bite_code, &());
+        .encode(bite_code);
         //NOTE: I have decided to change the bite code layout compared to the original C code.
         //In the ordinal C the line level/check is part of the stack machine instructions.
         //In this version it will be unconditional included as part of the line encoding.
@@ -46,13 +46,5 @@ impl Decode for StartLine {
         LineNum.encode(byte_code);
         byte_code.extend(self.line_numb.to_le_bytes());
         byte_code.extend(self.level.to_le_bytes());
-    }
-}
-
-impl Compile for StartLine {
-    type Context = ();
-
-    fn compile(&self, byte_code: &mut crate::ByteCode, _context: &Self::Context) {
-        self.encode(byte_code);
     }
 }

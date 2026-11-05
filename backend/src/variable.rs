@@ -106,7 +106,7 @@ impl Compile for Variable {
             if let E::Named { name, .. } = &self.var_type {
                 symbol_table::Ident::try_from(name.0.as_str())
                     .unwrap()
-                    .compile(comp, &());
+                    .encode(comp);
             };
         };
         if let VariableType::Named {

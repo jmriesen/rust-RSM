@@ -112,8 +112,8 @@ impl Decode for ExtrinsicFunctionCall {
             _ => unreachable!(),
         } as u8);
 
-        self.routine.compile(byte_code, &());
-        self.tag.compile(byte_code, &());
+        self.routine.as_ref().map(|x| x.encode(byte_code));
+        self.tag.as_ref().map(|x| x.encode(byte_code));
         byte_code.push_raw(self.number_of_arguments_passed);
     }
 }

@@ -2,18 +2,7 @@ use std::iter::repeat;
 
 use symbol_table::{Ident, MAX_VAR_NAME_SIZE};
 
-use crate::{
-    ByteCode, Compile,
-    runtime::{Decode, program_counter::AssemblyDecoder},
-};
-
-impl Compile for Ident {
-    type Context = ();
-
-    fn compile(&self, byte_code: &mut ByteCode, _: &Self::Context) {
-        self.encode(byte_code);
-    }
-}
+use crate::runtime::{Decode, program_counter::AssemblyDecoder};
 
 impl Decode for Ident {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {

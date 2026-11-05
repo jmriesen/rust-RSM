@@ -19,6 +19,7 @@ pub mod value;
 pub mod var_u;
 pub mod variable;
 
+/// Transforms the given Type into stack assembly and appends it to the given ByteCode
 trait Compile {
     type Context;
     fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context);
