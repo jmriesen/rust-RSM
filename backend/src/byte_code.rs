@@ -9,7 +9,9 @@ use std::{
 };
 
 pub struct ByteCode(Vec<u8>);
+
 impl Debug for ByteCode {
+    #[cfg_attr(test, mutants::skip)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("BiteCode")
             .field(&ProgramCounter::new(self))

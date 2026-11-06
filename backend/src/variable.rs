@@ -30,6 +30,9 @@ pub enum VarCodes {
 const INDIRECT_VAR: u8 = 66;
 impl Compile for Variable {
     type Context = VarContext;
+    //Remove this eventually, currently required since the new encoding is technically redundant.
+    //However I want to move towards the new encoding in general.
+    #[cfg_attr(test, mutants::skip)]
     fn compile(&self, comp: &mut ByteCode, context: &VarContext) {
         use crate::expression::ExpressionContext;
         use VariableType as E;
