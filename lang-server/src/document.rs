@@ -34,7 +34,7 @@ impl Document {
     //Returning a closure since normally you need to do a lot of conversations in a batch
     //And this lets me reuse the calculated newlines.
     //Lifetime bound is there to prevent the converter from being used after our immutable barrow ends
-    pub fn index_converter<'a>(&'a self) -> impl Fn(usize) -> Position + 'a {
+    pub fn index_converter(&self) -> impl Fn(usize) -> Position + '_ {
         let new_lines: Vec<_> = std::iter::once(0)
             .chain(self.text().match_indices('\n').map(
                 |(x, _)| x + 1, /*The +1 moves us to start of next line.*/

@@ -331,7 +331,7 @@ fn intrinsic_fn_normal<'src>(
                     err: None,
                 }),
                 "l" | "length" => Some(init_fn(IntrinsicFunction::Length, args)),
-                "st" | "stack" => Some(init_fn(IntrinsicFunction::Stack, args.into_iter())),
+                "st" | "stack" => Some(init_fn(IntrinsicFunction::Stack, args)),
 
                 _ => None,
             }),
@@ -380,7 +380,7 @@ where
     T: IntoIterator<Item = Expression>,
     T::IntoIter: ExactSizeIterator,
 {
-    map_args(args).map(move |function| variant(function))
+    map_args(args).map(variant)
 }
 
 //Lets parse any number a variable and then validate to report an error.

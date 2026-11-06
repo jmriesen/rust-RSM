@@ -1,13 +1,10 @@
 use ir::ExternalCalls;
 
-use crate::{Compile, bite_code::BiteCode};
+use crate::{macros::OpCodesForeign, runtime::LegacyEncoding};
 
-impl Compile for ExternalCalls {
-    type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        use ExternalCalls::*;
-        bite_code.push(match self {
-            Directory => 240,
+OpCodesForeign!(
+ExternalCalls {
+Directory => 240,
             Host => 237,
             File => 238,
             ErrMsg => 241,
@@ -29,6 +26,5 @@ impl Compile for ExternalCalls {
             Wait => 234,
             Debug => 239,
             Compress => 235,
-        });
-    }
 }
+);

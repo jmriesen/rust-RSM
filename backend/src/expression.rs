@@ -1,9 +1,11 @@
-use ::value::Value;
 use extrinsic_function::ExtrinsicFunctionContext;
 use ir::Expression;
 use variable::VarContext;
 
-use crate::bite_code::BiteCode;
+use crate::{
+    byte_code::ByteCode,
+    runtime::{LegacyEncoding, StackAssembally, TEMP},
+};
 
 use super::*;
 #[derive(Clone, Copy)]
@@ -15,23 +17,24 @@ pub enum ExpressionContext {
 
 impl Compile for Expression {
     type Context = ExpressionContext;
-    fn compile(&self, comp: &mut BiteCode, context: &ExpressionContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &ExpressionContext) {
         use Expression as E;
+        use StackAssembally as Asm;
         match self {
-            E::Number(num) => Value::from(num.inner.0.clone()).compile(comp, &()),
-            E::String(value) => value.inner.0.compile(comp, &()),
+            E::Number(num) => comp.push_asm(Asm::Value(num.inner.0.clone().into())),
+            E::String(value) => comp.push_asm(Asm::Value(value.inner.0.clone())),
             E::Variable(var) => var.compile(comp, &VarContext::Eval),
-            E::IntrinsicVar(var) => var.compile(comp, &()),
+            E::IntrinsicVar(var) => var.encode(comp),
             E::InderectExpression(exp) => {
                 exp.compile(comp, &ExpressionContext::Eval);
-                comp.push(*context as u8);
+                comp.push_asm(Asm::TEMP(TEMP(*context as u8)));
             }
             E::UnaryExpression {
                 op_code,
                 expresstion,
             } => {
                 expresstion.compile(comp, &ExpressionContext::Eval);
-                op_code.compile(comp, &())
+                comp.push_asm(Asm::Unary(op_code.clone()));
             }
             E::BinaryExpression {
                 left,
@@ -40,7 +43,7 @@ impl Compile for Expression {
             } => {
                 left.compile(comp, &ExpressionContext::Eval);
                 right.compile(comp, &ExpressionContext::Eval);
-                op_code.compile(comp, &())
+                comp.push_asm(Asm::Binary(op_code.clone()));
             }
             E::ExtrinsicFunction(function) => {
                 function.compile(comp, &ExtrinsicFunctionContext::Eval)
@@ -51,9 +54,9 @@ impl Compile for Expression {
                 // All External Commands expect at least 2 arguments
                 // If less than 2 arguments exist in the IR just pass the empty value.
                 for _ in args.len()..2 {
-                    ::value::Value::empty().compile(comp, &());
+                    ::value::Value::empty().encode(comp);
                 }
-                op_code.compile(comp, &())
+                op_code.encode(comp);
             }
             E::IntrinsicFunction(intrinsic) => {
                 intrinsic.compile(comp, &());

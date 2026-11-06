@@ -1,8 +1,8 @@
-use crate::Compile;
+use crate::{Compile, runtime::StackAssembally};
 use ir::commands::set::Set;
 
 use crate::{
-    bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
+    byte_code::ByteCode, expression::ExpressionContext, macros::OpCodes, runtime::LegacyEncoding,
     variable::VarContext,
 };
 
@@ -16,9 +16,9 @@ OpCodes! {
 
 impl Compile for Set {
     type Context = ();
-    fn compile(&self, comp: &mut BiteCode, _: &()) {
+    fn compile(&self, comp: &mut ByteCode, _: &()) {
         self.value.compile(comp, &ExpressionContext::Eval);
         self.variable.compile(comp, &VarContext::Build);
-        comp.push(SetCodes::Var as u8);
+        comp.push_asm(StackAssembally::SetCodes(SetCodes::Var));
     }
 }

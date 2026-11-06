@@ -1,24 +1,9 @@
 use value::Value;
 
 pub const STRING_OP: u8 = 60;
-use crate::{
-    Compile,
-    bite_code::BiteCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
-};
-impl Compile for Value {
-    type Context = ();
+use crate::runtime::{LegacyEncoding, program_counter::AssemblyDecoder};
 
-    fn compile(&self, bite_code: &mut BiteCode, _: &Self::Context) {
-        let len = self.content().len() as u16;
-
-        bite_code.push(STRING_OP);
-        bite_code.extend(len.to_le_bytes());
-        bite_code.extend(self.content().iter().cloned());
-        bite_code.push(0);
-    }
-}
-impl Decode for Value {
+impl LegacyEncoding for Value {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         if let [STRING_OP] = decoder.consume_n() {
             let len = u16::from_le_bytes(decoder.consume_n());
@@ -28,5 +13,14 @@ impl Decode for Value {
         } else {
             None
         }
+    }
+    fn encode(&self, bite_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        let len = self.content().len() as u16;
+
+        bite_code.push_raw(STRING_OP);
+        bite_code.extend(len.to_le_bytes());
+        bite_code.extend(self.content().iter().cloned());
+        bite_code.push_raw(0);
     }
 }

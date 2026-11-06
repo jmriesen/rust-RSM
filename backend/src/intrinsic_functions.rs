@@ -1,4 +1,11 @@
-use crate::{Compile, bite_code::BiteCode, expression::ExpressionContext, variable::VarContext};
+use crate::{
+    Compile,
+    byte_code::{ByteCode, JumpOffset},
+    conditional_jumps::{Jump, JumpCodes},
+    expression::ExpressionContext,
+    runtime::{StackAssembally, TEMP},
+    variable::VarContext,
+};
 use ir::{
     Expression, IntrinsicFunction,
     expression::NumberLiteral,
@@ -35,19 +42,21 @@ pub enum FunctionCodes {
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED, OPTIONAL> {
     type Context = FunctionCodes;
-    fn compile(&self, comp: &mut BiteCode, fn_code_base: &FunctionCodes) {
+    fn compile(&self, comp: &mut ByteCode, fn_code_base: &FunctionCodes) {
         let required_args = self.required.iter();
         let optional_args = self.optional.iter().filter_map(|x| x.as_ref());
         for arg in required_args.chain(optional_args.clone()) {
             arg.compile(comp, &ExpressionContext::Eval);
         }
-        comp.push(*fn_code_base as u8 + optional_args.count() as u8);
+        comp.push_asm(StackAssembally::TEMP(TEMP(
+            *fn_code_base as u8 + optional_args.count() as u8,
+        )));
     }
 }
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for VarFunction<REQUIRED, OPTIONAL> {
     type Context = (VarContext, FunctionCodes);
-    fn compile(&self, comp: &mut BiteCode, (context, fn_code_base): &Self::Context) {
+    fn compile(&self, comp: &mut ByteCode, (context, fn_code_base): &Self::Context) {
         self.variable.compile(comp, context);
         self.function.compile(comp, fn_code_base);
     }
@@ -57,25 +66,44 @@ const NO_TRUE_CONDITION_IN_SELECT: i16 = 4_i16;
 
 impl Compile for IntrinsicFunction {
     type Context = ();
-    fn compile(&self, comp: &mut BiteCode, _: &()) {
+    fn compile(&self, comp: &mut ByteCode, _: &()) {
         match self {
             IntrinsicFunction::Select { terms } => {
-                let jump_indexs: Vec<_> = terms
-                    .iter()
-                    .map(|SelectTerm { condition, value }| {
-                        comp.conditional_jump(condition, |bite_code| {
-                            value.compile(bite_code, &ExpressionContext::Eval);
-                            bite_code.unconditional_jump()
-                        })
-                    })
-                    .collect();
-                comp.push(ERROR_CODE_OP);
-                let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
-                comp.extend(errm4);
+                //NOTE: We work from back to front since we need to know the size of the blocks we
+                //are skipping over.
+                //
+                // So we start with the no mach found error condition then move on to the Nth term
+                // then (N-1)th, (N-2)th ext.
+                //
 
-                for jump_to_end in jump_indexs {
-                    comp.write_jump(jump_to_end, comp.current_location());
+                // Error could not find case.
+                let mut tail = ByteCode::new();
+                tail.push_asm(StackAssembally::TEMP(TEMP(ERROR_CODE_OP)));
+                let errm4 = (-(NO_TRUE_CONDITION_IN_SELECT)).to_le_bytes();
+
+                for i in errm4 {
+                    tail.push_asm(StackAssembally::TEMP(TEMP(i)));
                 }
+                // Nth -> (N-1)th, (N-2)th, ext
+                for SelectTerm { condition, value } in terms.iter().rev() {
+                    let mut body = ByteCode::new();
+                    value.compile(&mut body, &ExpressionContext::Eval);
+                    body.push_asm(StackAssembally::Jump(Jump {
+                        r#type: JumpCodes::Unconditional,
+                        target: JumpOffset(tail.len() as i16),
+                    }));
+
+                    let mut term = ByteCode::new();
+                    condition.compile(&mut term, &ExpressionContext::Eval);
+                    term.push_asm(StackAssembally::Jump(Jump {
+                        r#type: JumpCodes::Conditional,
+                        target: JumpOffset(body.len() as i16),
+                    }));
+                    term.append(body);
+                    term.append(tail);
+                    tail = term;
+                }
+                comp.append(tail);
             }
             IntrinsicFunction::Char { args } => {
                 if args.len() > 254 {
@@ -84,8 +112,8 @@ impl Compile for IntrinsicFunction {
                     for arg in args {
                         arg.compile(comp, &ExpressionContext::Eval);
                     }
-                    comp.push(FunctionCodes::Char as u8);
-                    comp.push(args.len() as u8);
+                    comp.push_asm(StackAssembally::TEMP(TEMP(FunctionCodes::Char as u8)));
+                    comp.push_asm(StackAssembally::TEMP(TEMP(args.len() as u8)));
                 }
             }
             IntrinsicFunction::View(function) => function.compile(comp, &(FunctionCodes::View)),
@@ -159,7 +187,7 @@ impl Compile for IntrinsicFunction {
 mod test {
     use ir::{Expression, expression::StringLiteral};
 
-    use crate::{Compile, bite_code};
+    use crate::{Compile, byte_code};
 
     use super::IntrinsicFunction;
 
@@ -176,7 +204,7 @@ mod test {
         IntrinsicFunction::Char {
             args: exps().take(255).collect(),
         }
-        .compile(&mut bite_code::BiteCode::new(), &());
+        .compile(&mut byte_code::ByteCode::new(), &());
     }
 
     #[test]
@@ -184,6 +212,6 @@ mod test {
         IntrinsicFunction::Char {
             args: exps().take(254).collect(),
         }
-        .compile(&mut bite_code::BiteCode::new(), &());
+        .compile(&mut byte_code::ByteCode::new(), &());
     }
 }

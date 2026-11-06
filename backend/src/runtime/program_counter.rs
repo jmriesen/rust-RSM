@@ -1,22 +1,8 @@
-use std::fmt::Debug;
-
-use crate::runtime::{Decode, StackAssembally, StackAssemblyTrait};
-
-/// A location in the byte code.
-/// Used by jumps and program counters
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Location(pub usize);
-impl Decode for Location {
-    fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
-        let jump_distance = i16::from_le_bytes(decoder.consume_n());
-        let Location(here) = decoder.program_counter;
-        Some(Self(
-            here + usize::try_from(jump_distance).expect(
-                "Currently only supporting forward jumps. May change if new functionality needs it.",
-            ),
-        ))
-    }
-}
+use crate::{
+    ByteCode,
+    byte_code::{JumpOffset, Location},
+    runtime::{StackAssembally, StackAssemblyTrait},
+};
 
 /// Responsible for parsing assembly instruction.
 /// This **is allowed** to decode partial instructions.
@@ -53,9 +39,9 @@ pub struct ProgramCounter<'a> {
 }
 
 impl<'a> ProgramCounter<'a> {
-    pub fn new(source: &'a [u8]) -> Self {
+    pub fn new(source: &'a ByteCode) -> Self {
         Self {
-            source,
+            source: source.get_raw(),
             program_counter: Location(0),
         }
     }
@@ -83,6 +69,10 @@ impl<'a> ProgramCounter<'a> {
     pub fn jump(&mut self, location: Location) {
         self.program_counter = location
     }
+    pub fn jump_offset(&mut self, offset: JumpOffset) {
+        self.program_counter += offset
+    }
+
     pub fn advance_to_next_line(&mut self) {
         loop {
             if let StackAssembally::EndLine(_) = self
@@ -141,7 +131,7 @@ mod debug {
                     &InstructionDebugIter(self.clone())
                         //Pulling out just what is useful for the current debugging
                         //session.
-                        .map(|x| x.stack_asm)
+                        .map(|x| (x.byte_code_range, x.stack_asm))
                         .collect::<Vec<_>>(),
                 )
                 .finish()

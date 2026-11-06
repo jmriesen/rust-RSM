@@ -2,14 +2,15 @@ use ir::{
     ExtrinsicFunction,
     extrinsic_function::{Args, Location},
 };
+use serde::{Deserialize, Serialize};
+use symbol_table::Ident;
 
 use super::Compile;
 use crate::{
-    bite_code::BiteCode,
+    byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{Decode, program_counter::AssemblyDecoder},
-    var_u,
+    runtime::{LegacyEncoding, StackAssembally, TEMP, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 #[derive(Clone, Copy)]
@@ -33,24 +34,19 @@ OpCodes!(
 
 impl Compile for ExtrinsicFunction {
     type Context = ExtrinsicFunctionContext;
-    fn compile(&self, comp: &mut BiteCode, context: &ExtrinsicFunctionContext) {
+    fn compile(&self, comp: &mut ByteCode, context: &ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
-                Args::VarUndefined => comp.push(ArgmentCodes::VarUndefined as u8),
+                Args::VarUndefined => comp.push_asm(StackAssembally::TEMP(TEMP(
+                    ArgmentCodes::VarUndefined as u8,
+                ))),
                 Args::ByRef(variable) => {
                     variable.compile(comp, &VarContext::Build);
-                    comp.push(ArgmentCodes::ByRef as u8);
+                    comp.push_asm(StackAssembally::TEMP(TEMP(ArgmentCodes::ByRef as u8)));
                 }
                 Args::Expression(expression) => expression.compile(comp, &ExpressionContext::Eval),
             }
         }
-
-        //Op code
-        comp.push(match self.location {
-            Location::Tag(_) => CallCode::Tag,
-            Location::Routine(_) => CallCode::Routine,
-            Location::TagRoutine(_, _) => CallCode::TagRoutine,
-        } as u8);
 
         // Location
         let (tag, routine): (Option<&str>, Option<&str>) = match &self.location {
@@ -58,33 +54,36 @@ impl Compile for ExtrinsicFunction {
             Location::Routine(routine) => (None, Some(&routine.0)),
             Location::TagRoutine(tag, routine) => (Some(&tag.0), Some(&routine.0)),
         };
-        routine
-            .map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
-            .compile(comp, &());
-        tag.map(|ident| crate::var_u::Ident::try_from(ident).unwrap())
-            .compile(comp, &());
-
-        // End marker + number of args
-        comp.push(self.arguments.len() as u8 + (*context as u8));
+        let routine = routine.map(|ident| Ident::try_from(ident).unwrap());
+        let tag = tag.map(|ident| Ident::try_from(ident).unwrap());
+        ExtrinsicFunctionCall {
+            tag,
+            routine,
+            //TODO: Context should be passed separably
+            number_of_arguments_passed: self.arguments.len() as u8 + (*context as u8),
+        }
+        .encode(comp);
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExtrinsicFunctionCall {
-    pub tag: Option<var_u::Ident>,
-    #[expect(dead_code)]
-    routine: Option<var_u::Ident>,
+    pub tag: Option<Ident>,
+    routine: Option<Ident>,
     //eval:bool
-    pub args: u8,
+    pub number_of_arguments_passed: u8,
 }
 
-impl Decode for ExtrinsicFunctionCall {
+impl LegacyEncoding for ExtrinsicFunctionCall {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let r#type = CallCode::decode(decoder)?;
         let (tag, routine) = match r#type {
-            CallCode::Tag => (Decode::decode(decoder), None),
-            CallCode::Routine => (None, Decode::decode(decoder)),
-            CallCode::TagRoutine => (Decode::decode(decoder), Decode::decode(decoder)),
+            CallCode::Tag => (LegacyEncoding::decode(decoder), None),
+            CallCode::Routine => (None, LegacyEncoding::decode(decoder)),
+            CallCode::TagRoutine => (
+                LegacyEncoding::decode(decoder),
+                LegacyEncoding::decode(decoder),
+            ),
         };
         assert_eq!(routine, None, "Routine calling not yet supported");
         assert!(tag.is_some(), "default tag calling not yet supported");
@@ -100,6 +99,24 @@ impl Decode for ExtrinsicFunctionCall {
         };
         let args = arg_and_type & 0b01111111;
 
-        Some(Self { tag, routine, args })
+        Some(Self {
+            tag,
+            routine,
+            number_of_arguments_passed: args,
+        })
+    }
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        //Op code
+        byte_code.push_raw(match (&self.tag, &self.routine) {
+            (Some(_), None) => CallCode::Tag,
+            (None, Some(_)) => CallCode::Routine,
+            (Some(_), Some(_)) => CallCode::TagRoutine,
+            _ => unreachable!(),
+        } as u8);
+
+        self.routine.as_ref().map(|x| x.encode(byte_code));
+        self.tag.as_ref().map(|x| x.encode(byte_code));
+        byte_code.push_raw(self.number_of_arguments_passed);
     }
 }

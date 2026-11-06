@@ -7,3 +7,5 @@ edition = "2024"
 value = {path = "../value/"}
 derive-visitor = {workspace=true}
 chumsky = {workspace=true}
+
+serde = { version = "1", features = ["derive"] }

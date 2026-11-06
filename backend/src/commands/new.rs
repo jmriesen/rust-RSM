@@ -1,11 +1,12 @@
 use crate::{
     Compile,
-    bite_code::BiteCode,
+    byte_code::{ByteCode, EncoderExt},
     macros::OpCodesForeign,
-    runtime::{Decode, Encode, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 use ir::commands::{New, NewKind};
+use serde::{Deserialize, Serialize};
 
 OpCodesForeign!(NewKind{
     Inclusive => 164,
@@ -14,24 +15,31 @@ OpCodesForeign!(NewKind{
 
 impl Compile for New {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        self.vars.compile(bite_code, &VarContext::Build);
-        bite_code.push(self.kind.encode());
-        bite_code.push(self.vars.len() as u8);
+    fn compile(&self, byte_code: &mut ByteCode, _: &()) {
+        self.vars.compile(byte_code, &VarContext::Build);
+        NewStackAsm {
+            kind: self.kind.clone(),
+            number_of_variables: self.vars.len() as u8,
+        }
+        .encode(byte_code);
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NewStackAsm {
     pub kind: NewKind,
     pub number_of_variables: u8,
 }
 
-impl Decode for NewStackAsm {
+impl LegacyEncoding for NewStackAsm {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         Some(Self {
             kind: NewKind::decode(decoder)?,
             number_of_variables: decoder.consume_n::<1>()[0],
         })
+    }
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        self.kind.encode(byte_code);
+        byte_code.push_raw(self.number_of_variables);
     }
 }

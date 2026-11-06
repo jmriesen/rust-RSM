@@ -1,8 +1,8 @@
 macro_rules! OpCode {
     ($name:ident=$code:expr) => {
-        #[derive(Debug)]
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct $name;
-        impl Decode for $name {
+        impl LegacyEncoding for $name {
             fn decode(
                 decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>,
             ) -> Option<Self> {
@@ -12,10 +12,9 @@ macro_rules! OpCode {
                     None
                 }
             }
-        }
-        impl $name {
-            pub fn encode(self) -> u8 {
-                $code
+            fn encode(&self, byte_code: &mut crate::ByteCode) {
+                use crate::byte_code::EncoderExt;
+                byte_code.push_raw($code);
             }
         }
     };
@@ -27,11 +26,11 @@ $name:ident{
     $($var:ident=$code:expr,)*
 }
 ) => {
-        #[derive(Debug)]
+        #[derive(Debug,serde::Deserialize, serde::Serialize,Copy,Clone)]
         pub enum $name {
             $($var = $code,)*
         }
-        impl Decode for $name{
+        impl LegacyEncoding for $name{
             fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
@@ -39,6 +38,10 @@ $name:ident{
                         _ => None,
                     }
             }
+        fn encode(&self, byte_code: &mut crate::ByteCode) {
+            use crate::byte_code::EncoderExt;
+            byte_code.push_raw(self.clone() as u8);
+    }
     }
 }
 }
@@ -48,7 +51,7 @@ macro_rules! OpCodesForeign {
     ($name:ident{
         $($var:ident=>$code:expr,)*
 }) => {
-        impl Decode for $name{
+        impl LegacyEncoding for $name{
             fn decode(decoder: &mut crate::runtime::program_counter::AssemblyDecoder<'_>) -> Option<Self > {
                 let [code] = decoder.consume_n();
                     match code {
@@ -56,15 +59,16 @@ macro_rules! OpCodesForeign {
                         _ => None,
                     }
             }
-    }
-
-        impl Encode for $name{
-            fn encode(&self) -> u8 {
-                match self{
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        byte_code.push_raw(
+            match self{
                 $(Self::$var => $code,)*
-                }
             }
+        )
         }
+
+    }
     };
 }
 pub(crate) use OpCodesForeign;
@@ -73,9 +77,17 @@ macro_rules! StackAssembally{
     (
         $($instruction:ident,)*
 ) => {
-#[derive(Debug)]
+#[derive(Debug,serde::Deserialize, serde::Serialize)]
 pub enum StackAssembally {
     $($instruction($instruction),)*
+    }
+    impl StackAssembally {
+    pub fn encode(&self, decoder: &mut crate::ByteCode) {
+        match self {
+        $(StackAssembally::$instruction(x) => LegacyEncoding::encode(x,decoder),)*
+
+        }
+    }
     }
 
 $(impl StackAssemblyTrait for $instruction{})*

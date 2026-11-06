@@ -115,7 +115,7 @@ fn if_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                 .collect::<Vec<_>>()
                 .map(If),
         )
-        .map(|x| Command::If(x))
+        .map(Command::If)
 }
 fn else_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
     cmd("else").map(|_| Command::Else)
@@ -125,11 +125,11 @@ fn write_arg<'src>() -> impl Parser<'src, &'src str, Spanned<Write>, Extra<'src>
     choice((
         just("!").to(Write::Bang),
         just("#").to(Write::Clear),
-        just("?").ignore_then(expression()).map(|x| Write::Tab(x)),
-        expression().map(|x| Write::Expression(x)),
+        just("?").ignore_then(expression()).map(Write::Tab),
+        expression().map(Write::Expression),
     ))
     .spanned()
-    .map(|x| Spanned::from(x))
+    .map(Spanned::from)
 }
 
 fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
@@ -243,7 +243,7 @@ fn kill_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                 }
             }),
         )
-        .map(|value| Command::Kill(value))
+        .map(Command::Kill)
 }
 
 fn break_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {

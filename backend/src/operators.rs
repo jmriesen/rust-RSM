@@ -1,30 +1,12 @@
 use ir::operators::{Binary, Unary};
 
-use crate::{
-    Compile,
-    bite_code::BiteCode,
-    macros::OpCodesForeign,
-    runtime::{Decode, Encode},
-};
+use crate::{macros::OpCodesForeign, runtime::LegacyEncoding};
 
 OpCodesForeign! {
     Unary {
         Minus => 19,
         Plus => 18,
         Not => 3,
-    }
-}
-
-impl Compile for Unary {
-    type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        bite_code.push(self.encode());
-    }
-}
-impl Compile for Binary {
-    type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
-        bite_code.push(self.encode());
     }
 }
 

@@ -8,6 +8,7 @@ ir = {path="../ir/"}
 value = {path = "../value/"}
 symbol_table= {path = "../symbol_table/"}
 thiserror = "1.0.63"
+serde = { version = "1.0.210", features = ["derive"] }
 
 [dev-dependencies]
 frontend= {path="../frontend/", features = ["fuzzing"]}

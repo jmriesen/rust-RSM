@@ -1,7 +1,11 @@
 use ir::{Expression, commands::Write};
 
 use crate::{
-    Compile, bite_code::BiteCode, expression::ExpressionContext, macros::OpCodes, runtime::Decode,
+    Compile,
+    byte_code::ByteCode,
+    expression::ExpressionContext,
+    macros::OpCodes,
+    runtime::{LegacyEncoding, StackAssembally},
 };
 
 OpCodes! {WriteCodes {
@@ -12,18 +16,19 @@ OpCodes! {WriteCodes {
 }}
 impl Compile for Write {
     type Context = ();
-    fn compile(&self, comp: &mut BiteCode, _: &()) {
+    fn compile(&self, comp: &mut ByteCode, _: &()) {
+        use StackAssembally as Asm;
         match self {
-            Self::Bang => comp.push(WriteCodes::Bang as u8),
-            Self::Clear => comp.push(WriteCodes::Clear as u8),
+            Self::Bang => comp.push_asm(Asm::WriteCodes(WriteCodes::Bang)),
+            Self::Clear => comp.push_asm(Asm::WriteCodes(WriteCodes::Clear)),
             Self::Tab(tab) => {
                 tab.compile(comp, &ExpressionContext::Eval);
-                comp.push(WriteCodes::Tab as u8);
+                comp.push_asm(Asm::WriteCodes(WriteCodes::Tab))
             }
             Self::Expression(exp) => {
                 exp.compile(comp, &ExpressionContext::Write);
                 if !matches!(exp, Expression::InderectExpression { .. }) {
-                    comp.push(WriteCodes::Expression as u8);
+                    comp.push_asm(Asm::WriteCodes(WriteCodes::Expression));
                 }
             }
         }

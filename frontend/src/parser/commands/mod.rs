@@ -20,7 +20,7 @@ pub fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'
         ))
         .boxed()
         .spanned()
-        .map(|x| Spanned::from(x))
+        .map(Spanned::from)
     })
     .recover_with(via_parser(
         any()

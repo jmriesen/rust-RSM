@@ -46,17 +46,17 @@ pub use m_var::MVar;
 use value::Value;
 use value_tree::ValueTree;
 pub use value_tree::{DataResult, Direction};
-pub use variable_name::{MAX_VAR_NAME_SIZE, VariableName};
+pub use variable_name::{Ident, MAX_VAR_NAME_SIZE};
 
-impl hash::Key for VariableName {
+impl hash::Key for Ident {
     fn error() -> Self {
-        VariableName::new(b"$ECODE").expect("the error key is a valid VarU")
+        Ident::new(b"$ECODE").expect("the error key is a valid VarU")
     }
 }
 
 /// Stores the information required to restore new-ed variables to there previous state.
 /// This Vec should be treated as a Stack, i.e. FILO.
-type NewFrame = Vec<(VariableName, ValueTree)>;
+type NewFrame = Vec<(Ident, ValueTree)>;
 
 /// The a `SymbolTable` stores
 /// 1) What variables are currently in scope.
@@ -64,7 +64,7 @@ type NewFrame = Vec<(VariableName, ValueTree)>;
 /// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
 pub struct SymbolTable {
-    table: hash::HashTable<VariableName, ValueTree>,
+    table: hash::HashTable<Ident, ValueTree>,
     stack: Vec<NewFrame>,
 }
 
@@ -101,7 +101,7 @@ impl SymbolTable {
 
     /// Kill all variables except `keep` and intrinsic variables.
     //NOTE not yet mutation tested
-    pub fn keep(&mut self, keep: &[VariableName]) {
+    pub fn keep(&mut self, keep: &[Ident]) {
         self.table
             .remove_if(|x| !(keep.contains(x) || x.is_intrinsic()));
     }
@@ -192,7 +192,7 @@ impl SymbolTable {
     /// value is never set.
     pub fn new_var<I>(&mut self, vars: I) -> Result<(), CreationError>
     where
-        I: IntoIterator<Item = VariableName>,
+        I: IntoIterator<Item = Ident>,
     {
         // Will panic if there is no current new_frame
         let current_frame = self
@@ -210,7 +210,7 @@ impl SymbolTable {
     /// variables specified in the exclude parameter.
     pub fn new_all_but<I>(&mut self, exclude: I) -> Result<(), CreationError>
     where
-        I: IntoIterator<Item = VariableName>,
+        I: IntoIterator<Item = Ident>,
     {
         let exclude: Vec<_> = exclude.into_iter().collect();
         let vars_to_new: Vec<_> = self
@@ -226,7 +226,7 @@ impl SymbolTable {
     }
 
     /// Checks if this variables exists anywhere in the `NewFrame` Stack.
-    fn attached(&self, var: &VariableName) -> bool {
+    fn attached(&self, var: &Ident) -> bool {
         self.stack
             .iter()
             .any(|new_frame| new_frame.iter().any(|(new_ed_var, _)| var == new_ed_var))

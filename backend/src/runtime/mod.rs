@@ -1,4 +1,5 @@
 use crate::{
+    byte_code,
     commands::{
         r#do::DoArgLess,
         r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
@@ -25,6 +26,7 @@ use ir::{
     commands::NewKind,
     operators::{Binary, Unary},
 };
+use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Debug};
 use symbol_table::{MVar, SymbolTable, key::Path};
 use thiserror::Error;
@@ -73,12 +75,14 @@ pub struct Job<'a> {
     error: Option<RuntimeError>,
     routine: &'a CompiledRoutine,
 }
-// Partial (or whole) assembly instruction.
-pub trait Decode: Sized {
+/// This encoding scheme is based of what the original C code does.
+/// NOTE: It is not 100% comparable and I have deviated when I found the original encoding cumbersome .
+/// This is still used by regression testing code, but should not be considered stable.
+/// This will likely be replaced by a more Rusty (serde) implementation once decide that I can
+/// delete the reference encoding tests.
+pub trait LegacyEncoding: Sized {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self>;
-}
-pub trait Encode: Sized {
-    fn encode(&self) -> u8;
+    fn encode(&self, decoder: &mut byte_code::ByteCode);
 }
 
 use crate::macros::OpCode;
@@ -87,20 +91,24 @@ OpCode! {Test=94}
 OpCode! {EndCommand=4}
 OpCode! {NoOpCode=179}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
-pub struct TEMP(u8);
+pub struct TEMP(pub u8);
 #[cfg_attr(test, mutants::skip)]
-impl Decode for TEMP {
+impl LegacyEncoding for TEMP {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         let [code] = decoder.consume_n();
         //Always accept remove before production but helps during testing adding new types
         Some(Self(code))
     }
+    fn encode(&self, byte_code: &mut byte_code::ByteCode) {
+        use byte_code::EncoderExt;
+        byte_code.push_raw(self.0);
+    }
 }
 
 /// Marks something as a whole assembly instruction
-pub(crate) trait StackAssemblyTrait: Decode {}
+pub(crate) trait StackAssemblyTrait: LegacyEncoding {}
 StackAssembally! {
     LoadVar,
     SetCodes,
@@ -208,10 +216,16 @@ impl<'a> Job<'a> {
                             .tag(call.tag)
                             .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
                             .map(|(pc, parameters)| {
-                                (pc, build_arguments(&call, parameters, &mut self.r_values))
+                                (
+                                    pc,
+                                    build_arguments(
+                                        call.number_of_arguments_passed,
+                                        parameters,
+                                        &mut self.r_values,
+                                    ),
+                                )
                             })
-                            .map(|(pc, arguments)| arguments.map(|x| (pc, x)))
-                            .flatten()
+                            .and_then(|(pc, arguments)| arguments.map(|x| (pc, x)))
                         {
                             Ok((pc, arguments)) => push_do_frame(
                                 &mut self.symbol_table,
@@ -227,8 +241,9 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ForMetaData(meta_data) => {
                         Self::initialize_for_loop(
+                            do_frame.pc.current_location(),
                             &mut do_frame.for_stack,
-                            &mut self.r_values,
+                            &mut self.l_values,
                             meta_data,
                         );
                     }
@@ -329,7 +344,7 @@ impl<'a> Job<'a> {
                             }
                         };
                         if should_jump {
-                            do_frame.pc.jump(jump.target)
+                            do_frame.pc.jump_offset(jump.target)
                         }
                     }
                     StackAssembally::Test(_) => {

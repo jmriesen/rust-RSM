@@ -1,6 +1,13 @@
 use ir::commands::{Command, PostCondition};
 
-use crate::{Compile, bite_code::BiteCode, commands::r#if::IfElse, runtime::EndCommand};
+use crate::{
+    Compile,
+    byte_code::{ByteCode, JumpOffset},
+    commands::r#if::IfElse,
+    conditional_jumps::{Jump, JumpCodes},
+    expression::ExpressionContext,
+    runtime::{EndCommand, StackAssembally},
+};
 
 pub mod r#break;
 pub mod close;
@@ -19,9 +26,23 @@ where
     T: Compile<Context = C>,
 {
     type Context = C;
-    fn compile(&self, bite_code: &mut BiteCode, context: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, context: &Self::Context) {
         if let Some(condition) = &self.condition {
-            bite_code.conditional_jump(condition, |x| self.value.compile(x, context))
+            condition.compile(bite_code, &ExpressionContext::Eval);
+
+            let mut command_body = ByteCode::new();
+            self.value.compile(&mut command_body, context);
+            bite_code.push_asm(StackAssembally::Jump(Jump {
+                r#type: JumpCodes::Conditional,
+                //Should this not be a location but just a jump offset?
+                target: JumpOffset(
+                    command_body
+                        .len()
+                        .try_into()
+                        .expect("Block length should be less then JumpOffset size"),
+                ),
+            }));
+            bite_code.append(command_body);
         } else {
             self.value.compile(bite_code, context);
         }
@@ -30,21 +51,21 @@ where
 
 impl Compile for Command {
     type Context = ();
-    fn compile(&self, bite_code: &mut BiteCode, _: &()) {
+    fn compile(&self, byte_code: &mut ByteCode, _: &()) {
         match self {
-            Command::Write(x) => x.compile(bite_code, &()),
-            Command::Close(x) => x.compile(bite_code, &()),
-            Command::Do(x) => x.compile(bite_code, &()),
-            Command::Break(x) => x.compile(bite_code, &()),
-            Command::Else => bite_code.push(IfElse::Else as u8),
-            Command::For(x) => x.compile(bite_code, &()),
-            Command::Set(x) => x.compile(bite_code, &()),
-            Command::If(x) => x.compile(bite_code, &()),
-            Command::Kill(x) => x.compile(bite_code, &()),
-            Command::Quit(x) => x.compile(bite_code, &()),
-            Command::New(x) => x.compile(bite_code, &()),
+            Command::Write(x) => x.compile(byte_code, &()),
+            Command::Close(x) => x.compile(byte_code, &()),
+            Command::Do(x) => x.compile(byte_code, &()),
+            Command::Break(x) => x.compile(byte_code, &()),
+            Command::Else => byte_code.push_asm(StackAssembally::IfElse(IfElse::Else)),
+            Command::For(x) => x.compile(byte_code, &()),
+            Command::Set(x) => x.compile(byte_code, &()),
+            Command::If(x) => x.compile(byte_code, &()),
+            Command::Kill(x) => x.compile(byte_code, &()),
+            Command::Quit(x) => x.compile(byte_code, &()),
+            Command::New(x) => x.compile(byte_code, &()),
             Command::Error => todo!("refactor so I can claim this in a type safe way"),
         }
-        bite_code.push(EndCommand.encode());
+        byte_code.push_asm(StackAssembally::EndCommand(EndCommand))
     }
 }

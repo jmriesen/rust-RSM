@@ -1,9 +1,10 @@
 use ir::Line;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    BiteCode, Compile,
+    ByteCode, Compile,
     macros::OpCode,
-    runtime::{Decode, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, StackAssembally, program_counter::AssemblyDecoder},
 };
 
 OpCode! {EndLine=0}
@@ -12,27 +13,27 @@ OpCode! {LineNum=170}
 impl Compile for Line {
     type Context = u16;
 
-    fn compile(&self, bite_code: &mut BiteCode, line_numb: &Self::Context) {
+    fn compile(&self, bite_code: &mut ByteCode, line_numb: &Self::Context) {
         StartLine {
             line_numb: *line_numb,
             level: self.level,
         }
-        .compile(bite_code, &());
+        .encode(bite_code);
         //NOTE: I have decided to change the bite code layout compared to the original C code.
         //In the ordinal C the line level/check is part of the stack machine instructions.
         //In this version it will be unconditional included as part of the line encoding.
         self.commands.compile(bite_code, &());
-        bite_code.push(EndLine.encode());
+        bite_code.push_asm(StackAssembally::EndLine(EndLine));
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartLine {
     pub line_numb: u16,
     pub level: u16,
 }
 
-impl Decode for StartLine {
+impl LegacyEncoding for StartLine {
     fn decode(decoder: &mut AssemblyDecoder<'_>) -> Option<Self> {
         LineNum::decode(decoder)?;
         Some(StartLine {
@@ -40,14 +41,10 @@ impl Decode for StartLine {
             level: u16::from_le_bytes(decoder.consume_n()),
         })
     }
-}
-
-impl Compile for StartLine {
-    type Context = ();
-
-    fn compile(&self, bite_code: &mut crate::BiteCode, _context: &Self::Context) {
-        bite_code.push(LineNum.encode());
-        bite_code.extend(self.line_numb.to_le_bytes());
-        bite_code.extend(self.level.to_le_bytes());
+    fn encode(&self, byte_code: &mut crate::ByteCode) {
+        use crate::byte_code::EncoderExt;
+        LineNum.encode(byte_code);
+        byte_code.extend(self.line_numb.to_le_bytes());
+        byte_code.extend(self.level.to_le_bytes());
     }
 }
