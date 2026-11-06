@@ -56,6 +56,7 @@ tokens! {
     {Variable,     SemanticTokenType::VARIABLE}
     {TagName,      SemanticTokenType::METHOD}
     {Command,      SemanticTokenType::KEYWORD}
+    {Comment,      SemanticTokenType::COMMENT}
     {Bang,         SemanticTokenType::KEYWORD}
     {BinOp,        SemanticTokenType::OPERATOR}
     {UnaryOpp,     SemanticTokenType::OPERATOR}
@@ -154,12 +155,15 @@ paste!{
         $(
             type [<Spanned$type>] = Spanned<$type>;
         )*
+        //Commands are handled as a special case to accommodate comments.
+        type SpannedCommand = Spanned<Command>;
 
         #[derive(Visitor, Default)]
         #[visitor(
         $(
             [<Spanned$type>],
         )*
+        SpannedCommand
         )]
         struct TokensVisitor {
             tokens: Vec<Spanned<TokenTypes>>,
@@ -184,10 +188,22 @@ paste!{
     };
 }
 
+impl TokensVisitor {
+    fn exit_spanned_command(&mut self, _span: &SpannedCommand) {}
+    fn enter_spanned_command(&mut self, span: &SpannedCommand) {
+        self.tokens.push(Spanned {
+            inner: if span.inner == Command::Comment {
+                TokenTypes::Comment
+            } else {
+                TokenTypes::Command
+            },
+            span: span.span.clone(),
+        });
+    }
+}
 token_visitor!(
     (Write, TokenTypes::Command),
     (Tag, TokenTypes::TagName),
-    (Command, TokenTypes::Command),
     (NumberLiteral, TokenTypes::Number),
     (StringLiteral, TokenTypes::String),
     (Variable, TokenTypes::Variable),
