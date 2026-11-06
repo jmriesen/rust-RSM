@@ -31,22 +31,13 @@ pub static SEMANTIC_TOKENS_CAPABILITIES: LazyLock<Option<SemanticTokensServerCap
 // Eventually want to get to feature parity again.
 
 macro_rules! tokens {
-    ($( {$name:ident, $str_rep:expr, $semantic:expr})*) => {
+    ($( {$name:ident,  $semantic:expr})*) => {
         #[repr(u32)]
         pub enum TokenTypes {
             $( $name, )*
             Other,
         }
-
         impl TokenTypes {
-/*
-            pub fn from_node_type(node_kind: &str) -> Self {
-                match node_kind {
-                    $( $str_rep => Self::$name, )*
-                    _ => Self::Other,
-                }
-            }
-*/
 
             pub fn reference_ordering() -> Vec<SemanticTokenType> {
                 vec![
@@ -54,33 +45,20 @@ macro_rules! tokens {
                     SemanticTokenType::KEYWORD
                 ]
             }
-/*
-            pub fn query()->tree_sitter::Query{
-            tree_sitter::Query::new(
-                &tree_sitter_mumps::language(),
-                concat!(
-                    "[",
-                        $( "(",$str_rep, ") ",)*
-                    "]@token",
-                    )
-                )
-                .unwrap()
-            }
-*/
         }
 
     };
 }
 
 tokens! {
-    {Number,       "number",       SemanticTokenType::NUMBER}
-    {String,       "string",       SemanticTokenType::STRING}
-    {Variable,     "Variable",     SemanticTokenType::VARIABLE}
-    {TagName,      "TagName",      SemanticTokenType::METHOD}
-    {Command,      "command",      SemanticTokenType::KEYWORD}
-    {Bang,         "Bang",         SemanticTokenType::KEYWORD}
-    {BinOp,        "BinaryOpp",    SemanticTokenType::OPERATOR}
-    {UnaryOpp,     "UnaryOpp",     SemanticTokenType::OPERATOR}
+    {Number,       SemanticTokenType::NUMBER}
+    {String,       SemanticTokenType::STRING}
+    {Variable,     SemanticTokenType::VARIABLE}
+    {TagName,      SemanticTokenType::METHOD}
+    {Command,      SemanticTokenType::KEYWORD}
+    {Bang,         SemanticTokenType::KEYWORD}
+    {BinOp,        SemanticTokenType::OPERATOR}
+    {UnaryOpp,     SemanticTokenType::OPERATOR}
 }
 
 /// Wrapper around a Node that is known to correspond to a Token
@@ -142,6 +120,78 @@ pub fn remove_over_lapping(mut tokens: Vec<SemanticToken>) -> Vec<SemanticToken>
     }
     tokens
 }
+
+impl crate::Document {
+    pub fn tokens(&self) -> Vec<AbsolutToken> {
+        if let Some(routine) = self.ir().clone().into_output() {
+            let index_to_position = &self.index_converter();
+            let mut tokens = TokensVisitor::default();
+            for line in routine {
+                line.drive(&mut tokens);
+            }
+
+            tokens
+                .tokens
+                .into_iter()
+                .map(|x| AbsolutToken {
+                    start_position: index_to_position(x.span.start),
+                    length: (x.span.end - x.span.start) as u32,
+                    token_type: x.inner as u32,
+                    token_modifiers_bitset: 0,
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+}
+
+use pastey::paste;
+
+macro_rules! token_visitor {
+    ($(($type:ty,$token:expr),)*) => {
+paste!{
+        $(
+            type [<Spanned$type>] = Spanned<$type>;
+        )*
+
+        #[derive(Visitor, Default)]
+        #[visitor(
+        $(
+            [<Spanned$type>],
+        )*
+        )]
+        struct TokensVisitor {
+            tokens: Vec<Spanned<TokenTypes>>,
+        }
+
+        impl TokensVisitor {
+
+        $(
+        fn [<enter_spanned_$type:snake>](&mut self, span: &[<Spanned$type>]) {
+            self.tokens.push(
+                Spanned {
+                    inner: $token,
+                    span: span.span.clone(),
+                }
+            );
+        }
+        fn [<exit_spanned_$type:snake>](&mut self, _span: &[<Spanned$type>]) {
+        }
+        )*
+        }
+}
+    };
+}
+
+token_visitor!(
+    (Write, TokenTypes::Command),
+    (Tag, TokenTypes::TagName),
+    (Command, TokenTypes::Command),
+    (NumberLiteral, TokenTypes::Number),
+    (StringLiteral, TokenTypes::String),
+    (Variable, TokenTypes::Variable),
+);
 
 #[cfg(test)]
 mod test {
@@ -224,73 +274,3 @@ mod test {
         );
     }
 }
-impl crate::Document {
-    pub fn tokens(&self) -> Vec<AbsolutToken> {
-        if let Some(routine) = self.ir().clone().into_output() {
-            let index_to_position = &self.index_converter();
-            let mut tokens = TokensVisitor::default();
-            for line in routine {
-                line.drive(&mut tokens);
-            }
-
-            tokens
-                .tokens
-                .into_iter()
-                .map(|x| AbsolutToken {
-                    start_position: index_to_position(x.span.start),
-                    length: (x.span.end - x.span.start) as u32,
-                    token_type: x.inner as u32,
-                    token_modifiers_bitset: 0,
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-}
-
-use pastey::paste;
-
-macro_rules! token_visitor {
-    ($(($type:ty,$token:expr),)*) => {
-paste!{
-        $(
-            type [<Spanned$type>] = Spanned<$type>;
-        )*
-
-        #[derive(Visitor, Default)]
-        #[visitor(
-        $(
-            [<Spanned$type>],
-        )*
-        )]
-        struct TokensVisitor {
-            tokens: Vec<Spanned<TokenTypes>>,
-        }
-
-        impl TokensVisitor {
-
-        $(
-        fn [<enter_spanned_$type:snake>](&mut self, span: &[<Spanned$type>]) {
-            self.tokens.push(
-                Spanned {
-                    inner: $token,
-                    span: span.span.clone(),
-                }
-            );
-        }
-        fn [<exit_spanned_$type:snake>](&mut self, _span: &[<Spanned$type>]) {
-        }
-        )*
-        }
-}
-    };
-}
-token_visitor!(
-    (Write, TokenTypes::Command),
-    (Tag, TokenTypes::TagName),
-    (Command, TokenTypes::Command),
-    (NumberLiteral, TokenTypes::Number),
-    (StringLiteral, TokenTypes::String),
-    (Variable, TokenTypes::Variable),
-);
