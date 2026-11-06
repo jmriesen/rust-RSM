@@ -65,6 +65,7 @@ impl Compile for Command {
             Command::Quit(x) => x.compile(byte_code, &()),
             Command::New(x) => x.compile(byte_code, &()),
             Command::Error => todo!("refactor so I can claim this in a type safe way"),
+            Command::Comment => { /*Comments are ignored during compilation.*/ }
         }
         byte_code.push_asm(StackAssembally::EndCommand(EndCommand))
     }

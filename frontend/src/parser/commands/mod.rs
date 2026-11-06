@@ -17,6 +17,7 @@ pub fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'
             break_parser(),
             close_parser(),
             new(),
+            comment().map(|_| Command::Comment),
         ))
         .boxed()
         .spanned()
@@ -33,4 +34,10 @@ pub fn command<'src>() -> impl Parser<'src, &'src str, Spanned<Command>, Extra<'
             }),
     ))
     .then_ignore(space_or_eol())
+}
+
+pub fn comment<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
+    just(";")
+        .then(any().and_is(eol().not()).repeated())
+        .map(|_| ())
 }
