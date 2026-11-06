@@ -1,0 +1,8 @@
+tag ;comment w ""
+ w "A" ;w "C"
+; line comment
+ w "C" ;comment 
+---
+AC
+---
+

@@ -1,7 +1,0 @@
-tag ;comment w ""
- w "A" ;w "B" this is a comment
- w "C" ;comment
----
-AC
----
-

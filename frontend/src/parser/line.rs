@@ -1,9 +1,14 @@
 use chumsky::{IterParser, prelude::*};
-use ir::{Line, Spanned, Tag, variable::Ident};
+use ir::{Line, Spanned, Tag, commands::Command, variable::Ident};
 
 use crate::{
     ParsingError,
-    parser::{Extra, commands::command, eol, space_or_eol, variable::identifier},
+    parser::{
+        Extra,
+        commands::{command, comment},
+        eol, space_or_eol,
+        variable::identifier,
+    },
 };
 pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let tag = identifier()
@@ -34,7 +39,8 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         .collect()
         .then_ignore(space_or_eol().or_not());
 
-    (tag.or_not()
+    let normal_line = (tag
+        .or_not()
         .then(
             one_of(" \t")
                 .then_ignore(just(" ").repeated())
@@ -63,7 +69,16 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
             ));
         }
         line
-    })
+    });
+    choice((
+        // Special case for comment only lines.
+        comment().to(Command::Comment).spanned().map(|x| Line {
+            tag: None,
+            level: 0,
+            commands: vec![Spanned::from(x)],
+        }),
+        normal_line,
+    ))
 }
 
 #[cfg(test)]
