@@ -36,8 +36,10 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
 
     (tag.or_not()
         .then(
-            just(" ")
+            one_of(" \t")
+                .then_ignore(just(" ").repeated())
                 .ignore_then(line_level)
+                .then_ignore(just(" ").repeated())
                 .then(commands)
                 .or_not()
                 .map(|level_commands| level_commands.unwrap_or((0, vec![]))),
