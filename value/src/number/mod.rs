@@ -163,7 +163,7 @@ impl Number {
         }
     }
 
-    fn is_negative(&self) -> bool {
+    pub fn is_negative(&self) -> bool {
         self.mantissa[0] == 9
     }
 

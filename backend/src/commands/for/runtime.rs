@@ -80,12 +80,14 @@ impl<'a> Job<'a> {
     }
 
     pub(crate) fn initialize_for_range(
-        frame: &mut ForFrame,
+        for_stack: &mut Vec<ForFrame>,
         r#type: ForRangeType,
         symbol_table: &mut SymbolTable,
         r_values: &mut Vec<Value>,
         pc: &mut ProgramCounter<'_>,
     ) {
+        let mut frame = for_stack.last_mut();
+        let frame = frame.as_mut().unwrap();
         let new_range = match r#type {
             ForRangeType::One => (Number::from(r_values.pop().unwrap()), None),
             ForRangeType::Two => {
@@ -114,9 +116,22 @@ impl<'a> Job<'a> {
             .set(&args.var, &new_range.0.clone().into())
             .unwrap();
 
-        args.current_range = Some(new_range);
+        args.current_range = Some(new_range.clone());
         args.pc = pc.current_location();
         pc.jump(frame.loop_body);
+
+        if let (inital, Some((increment, Some(bound)))) = new_range
+            && ((!increment.is_negative() && inital > bound)
+                || (increment.is_negative() && bound > inital))
+        {
+            //already out of bounds keep advancing to the next argument.
+            if frame.more_ranges_to_load() {
+                pc.jump(pc.current_location())
+            } else {
+                pc.jump(frame.r#break);
+                for_stack.pop();
+            }
+        }
     }
 
     pub(crate) fn loop_condition_check_slash_increment(
@@ -142,7 +157,11 @@ impl<'a> Job<'a> {
 
                     // Check bound
                     if let Some(bound) = end_condition
-                        && new_value > *bound
+                        && (
+                            // Change bounds direction based on sign of increment
+                            (!increment.is_negative() && new_value > *bound)
+                                || (increment.is_negative() && *bound > new_value)
+                        )
                     {
                         Behavior::CheckForMoreArgs
                     } else {

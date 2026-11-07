@@ -1,16 +1,26 @@
-tag w ""
+tag
  for j=1,4,3 write j,"," ;Runs once per term and exits
  write !
  for j=1:5 write j,"," q:j=21  ; Runs with increment until quit command
  write !
  for j=1:5:21 write j,"," ; Runs with increment until reaching termination value.
  write !
- for j=1:5:20 write j,"," q:j=31  ; Termination value is upper bound exact.
+ for j=1:5:20 write j,"," ; Termination value is upper bound exact.
+ write !
+ for j=5:-1:0 write j,"," ;Increment backwards if bound is negative
+ write !
+ write "Bounds Checks"
+ for j=20:1:1 write j,"," ; Never run if initial>end.
+ write ",",j ; j was still set even though loop body never ran.
+ for j=-1:-1:0 write j,"," ;Never run if initial<end and increment is negative.
+ write ",",j ; j was still set even though loop body never ran.
 
 ---
 1,4,3,
 1,6,11,16,21,
 1,6,11,16,21,
 1,6,11,16,
+5,4,3,2,1,0,
+Bounds Checks,20,-1
 ---
 

@@ -249,7 +249,7 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::ForRangeType(r#type) => {
                         Self::initialize_for_range(
-                            do_frame.for_stack.last_mut().as_mut().unwrap(),
+                            &mut do_frame.for_stack,
                             r#type,
                             &mut self.symbol_table,
                             &mut self.r_values,
