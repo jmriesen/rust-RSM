@@ -49,6 +49,7 @@ pub enum Command {
     Quit(PostCondition<Quit>),
     New(New),
     Error,
+    Comment,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]

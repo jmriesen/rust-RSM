@@ -1,9 +1,14 @@
 use chumsky::{IterParser, prelude::*};
-use ir::{Line, Spanned, Tag, variable::Ident};
+use ir::{Line, Spanned, Tag, commands::Command, variable::Ident};
 
 use crate::{
     ParsingError,
-    parser::{Extra, commands::command, eol, space_or_eol, variable::identifier},
+    parser::{
+        Extra,
+        commands::{command, comment},
+        eol, space_or_eol,
+        variable::identifier,
+    },
 };
 pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
     let tag = identifier()
@@ -34,10 +39,13 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         .collect()
         .then_ignore(space_or_eol().or_not());
 
-    (tag.or_not()
+    let normal_line = (tag
+        .or_not()
         .then(
-            just(" ")
+            one_of(" \t")
+                .then_ignore(just(" ").repeated())
                 .ignore_then(line_level)
+                .then_ignore(just(" ").repeated())
                 .then(commands)
                 .or_not()
                 .map(|level_commands| level_commands.unwrap_or((0, vec![]))),
@@ -61,7 +69,16 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
             ));
         }
         line
-    })
+    });
+    choice((
+        // Special case for comment only lines.
+        comment().to(Command::Comment).spanned().map(|x| Line {
+            tag: None,
+            level: 0,
+            commands: vec![Spanned::from(x)],
+        }),
+        normal_line,
+    ))
 }
 
 #[cfg(test)]
@@ -88,11 +105,6 @@ mod test {
         insta::assert_debug_snapshot!(line_parser().parse("foo ...w !").into_output_errors());
     }
 
-    #[test]
-    fn recover_from_extra_space() {
-        //Note currently parsing as an error
-        insta::assert_debug_snapshot!(line_parser().parse(" w !  w !").into_output_errors());
-    }
     #[test]
     fn recover_by_skipping_to_end_of_line() {
         //Note currently parsing as an error

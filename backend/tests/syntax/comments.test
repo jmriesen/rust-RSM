@@ -1,0 +1,8 @@
+tag ;comment w "A"
+ w "B" ;w "C"
+; line comment
+ w "D" ;comment 
+---
+BD
+---
+
