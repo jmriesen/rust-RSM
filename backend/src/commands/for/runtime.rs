@@ -126,7 +126,12 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        if let Some(args) = &for_frame.args_frame {
+        enum Behavior {
+            Continue,
+            Error,
+            CheckForMoreArgs,
+        }
+        let behavior: Behavior = if let Some(args) = &for_frame.args_frame {
             let var = &args.var;
             let current_range = args.current_range.as_ref().expect("We are currently at the end of a for loop that took an argument. Therefore some Range must have been loaded when we started this iteration.");
 
@@ -134,40 +139,49 @@ impl<'a> Job<'a> {
                 if let Some(loop_var) = symbol_table.get(var) {
                     //Increment
                     let new_value = Number::from(loop_var.clone()) + increment.clone();
+                    //TODO test the value the loop leaves the variable in. (should not increment)
                     symbol_table.set(var, &new_value.clone().into()).unwrap();
 
                     // Check bound
-                    if let Some(bound) = end_condition {
-                        if new_value <= *bound {
-                            pc.jump(for_frame.loop_body);
-                        } else {
-                            if for_frame.more_ranges_to_load() {
-                                pc.jump(args.pc)
-                            } else {
-                                pc.jump(for_frame.r#break);
-                                for_stack.pop();
-                            }
-                        }
+                    if let Some(bound) = end_condition
+                        && new_value > *bound
+                    {
+                        Behavior::CheckForMoreArgs
                     } else {
-                        pc.jump(for_frame.loop_body);
+                        Behavior::Continue
                     }
                 } else {
                     *error = Some(RuntimeError::UndefinedIndexVariable);
-                    // Error handling is not fully fleshed out yet.
-                    pc.jump(for_frame.r#break);
-                    for_stack.pop();
+                    Behavior::Error
                 }
             } else {
+                Behavior::CheckForMoreArgs
+            }
+        } else {
+            Behavior::Continue
+        };
+
+        match behavior {
+            Behavior::Continue => pc.jump(for_frame.loop_body),
+            Behavior::Error => {
+                // Error handling is not fully fleshed out yet.
+                pc.jump(for_frame.r#break);
+                for_stack.pop();
+            }
+            Behavior::CheckForMoreArgs => {
                 if for_frame.more_ranges_to_load() {
-                    pc.jump(args.pc)
+                    pc.jump(
+                        for_frame
+                            .args_frame
+                            .as_ref()
+                            .expect("Can only check for more args if there were args")
+                            .pc,
+                    )
                 } else {
                     pc.jump(for_frame.r#break);
                     for_stack.pop();
                 }
             }
-        } else {
-            // No arguments just loop again.
-            pc.jump(for_frame.loop_body);
-        }
+        };
     }
 }
