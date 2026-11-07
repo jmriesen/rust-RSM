@@ -112,26 +112,26 @@ impl<'a> Job<'a> {
             .as_mut()
             .expect("For type should only be created if we are in an argument-ed for command");
 
+        args.current_range = Some(new_range.clone());
+        args.pc = pc.current_location();
+
+        //NOTE: We are setting the variable before we do bounds checking.
+        // This is different then the increment behavior.
+        // Yes this inconsistency is odd, but I have checked the reference implementation and this is expected
+        // behavior.
         symbol_table
             .set(&args.var, &new_range.0.clone().into())
             .unwrap();
 
-        args.current_range = Some(new_range.clone());
-        args.pc = pc.current_location();
-        pc.jump(frame.loop_body);
-
-        if let (inital, Some((increment, Some(bound)))) = new_range
-            && ((!increment.is_negative() && inital > bound)
-                || (increment.is_negative() && bound > inital))
+        if let (inital, Some((increment, bound))) = new_range
+            && !in_bounds(&inital, &increment, &bound)
         {
-            //already out of bounds keep advancing to the next argument.
-            if frame.more_ranges_to_load() {
-                pc.jump(pc.current_location())
-            } else {
-                pc.jump(frame.r#break);
-                for_stack.pop();
-            }
+            //Already out of bounds keep advancing to the next argument.
+            Behavior::CheckForMoreArgs
+        } else {
+            Behavior::Continue
         }
+        .apply(for_stack, pc);
     }
 
     pub(crate) fn loop_condition_check_slash_increment(
@@ -141,33 +141,26 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        enum Behavior {
-            Continue,
-            Error,
-            CheckForMoreArgs,
-        }
         let behavior: Behavior = if let Some(args) = &for_frame.args_frame {
             let var = &args.var;
             let current_range = args.current_range.as_ref().expect("We are currently at the end of a for loop that took an argument. Therefore some Range must have been loaded when we started this iteration.");
 
+            // Handle increment and bounds checking.
+            // I considered breaking this down into smaller peaces but could not find the right
+            // abstraction.
+            //
+            // We only increment the loop variable iff (if and only if) the value is in bounds.
+            // This makes it hard to de-tangle the logic cleanly.
             if let (_, Some((increment, end_condition))) = &current_range {
                 if let Some(loop_var) = symbol_table.get(var) {
-                    //Increment
                     let new_value = Number::from(loop_var.clone()) + increment.clone();
-
-                    // Check bound
-                    if let Some(bound) = end_condition
-                        && (
-                            // Change bounds direction based on sign of increment
-                            (!increment.is_negative() && new_value > *bound)
-                                || (increment.is_negative() && *bound > new_value)
-                        )
-                    {
-                        Behavior::CheckForMoreArgs
-                    } else {
-                        //Only increment if we are continuing.
+                    if in_bounds(&new_value, increment, end_condition) {
+                        //NOTE: setting var happens after bounds check.
+                        //Yes this is a bit weird but is how mumps works.
                         symbol_table.set(var, &new_value.into()).unwrap();
                         Behavior::Continue
+                    } else {
+                        Behavior::CheckForMoreArgs
                     }
                 } else {
                     *error = Some(RuntimeError::UndefinedIndexVariable);
@@ -180,27 +173,61 @@ impl<'a> Job<'a> {
             Behavior::Continue
         };
 
-        match behavior {
-            Behavior::Continue => pc.jump(for_frame.loop_body),
+        behavior.apply(for_stack, pc);
+    }
+}
+/// Represents the end states that we could arrive at after checking the loop condition.
+enum Behavior {
+    /// In bounds loop again.
+    Continue,
+    /// Out of bounds/There were no bounds.
+    /// Check if there are more arguments.
+    CheckForMoreArgs,
+    /// Encounter an error bail from the loop.
+    Error,
+}
+
+impl Behavior {
+    fn apply(&self, for_stack: &mut Vec<ForFrame>, pc: &mut ProgramCounter<'_>) {
+        let current_frame = for_stack
+            .last_mut()
+            .expect("should only be called if we are in a floor loop");
+
+        match self {
+            Behavior::Continue => pc.jump(current_frame.loop_body),
             Behavior::Error => {
                 // Error handling is not fully fleshed out yet.
-                pc.jump(for_frame.r#break);
+                pc.jump(current_frame.r#break);
                 for_stack.pop();
             }
             Behavior::CheckForMoreArgs => {
-                if for_frame.more_ranges_to_load() {
+                if current_frame.more_ranges_to_load() {
                     pc.jump(
-                        for_frame
+                        current_frame
                             .args_frame
                             .as_ref()
-                            .expect("Can only check for more args if there were args")
+                            .expect("There must have been args if we are trying to load **More** of them.")
                             .pc,
                     )
                 } else {
-                    pc.jump(for_frame.r#break);
+                    pc.jump(current_frame.r#break);
                     for_stack.pop();
                 }
             }
         };
     }
+}
+
+/// Check if value has passed the ending bound.
+/// NOTE: This does not increment the test value.
+/// Increment is only used here to determine if this is a lower or upper bound.
+fn in_bounds(loop_var: &Number, increment: &Number, bound: &Option<Number>) -> bool {
+    bound.as_ref().map_or(true, |bound| {
+        // Change bounds direction based on sign of increment
+        if increment.is_negative() {
+            bound <= loop_var
+        } else {
+            loop_var <= bound
+        }
+    })
 }
