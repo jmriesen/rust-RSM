@@ -8,45 +8,15 @@ use value::{Number, Value};
 
 /// The range a for loop should iterator over.
 /// NOTE: single for loop command can have multiple ranges.
-#[derive(Debug, PartialEq)]
-pub struct Range {
-    initial_value: Number,
-    increment: Number,
-    end_value: Option<Number>,
-}
-
-#[derive(Debug)]
-enum RangeCheck {
-    InBounds,
-    OutOfBounds,
-}
-
-impl Range {
-    fn increment(
-        &self,
-        var: &MVar<Path>,
-        symbol_table: &mut SymbolTable,
-    ) -> Result<RangeCheck, RuntimeError> {
-        if let Some(loop_var) = symbol_table.get(var) {
-            let new_value = Number::from(loop_var.clone()) + self.increment.clone();
-            symbol_table.set(var, &new_value.clone().into()).unwrap();
-            Ok(self.in_bounds(new_value))
-        } else {
-            Err(RuntimeError::UndefinedIndexVariable)
-        }
-    }
-    fn in_bounds(&self, new_value: Number) -> RangeCheck {
-        if let Some(end_value) = &self.end_value {
-            if new_value <= *end_value {
-                RangeCheck::InBounds
-            } else {
-                RangeCheck::OutOfBounds
-            }
-        } else {
-            RangeCheck::InBounds
-        }
-    }
-}
+///
+// 1) Initial value
+// 2) Increment value
+// 2) End Value
+//
+// NOTE:
+// If there is no increment we only run the loop body once.
+// If there is increment but no end value we keep going forever.
+type Range = (Number, Option<(Number, Option<Number>)>);
 
 /// State required to track For command iteration.
 #[derive(Debug, PartialEq)]
@@ -116,36 +86,36 @@ impl<'a> Job<'a> {
         r_values: &mut Vec<Value>,
         pc: &mut ProgramCounter<'_>,
     ) {
-        let (end_value, increment, initial_value) = match r#type {
-            ForRangeType::One => (
-                None,
-                Number::one().clone(),
-                Number::from(r_values.pop().unwrap()),
-            ),
-            ForRangeType::Two => (
-                None,
-                Number::from(r_values.pop().unwrap()),
-                Number::from(r_values.pop().unwrap()),
-            ),
-            ForRangeType::Three => (
-                Some(Number::from(r_values.pop().unwrap())),
-                Number::from(r_values.pop().unwrap()),
-                Number::from(r_values.pop().unwrap()),
-            ),
+        let new_range = match r#type {
+            ForRangeType::One => (Number::from(r_values.pop().unwrap()), None),
+            ForRangeType::Two => {
+                let increment = Number::from(r_values.pop().unwrap());
+                (
+                    Number::from(r_values.pop().unwrap()),
+                    Some((increment, None)),
+                )
+            }
+            ForRangeType::Three => {
+                let end = Number::from(r_values.pop().unwrap());
+                let increment = Number::from(r_values.pop().unwrap());
+                (
+                    Number::from(r_values.pop().unwrap()),
+                    Some((increment, Some(end))),
+                )
+            }
         };
+
         let args = frame
             .args_frame
             .as_mut()
             .expect("For type should only be created if we are in an argument-ed for command");
 
-        args.current_range = Some(Range {
-            initial_value: initial_value.clone(),
-            increment,
-            end_value,
-        });
-        args.pc = pc.current_location();
+        symbol_table
+            .set(&args.var, &new_range.0.clone().into())
+            .unwrap();
 
-        symbol_table.set(&args.var, &initial_value.into()).unwrap();
+        args.current_range = Some(new_range);
+        args.pc = pc.current_location();
         pc.jump(frame.loop_body);
     }
 
@@ -156,32 +126,62 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        if let Some(args) = &for_frame.args_frame {
+        enum Behavior {
+            Continue,
+            Error,
+            CheckForMoreArgs,
+        }
+        let behavior: Behavior = if let Some(args) = &for_frame.args_frame {
             let var = &args.var;
             let current_range = args.current_range.as_ref().expect("We are currently at the end of a for loop that took an argument. Therefore some Range must have been loaded when we started this iteration.");
 
-            match current_range.increment(var, symbol_table) {
-                Ok(bounds_check) => match bounds_check {
-                    RangeCheck::InBounds => pc.jump(for_frame.loop_body),
-                    RangeCheck::OutOfBounds => {
-                        if for_frame.more_ranges_to_load() {
-                            pc.jump(args.pc)
-                        } else {
-                            pc.jump(for_frame.r#break);
-                            for_stack.pop();
-                        }
+            if let (_, Some((increment, end_condition))) = &current_range {
+                if let Some(loop_var) = symbol_table.get(var) {
+                    //Increment
+                    let new_value = Number::from(loop_var.clone()) + increment.clone();
+
+                    // Check bound
+                    if let Some(bound) = end_condition
+                        && new_value > *bound
+                    {
+                        Behavior::CheckForMoreArgs
+                    } else {
+                        //Only increment if we are continuing.
+                        symbol_table.set(var, &new_value.into()).unwrap();
+                        Behavior::Continue
                     }
-                },
-                Err(err) => {
-                    *error = Some(err);
-                    // Error handling is not fully fleshed out yet.
+                } else {
+                    *error = Some(RuntimeError::UndefinedIndexVariable);
+                    Behavior::Error
+                }
+            } else {
+                Behavior::CheckForMoreArgs
+            }
+        } else {
+            Behavior::Continue
+        };
+
+        match behavior {
+            Behavior::Continue => pc.jump(for_frame.loop_body),
+            Behavior::Error => {
+                // Error handling is not fully fleshed out yet.
+                pc.jump(for_frame.r#break);
+                for_stack.pop();
+            }
+            Behavior::CheckForMoreArgs => {
+                if for_frame.more_ranges_to_load() {
+                    pc.jump(
+                        for_frame
+                            .args_frame
+                            .as_ref()
+                            .expect("Can only check for more args if there were args")
+                            .pc,
+                    )
+                } else {
                     pc.jump(for_frame.r#break);
                     for_stack.pop();
                 }
             }
-        } else {
-            // No arguments just loop again.
-            pc.jump(for_frame.loop_body);
-        }
+        };
     }
 }
