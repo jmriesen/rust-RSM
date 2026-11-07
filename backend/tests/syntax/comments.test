@@ -1,8 +1,8 @@
-tag ;comment w ""
- w "A" ;w "C"
+tag ;comment w "A"
+ w "B" ;w "C"
 ; line comment
- w "C" ;comment 
+ w "D" ;comment 
 ---
-AC
+BD
 ---
 

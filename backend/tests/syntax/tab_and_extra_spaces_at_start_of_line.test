@@ -4,7 +4,7 @@ tag
 	   w "C" ;Tab + extra spaces
      w "D" ;Space + extra spaces
  d
-     .     w "E" ;Space + extra spaces + line level + extra spaces (note )
+     .     w "E" ;Space + extra spaces + line level + extra spaces
 ---
 ABCDE
 ---
