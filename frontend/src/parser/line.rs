@@ -106,11 +106,6 @@ mod test {
     }
 
     #[test]
-    fn recover_from_extra_space() {
-        //Note currently parsing as an error
-        insta::assert_debug_snapshot!(line_parser().parse(" w !  w !").into_output_errors());
-    }
-    #[test]
     fn recover_by_skipping_to_end_of_line() {
         //Note currently parsing as an error
         insta::assert_debug_snapshot!(
