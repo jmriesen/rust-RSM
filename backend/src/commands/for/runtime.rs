@@ -139,8 +139,6 @@ impl<'a> Job<'a> {
                 if let Some(loop_var) = symbol_table.get(var) {
                     //Increment
                     let new_value = Number::from(loop_var.clone()) + increment.clone();
-                    //TODO test the value the loop leaves the variable in. (should not increment)
-                    symbol_table.set(var, &new_value.clone().into()).unwrap();
 
                     // Check bound
                     if let Some(bound) = end_condition
@@ -148,6 +146,8 @@ impl<'a> Job<'a> {
                     {
                         Behavior::CheckForMoreArgs
                     } else {
+                        //Only increment if we are continuing.
+                        symbol_table.set(var, &new_value.into()).unwrap();
                         Behavior::Continue
                     }
                 } else {
