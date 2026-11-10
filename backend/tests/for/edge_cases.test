@@ -1,0 +1,41 @@
+ ; Check that string are left as values if given as a list,
+ ; and converted into number if used as part of a range.
+ f i="foo","bar":1:5 w i,"_"
+ w !
+ ; Check that that loop var is left with the value from the last loop iteration.
+ ; (We don't increment past the end value.)
+ w i
+ w !
+ ; Values in for arguments are evaluated once before looping begins.
+ s n=2 f i=0:n:8+n s n=4 w i," "
+ w !
+ ; The standard says that for each for parameter we 
+ ; 1) Evaluate the expressions in that for parameter
+ ; 2) Do all the command execution/bound checking/increment stuff
+ ; I take it to mean that n will have the value of 3 when the second for parameter is evaluated
+ s n=0 f i=3,n s n=i w i," "
+ w !
+ ; Loop variable is evaluated/determined once before all of the for parameters
+ s n=0 f i(n)=1,2,3 s n=i w i(0)," "
+ w !
+ ; initial value is loaded even if we never loop
+ ; (range so "foo" is converted to a number)
+ f i="foo":1:-1 
+ w i
+ w !
+ ; initial value is loaded even if we never loop
+ f i=-10:-1:1 
+ w i
+ w !
+
+---
+foo_0_1_2_3_4_5_
+5
+0 2 4 6 8 10 
+3 3 
+1 2 3 
+0
+-10
+
+---
+

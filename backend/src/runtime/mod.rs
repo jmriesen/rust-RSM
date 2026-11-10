@@ -2,7 +2,7 @@ use crate::{
     byte_code,
     commands::{
         r#do::DoArgLess,
-        r#for::{ForEnd, ForFrame, ForMetaData, ForRangeType},
+        r#for::{ForEnd, ForFrame, ForMetaData, ForParameterType},
         r#if::IfElse,
         kill::KillInstruction,
         new::NewStackAsm,
@@ -120,7 +120,7 @@ StackAssembally! {
     StartLine,
     EndCommand,
     ForMetaData,
-    ForRangeType,
+    ForParameterType,
     ForEnd,
     NoOpCode,
     IfElse,
@@ -247,7 +247,7 @@ impl<'a> Job<'a> {
                             meta_data,
                         );
                     }
-                    StackAssembally::ForRangeType(r#type) => {
+                    StackAssembally::ForParameterType(r#type) => {
                         Self::initialize_for_range(
                             &mut do_frame.for_stack,
                             r#type,

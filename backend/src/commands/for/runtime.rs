@@ -1,13 +1,13 @@
 use crate::{
     byte_code::Location,
-    commands::r#for::{ForMetaData, ForRangeType},
+    commands::r#for::{ForMetaData, ForParameterType},
     runtime::{Job, RuntimeError, program_counter::ProgramCounter},
 };
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
-/// The range a for loop should iterator over.
-/// NOTE: single for loop command can have multiple ranges.
+/// The parameters a for loop should iterator over.
+/// NOTE: single for loop command can have multiple parameters.
 ///
 // 1) Initial value
 // 2) Increment value
@@ -16,7 +16,7 @@ use value::{Number, Value};
 // NOTE:
 // If there is no increment we only run the loop body once.
 // If there is increment but no end value we keep going forever.
-type Range = (Number, Option<(Number, Option<Number>)>);
+type ForParameter = (Value, Option<(Number, Option<Number>)>);
 
 /// State required to track For command iteration.
 #[derive(Debug, PartialEq)]
@@ -26,7 +26,7 @@ pub struct ForArgFrame {
     /// The loop variable.
     var: MVar<Path>,
     /// The range we currently iterating though. (May not be loaded yet)
-    current_range: Option<Range>,
+    current_range: Option<ForParameter>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -81,7 +81,7 @@ impl<'a> Job<'a> {
 
     pub(crate) fn initialize_for_range(
         for_stack: &mut Vec<ForFrame>,
-        r#type: ForRangeType,
+        r#type: ForParameterType,
         symbol_table: &mut SymbolTable,
         r_values: &mut Vec<Value>,
         pc: &mut ProgramCounter<'_>,
@@ -89,19 +89,21 @@ impl<'a> Job<'a> {
         let mut frame = for_stack.last_mut();
         let frame = frame.as_mut().unwrap();
         let new_range = match r#type {
-            ForRangeType::One => (Number::from(r_values.pop().unwrap()), None),
-            ForRangeType::Two => {
+            ForParameterType::Value => (r_values.pop().unwrap(), None),
+            //NOTE: if using a range (bounded/unbounded) the initial value is always converted into a
+            //number first.
+            ForParameterType::Unbounded => {
                 let increment = Number::from(r_values.pop().unwrap());
                 (
-                    Number::from(r_values.pop().unwrap()),
+                    Number::from(r_values.pop().unwrap()).into(),
                     Some((increment, None)),
                 )
             }
-            ForRangeType::Three => {
+            ForParameterType::Bounded => {
                 let end = Number::from(r_values.pop().unwrap());
                 let increment = Number::from(r_values.pop().unwrap());
                 (
-                    Number::from(r_values.pop().unwrap()),
+                    Number::from(r_values.pop().unwrap()).into(),
                     Some((increment, Some(end))),
                 )
             }
@@ -124,7 +126,7 @@ impl<'a> Job<'a> {
             .unwrap();
 
         if let (inital, Some((increment, bound))) = new_range
-            && !in_bounds(&inital, &increment, &bound)
+            && !in_bounds(&inital.into(), &increment, &bound)
         {
             //Already out of bounds keep advancing to the next argument.
             Behavior::CheckForMoreArgs
