@@ -40,6 +40,11 @@ mod m_var;
 mod value_tree;
 mod variable_name;
 
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
 pub use hash::CreationError;
 use key::{Path, Segment};
 pub use m_var::MVar;
@@ -56,7 +61,7 @@ impl hash::Key for Ident {
 
 /// Stores the information required to restore new-ed variables to there previous state.
 /// This Vec should be treated as a Stack, i.e. FILO.
-type NewFrame = Vec<(Ident, ValueTree)>;
+type NewFrame = Vec<(Ident, Rc<RefCell<ValueTree>>)>;
 
 /// The a `SymbolTable` stores
 /// 1) What variables are currently in scope.
@@ -64,7 +69,7 @@ type NewFrame = Vec<(Ident, ValueTree)>;
 /// 3) How to restore/shadow variables when the current scope changes.
 #[derive(Default, Debug)]
 pub struct SymbolTable {
-    table: hash::HashTable<Ident, ValueTree>,
+    table: hash::HashTable<Ident, Rc<RefCell<ValueTree>>>,
     stack: Vec<NewFrame>,
 }
 
@@ -77,14 +82,15 @@ impl SymbolTable {
 
     ///Gets a value that was stored in the symbol table.
     #[must_use]
-    pub fn get(&self, var: &MVar<Path>) -> Option<&Value> {
-        self.table.get(&var.name)?.value(&var.key)
+    pub fn get(&self, var: &MVar<Path>) -> Option<Value> {
+        self.table.get(&var.name)?.borrow().value(&var.key).cloned()
     }
 
     /// Inserts a value into the `SymbolTale` replacing any existing value.
     pub fn set(&mut self, var: &MVar<Path>, value: &Value) -> Result<(), CreationError> {
         self.table
             .create_entry(var.name.clone())?
+            .borrow_mut()
             .set_value(&var.key, value);
         Ok(())
     }
@@ -92,8 +98,8 @@ impl SymbolTable {
     /// Removing var including all of its sub-keys.
     pub fn kill(&mut self, var: &MVar<Path>) {
         if let Some(data) = self.table.get_mut(&var.name) {
-            data.kill(&var.key);
-            if !(data.not_empty() || self.attached(&var.name)) {
+            data.borrow_mut().kill(&var.key);
+            if !(data.borrow().not_empty() || self.attached(&var.name)) {
                 self.table.remove(&var.name);
             }
         }
@@ -117,7 +123,7 @@ impl SymbolTable {
                 has_value: false,
                 has_descendants: false,
             },
-            |x| x.data(&var.key),
+            |x| x.borrow().data(&var.key),
         )
     }
 
@@ -130,7 +136,7 @@ impl SymbolTable {
     ) -> Option<MVar<Path>> {
         self.table
             .get(&var.name)
-            .and_then(|data| data.query(var.key.borrow(), direction))
+            .and_then(|data| data.borrow().query(var.key.borrow(), direction))
             .map(|key| var.copy_new_key(key))
     }
 
@@ -140,10 +146,12 @@ impl SymbolTable {
         &self,
         var: &MVar<Key>,
         direction: Direction,
-    ) -> Option<Segment<'_>> {
-        self.table
-            .get(&var.name)
-            .and_then(|data| data.order(var.key.borrow(), direction))
+    ) -> Option<Value> {
+        self.table.get(&var.name).and_then(|data| {
+            data.borrow()
+                .order(var.key.borrow(), direction)
+                .map(|x| x.into())
+        })
     }
 
     /// Adds a `NewFrame` to the variable stack.
@@ -164,7 +172,7 @@ impl SymbolTable {
             //multiple times.
             for (var, data) in frame.into_iter().rev() {
                 //If there is data to restore OR the variable was new-ed before.
-                if data.not_empty() || self.attached(&var) {
+                if data.borrow().not_empty() || self.attached(&var) {
                     let slot = self
                         .table
                         .get_mut(&var)
@@ -221,6 +229,7 @@ impl SymbolTable {
             //NOTE I need to clone to avoid double borrowing
             .cloned()
             .collect();
+        //TODO: should this create a new frame?
         self.stack.push(NewFrame::with_capacity(vars_to_new.len()));
         self.new_var(vars_to_new)
     }

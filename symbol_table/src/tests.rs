@@ -29,7 +29,7 @@ fn set_root_value() {
     let data = "Data".try_into().unwrap();
 
     table.set(&m_var, &data).unwrap();
-    assert_eq!(table.get(&m_var), Some(&data));
+    assert_eq!(table.get(&m_var), Some(data));
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn set_index_value() {
     let m_var = var_m("foo", &["keys"]);
     let data = "Data".try_into().unwrap();
     table.set(&m_var, &data).unwrap();
-    assert_eq!(Some(&data), table.get(&m_var));
+    assert_eq!(Some(data), table.get(&m_var));
 }
 
 #[test]
@@ -52,16 +52,16 @@ fn set_root_then_index() {
 
         table.set(&root, &root_data).unwrap();
         table.set(&with_key, &key_data).unwrap();
-        assert_eq!(Some(&root_data), table.get(&root));
-        assert_eq!(Some(&key_data), table.get(&with_key));
+        assert_eq!(Some(root_data.clone()), table.get(&root));
+        assert_eq!(Some(key_data.clone()), table.get(&with_key));
     }
     {
         let mut table = SymbolTable::new();
 
         table.set(&with_key, &key_data).unwrap();
         table.set(&root, &root_data).unwrap();
-        assert_eq!(Some(&root_data), table.get(&root));
-        assert_eq!(Some(&key_data), table.get(&with_key));
+        assert_eq!(Some(root_data), table.get(&root));
+        assert_eq!(Some(key_data), table.get(&with_key));
     }
 }
 
@@ -72,7 +72,7 @@ fn set_null_value() {
     let data = "".try_into().unwrap();
 
     table.set(&m_var, &data).unwrap();
-    assert_eq!(Some(&data), table.get(&m_var));
+    assert_eq!(Some(data), table.get(&m_var));
 }
 
 #[test]
@@ -85,8 +85,8 @@ fn set_works_while_with_prefixs() {
 
     table.set(&prefix, &prefix_data).unwrap();
     table.set(&full, &full_data).unwrap();
-    assert_eq!(Some(&prefix_data), table.get(&prefix));
-    assert_eq!(Some(&full_data), table.get(&full));
+    assert_eq!(Some(prefix_data), table.get(&prefix));
+    assert_eq!(Some(full_data), table.get(&full));
 }
 
 #[test]
@@ -97,10 +97,10 @@ fn set_overrides_value() {
     let end_value = "end".try_into().unwrap();
 
     table.set(&m_var, &initial_value).unwrap();
-    assert_eq!(Some(&initial_value), table.get(&m_var));
+    assert_eq!(Some(initial_value), table.get(&m_var));
 
     table.set(&m_var, &end_value).unwrap();
-    assert_eq!(Some(&end_value), table.get(&m_var));
+    assert_eq!(Some(end_value), table.get(&m_var));
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn do_a_bunch_of_sets() {
     }
 
     for (var, value) in test_data {
-        assert_eq!(Some(&value), table.get(&var));
+        assert_eq!(Some(value), table.get(&var));
     }
 }
 
@@ -180,7 +180,7 @@ fn kill_initialized_index() {
     table.set(&var_i, &data).unwrap();
     table.set(&var_ii, &data).unwrap();
     table.kill(&var_i);
-    assert_eq!(table.get(&var), Some(&data));
+    assert_eq!(table.get(&var), Some(data));
     assert_eq!(table.get(&var_i), None);
     assert_eq!(table.get(&var_i), None);
 }
@@ -197,9 +197,9 @@ fn kill_removes_only_specified_index() {
     table.set(&b, &data).unwrap();
     table.set(&c, &data).unwrap();
     table.kill(&b);
-    assert_eq!(table.get(&a), Some(&data));
+    assert_eq!(table.get(&a), Some(data.clone()));
     assert_eq!(table.get(&b), None);
-    assert_eq!(table.get(&c), Some(&data));
+    assert_eq!(table.get(&c), Some(data));
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn keep_vars() {
 
     assert_eq!(table.get(&normal), None);
     for var in &[dolor, retain_a, retain_b] {
-        assert_eq!(table.get(var), Some(&data));
+        assert_eq!(table.get(var), Some(data.clone()));
     }
 }
 
@@ -246,13 +246,13 @@ fn newing_stores_a_copy() {
     assert_eq!(table.get(&var), None);
 
     table.pop_new_frame();
-    assert_eq!(table.get(&var), Some(&level_two));
+    assert_eq!(table.get(&var), Some(level_two));
 
     table.pop_new_frame();
-    assert_eq!(table.get(&var), Some(&level_one));
+    assert_eq!(table.get(&var), Some(level_one));
 
     table.pop_new_frame();
-    assert_eq!(table.get(&var), Some(&level_zero));
+    assert_eq!(table.get(&var), Some(level_zero));
 }
 
 #[test]
@@ -269,10 +269,10 @@ fn assumed_variables_are_accessible() {
     table.new_var([new_ed_var.name.clone()]).unwrap();
     table.set(&new_ed_var, &assumed_value).unwrap();
 
-    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
-    assert_eq!(table.get(&new_ed_var), Some(&new_value));
+    assert_eq!(table.get(&assumed_var), Some(assumed_value.clone()));
+    assert_eq!(table.get(&new_ed_var), Some(new_value));
     table.pop_new_frame();
-    assert_eq!(table.get(&assumed_var), Some(&assumed_value));
+    assert_eq!(table.get(&assumed_var), Some(assumed_value));
     assert_eq!(table.get(&new_ed_var), None);
 }
 
@@ -297,7 +297,7 @@ fn calling_new_on_the_same_variable_multiple_times() {
     table.set(&var, &third_value).unwrap();
 
     table.pop_new_frame();
-    assert_eq!(table.get(&var), Some(&initial_value));
+    assert_eq!(table.get(&var), Some(initial_value));
 }
 
 #[test]

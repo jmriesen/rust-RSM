@@ -72,6 +72,7 @@ impl Stack {
     pub fn push_val(&mut self, value: value::Value) {
         self.0.push(StackValue::Value(value))
     }
+    #[track_caller]
     pub fn pop_val(&mut self) -> value::Value {
         match self.0.pop() {
             Some(StackValue::Value(value)) => value,
@@ -82,6 +83,7 @@ impl Stack {
     pub fn push_var(&mut self, value: MVar<Path>) {
         self.0.push(StackValue::Var(value))
     }
+    #[track_caller]
     pub fn pop_var(&mut self) -> MVar<Path> {
         match self.0.pop() {
             Some(StackValue::Var(value)) => value,
@@ -294,7 +296,7 @@ impl<'a> Job<'a> {
                     StackAssembally::NoOpCode(_no_op_code) => {}
                     StackAssembally::LoadVar(load_var) => {
                         let var = Self::build_var(&mut self.stack, load_var.var);
-                        let val = self.symbol_table.get(&var).cloned().unwrap_or_default();
+                        let val = self.symbol_table.get(&var).unwrap_or_default();
                         self.stack.push_val(val);
                     }
                     StackAssembally::SetCodes(code) => match code {
