@@ -213,9 +213,9 @@ impl SymbolTable {
         }
         Ok(())
     }
-    pub fn connect_and_new<I>(&mut self, existing: Ident, new: Ident) -> Result<(), CreationError> {
+    pub fn connect_and_new(&mut self, existing: Ident, new: Ident) -> Result<(), CreationError> {
         // Find what we are linking to.
-        let data = self.table.get(&existing).ok_or(CreationError)?.clone();
+        let data = self.table.create_entry(existing)?.clone();
         // New the "new" variable name.
         self.new_var([new.clone()])?;
         // Connect "new" name to the same data

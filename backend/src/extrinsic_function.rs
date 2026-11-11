@@ -19,9 +19,11 @@ pub enum ExtrinsicFunctionContext {
     Do = 0,
 }
 
-enum ArgmentCodes {
-    VarUndefined = 169_isize,
-    ByRef = 168_isize,
+OpCodes! {
+    ArgmentCodes {
+        VarUndefined = 169,
+        ByRef = 168,
+}
 }
 
 OpCodes!(
@@ -37,12 +39,12 @@ impl Compile for ExtrinsicFunction {
     fn compile(&self, comp: &mut ByteCode, context: &ExtrinsicFunctionContext) {
         for arg in &self.arguments {
             match arg {
-                Args::VarUndefined => comp.push_asm(StackAssembally::TEMP(TEMP(
-                    ArgmentCodes::VarUndefined as u8,
-                ))),
+                Args::VarUndefined => {
+                    comp.push_asm(StackAssembally::ArgmentCodes(ArgmentCodes::VarUndefined))
+                }
                 Args::ByRef(variable) => {
                     variable.compile(comp, &VarContext::Build);
-                    comp.push_asm(StackAssembally::TEMP(TEMP(ArgmentCodes::ByRef as u8)));
+                    comp.push_asm(StackAssembally::ArgmentCodes(ArgmentCodes::ByRef))
                 }
                 Args::Expression(expression) => expression.compile(comp, &ExpressionContext::Eval),
             }

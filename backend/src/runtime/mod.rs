@@ -11,7 +11,7 @@ use crate::{
         write::WriteCodes,
     },
     conditional_jumps::{Jump, JumpCodes},
-    extrinsic_function::ExtrinsicFunctionCall,
+    extrinsic_function::{ArgmentCodes, ExtrinsicFunctionCall},
     intrinsic_functions::FunctionCodes,
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
@@ -62,10 +62,11 @@ struct DoFrame<'a> {
     line_level: u16,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum StackValue {
     Value(value::Value),
     Var(MVar<Path>),
+    VarUndefined,
 }
 #[derive(Debug, PartialEq)]
 pub struct Stack(Vec<StackValue>);
@@ -91,6 +92,11 @@ impl Stack {
             Some(_) => panic!("Top of stack was not a mumps var"),
             None => panic!("Tried to pop empty Stack"),
         }
+    }
+
+    #[track_caller]
+    fn pop(&mut self) -> StackValue {
+        self.0.pop().expect("Tried to pop empty Stack")
     }
 }
 
@@ -164,8 +170,10 @@ StackAssembally! {
     NewStackAsm,
     ExtrinsicFunctionCall,
     FunctionCodes,
+    ArgmentCodes,
     TEMP,
 }
+
 impl<'a> Job<'a> {
     pub fn new(routine: &'a CompiledRoutine) -> Self {
         let mut symbol_table = SymbolTable::default();
@@ -355,6 +363,7 @@ impl<'a> Job<'a> {
                                 do_frame.pc.jump(for_frame.r#break);
                             } else {
                                 self.call_stack.pop();
+                                self.symbol_table.pop_new_frame();
                             }
                         }
                         QuitCodes::WithArg => {
@@ -389,10 +398,10 @@ impl<'a> Job<'a> {
                             .0
                             .drain((self.stack.0.len() - number_of_variables as usize)..)
                             .map(|x| match x {
-                                StackValue::Value(_) => {
+                                StackValue::Var(mvar) => mvar,
+                                _ => {
                                     panic!("Tried to new something that was not a variable")
                                 }
-                                StackValue::Var(mvar) => mvar,
                             })
                             .map(|x| x.name);
 
@@ -409,6 +418,14 @@ impl<'a> Job<'a> {
                         }
                         _ => todo!("not yet supported"),
                     },
+                    StackAssembally::ArgmentCodes(argment_codes) => {
+                        match argment_codes {
+                            ArgmentCodes::VarUndefined => {
+                                self.stack.0.push(StackValue::VarUndefined)
+                            }
+                            ArgmentCodes::ByRef => { /*Already build/on the stack*/ }
+                        }
+                    }
                 }
             } else {
                 self.call_stack.pop();
