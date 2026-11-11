@@ -1,52 +1,22 @@
 use crate::{
     byte_code::Location,
-    commands::r#for::{ForMetaData, ForRangeType},
+    commands::r#for::{ForMetaData, ForParameterType},
     runtime::{Job, RuntimeError, program_counter::ProgramCounter},
 };
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
 
-/// The range a for loop should iterator over.
-/// NOTE: single for loop command can have multiple ranges.
-#[derive(Debug, PartialEq)]
-pub struct Range {
-    initial_value: Number,
-    increment: Number,
-    end_value: Option<Number>,
-}
-
-#[derive(Debug)]
-enum RangeCheck {
-    InBounds,
-    OutOfBounds,
-}
-
-impl Range {
-    fn increment(
-        &self,
-        var: &MVar<Path>,
-        symbol_table: &mut SymbolTable,
-    ) -> Result<RangeCheck, RuntimeError> {
-        if let Some(loop_var) = symbol_table.get(var) {
-            let new_value = Number::from(loop_var.clone()) + self.increment.clone();
-            symbol_table.set(var, &new_value.clone().into()).unwrap();
-            Ok(self.in_bounds(new_value))
-        } else {
-            Err(RuntimeError::UndefinedIndexVariable)
-        }
-    }
-    fn in_bounds(&self, new_value: Number) -> RangeCheck {
-        if let Some(end_value) = &self.end_value {
-            if new_value <= *end_value {
-                RangeCheck::InBounds
-            } else {
-                RangeCheck::OutOfBounds
-            }
-        } else {
-            RangeCheck::InBounds
-        }
-    }
-}
+/// The parameters a for loop should iterator over.
+/// NOTE: single for loop command can have multiple parameters.
+///
+// 1) Initial value
+// 2) Increment value
+// 2) End Value
+//
+// NOTE:
+// If there is no increment we only run the loop body once.
+// If there is increment but no end value we keep going forever.
+type ForParameter = (Value, Option<(Number, Option<Number>)>);
 
 /// State required to track For command iteration.
 #[derive(Debug, PartialEq)]
@@ -56,7 +26,7 @@ pub struct ForArgFrame {
     /// The loop variable.
     var: MVar<Path>,
     /// The range we currently iterating though. (May not be loaded yet)
-    current_range: Option<Range>,
+    current_range: Option<ForParameter>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,43 +80,60 @@ impl<'a> Job<'a> {
     }
 
     pub(crate) fn initialize_for_range(
-        frame: &mut ForFrame,
-        r#type: ForRangeType,
+        for_stack: &mut Vec<ForFrame>,
+        r#type: ForParameterType,
         symbol_table: &mut SymbolTable,
         r_values: &mut Vec<Value>,
         pc: &mut ProgramCounter<'_>,
     ) {
-        let (end_value, increment, initial_value) = match r#type {
-            ForRangeType::One => (
-                None,
-                Number::one().clone(),
-                Number::from(r_values.pop().unwrap()),
-            ),
-            ForRangeType::Two => (
-                None,
-                Number::from(r_values.pop().unwrap()),
-                Number::from(r_values.pop().unwrap()),
-            ),
-            ForRangeType::Three => (
-                Some(Number::from(r_values.pop().unwrap())),
-                Number::from(r_values.pop().unwrap()),
-                Number::from(r_values.pop().unwrap()),
-            ),
+        let mut frame = for_stack.last_mut();
+        let frame = frame.as_mut().unwrap();
+        let new_range = match r#type {
+            ForParameterType::Value => (r_values.pop().unwrap(), None),
+            //NOTE: if using a range (bounded/unbounded) the initial value is always converted into a
+            //number first.
+            ForParameterType::Unbounded => {
+                let increment = Number::from(r_values.pop().unwrap());
+                (
+                    Number::from(r_values.pop().unwrap()).into(),
+                    Some((increment, None)),
+                )
+            }
+            ForParameterType::Bounded => {
+                let end = Number::from(r_values.pop().unwrap());
+                let increment = Number::from(r_values.pop().unwrap());
+                (
+                    Number::from(r_values.pop().unwrap()).into(),
+                    Some((increment, Some(end))),
+                )
+            }
         };
+
         let args = frame
             .args_frame
             .as_mut()
             .expect("For type should only be created if we are in an argument-ed for command");
 
-        args.current_range = Some(Range {
-            initial_value: initial_value.clone(),
-            increment,
-            end_value,
-        });
+        args.current_range = Some(new_range.clone());
         args.pc = pc.current_location();
 
-        symbol_table.set(&args.var, &initial_value.into()).unwrap();
-        pc.jump(frame.loop_body);
+        //NOTE: We are setting the variable before we do bounds checking.
+        // This is different then the increment behavior.
+        // Yes this inconsistency is odd, but I have checked the reference implementation and this is expected
+        // behavior.
+        symbol_table
+            .set(&args.var, &new_range.0.clone().into())
+            .unwrap();
+
+        if let (inital, Some((increment, bound))) = new_range
+            && !in_bounds(&inital.into(), &increment, &bound)
+        {
+            //Already out of bounds keep advancing to the next argument.
+            Behavior::CheckForMoreArgs
+        } else {
+            Behavior::Continue
+        }
+        .apply(for_stack, pc);
     }
 
     pub(crate) fn loop_condition_check_slash_increment(
@@ -156,32 +143,93 @@ impl<'a> Job<'a> {
         error: &mut Option<RuntimeError>,
     ) {
         let for_frame = for_stack.last().unwrap();
-        if let Some(args) = &for_frame.args_frame {
+        let behavior: Behavior = if let Some(args) = &for_frame.args_frame {
             let var = &args.var;
             let current_range = args.current_range.as_ref().expect("We are currently at the end of a for loop that took an argument. Therefore some Range must have been loaded when we started this iteration.");
 
-            match current_range.increment(var, symbol_table) {
-                Ok(bounds_check) => match bounds_check {
-                    RangeCheck::InBounds => pc.jump(for_frame.loop_body),
-                    RangeCheck::OutOfBounds => {
-                        if for_frame.more_ranges_to_load() {
-                            pc.jump(args.pc)
-                        } else {
-                            pc.jump(for_frame.r#break);
-                            for_stack.pop();
-                        }
+            // Handle increment and bounds checking.
+            // I considered breaking this down into smaller peaces but could not find the right
+            // abstraction.
+            //
+            // We only increment the loop variable iff (if and only if) the value is in bounds.
+            // This makes it hard to de-tangle the logic cleanly.
+            if let (_, Some((increment, end_condition))) = &current_range {
+                if let Some(loop_var) = symbol_table.get(var) {
+                    let new_value = Number::from(loop_var.clone()) + increment.clone();
+                    if in_bounds(&new_value, increment, end_condition) {
+                        //NOTE: setting var happens after bounds check.
+                        //Yes this is a bit weird but is how mumps works.
+                        symbol_table.set(var, &new_value.into()).unwrap();
+                        Behavior::Continue
+                    } else {
+                        Behavior::CheckForMoreArgs
                     }
-                },
-                Err(err) => {
-                    *error = Some(err);
-                    // Error handling is not fully fleshed out yet.
-                    pc.jump(for_frame.r#break);
+                } else {
+                    *error = Some(RuntimeError::UndefinedIndexVariable);
+                    Behavior::Error
+                }
+            } else {
+                Behavior::CheckForMoreArgs
+            }
+        } else {
+            Behavior::Continue
+        };
+
+        behavior.apply(for_stack, pc);
+    }
+}
+/// Represents the end states that we could arrive at after checking the loop condition.
+enum Behavior {
+    /// In bounds loop again.
+    Continue,
+    /// Out of bounds/There were no bounds.
+    /// Check if there are more arguments.
+    CheckForMoreArgs,
+    /// Encounter an error bail from the loop.
+    Error,
+}
+
+impl Behavior {
+    fn apply(&self, for_stack: &mut Vec<ForFrame>, pc: &mut ProgramCounter<'_>) {
+        let current_frame = for_stack
+            .last_mut()
+            .expect("should only be called if we are in a floor loop");
+
+        match self {
+            Behavior::Continue => pc.jump(current_frame.loop_body),
+            Behavior::Error => {
+                // Error handling is not fully fleshed out yet.
+                pc.jump(current_frame.r#break);
+                for_stack.pop();
+            }
+            Behavior::CheckForMoreArgs => {
+                if current_frame.more_ranges_to_load() {
+                    pc.jump(
+                        current_frame
+                            .args_frame
+                            .as_ref()
+                            .expect("There must have been args if we are trying to load **More** of them.")
+                            .pc,
+                    )
+                } else {
+                    pc.jump(current_frame.r#break);
                     for_stack.pop();
                 }
             }
-        } else {
-            // No arguments just loop again.
-            pc.jump(for_frame.loop_body);
-        }
+        };
     }
+}
+
+/// Check if value has passed the ending bound.
+/// NOTE: This does not increment the test value.
+/// Increment is only used here to determine if this is a lower or upper bound.
+fn in_bounds(loop_var: &Number, increment: &Number, bound: &Option<Number>) -> bool {
+    bound.as_ref().map_or(true, |bound| {
+        // Change bounds direction based on sign of increment
+        if increment.is_negative() {
+            bound <= loop_var
+        } else {
+            loop_var <= bound
+        }
+    })
 }

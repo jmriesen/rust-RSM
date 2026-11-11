@@ -1,11 +1,13 @@
 tag w ""
  w "before loop",!
  f i=1:1:5 w "foo "
- w !,"after loop"
+ w !,"after loop",!
+ w i
 
 ---
 before loop
 foo foo foo foo foo 
 after loop
+5
 ---
 

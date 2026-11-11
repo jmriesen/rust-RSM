@@ -13,10 +13,10 @@ use crate::{
 };
 
 OpCodes! {
-ForRangeType {
-    One = 174,
-    Two = 175,
-    Three = 176,
+ForParameterType {
+    Value = 174,
+    Unbounded = 175,
+    Bounded = 176,
 }}
 
 OpCodes! {
@@ -70,11 +70,11 @@ impl Compile for For {
                         }
                     }
 
-                    args_byte_code.push_asm(StackAssembally::ForRangeType(
+                    args_byte_code.push_asm(StackAssembally::ForParameterType(
                         match range.increment_end {
-                            None => ForRangeType::One,
-                            Some((_, None)) => ForRangeType::Two,
-                            Some((_, Some(_))) => ForRangeType::Three,
+                            None => ForParameterType::Value,
+                            Some((_, None)) => ForParameterType::Unbounded,
+                            Some((_, Some(_))) => ForParameterType::Bounded,
                         },
                     ));
                 }
