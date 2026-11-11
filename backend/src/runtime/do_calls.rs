@@ -15,11 +15,12 @@ pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, Value)>> {
 pub fn build_arguments(
     number_of_arguments_passed: u8,
     parameters: &Option<Vec<Ident>>,
-    r_values: &mut Vec<Value>,
+    stack: &mut super::Stack,
 ) -> Result<impl Iterator<Item = (MVar<Path>, Value)>, RuntimeError> {
     let parameter_list_defined = parameters.is_some();
 
-    let arguments_passed = from_fn(|| r_values.pop()).take(number_of_arguments_passed as usize);
+    let arguments_passed =
+        from_fn(|| Some(stack.pop_val())).take(number_of_arguments_passed as usize);
 
     let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
     let num_missing_arguments =
