@@ -213,6 +213,15 @@ impl SymbolTable {
         }
         Ok(())
     }
+    pub fn connect_and_new<I>(&mut self, existing: Ident, new: Ident) -> Result<(), CreationError> {
+        // Find what we are linking to.
+        let data = self.table.get(&existing).ok_or(CreationError)?.clone();
+        // New the "new" variable name.
+        self.new_var([new.clone()])?;
+        // Connect "new" name to the same data
+        *self.table.get_mut(&new).ok_or(CreationError)? = data;
+        Ok(())
+    }
 
     /// News all the variables that exist in the symbol table except for intrinsic variables and
     /// variables specified in the exclude parameter.
