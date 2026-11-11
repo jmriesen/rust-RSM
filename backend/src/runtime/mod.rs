@@ -12,6 +12,7 @@ use crate::{
     },
     conditional_jumps::{Jump, JumpCodes},
     extrinsic_function::ExtrinsicFunctionCall,
+    intrinsic_functions::FunctionCodes,
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
@@ -162,6 +163,7 @@ StackAssembally! {
     Test,
     NewStackAsm,
     ExtrinsicFunctionCall,
+    FunctionCodes,
     TEMP,
 }
 impl<'a> Job<'a> {
@@ -399,6 +401,14 @@ impl<'a> Job<'a> {
                             NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
                         }
                     }
+                    StackAssembally::FunctionCodes(function_codes) => match function_codes {
+                        FunctionCodes::Data => {
+                            let var = self.stack.pop_var();
+                            let data = self.symbol_table.data(&var);
+                            self.stack.push_val(data.into());
+                        }
+                        _ => todo!("not yet supported"),
+                    },
                 }
             } else {
                 self.call_stack.pop();
@@ -427,6 +437,7 @@ impl<'a> Job<'a> {
         for _ in 0..var.subscripts {
             subscripts.push(r_values.pop_val());
         }
+        subscripts.reverse();
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
 }

@@ -3,7 +3,8 @@ use crate::{
     byte_code::{ByteCode, JumpOffset},
     conditional_jumps::{Jump, JumpCodes},
     expression::ExpressionContext,
-    runtime::{StackAssembally, TEMP},
+    macros,
+    runtime::{LegacyEncoding, StackAssembally, TEMP},
     variable::VarContext,
 };
 use ir::{
@@ -13,8 +14,8 @@ use ir::{
 };
 use value::Value;
 
-#[derive(Clone, Copy)]
-pub enum FunctionCodes {
+macros::OpCodes!(
+FunctionCodes {
     Char = 102,
     View = 135,
     Ascii = 100,
@@ -39,6 +40,7 @@ pub enum FunctionCodes {
     Order = 119,
     Query = 126,
 }
+);
 
 impl<const REQUIRED: usize, const OPTIONAL: usize> Compile for Function<REQUIRED, OPTIONAL> {
     type Context = FunctionCodes;
