@@ -3,6 +3,7 @@ use std::borrow::Borrow;
 use super::SymbolTable;
 use crate::m_var::test_helpers::var_m;
 use pretty_assertions::{assert_eq, assert_ne};
+use value::Value;
 
 #[test]
 fn get_unset_variable() {
@@ -154,7 +155,7 @@ fn kill_initialized_root() {
 }
 
 #[test]
-fn keep_slot_open_if_variable_was_new_ed() {
+fn kill_keeps_slot_open_if_variable_was_new_ed() {
     let mut table = SymbolTable::new();
     let var = var_m("foo", &[]);
     table.push_new_frame();
@@ -167,6 +168,38 @@ fn keep_slot_open_if_variable_was_new_ed() {
     //Hash table should have freed the slot since it was not new-ed
     //by something else and the restored value holds no data.
     assert_eq!(table.table.get(&var.name), None);
+}
+
+#[test]
+fn pop_keeps_slot_open_if_variable_was_new_ed() {
+    let mut table = SymbolTable::new();
+    let var = var_m("foo", &[]);
+
+    //Push first frame
+    table.push_new_frame();
+    table.new_var([var.name.clone()]).unwrap();
+    table.set(&var, Value::true_v()).unwrap();
+    //Slot created
+    assert_ne!(table.table.get(&var.name), None);
+
+    //Push second frame
+    table.push_new_frame();
+    table.new_var([var.name.clone()]).unwrap();
+    //Assert that not data is in second frame
+    table.kill(&var);
+
+    //Push a third frame.
+    table.push_new_frame();
+    table.new_var([var.name.clone()]).unwrap();
+
+    table.pop_new_frame();
+    //Slot is kept open even thou second frame has no data for foo.
+    assert_ne!(table.table.get(&var.name), None);
+
+    //That is done so we can eventually restore the first frame without any fallible operations.
+    table.pop_new_frame();
+    assert_eq!(table.get(&var), Some(Value::true_v().clone()));
+    table.pop_new_frame();
 }
 
 #[test]

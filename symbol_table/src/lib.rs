@@ -171,7 +171,13 @@ impl SymbolTable {
             //which they were new-ed. This matters in the case where a variable was new-ed
             //multiple times.
             for (var, data) in frame.into_iter().rev() {
-                //If there is data to restore OR the variable was new-ed before.
+                //NOTE: I want it to be impossible that popping a frame could ever fail.
+                //Claiming a spot in the table can fail so we hold onto the spot that has already
+                //been allocated if it was ever previously new-ed
+                //We only release the table slot if there is no data to restore AND that variable is
+                //not used ANYWHERE else in current "new" stack.
+                //If it exists ANYWHERE in the stack we may need to restore it latter and reclaiming
+                //a slot is a fallible operation.
                 if data.borrow().not_empty() || self.attached(&var) {
                     let slot = self
                         .table
