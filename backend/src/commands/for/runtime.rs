@@ -1,7 +1,7 @@
 use crate::{
     byte_code::Location,
     commands::r#for::{ForMetaData, ForParameterType},
-    runtime::{Job, RuntimeError, program_counter::ProgramCounter},
+    runtime::{Job, RuntimeError, Stack, program_counter::ProgramCounter},
 };
 use symbol_table::{MVar, SymbolTable, key::Path};
 use value::{Number, Value};
@@ -53,7 +53,7 @@ impl<'a> Job<'a> {
     pub(crate) fn initialize_for_loop(
         current_location: Location,
         for_stack: &mut Vec<ForFrame>,
-        l_values: &mut Vec<MVar<Path>>,
+        stack: &mut Stack,
         for_meta_data: ForMetaData,
     ) {
         let ForMetaData {
@@ -64,7 +64,7 @@ impl<'a> Job<'a> {
         let args = match kind {
             super::ForStart::Arguments => Some(ForArgFrame {
                 pc: current_location,
-                var: l_values.pop().expect("a built value."),
+                var: stack.pop_var(),
                 current_range: None,
             }),
             super::ForStart::ArgumentLess => None,
@@ -83,27 +83,27 @@ impl<'a> Job<'a> {
         for_stack: &mut Vec<ForFrame>,
         r#type: ForParameterType,
         symbol_table: &mut SymbolTable,
-        r_values: &mut Vec<Value>,
+        stack: &mut Stack,
         pc: &mut ProgramCounter<'_>,
     ) {
         let mut frame = for_stack.last_mut();
         let frame = frame.as_mut().unwrap();
         let new_range = match r#type {
-            ForParameterType::Value => (r_values.pop().unwrap(), None),
+            ForParameterType::Value => (stack.pop_val(), None),
             //NOTE: if using a range (bounded/unbounded) the initial value is always converted into a
             //number first.
             ForParameterType::Unbounded => {
-                let increment = Number::from(r_values.pop().unwrap());
+                let increment = Number::from(stack.pop_val());
                 (
-                    Number::from(r_values.pop().unwrap()).into(),
+                    Number::from(stack.pop_val()).into(),
                     Some((increment, None)),
                 )
             }
             ForParameterType::Bounded => {
-                let end = Number::from(r_values.pop().unwrap());
-                let increment = Number::from(r_values.pop().unwrap());
+                let end = Number::from(stack.pop_val());
+                let increment = Number::from(stack.pop_val());
                 (
-                    Number::from(r_values.pop().unwrap()).into(),
+                    Number::from(stack.pop_val()).into(),
                     Some((increment, Some(end))),
                 )
             }

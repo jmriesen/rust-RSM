@@ -1,11 +1,10 @@
 use std::iter::{from_fn, repeat_n};
 
 use symbol_table::{Ident, MVar, SymbolTable, key::Path};
-use value::Value;
 
-use crate::runtime::{DoFrame, RuntimeError, program_counter::ProgramCounter};
+use crate::runtime::{DoFrame, RuntimeError, StackValue, program_counter::ProgramCounter};
 
-pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, Value)>> {
+pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, StackValue)>> {
     pub arguments: A,
     pub line_level_zero: bool,
 }
@@ -15,15 +14,18 @@ pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, Value)>> {
 pub fn build_arguments(
     number_of_arguments_passed: u8,
     parameters: &Option<Vec<Ident>>,
-    r_values: &mut Vec<Value>,
-) -> Result<impl Iterator<Item = (MVar<Path>, Value)>, RuntimeError> {
+    stack: &mut super::Stack,
+) -> Result<impl Iterator<Item = (MVar<Path>, StackValue)>, RuntimeError> {
     let parameter_list_defined = parameters.is_some();
 
-    let arguments_passed = from_fn(|| r_values.pop()).take(number_of_arguments_passed as usize);
+    let arguments_passed = from_fn(|| Some(stack.pop())).take(number_of_arguments_passed as usize);
 
     let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
+    dbg!(expected_numb_parameters);
     let num_missing_arguments =
         expected_numb_parameters as isize - number_of_arguments_passed as isize;
+    dbg!(expected_numb_parameters);
+    dbg!(num_missing_arguments);
 
     if num_missing_arguments.is_negative() {
         //We supplied too many arguments
@@ -42,7 +44,10 @@ pub fn build_arguments(
             .rev()
             .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
             //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
-            .zip(repeat_n(Value::empty(), num_missing_arguments as usize).chain(arguments_passed));
+            .zip(
+                repeat_n(StackValue::VarUndefined, num_missing_arguments as usize)
+                    .chain(arguments_passed),
+            );
         Ok(arguments)
     }
 }
@@ -54,7 +59,7 @@ pub fn push_do_frame<'a>(
     PushFrameArgs {
         arguments,
         line_level_zero,
-    }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, Value)>>,
+    }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, StackValue)>>,
 ) {
     let new_frame = DoFrame {
         pc,
@@ -71,7 +76,19 @@ pub fn push_do_frame<'a>(
     symbol_table.push_new_frame();
 
     for (var, value) in arguments {
-        symbol_table.new_var([var.name.clone()]).unwrap();
-        symbol_table.set(&var, &value).unwrap();
+        match value {
+            StackValue::Value(value) => {
+                symbol_table.new_var([var.name.clone()]).unwrap();
+                symbol_table.set(&var, &value).unwrap();
+            }
+            StackValue::Var(mvar) => {
+                assert_eq!(mvar.key, Path::empty());
+                //TODO: There were more checks
+                symbol_table.connect_and_new(mvar.name, var.name).unwrap();
+            }
+            StackValue::VarUndefined => {
+                symbol_table.new_var([var.name.clone()]).unwrap();
+            }
+        }
     }
 }

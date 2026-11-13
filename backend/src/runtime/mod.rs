@@ -11,7 +11,8 @@ use crate::{
         write::WriteCodes,
     },
     conditional_jumps::{Jump, JumpCodes},
-    extrinsic_function::ExtrinsicFunctionCall,
+    extrinsic_function::{ArgmentCodes, ExtrinsicFunctionCall},
+    intrinsic_functions::FunctionCodes,
     line_info::{EndLine, StartLine},
     macros::StackAssembally,
     operators::{BinaryApply, UnaryApply},
@@ -61,16 +62,52 @@ struct DoFrame<'a> {
     line_level: u16,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+enum StackValue {
+    Value(value::Value),
+    Var(MVar<Path>),
+    VarUndefined,
+}
+#[derive(Debug, PartialEq)]
+pub struct Stack(Vec<StackValue>);
+impl Stack {
+    pub fn push_val(&mut self, value: value::Value) {
+        self.0.push(StackValue::Value(value))
+    }
+    #[track_caller]
+    pub fn pop_val(&mut self) -> value::Value {
+        match self.0.pop() {
+            Some(StackValue::Value(value)) => value,
+            Some(_) => panic!("Top of stack was not a mumps value"),
+            None => panic!("Tried to pop empty Stack"),
+        }
+    }
+    pub fn push_var(&mut self, value: MVar<Path>) {
+        self.0.push(StackValue::Var(value))
+    }
+    #[track_caller]
+    pub fn pop_var(&mut self) -> MVar<Path> {
+        match self.0.pop() {
+            Some(StackValue::Var(value)) => value,
+            Some(_) => panic!("Top of stack was not a mumps var"),
+            None => panic!("Tried to pop empty Stack"),
+        }
+    }
+
+    #[track_caller]
+    fn pop(&mut self) -> StackValue {
+        self.0.pop().expect("Tried to pop empty Stack")
+    }
+}
+
 pub struct Job<'a> {
     //TODO: Replace with a proper output device later.
     pub buffer: String,
     /// Stack of values
-    r_values: Vec<value::Value>,
-    /// Stack of L-values (things that can be assigned to).
-    l_values: Vec<MVar<Path>>,
+    stack: Stack,
     symbol_table: SymbolTable,
     /// Do Stack
-    stack: Vec<DoFrame<'a>>,
+    call_stack: Vec<DoFrame<'a>>,
 
     error: Option<RuntimeError>,
     routine: &'a CompiledRoutine,
@@ -132,24 +169,26 @@ StackAssembally! {
     Test,
     NewStackAsm,
     ExtrinsicFunctionCall,
+    FunctionCodes,
+    ArgmentCodes,
     TEMP,
 }
+
 impl<'a> Job<'a> {
     pub fn new(routine: &'a CompiledRoutine) -> Self {
         let mut symbol_table = SymbolTable::default();
         symbol_table.push_new_frame();
         let mut job = Self {
             buffer: String::new(),
-            r_values: vec![],
-            l_values: vec![],
+            stack: Stack(vec![]),
             symbol_table,
             error: None,
-            stack: vec![],
+            call_stack: vec![],
             routine,
         };
         push_do_frame(
             &mut job.symbol_table,
-            &mut job.stack,
+            &mut job.call_stack,
             routine.beginning_of_file(),
             PushFrameArgs {
                 arguments: [].into_iter(),
@@ -159,35 +198,35 @@ impl<'a> Job<'a> {
         job
     }
     pub fn run(&mut self) {
-        while let Some(do_frame) = self.stack.last_mut() {
+        while let Some(do_frame) = self.call_stack.last_mut() {
             if let Some(instruction) = do_frame.pc.next() {
                 match instruction {
                     StackAssembally::Value(value) => {
-                        self.r_values.push(value);
+                        self.stack.push_val(value);
                     }
                     StackAssembally::WriteCodes(write_codes) => match write_codes {
                         WriteCodes::Bang => self.buffer.push('\n'),
                         WriteCodes::Clear => todo!(),
                         WriteCodes::Tab => todo!(),
                         WriteCodes::Expression => {
-                            let value = self.r_values.pop().unwrap();
+                            let value = self.stack.pop_val();
                             self.buffer
                                 .push_str(core::str::from_utf8(value.content()).unwrap());
                         }
                     },
                     StackAssembally::Binary(op) => {
-                        let second = self.r_values.pop().unwrap();
-                        let first = self.r_values.pop().unwrap();
-                        self.r_values.push(op.apply(first, second));
+                        let second = self.stack.pop_val();
+                        let first = self.stack.pop_val();
+                        self.stack.push_val(op.apply(first, second));
                     }
                     StackAssembally::Unary(op) => {
-                        let value = self.r_values.pop().unwrap();
-                        self.r_values.push(op.apply(value));
+                        let value = self.stack.pop_val();
+                        self.stack.push_val(op.apply(value));
                     }
                     StackAssembally::StartLine(line_info) => {
                         match line_info.level.cmp(&do_frame.line_level) {
                             Ordering::Less => {
-                                self.stack.pop();
+                                self.call_stack.pop();
                                 self.symbol_table.pop_new_frame();
                             }
                             Ordering::Equal => { /*continue*/ }
@@ -202,7 +241,7 @@ impl<'a> Job<'a> {
                         pc.advance_to_next_line();
                         push_do_frame(
                             &mut self.symbol_table,
-                            &mut self.stack,
+                            &mut self.call_stack,
                             pc,
                             PushFrameArgs {
                                 arguments: [].into_iter(),
@@ -221,7 +260,7 @@ impl<'a> Job<'a> {
                                     build_arguments(
                                         call.number_of_arguments_passed,
                                         parameters,
-                                        &mut self.r_values,
+                                        &mut self.stack,
                                     ),
                                 )
                             })
@@ -229,7 +268,7 @@ impl<'a> Job<'a> {
                         {
                             Ok((pc, arguments)) => push_do_frame(
                                 &mut self.symbol_table,
-                                &mut self.stack,
+                                &mut self.call_stack,
                                 pc,
                                 PushFrameArgs {
                                     arguments,
@@ -243,7 +282,7 @@ impl<'a> Job<'a> {
                         Self::initialize_for_loop(
                             do_frame.pc.current_location(),
                             &mut do_frame.for_stack,
-                            &mut self.l_values,
+                            &mut self.stack,
                             meta_data,
                         );
                     }
@@ -252,7 +291,7 @@ impl<'a> Job<'a> {
                             &mut do_frame.for_stack,
                             r#type,
                             &mut self.symbol_table,
-                            &mut self.r_values,
+                            &mut self.stack,
                             &mut do_frame.pc,
                         );
                     }
@@ -266,14 +305,14 @@ impl<'a> Job<'a> {
                     }
                     StackAssembally::NoOpCode(_no_op_code) => {}
                     StackAssembally::LoadVar(load_var) => {
-                        let var = Self::build_var(&mut self.r_values, load_var.var);
-                        let val = self.symbol_table.get(&var).cloned().unwrap_or_default();
-                        self.r_values.push(val);
+                        let var = Self::build_var(&mut self.stack, load_var.var);
+                        let val = self.symbol_table.get(&var).unwrap_or_default();
+                        self.stack.push_val(val);
                     }
                     StackAssembally::SetCodes(code) => match code {
                         SetCodes::Var => {
-                            let val = self.r_values.pop().expect("Value to store on the stack");
-                            let var = self.l_values.pop().unwrap();
+                            let var = self.stack.pop_var();
+                            let val = self.stack.pop_val();
                             self.symbol_table.set(&var, &val).unwrap();
                         }
                     },
@@ -281,8 +320,7 @@ impl<'a> Job<'a> {
                     StackAssembally::IfElse(command) => {
                         use IfElse as E;
                         if let E::If = command {
-                            let condition =
-                                self.r_values.pop().expect("Value to store on the stack");
+                            let condition = self.stack.pop_val();
                             do_frame.test = bool::from(condition);
                         }
                         if match command {
@@ -301,7 +339,7 @@ impl<'a> Job<'a> {
                         use ir::commands::kill::KillType as E;
                         let mut l_values = vec![];
                         for _ in 0..kill.number_of_variables {
-                            l_values.push(self.l_values.pop().unwrap());
+                            l_values.push(self.stack.pop_var());
                         }
                         match kill.r#type {
                             E::Inclusive => {
@@ -316,27 +354,26 @@ impl<'a> Job<'a> {
                         }
                     }
                     StackAssembally::PushVar(push_var) => {
-                        let l_value = Self::build_var(&mut self.r_values, push_var.var);
-                        self.l_values.push(l_value);
+                        let l_value = Self::build_var(&mut self.stack, push_var.var);
+                        self.stack.push_var(l_value);
                     }
                     StackAssembally::QuitCodes(quit_codes) => match quit_codes {
                         QuitCodes::WithoutArg => {
                             if let Some(for_frame) = do_frame.for_stack.pop() {
                                 do_frame.pc.jump(for_frame.r#break);
                             } else {
-                                self.stack.pop();
+                                self.call_stack.pop();
+                                self.symbol_table.pop_new_frame();
                             }
                         }
                         QuitCodes::WithArg => {
-                            let _ = self.r_values.pop().unwrap();
+                            let _ = self.stack.pop_val();
                             self.error = Some(RuntimeError::NotYetSupported("quit with args"))
                         }
                     },
                     StackAssembally::Jump(jump) => {
                         let should_jump = match jump.r#type {
-                            JumpCodes::Conditional => !bool::from(
-                                self.r_values.pop().expect("Value to store on the stack"),
-                            ),
+                            JumpCodes::Conditional => !bool::from(self.stack.pop_val()),
                             JumpCodes::Unconditional => {
                                 // Should just be "true", but leaving as unimplemented!() until I have a
                                 // test case that uses this.
@@ -348,7 +385,7 @@ impl<'a> Job<'a> {
                         }
                     }
                     StackAssembally::Test(_) => {
-                        self.r_values.push(do_frame.test.into());
+                        self.stack.push_val(do_frame.test.into());
                     }
                     StackAssembally::NewStackAsm(new) => {
                         let NewStackAsm {
@@ -357,8 +394,15 @@ impl<'a> Job<'a> {
                         } = new;
 
                         let vars = self
-                            .l_values
-                            .drain((self.l_values.len() - number_of_variables as usize)..)
+                            .stack
+                            .0
+                            .drain((self.stack.0.len() - number_of_variables as usize)..)
+                            .map(|x| match x {
+                                StackValue::Var(mvar) => mvar,
+                                _ => {
+                                    panic!("Tried to new something that was not a variable")
+                                }
+                            })
                             .map(|x| x.name);
 
                         match kind {
@@ -366,9 +410,25 @@ impl<'a> Job<'a> {
                             NewKind::Exclusive => self.symbol_table.new_all_but(vars).unwrap(),
                         }
                     }
+                    StackAssembally::FunctionCodes(function_codes) => match function_codes {
+                        FunctionCodes::Data => {
+                            let var = self.stack.pop_var();
+                            let data = self.symbol_table.data(&var);
+                            self.stack.push_val(data.into());
+                        }
+                        _ => todo!("not yet supported"),
+                    },
+                    StackAssembally::ArgmentCodes(argment_codes) => {
+                        match argment_codes {
+                            ArgmentCodes::VarUndefined => {
+                                self.stack.0.push(StackValue::VarUndefined)
+                            }
+                            ArgmentCodes::ByRef => { /*Already build/on the stack*/ }
+                        }
+                    }
                 }
             } else {
-                self.stack.pop();
+                self.call_stack.pop();
                 self.symbol_table.pop_new_frame();
             }
         }
@@ -389,11 +449,12 @@ impl<'a> Job<'a> {
         }
     }
 
-    pub fn build_var(r_values: &mut Vec<Value>, var: BuildVarInstructions) -> MVar<Path> {
+    pub fn build_var(r_values: &mut Stack, var: BuildVarInstructions) -> MVar<Path> {
         let mut subscripts = vec![];
         for _ in 0..var.subscripts {
-            subscripts.push(r_values.pop().unwrap());
+            subscripts.push(r_values.pop_val());
         }
+        subscripts.reverse();
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
 }
@@ -417,9 +478,9 @@ mod test {
         job.run();
         assert_eq!(job.buffer, output);
         // All values must be used if they were added
-        assert_eq!(job.r_values, vec![]);
+        assert_eq!(job.stack.0, vec![]);
         // We should exit all the do stacks
-        assert!(job.stack.is_empty());
+        assert!(job.call_stack.is_empty());
 
         let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
         assert_eq!(error_message, error);

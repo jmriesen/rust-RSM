@@ -1,0 +1,34 @@
+ ; Based off M[UMPS] By Example written by Ed de Moel
+ Write $Data(Y),!
+
+ Set Y=100 
+ Write $Data(Y),!
+
+ Set Y="AB" 
+ Write $Data(Y),!
+
+ Set A(1)="ABC" 
+ Write $Data(A(1))," "
+ Write $Data(A),!
+
+ Set B(1,2)="BC"
+ Write $Data(B(1,2))," "
+ Write $Data(B(1))," "
+ Write $Data(B),!
+
+ Set B(1)="CD"
+ Write $Data(B(1)),!
+
+ Kill B(1,2) 
+ Write $Data(B(1,2))
+
+---
+0
+1
+1
+1 10
+1 10 10
+11
+0
+---
+
