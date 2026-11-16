@@ -21,11 +21,8 @@ pub fn build_arguments(
     let arguments_passed = from_fn(|| Some(stack.pop())).take(number_of_arguments_passed as usize);
 
     let expected_numb_parameters = parameters.as_ref().map(|x| x.len()).unwrap_or(0);
-    dbg!(expected_numb_parameters);
     let num_missing_arguments =
         expected_numb_parameters as isize - number_of_arguments_passed as isize;
-    dbg!(expected_numb_parameters);
-    dbg!(num_missing_arguments);
 
     if num_missing_arguments.is_negative() {
         //We supplied too many arguments
@@ -60,7 +57,7 @@ pub fn push_do_frame<'a>(
         arguments,
         line_level_zero,
     }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, StackValue)>>,
-) {
+) -> Result<(), RuntimeError> {
     let new_frame = DoFrame {
         pc,
         for_stack: vec![],
@@ -78,17 +75,24 @@ pub fn push_do_frame<'a>(
     for (var, value) in arguments {
         match value {
             StackValue::Value(value) => {
-                symbol_table.new_var([var.name.clone()]).unwrap();
-                symbol_table.set(&var, &value).unwrap();
+                symbol_table.new_var([var.name.clone()])?;
+                symbol_table.set(&var, &value)?;
             }
             StackValue::Var(mvar) => {
-                assert_eq!(mvar.key, Path::empty());
-                //TODO: There were more checks
-                symbol_table.connect_and_new(mvar.name, var.name).unwrap();
+                // Only "Normal" variables can be passed by reference.
+                (
+                    // Formatting comment
+                    mvar.key == Path::empty() && 
+                    // Formatting comment
+                    mvar.user_class_identification_is_local_var()
+                )
+                .ok_or(RuntimeError::CommandSyntaxError)?;
+                symbol_table.connect_and_new(mvar.name, var.name)?;
             }
             StackValue::VarUndefined => {
-                symbol_table.new_var([var.name.clone()]).unwrap();
+                symbol_table.new_var([var.name.clone()])?;
             }
         }
     }
+    Ok(())
 }

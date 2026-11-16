@@ -40,13 +40,10 @@ mod m_var;
 mod value_tree;
 mod variable_name;
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 
 pub use hash::CreationError;
-use key::{Path, Segment};
+use key::Path;
 pub use m_var::MVar;
 use value::Value;
 use value_tree::ValueTree;
@@ -225,7 +222,7 @@ impl SymbolTable {
         // New the "new" variable name.
         self.new_var([new.clone()])?;
         // Connect "new" name to the same data
-        *self.table.get_mut(&new).ok_or(CreationError)? = data;
+        *self.table.get_mut(&new).ok_or(CreationError::Unspecified)? = data;
         Ok(())
     }
 

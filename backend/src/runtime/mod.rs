@@ -29,7 +29,7 @@ use ir::{
 };
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Debug};
-use symbol_table::{MVar, SymbolTable, key::Path};
+use symbol_table::{CreationError, MVar, SymbolTable, key::Path};
 use thiserror::Error;
 use value::Value;
 mod do_calls;
@@ -47,6 +47,10 @@ pub(crate) enum RuntimeError {
     NoParameterListDefined,
     #[error("Invalid line reference (line not found)")]
     CouldNotFindTagOrCouldNotFindRoutine,
+    #[error("Command syntax error")]
+    CommandSyntaxError,
+    #[error("Command syntax error")]
+    SymbolTableError(#[from] CreationError),
 }
 
 #[derive(Debug)]
@@ -194,7 +198,8 @@ impl<'a> Job<'a> {
                 arguments: [].into_iter(),
                 line_level_zero: true,
             },
-        );
+        )
+        .expect("Can't error if no arguments were provided");
         job
     }
     pub fn run(&mut self) {
@@ -247,35 +252,19 @@ impl<'a> Job<'a> {
                                 arguments: [].into_iter(),
                                 line_level_zero: false,
                             },
-                        );
+                        )
+                        .expect("Can't error if no arguments were provided");
                     }
                     StackAssembally::ExtrinsicFunctionCall(call) => {
-                        match self
-                            .routine
-                            .tag(call.tag)
-                            .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)
-                            .map(|(pc, parameters)| {
-                                (
-                                    pc,
-                                    build_arguments(
-                                        call.number_of_arguments_passed,
-                                        parameters,
-                                        &mut self.stack,
-                                    ),
-                                )
-                            })
-                            .and_then(|(pc, arguments)| arguments.map(|x| (pc, x)))
-                        {
-                            Ok((pc, arguments)) => push_do_frame(
-                                &mut self.symbol_table,
-                                &mut self.call_stack,
-                                pc,
-                                PushFrameArgs {
-                                    arguments,
-                                    line_level_zero: true,
-                                },
-                            ),
-                            Err(error) => self.error = Some(error),
+                        match call_extrinsic_function(
+                            self.routine,
+                            &mut self.symbol_table,
+                            &mut self.call_stack,
+                            &mut self.stack,
+                            call,
+                        ) {
+                            Ok(()) => (),
+                            Err(runtime_error) => self.error = Some(runtime_error),
                         }
                     }
                     StackAssembally::ForMetaData(meta_data) => {
@@ -457,6 +446,27 @@ impl<'a> Job<'a> {
         subscripts.reverse();
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
+}
+fn call_extrinsic_function<'a>(
+    routine: &'a CompiledRoutine,
+    symbol_table: &mut SymbolTable,
+    call_stack: &mut Vec<DoFrame<'a>>,
+    stack: &mut Stack,
+    call: ExtrinsicFunctionCall,
+) -> Result<(), RuntimeError> {
+    let (pc, parameters) = routine
+        .tag(call.tag)
+        .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)?;
+    let arguments = build_arguments(call.number_of_arguments_passed, parameters, stack)?;
+    push_do_frame(
+        symbol_table,
+        call_stack,
+        pc,
+        PushFrameArgs {
+            arguments,
+            line_level_zero: true,
+        },
+    )
 }
 
 #[cfg(test)]

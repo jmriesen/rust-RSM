@@ -10,7 +10,7 @@ use crate::{
     byte_code::ByteCode,
     expression::ExpressionContext,
     macros::OpCodes,
-    runtime::{LegacyEncoding, StackAssembally, TEMP, program_counter::AssemblyDecoder},
+    runtime::{LegacyEncoding, StackAssembally, program_counter::AssemblyDecoder},
     variable::VarContext,
 };
 #[derive(Clone, Copy)]

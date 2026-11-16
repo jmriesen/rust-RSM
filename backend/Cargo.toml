@@ -7,7 +7,7 @@ edition = "2024"
 ir = {path="../ir/"}
 value = {path = "../value/"}
 symbol_table= {path = "../symbol_table/"}
-thiserror = "1.0.63"
+thiserror = {workspace = true}
 serde = { version = "1.0.210", features = ["derive"] }
 
 [dev-dependencies]
