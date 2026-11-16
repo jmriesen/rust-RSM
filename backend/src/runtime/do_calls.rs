@@ -4,7 +4,7 @@ use symbol_table::{Ident, MVar, SymbolTable, key::Path};
 
 use crate::runtime::{DoFrame, RuntimeError, StackValue, program_counter::ProgramCounter};
 
-pub struct PushFrameArgs<A: Iterator<Item = (MVar<Path>, StackValue)>> {
+pub struct PushFrameArgs<A: Iterator<Item = (Ident, StackValue)>> {
     pub arguments: A,
     pub line_level_zero: bool,
 }
@@ -15,7 +15,7 @@ pub fn build_arguments(
     number_of_arguments_passed: u8,
     parameters: &Option<Vec<Ident>>,
     stack: &mut super::Stack,
-) -> Result<impl Iterator<Item = (MVar<Path>, StackValue)>, RuntimeError> {
+) -> Result<impl Iterator<Item = (Ident, StackValue)>, RuntimeError> {
     let parameter_list_defined = parameters.is_some();
 
     let arguments_passed = from_fn(|| Some(stack.pop())).take(number_of_arguments_passed as usize);
@@ -39,7 +39,7 @@ pub fn build_arguments(
             .iter()
             .flatten()
             .rev()
-            .map(|name| MVar::new(name.clone(), Path::new([]).unwrap()))
+            .cloned()
             //NOTE: we know that parameter list will always run out first due to number_of_undefined_arguments>=0.
             .zip(
                 repeat_n(StackValue::VarUndefined, num_missing_arguments as usize)
@@ -56,7 +56,7 @@ pub fn push_do_frame<'a>(
     PushFrameArgs {
         arguments,
         line_level_zero,
-    }: PushFrameArgs<impl Iterator<Item = (MVar<Path>, StackValue)>>,
+    }: PushFrameArgs<impl Iterator<Item = (Ident, StackValue)>>,
 ) -> Result<(), RuntimeError> {
     let new_frame = DoFrame {
         pc,
@@ -75,8 +75,8 @@ pub fn push_do_frame<'a>(
     for (var, value) in arguments {
         match value {
             StackValue::Value(value) => {
-                symbol_table.new_var([var.name.clone()])?;
-                symbol_table.set(&var, &value)?;
+                symbol_table.new_var([var.clone()])?;
+                symbol_table.set(&MVar::new(var, Path::empty()), &value)?;
             }
             StackValue::Var(mvar) => {
                 // Only "Normal" variables can be passed by reference.
@@ -87,10 +87,10 @@ pub fn push_do_frame<'a>(
                     mvar.user_class_identification_is_local_var()
                 )
                 .ok_or(RuntimeError::CommandSyntaxError)?;
-                symbol_table.connect_and_new(mvar.name, var.name)?;
+                symbol_table.connect_and_new(mvar.name, var)?;
             }
             StackValue::VarUndefined => {
-                symbol_table.new_var([var.name.clone()])?;
+                symbol_table.new_var([var])?;
             }
         }
     }
