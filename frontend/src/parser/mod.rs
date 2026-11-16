@@ -44,11 +44,18 @@ where
 
 pub fn keyword<'src>(keyword: &'static str) -> impl Parser<'src, &'src str, (), Extra<'src>> {
     let (abriveation, _) = keyword.split_at(1);
+    //TODO: Optimization opportunity allocation should not be necessary.
     choice((
-        just(keyword.to_lowercase()),
-        just(keyword.to_ascii_uppercase()),
-        just(abriveation.to_lowercase()),
-        just(abriveation.to_ascii_uppercase()),
+        any()
+            .repeated()
+            .exactly(keyword.len())
+            .to_slice()
+            .filter(move |x: &&str| *x.to_ascii_lowercase() == keyword.to_lowercase()),
+        any()
+            .repeated()
+            .exactly(abriveation.len())
+            .to_slice()
+            .filter(move |x: &&str| *x.to_ascii_lowercase() == abriveation.to_lowercase()),
     ))
     .ignored()
     .labelled(keyword)

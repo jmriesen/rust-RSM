@@ -1,0 +1,14 @@
+ ; Based off M[UMPS] By Example written by Ed de Moel
+ Set A="President"
+ Do SUB1(.A)
+ Write !,A
+ Quit
+ ;
+SUB1(B) Kill B
+ Set B="Prime minister"
+ Quit
+---
+
+Prime minister
+---
+

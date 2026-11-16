@@ -1,0 +1,13 @@
+ ; Based off M[UMPS] By Example written by Ed de Moel
+ SET VA=1 DO
+ . DO SUB
+ . QUIT
+ WRITE VA
+ QUIT
+ ;
+SUB SET VA=2
+ QUIT
+---
+2
+---
+

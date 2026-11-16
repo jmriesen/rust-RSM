@@ -1,0 +1,14 @@
+ ; Based off M[UMPS] By Example written by Ed de Moel
+ KILL
+ SET A=1,B=2 DO SUB(B,.C,D)
+ WRITE $DATA(A),", ",$DATA(B),", ",$DATA(C),", "
+ WRITE $DATA(D),", ",$DATA(E),", ",$DATA(F)
+ WRITE !,"B=",B,", D=",D
+ QUIT
+SUB(A,C,F) SET A=3,B=5,C=7,D=9,F=11
+ QUIT
+---
+1, 1, 1, 1, 0, 0
+B=5, D=9
+---
+

@@ -58,7 +58,7 @@ fuzz_target!(|commands: Vec<TableCommands>| -> () {
                     assert_eq!(table.set(&var, &val), c_table.set(&var, val));
                 }
                 TableCommands::Get(var) => {
-                    assert_eq!(table.get(&var), c_table.get(&var).as_ref());
+                    assert_eq!(table.get(&var), c_table.get(&var));
                 }
                 TableCommands::Kill(var) => {
                     table.kill(&var);

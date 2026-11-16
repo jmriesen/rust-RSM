@@ -41,8 +41,17 @@ pub trait Key: Eq + std::hash::Hash + Sized {
 }
 
 /// The `HashTable` is full so we could not insert a new entry.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct CreationError;
+#[derive(Copy, Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum CreationError {
+    #[error("TODO break down int more specific types")]
+    Unspecified,
+}
+
+impl Default for CreationError {
+    fn default() -> Self {
+        Self::Unspecified
+    }
+}
 
 /// A pre-allocated `HashTable` with a fixed capacity.
 /// # Error handling
@@ -106,7 +115,7 @@ where
                     self.slots[new_slot_index] = Some(V::default());
                     Ok(self.slots[new_slot_index].as_mut().unwrap())
                 } else {
-                    Err(CreationError)
+                    Err(CreationError::Unspecified)
                 }
             }
         }

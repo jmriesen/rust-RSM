@@ -148,7 +148,7 @@ dependencies = [
  "rstest",
  "serde",
  "symbol_table",
- "thiserror 1.0.69",
+ "thiserror 2.0.16",
  "value",
 ]
 

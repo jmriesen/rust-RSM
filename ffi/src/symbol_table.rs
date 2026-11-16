@@ -64,7 +64,7 @@ impl Table {
         if result.is_negative() {
             //This should be the only type of error returned
             assert_eq!(result, -256);
-            Err(CreationError)
+            Err(CreationError::Unspecified)
         } else {
             Ok(())
         }
