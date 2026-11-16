@@ -79,14 +79,9 @@ pub fn push_do_frame<'a>(
                 symbol_table.set(&MVar::new(var, Path::empty()), &value)?;
             }
             StackValue::Var(mvar) => {
-                // Only "Normal" variables can be passed by reference.
-                (
-                    // Formatting comment
-                    mvar.key == Path::empty() && 
-                    // Formatting comment
-                    mvar.user_class_identification_is_local_var()
-                )
-                .ok_or(RuntimeError::CommandSyntaxError)?;
+                can_be_passed_by_reference(&mvar)
+                    .ok_or(RuntimeError::CommandSyntaxError)
+                    .expect("Parser should have caught this error.");
                 symbol_table.connect_and_new(mvar.name, var)?;
             }
             StackValue::VarUndefined => {
@@ -95,4 +90,12 @@ pub fn push_do_frame<'a>(
         }
     }
     Ok(())
+}
+
+/// Only "Normal" variables can be passed by reference.
+//Exempting from mutation testing because this check "should always" return true.
+//Anything that would fail this "should have been" caught by the parser.
+#[cfg_attr(test, mutants::skip)]
+fn can_be_passed_by_reference(var: &MVar<Path>) -> bool {
+    var.key == Path::empty() && var.user_class_identification_is_local_var()
 }

@@ -1,0 +1,8 @@
+entry
+ d foo(.var("sub"))
+ q
+foo(x)
+ w "pre-",x,"-",y,"-post"
+ q
+---
+Expected local variables with no subscripts

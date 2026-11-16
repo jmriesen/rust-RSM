@@ -96,6 +96,7 @@ impl<Key: key::PathType> MVar<Key> {
         }
     }
 
+    #[cfg_attr(test, mutants::skip)]
     pub fn user_class_identification_is_local_var(&self) -> bool {
         self.uci == UCI_IS_LOCALVAR
     }
