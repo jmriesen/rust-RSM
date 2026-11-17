@@ -185,13 +185,10 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Extra<'src
                     op_b_code().then(unary.clone()),
                 ))
                 .repeated(),
-                |lhs, (op, rhs)| {
-                    let foo = Expression::BinaryExpression {
-                        left: Box::new(lhs),
-                        op_code: op,
-                        right: Box::new(rhs),
-                    };
-                    dbg!(foo)
+                |lhs, (op, rhs)| Expression::BinaryExpression {
+                    left: Box::new(lhs),
+                    op_code: op,
+                    right: Box::new(rhs),
                 },
             )
             .boxed()
