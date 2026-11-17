@@ -45,7 +45,7 @@ pub fn compile_routine(routine: ir::Routine) -> CompiledRoutine {
                     byte_code.current_location(),
                     tag.parameters.as_ref().map(|x| {
                         x.iter()
-                            .map(|x| Ident::new(x.0.as_bytes()).unwrap())
+                            .map(|x| Ident::new(x.inner.0.as_bytes()).unwrap())
                             .collect()
                     }),
                 ),

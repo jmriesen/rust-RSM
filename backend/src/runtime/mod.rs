@@ -34,6 +34,7 @@ use thiserror::Error;
 use value::Value;
 mod do_calls;
 pub mod program_counter;
+const MAX_DO_FRAMES: usize = 127;
 
 #[derive(Error, PartialEq, Debug)]
 pub(crate) enum RuntimeError {
@@ -51,6 +52,8 @@ pub(crate) enum RuntimeError {
     CommandSyntaxError,
     #[error("Command syntax error")]
     SymbolTableError(#[from] CreationError),
+    #[error("DO stack overflow (max {MAX_DO_FRAMES})")]
+    DoStackOverflow,
 }
 
 #[derive(Debug)]

@@ -2,7 +2,9 @@ use std::iter::{from_fn, repeat_n};
 
 use symbol_table::{Ident, MVar, SymbolTable, key::Path};
 
-use crate::runtime::{DoFrame, RuntimeError, StackValue, program_counter::ProgramCounter};
+use crate::runtime::{
+    DoFrame, MAX_DO_FRAMES, RuntimeError, StackValue, program_counter::ProgramCounter,
+};
 
 pub struct PushFrameArgs<A: Iterator<Item = (Ident, StackValue)>> {
     pub arguments: A,
@@ -89,7 +91,16 @@ pub fn push_do_frame<'a>(
             }
         }
     }
-    Ok(())
+
+    //NOTE: overflow check intentionally being done after loading all the arguments.
+    // This is done to insure that all of the arguments are popped off the stack even in the
+    // event of an error.
+    if stack.len() <= MAX_DO_FRAMES {
+        Ok(())
+    } else {
+        stack.pop();
+        Err(RuntimeError::DoStackOverflow)
+    }
 }
 
 /// Only "Normal" variables can be passed by reference.

@@ -136,8 +136,17 @@ export const configure = async (htmlContainer?: HTMLElement): Promise<ConfigResu
     eager: true,
   });
   let mumpsUris=await Promise.all((Object.entries(testFiles)).map(async ([file_path,content])=>{
-    let name = file_path.replaceAll("../../backend/","").replace(".test",".m").replaceAll("/","-");
+    let name = file_path.replaceAll("../../backend/tests/","").replace(".test",".m");
     let uri = vscode.Uri.file(`/workspace/${name}`);
+    let parts = uri.path.split("/");
+    for (let i =1; i< parts.length; i ++){
+      let dir = parts.slice(0,i).join("/");
+      try{
+        await fileSystemProvider.mkdir(vscode.Uri.file(dir));
+      }catch{
+        //May have already been created
+      };
+    }
     await fileSystemProvider.writeFile(uri, textEncoder.encode(content), options);
     return uri
   }));
