@@ -4,7 +4,8 @@ use derive_visitor::{Drive, Visitor};
 use ir::{
     commands::{Command, Write},
     expression::{NumberLiteral, StringLiteral},
-    Spanned, Tag, Variable,
+    variable::Ident,
+    ExtrinsicFunction, Spanned, Tag, Variable,
 };
 use tower_lsp::lsp_types::{
     Position, SemanticToken, SemanticTokenType, SemanticTokensFullOptions, SemanticTokensLegend,
@@ -204,9 +205,11 @@ impl TokensVisitor {
 token_visitor!(
     (Write, TokenTypes::Command),
     (Tag, TokenTypes::TagName),
+    (ExtrinsicFunction, TokenTypes::TagName),
     (NumberLiteral, TokenTypes::Number),
     (StringLiteral, TokenTypes::String),
     (Variable, TokenTypes::Variable),
+    (Ident, TokenTypes::Variable),
 );
 
 #[cfg(test)]

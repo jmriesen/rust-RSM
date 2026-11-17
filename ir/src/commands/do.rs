@@ -1,8 +1,8 @@
 use super::PostCondition;
-use crate::ExtrinsicFunction;
+use crate::{ExtrinsicFunction, Spanned};
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_visitor::Drive)]
 pub enum Do {
     ArgumentLess,
-    FunctionCall(Vec<PostCondition<ExtrinsicFunction>>),
+    FunctionCall(Vec<PostCondition<Spanned<ExtrinsicFunction>>>),
 }

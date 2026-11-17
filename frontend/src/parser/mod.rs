@@ -166,6 +166,8 @@ fn do_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
     cmd_p("do")
         .then(
             (parse_extrinsic_function(expression().boxed())
+                .spanned()
+                .map(Spanned::from)
                 .then(post_condition())
                 .map(|(value, condition)| PostCondition { condition, value })
                 .separated_by(just(","))

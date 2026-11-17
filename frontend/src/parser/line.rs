@@ -15,6 +15,8 @@ pub fn line_parser<'src>() -> impl Parser<'src, &'src str, Line, Extra<'src>> {
         .then(
             (identifier()
                 .map(|ident| Ident(ident.to_owned()))
+                .spanned()
+                .map(Spanned::from)
                 .separated_by(just(",")))
             .collect()
             .delimited_by(just("("), just(")"))
