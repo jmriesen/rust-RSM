@@ -165,39 +165,36 @@ pub fn expression<'src>() -> impl Parser<'src, &'src str, Expression, Extra<'src
         //
         //NOTE: This also handles the atom case (no trailing operator + atom) since the first
         //argument to fold matches on zero repetitions
-        choice(
-            //first (and possible only expression)
-            (atom.clone(), unary.clone()),
-        )
-        .foldl(
-            choice((
-                pattern_match_op_code()
-                    // Only grab when a literal value
-                    .then_ignore(peek(just("@")).not())
-                    .then(
-                        pattern()
-                            .map(|x| StringLiteral(Value::from_str(x).unwrap()))
-                            .spanned()
-                            .map(Spanned::from)
-                            .map(Expression::String),
-                    ),
-                op_b_code().then(expr),
-            ))
-            .repeated(),
-            //there are two types of binary
-            //Expression based and pattern based.
-            //Expression based I can handle by just checking that the next
-            //character is a @
-            //literal based I can do vie the opposite approach.
-            //I kind of question if they should be the same type? no it will
-            //be fine
-            |lhs, (op, rhs)| Expression::BinaryExpression {
-                left: Box::new(lhs),
-                op_code: op,
-                right: Box::new(rhs),
-            },
-        )
-        .boxed()
+
+        unary
+            .clone()
+            .foldl(
+                choice((
+                    // First check for edge case of pattern matching
+                    pattern_match_op_code()
+                        // If indirect use standard parsing.
+                        .then_ignore(peek(just("@")).not())
+                        .then(
+                            //If not indirect use pattern syntax pattern
+                            pattern()
+                                .map(|x| StringLiteral(Value::from_str(x).unwrap()))
+                                .spanned()
+                                .map(Spanned::from)
+                                .map(Expression::String),
+                        ),
+                    op_b_code().then(unary.clone()),
+                ))
+                .repeated(),
+                |lhs, (op, rhs)| {
+                    let foo = Expression::BinaryExpression {
+                        left: Box::new(lhs),
+                        op_code: op,
+                        right: Box::new(rhs),
+                    };
+                    dbg!(foo)
+                },
+            )
+            .boxed()
     })
     .labelled("expression")
 }
