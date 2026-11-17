@@ -60,7 +60,6 @@ pub fn push_do_frame<'a>(
         line_level_zero,
     }: PushFrameArgs<impl Iterator<Item = (Ident, StackValue)>>,
 ) -> Result<(), RuntimeError> {
-    (stack.len() < MAX_DO_FRAMES).ok_or(RuntimeError::DoStackOverflow)?;
     let new_frame = DoFrame {
         pc,
         for_stack: vec![],
@@ -92,7 +91,16 @@ pub fn push_do_frame<'a>(
             }
         }
     }
-    Ok(())
+
+    //NOTE: overflow check intentionally being done after loading all the arguments.
+    // This is done to insure that all of the arguments are popped off the stack even in the
+    // event of an error.
+    if stack.len() <= MAX_DO_FRAMES {
+        Ok(())
+    } else {
+        stack.pop();
+        Err(RuntimeError::DoStackOverflow)
+    }
 }
 
 /// Only "Normal" variables can be passed by reference.

@@ -1,5 +1,12 @@
 Entry
- d Entry
+ s maxFrames=127 
+ ; Note we are already in one frame hence the -1
+ s numberOfFramesLeft=maxFrames-1 
+ ; recursive to the overflow limit
+ d recursive(numberOfFramesLeft) 
+ q
+recursive(numberOfFramesLeft)
+ i numberOfFramesLeft do recursive(numberOfFramesLeft-1)
  q
 ---
 
