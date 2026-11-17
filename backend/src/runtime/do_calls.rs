@@ -2,7 +2,9 @@ use std::iter::{from_fn, repeat_n};
 
 use symbol_table::{Ident, MVar, SymbolTable, key::Path};
 
-use crate::runtime::{DoFrame, RuntimeError, StackValue, program_counter::ProgramCounter};
+use crate::runtime::{
+    DoFrame, MAX_DO_FRAMES, RuntimeError, StackValue, program_counter::ProgramCounter,
+};
 
 pub struct PushFrameArgs<A: Iterator<Item = (Ident, StackValue)>> {
     pub arguments: A,
@@ -58,6 +60,7 @@ pub fn push_do_frame<'a>(
         line_level_zero,
     }: PushFrameArgs<impl Iterator<Item = (Ident, StackValue)>>,
 ) -> Result<(), RuntimeError> {
+    (stack.len() < MAX_DO_FRAMES).ok_or(RuntimeError::DoStackOverflow)?;
     let new_frame = DoFrame {
         pc,
         for_stack: vec![],
