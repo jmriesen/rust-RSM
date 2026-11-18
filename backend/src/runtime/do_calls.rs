@@ -3,7 +3,7 @@ use std::iter::{from_fn, repeat_n};
 use symbol_table::{Ident, MVar, SymbolTable, key::Path};
 
 use crate::runtime::{
-    DoFrame, MAX_DO_FRAMES, RuntimeError, StackValue, program_counter::ProgramCounter,
+    DoFrame, DoFrameKind, MAX_DO_FRAMES, RuntimeError, StackValue, program_counter::ProgramCounter,
 };
 
 pub struct PushFrameArgs<A: Iterator<Item = (Ident, StackValue)>> {
@@ -59,11 +59,14 @@ pub fn push_do_frame<'a>(
         arguments,
         line_level_zero,
     }: PushFrameArgs<impl Iterator<Item = (Ident, StackValue)>>,
+    //TODO: Reconsider this abstraction
+    kind: DoFrameKind,
 ) -> Result<(), RuntimeError> {
     let new_frame = DoFrame {
         pc,
         for_stack: vec![],
         test: stack.last().is_some_and(|x| x.test),
+        kind,
         line_level: if line_level_zero {
             0
         } else {
