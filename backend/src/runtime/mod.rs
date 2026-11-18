@@ -54,6 +54,24 @@ pub(crate) enum RuntimeError {
     SymbolTableError(#[from] CreationError),
     #[error("DO stack overflow (max {MAX_DO_FRAMES})")]
     DoStackOverflow,
+    #[error(transparent)]
+    QuitError(#[from] QuitExitErrors),
+}
+#[derive(Error, PartialEq, Debug)]
+pub enum QuitExitErrors {
+    #[error("QUIT with an argument required")]
+    ExpectedArgument,
+    #[error("QUIT with an argument not allowed")]
+    ExpectedArgumentLess,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum DoFrameKind {
+    //Run,
+    //Job,
+    Do,
+    Extrinsic,
+    //Xecute,
 }
 
 #[derive(Debug)]
@@ -67,6 +85,8 @@ struct DoFrame<'a> {
 
     /// How indented are we.
     line_level: u16,
+    /// How this frame was started
+    kind: DoFrameKind,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -201,6 +221,8 @@ impl<'a> Job<'a> {
                 arguments: [].into_iter(),
                 line_level_zero: true,
             },
+            //TODO: not sure if this this is the write type.
+            DoFrameKind::Do,
         )
         .expect("Can't error if no arguments were provided");
         job
@@ -255,6 +277,7 @@ impl<'a> Job<'a> {
                                 arguments: [].into_iter(),
                                 line_level_zero: false,
                             },
+                            DoFrameKind::Do,
                         )
                         .expect("Can't error if no arguments were provided");
                     }
@@ -349,20 +372,41 @@ impl<'a> Job<'a> {
                         let l_value = Self::build_var(&mut self.stack, push_var.var);
                         self.stack.push_var(l_value);
                     }
-                    StackAssembally::QuitCodes(quit_codes) => match quit_codes {
-                        QuitCodes::WithoutArg => {
-                            if let Some(for_frame) = do_frame.for_stack.pop() {
-                                do_frame.pc.jump(for_frame.r#break);
-                            } else {
-                                self.call_stack.pop();
-                                self.symbol_table.pop_new_frame();
+
+                    StackAssembally::QuitCodes(quit_codes) => {
+                        let kind = do_frame.kind;
+                        let result = if let Some(for_frame) = do_frame.for_stack.pop() {
+                            do_frame.pc.jump(for_frame.r#break);
+                            match quit_codes {
+                                QuitCodes::WithoutArg => Ok(()),
+                                QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
+                            }
+                        } else {
+                            self.call_stack.pop();
+                            self.symbol_table.pop_new_frame();
+                            match (kind, quit_codes) {
+                                (DoFrameKind::Do, QuitCodes::WithoutArg) => Ok(()),
+                                (DoFrameKind::Do, QuitCodes::WithArg) => {
+                                    Err(QuitExitErrors::ExpectedArgumentLess)
+                                }
+                                (DoFrameKind::Extrinsic, QuitCodes::WithoutArg) => {
+                                    Err(QuitExitErrors::ExpectedArgument)
+                                }
+                                (DoFrameKind::Extrinsic, QuitCodes::WithArg) => Ok(()),
+                            }
+                        };
+                        //Adding or removing a value to fix the stack.
+                        match result {
+                            Ok(()) => {}
+                            Err(QuitExitErrors::ExpectedArgument) => {
+                                self.stack.push_val(Value::empty());
+                            }
+                            Err(QuitExitErrors::ExpectedArgumentLess) => {
+                                self.stack.pop_val();
                             }
                         }
-                        QuitCodes::WithArg => {
-                            let _ = self.stack.pop_val();
-                            self.error = Some(RuntimeError::NotYetSupported("quit with args"))
-                        }
-                    },
+                        self.error = self.error.take().or(result.err().map(|x| x.into()));
+                    }
                     StackAssembally::Jump(jump) => {
                         let should_jump = match jump.r#type {
                             JumpCodes::Conditional => !bool::from(self.stack.pop_val()),
@@ -468,6 +512,11 @@ fn call_extrinsic_function<'a>(
         PushFrameArgs {
             arguments,
             line_level_zero: true,
+        },
+        if call.return_value_expected {
+            DoFrameKind::Extrinsic
+        } else {
+            DoFrameKind::Do
         },
     )
 }

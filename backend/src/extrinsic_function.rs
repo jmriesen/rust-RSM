@@ -33,6 +33,9 @@ OpCodes!(
         TagRoutine = 143,
     }
 );
+//                       Mask Bits 76543210
+const ARGUMENTS_MASK: u8 = /* */ 0b01111111;
+const RETURN_EXP_MASK: u8 = /**/ 0b10000000;
 
 impl Compile for ExtrinsicFunction {
     type Context = ExtrinsicFunctionContext;
@@ -62,7 +65,11 @@ impl Compile for ExtrinsicFunction {
             tag,
             routine,
             //TODO: Context should be passed separably
-            number_of_arguments_passed: self.arguments.len() as u8 + (*context as u8),
+            number_of_arguments_passed: self.arguments.len() as u8,
+            return_value_expected: match context {
+                ExtrinsicFunctionContext::Eval => true,
+                ExtrinsicFunctionContext::Do => false,
+            },
         }
         .encode(comp);
     }
@@ -72,8 +79,8 @@ impl Compile for ExtrinsicFunction {
 pub struct ExtrinsicFunctionCall {
     pub tag: Option<Ident>,
     routine: Option<Ident>,
-    //eval:bool
     pub number_of_arguments_passed: u8,
+    pub return_value_expected: bool,
 }
 
 impl LegacyEncoding for ExtrinsicFunctionCall {
@@ -90,21 +97,18 @@ impl LegacyEncoding for ExtrinsicFunctionCall {
         assert_eq!(routine, None, "Routine calling not yet supported");
         assert!(tag.is_some(), "default tag calling not yet supported");
         let [arg_and_type] = decoder.consume_n();
-        //TODO Check/fix this Note this is not quite the code used to encode.
-        //Is there a "hidden/added" argument when in the eval context?
-        let _type = if arg_and_type & 0b10000000 != 0 {
-            unimplemented!("Eval context do is not yet supported");
-            #[expect(unreachable_code)]
-            ExtrinsicFunctionContext::Eval
-        } else {
-            ExtrinsicFunctionContext::Do
-        };
-        let args = arg_and_type & 0b01111111;
-
+        let return_value_expected = (arg_and_type & RETURN_EXP_MASK) != 0;
+        let mut args = arg_and_type & ARGUMENTS_MASK;
+        //NOTE: Subtracting one to match C Encoding.
+        //I am not sure yet why they did this.
+        if return_value_expected {
+            args -= 1;
+        }
         Some(Self {
             tag,
             routine,
             number_of_arguments_passed: args,
+            return_value_expected,
         })
     }
     fn encode(&self, byte_code: &mut crate::ByteCode) {
@@ -119,6 +123,16 @@ impl LegacyEncoding for ExtrinsicFunctionCall {
 
         self.routine.as_ref().map(|x| x.encode(byte_code));
         self.tag.as_ref().map(|x| x.encode(byte_code));
-        byte_code.push_raw(self.number_of_arguments_passed);
+        if self.number_of_arguments_passed >= RETURN_EXP_MASK {
+            panic!("to many args messing up the mask.")
+        }
+        let return_value_expected = if self.return_value_expected {
+            //NOTE: Subtracting one to match C Encoding.
+            //I am not sure yet why they did this.
+            RETURN_EXP_MASK + 1
+        } else {
+            0
+        };
+        byte_code.push_raw(self.number_of_arguments_passed + return_value_expected);
     }
 }

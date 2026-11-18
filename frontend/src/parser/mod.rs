@@ -150,12 +150,6 @@ fn quit_parser<'src>() -> impl Parser<'src, &'src str, Command, Extra<'src>> {
                     if return_value.len() > 1 {
                         emiter.emit(Rich::custom(extra.span(), ParsingError::QuitExtraArgs));
                     }
-                    if return_value.len() == 1 {
-                        emiter.emit(Rich::custom(
-                            extra.span(),
-                            ParsingError::NotYetSupported("quit with args"),
-                        ));
-                    }
                     Quit(return_value.pop())
                 }),
         )
