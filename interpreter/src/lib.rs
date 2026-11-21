@@ -38,10 +38,11 @@
     clippy::missing_panics_doc,
     clippy::missing_errors_doc,
     clippy::missing_safety_doc,
-    // large arrays are required to match C structure. Note they should
-    // not live on the stack. (but may exist there temporarily as the objects are being constructed.)
-    clippy::large_stack_arrays 
+    clippy::large_stack_arrays
 )]
+
+// large arrays are required to match C structure. Note they should
+// not live on the stack. (but may exist there temporarily as the objects are being constructed.)
 
 #[allow(clippy::all, unused)]
 pub mod bindings;

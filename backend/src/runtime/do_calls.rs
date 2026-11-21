@@ -75,8 +75,7 @@ pub fn push_do_frame<'a>(
             for_stack: vec![],
             test: stack.last().is_some_and(|x| x.test),
             kind,
-            line_level: 
-            match kind{
+            line_level:match kind{
                 DoFrameKind::DoArgLess => {
                     stack.last().expect("The only time the stack is empty is if we are starting a new job, and in that case line_level_zero should have been set.").line_level + 1
                 },

@@ -35,10 +35,7 @@ use crate::{
     },
     units::{Bytes, Megbibytes, Pages},
 };
-use ffi::{
-    systab, DB_VER, MAX_GLOBAL_BUFFERS, MAX_JOBS,
-    MAX_ROUTINE_BUFFERS,
-};
+use ffi::{systab, DB_VER, MAX_GLOBAL_BUFFERS, MAX_JOBS, MAX_ROUTINE_BUFFERS};
 use std::{
     num::NonZeroU32,
     path::{Path, PathBuf},
