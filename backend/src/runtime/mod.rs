@@ -18,7 +18,7 @@ use crate::{
     operators::{BinaryApply, UnaryApply},
     routine::CompiledRoutine,
     runtime::{
-        do_calls::{PushFrameArgs, build_arguments, push_do_frame},
+        do_calls::{DoFrameKind, build_arguments, push_do_frame},
         program_counter::{AssemblyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
@@ -63,15 +63,6 @@ pub enum QuitExitErrors {
     ExpectedArgument,
     #[error("QUIT with an argument not allowed")]
     ExpectedArgumentLess,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum DoFrameKind {
-    //Run,
-    //Job,
-    Do,
-    Extrinsic,
-    //Xecute,
 }
 
 #[derive(Debug)]
@@ -217,11 +208,7 @@ impl<'a> Job<'a> {
             &mut job.symbol_table,
             &mut job.call_stack,
             routine.beginning_of_file(),
-            PushFrameArgs {
-                arguments: [].into_iter(),
-                line_level_zero: true,
-            },
-            //TODO: not sure if this this is the write type.
+            vec![],
             DoFrameKind::Do,
         )
         .expect("Can't error if no arguments were provided");
@@ -273,11 +260,8 @@ impl<'a> Job<'a> {
                             &mut self.symbol_table,
                             &mut self.call_stack,
                             pc,
-                            PushFrameArgs {
-                                arguments: [].into_iter(),
-                                line_level_zero: false,
-                            },
-                            DoFrameKind::Do,
+                            vec![],
+                            DoFrameKind::DoArgLess,
                         )
                         .expect("Can't error if no arguments were provided");
                     }
@@ -384,15 +368,15 @@ impl<'a> Job<'a> {
                         } else {
                             self.call_stack.pop();
                             self.symbol_table.pop_new_frame();
-                            match (kind, quit_codes) {
-                                (DoFrameKind::Do, QuitCodes::WithoutArg) => Ok(()),
-                                (DoFrameKind::Do, QuitCodes::WithArg) => {
-                                    Err(QuitExitErrors::ExpectedArgumentLess)
-                                }
-                                (DoFrameKind::Extrinsic, QuitCodes::WithoutArg) => {
-                                    Err(QuitExitErrors::ExpectedArgument)
-                                }
-                                (DoFrameKind::Extrinsic, QuitCodes::WithArg) => Ok(()),
+                            match kind {
+                                DoFrameKind::Do | DoFrameKind::DoArgLess => match quit_codes {
+                                    QuitCodes::WithoutArg => Ok(()),
+                                    QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
+                                },
+                                DoFrameKind::Extrinsic => match quit_codes {
+                                    QuitCodes::WithoutArg => Err(QuitExitErrors::ExpectedArgument),
+                                    QuitCodes::WithArg => Ok(()),
+                                },
                             }
                         };
                         //Adding or removing a value to fix the stack.
@@ -509,10 +493,7 @@ fn call_extrinsic_function<'a>(
         symbol_table,
         call_stack,
         pc,
-        PushFrameArgs {
-            arguments,
-            line_level_zero: true,
-        },
+        arguments,
         if call.return_value_expected {
             DoFrameKind::Extrinsic
         } else {
