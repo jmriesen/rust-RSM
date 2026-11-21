@@ -31,23 +31,23 @@
 #![allow(clippy::module_name_repetitions)]
 mod format;
 mod internal;
+use format::IntermediateRepresentation;
 use thiserror::Error;
 use value::Value;
-use format::IntermediateRepresentation;
 
 /// Path to a node in a `ValueTree`.
 ///
 /// # Optimization
 /// There internal format has been optimized for sorting.
 /// Each comparison should just be a memcmp.
-#[derive(Eq, PartialEq, Clone,Debug,Serialize,Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Path(PathBound);
 
 /// Specifies a path before, after, or to a node in a `ValueTree`.
-/// 
+///
 /// If the final segment in a path is "" the path will be treated as a lower bound when going
 /// forwards, and an upper bound while going backwards.
-#[derive(Eq, PartialEq, Clone,Serialize,Deserialize)]
+#[derive(Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PathBound(Vec<u8>);
 
 /// Represents one segment of a `Path`.
@@ -57,22 +57,21 @@ pub struct SegmentIterator<'a> {
     tail: &'a [u8],
 }
 
-
 /// Errors that can occur while trying to create a key.
-#[derive(Debug, PartialEq,Error)]
+#[derive(Debug, PartialEq, Error)]
 pub enum PathCreationError {
-    #[error("The maximum path length is {}",format::MAX_SUB_LEN)]
+    #[error("The maximum path length is {}", format::MAX_SUB_LEN)]
     PathToLong,
     #[error("Null bytes are not alloed in a path")]
     NullByteInPath,
-    #[error("The maximum segment length is {}",internal::MAX_KEY_SIZE)]
+    #[error("The maximum segment length is {}", internal::MAX_KEY_SIZE)]
     SegmentToLarge,
     #[error("Null segments(\"\") are only allowed at the end of a path.")]
     NullNonTerminalSegment,
 }
 
 pub mod conversions {
-    use super::{IntermediateRepresentation, SegmentIterator, Path, PathBound, Segment, Value};
+    use super::{IntermediateRepresentation, Path, PathBound, Segment, SegmentIterator, Value};
 
     /// `KeyType` is used to represent either type of Key and is used as a genetic type bound
     /// to reduce code duplication.
@@ -123,7 +122,9 @@ pub use conversions::PathType;
 use serde::{Deserialize, Serialize};
 
 impl Path {
-    pub fn new<'a>(values: impl IntoIterator<Item = &'a Value> + Clone) -> Result<Self, PathCreationError> {
+    pub fn new<'a>(
+        values: impl IntoIterator<Item = &'a Value> + Clone,
+    ) -> Result<Self, PathCreationError> {
         if values.clone().into_iter().any(|x| x == &Value::empty()) {
             Err(PathCreationError::NullNonTerminalSegment)
         } else {
@@ -131,7 +132,8 @@ impl Path {
         }
     }
 
-    #[must_use] pub const fn empty() -> Self {
+    #[must_use]
+    pub const fn empty() -> Self {
         Self(PathBound::empty())
     }
 }
@@ -151,7 +153,7 @@ impl PathBound {
     ///
     /// NOTE we are using a Vec<u8> rather then a string since the key could contain non UTF-8
     /// characters
-    pub fn push_to_vec(&self,destination:&mut Vec<u8>) {
+    pub fn push_to_vec(&self, destination: &mut Vec<u8>) {
         destination.push(b'(');
 
         let mut iter = self.iter().map(IntermediateRepresentation::from);
@@ -181,7 +183,8 @@ impl PathBound {
         SegmentIterator { tail: &self.0[..] }
     }
 
-    #[must_use] pub const fn empty() -> Self {
+    #[must_use]
+    pub const fn empty() -> Self {
         Self(Vec::new())
     }
 }
@@ -250,23 +253,25 @@ mod tests {
         const SUBSCRIPT_STORAGE_OVERHEAD: usize = 2;
 
         //NOTE I have to use multiple subscripts due to limit on subscript length.
-        assert!(PathBound::new([
-            &generate_value("a", MAX_SUB_LEN),
-            &generate_value(
-                "a",
-                MAX_KEY_SIZE 
+        assert!(
+            PathBound::new([
+                &generate_value("a", MAX_SUB_LEN),
+                &generate_value(
+                    "a",
+                    MAX_KEY_SIZE
                 - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
                 - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
-            ),
-        ])
-        .is_ok());
+                ),
+            ])
+            .is_ok()
+        );
 
         assert_eq!(
             PathBound::new([
                 &generate_value("a", MAX_SUB_LEN),
                 &generate_value(
                     "a",
-                    MAX_KEY_SIZE 
+                    MAX_KEY_SIZE
                     - SUBSCRIPT_STORAGE_OVERHEAD //Overhead for storing this key.
                     - (MAX_SUB_LEN + SUBSCRIPT_STORAGE_OVERHEAD) // Size of last key + overhead.
                     +1 // Pushing us over the limit.
@@ -292,7 +297,10 @@ mod tests {
             Err(PathCreationError::NullNonTerminalSegment)
         );
 
-        assert_eq!(Path::new(&[Value::empty()]), Err(PathCreationError::NullNonTerminalSegment));
+        assert_eq!(
+            Path::new(&[Value::empty()]),
+            Err(PathCreationError::NullNonTerminalSegment)
+        );
     }
 
     #[test]
@@ -300,8 +308,7 @@ mod tests {
         // This assert is just here to stop a mutation testing false positive.
         assert_eq!(MAX_INT_SEGMENT_SIZE, 63);
 
-        let key = PathBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)])
-        .unwrap();
+        let key = PathBound::new([&generate_value("1", MAX_INT_SEGMENT_SIZE + 1)]).unwrap();
         assert!(matches!(
             key.iter().next().unwrap().into(),
             IntermediateRepresentation::String(_)

@@ -34,7 +34,10 @@ macro_rules! partial {
 ///Example of how to use the partial macro.
 #[allow(dead_code)]
 fn example_function() {
-    use tower_lsp::lsp_types::{InitializeParams, ClientCapabilities, TextDocumentClientCapabilities, SemanticTokensClientCapabilities};
+    use tower_lsp::lsp_types::{
+        ClientCapabilities, InitializeParams, SemanticTokensClientCapabilities,
+        TextDocumentClientCapabilities,
+    };
 
     partial!(InitializeParams {
         capabilities: ClientCapabilities {
