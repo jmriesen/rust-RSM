@@ -18,7 +18,7 @@ use crate::{
     operators::{BinaryApply, UnaryApply},
     routine::CompiledRoutine,
     runtime::{
-        do_calls::{DoFrameKind, build_arguments, push_do_frame},
+        do_calls::{DoFrameKind, QuitExitErrors, push_do_frame},
         program_counter::{AssemblyDecoder, ProgramCounter},
     },
     variable::{BuildVarInstructions, LoadVar, PushVar},
@@ -57,16 +57,9 @@ pub(crate) enum RuntimeError {
     #[error(transparent)]
     QuitError(#[from] QuitExitErrors),
 }
-#[derive(Error, PartialEq, Debug)]
-pub enum QuitExitErrors {
-    #[error("QUIT with an argument required")]
-    ExpectedArgument,
-    #[error("QUIT with an argument not allowed")]
-    ExpectedArgumentLess,
-}
 
 #[derive(Debug)]
-struct DoFrame<'a> {
+pub(crate) struct DoFrame<'a> {
     pc: ProgramCounter<'a>,
     // Metadata for all for loops.
     for_stack: Vec<ForFrame>,
@@ -266,7 +259,7 @@ impl<'a> Job<'a> {
                         .expect("Can't error if no arguments were provided");
                     }
                     StackAssembally::ExtrinsicFunctionCall(call) => {
-                        match call_extrinsic_function(
+                        match Self::call_extrinsic_function(
                             self.routine,
                             &mut self.symbol_table,
                             &mut self.call_stack,
@@ -326,7 +319,7 @@ impl<'a> Job<'a> {
                             E::IfNoArgs | E::If => !do_frame.test,
                             E::Else => do_frame.test,
                         } {
-                            Self::quit_line(
+                            Self::exit_line(
                                 &mut do_frame.for_stack,
                                 &mut self.symbol_table,
                                 &mut do_frame.pc,
@@ -356,39 +349,13 @@ impl<'a> Job<'a> {
                         let l_value = Self::build_var(&mut self.stack, push_var.var);
                         self.stack.push_var(l_value);
                     }
-
                     StackAssembally::QuitCodes(quit_codes) => {
-                        let kind = do_frame.kind;
-                        let result = if let Some(for_frame) = do_frame.for_stack.pop() {
-                            do_frame.pc.jump(for_frame.r#break);
-                            match quit_codes {
-                                QuitCodes::WithoutArg => Ok(()),
-                                QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
-                            }
-                        } else {
-                            self.call_stack.pop();
-                            self.symbol_table.pop_new_frame();
-                            match kind {
-                                DoFrameKind::Do | DoFrameKind::DoArgLess => match quit_codes {
-                                    QuitCodes::WithoutArg => Ok(()),
-                                    QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
-                                },
-                                DoFrameKind::Extrinsic => match quit_codes {
-                                    QuitCodes::WithoutArg => Err(QuitExitErrors::ExpectedArgument),
-                                    QuitCodes::WithArg => Ok(()),
-                                },
-                            }
-                        };
-                        //Adding or removing a value to fix the stack.
-                        match result {
-                            Ok(()) => {}
-                            Err(QuitExitErrors::ExpectedArgument) => {
-                                self.stack.push_val(Value::empty());
-                            }
-                            Err(QuitExitErrors::ExpectedArgumentLess) => {
-                                self.stack.pop_val();
-                            }
-                        }
+                        let result = Self::quit(
+                            quit_codes,
+                            &mut self.stack,
+                            &mut self.symbol_table,
+                            &mut self.call_stack,
+                        );
                         self.error = self.error.take().or(result.err().map(|x| x.into()));
                     }
                     StackAssembally::Jump(jump) => {
@@ -456,7 +423,7 @@ impl<'a> Job<'a> {
 
     /// Exit the current line.
     /// This handles the case where we are in a for loop.
-    pub(crate) fn quit_line(
+    pub(crate) fn exit_line(
         for_stack: &mut Vec<ForFrame>,
         symbol_table: &mut SymbolTable,
         pc: &mut ProgramCounter<'_>,
@@ -477,29 +444,6 @@ impl<'a> Job<'a> {
         subscripts.reverse();
         MVar::new(var.name, Path::new(subscripts.iter()).unwrap())
     }
-}
-fn call_extrinsic_function<'a>(
-    routine: &'a CompiledRoutine,
-    symbol_table: &mut SymbolTable,
-    call_stack: &mut Vec<DoFrame<'a>>,
-    stack: &mut Stack,
-    call: ExtrinsicFunctionCall,
-) -> Result<(), RuntimeError> {
-    let (pc, parameters) = routine
-        .tag(call.tag)
-        .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)?;
-    let arguments = build_arguments(call.number_of_arguments_passed, parameters, stack)?;
-    push_do_frame(
-        symbol_table,
-        call_stack,
-        pc,
-        arguments,
-        if call.return_value_expected {
-            DoFrameKind::Extrinsic
-        } else {
-            DoFrameKind::Do
-        },
-    )
 }
 
 #[cfg(test)]

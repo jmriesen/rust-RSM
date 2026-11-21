@@ -1,10 +1,27 @@
 use std::iter::{from_fn, repeat_n};
 
 use symbol_table::{Ident, MVar, SymbolTable, key::Path};
+use thiserror::Error;
+use value::Value;
 
-use crate::runtime::{
-    DoFrame, MAX_DO_FRAMES, RuntimeError, StackValue, program_counter::ProgramCounter,
+use crate::{
+    commands::quit::QuitCodes,
+    extrinsic_function::ExtrinsicFunctionCall,
+    routine::CompiledRoutine,
+    runtime::{
+        DoFrame, Job, MAX_DO_FRAMES, RuntimeError, Stack, StackValue,
+        program_counter::ProgramCounter,
+    },
 };
+
+#[derive(Error, PartialEq, Debug)]
+pub enum QuitExitErrors {
+    #[error("QUIT with an argument required")]
+    ExpectedArgument,
+    #[error("QUIT with an argument not allowed")]
+    ExpectedArgumentLess,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoFrameKind {
     //Run,
@@ -16,7 +33,7 @@ pub enum DoFrameKind {
 }
 
 // Attempts to build an argument list based on a parameter list signature.
-pub fn build_arguments(
+fn build_arguments(
     number_of_arguments_passed: u8,
     parameters: &Option<Vec<Ident>>,
     stack: &mut super::Stack,
@@ -116,4 +133,72 @@ fn initialize_arguments(
 #[cfg_attr(test, mutants::skip)]
 fn can_be_passed_by_reference(var: &MVar<Path>) -> bool {
     var.key == Path::empty() && var.user_class_identification_is_local_var()
+}
+
+impl<'a> Job<'a> {
+    pub(crate) fn quit(
+        quit_codes: QuitCodes,
+        stack: &mut Stack,
+        symbol_table: &mut SymbolTable,
+        call_stack: &mut Vec<DoFrame<'a>>,
+    ) -> Result<(), QuitExitErrors> {
+        let do_frame = call_stack.last_mut().unwrap();
+        let kind = do_frame.kind;
+
+        let result = if let Some(for_frame) = do_frame.for_stack.pop() {
+            do_frame.pc.jump(for_frame.r#break);
+            match quit_codes {
+                QuitCodes::WithoutArg => Ok(()),
+                QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
+            }
+        } else {
+            call_stack.pop();
+            symbol_table.pop_new_frame();
+            match kind {
+                DoFrameKind::Do | DoFrameKind::DoArgLess => match quit_codes {
+                    QuitCodes::WithoutArg => Ok(()),
+                    QuitCodes::WithArg => Err(QuitExitErrors::ExpectedArgumentLess),
+                },
+                DoFrameKind::Extrinsic => match quit_codes {
+                    QuitCodes::WithoutArg => Err(QuitExitErrors::ExpectedArgument),
+                    QuitCodes::WithArg => Ok(()),
+                },
+            }
+        };
+        //Adding or removing a value to fix the stack.
+        match result {
+            Ok(()) => {}
+            Err(QuitExitErrors::ExpectedArgument) => {
+                stack.push_val(Value::empty());
+            }
+            Err(QuitExitErrors::ExpectedArgumentLess) => {
+                stack.pop_val();
+            }
+        }
+        result
+    }
+
+    pub(crate) fn call_extrinsic_function(
+        routine: &'a CompiledRoutine,
+        symbol_table: &mut SymbolTable,
+        call_stack: &mut Vec<DoFrame<'a>>,
+        stack: &mut Stack,
+        call: ExtrinsicFunctionCall,
+    ) -> Result<(), RuntimeError> {
+        let (pc, parameters) = routine
+            .tag(call.tag)
+            .ok_or(RuntimeError::CouldNotFindTagOrCouldNotFindRoutine)?;
+        let arguments = build_arguments(call.number_of_arguments_passed, parameters, stack)?;
+        push_do_frame(
+            symbol_table,
+            call_stack,
+            pc,
+            arguments,
+            if call.return_value_expected {
+                DoFrameKind::Extrinsic
+            } else {
+                DoFrameKind::Do
+            },
+        )
+    }
 }
