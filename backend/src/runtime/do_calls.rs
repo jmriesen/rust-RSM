@@ -85,9 +85,6 @@ pub fn push_do_frame<'a>(
         initialize_arguments(symbol_table, arguments)?;
         Ok(())
     }
-    //NOTE: overflow check intentionally being done after loading all the arguments.
-    // This is done to insure that all of the arguments are popped off the stack even in the
-    // event of an error.
 }
 
 fn initialize_arguments(
