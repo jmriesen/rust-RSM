@@ -72,12 +72,75 @@ fn args_list<'src, T>(
 
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
     line_parser()
+        // Stop before we get to metadata used for testing.
         .and_is(just("---").not())
         .repeated()
         .collect::<Vec<_>>()
-        .then_ignore(just("\n").repeated())
-        //Ignore the trailing metadata in the test files.
-        .then_ignore(just("---").then(any().repeated()).or_not())
+}
+
+pub fn test_segment_string_data<'src>(
+    segment_name: &'static str,
+) -> impl Parser<'src, &'src str, String, Extra<'src>> {
+    just("---")
+        .then(just(segment_name))
+        .then(just(":\n"))
+        // Stop before we get to the next segment.
+        .ignore_then(
+            any()
+                .and_is(just("\n---").not())
+                .repeated()
+                .to_slice()
+                .map(String::from),
+        )
+}
+
+pub fn test_segment_string_routine<'src>()
+-> impl Parser<'src, &'src str, (String, Routine), Extra<'src>> {
+    just("---Routine ")
+        .ignore_then(
+            any()
+                .and_is(just(":").not())
+                .repeated()
+                .to_slice()
+                .map(String::from),
+        )
+        .then_ignore(just("\n"))
+        .then(routine())
+    //Ignore the trailing metadata in the test files.
+}
+
+pub struct TestFile {
+    pub routine: Vec<(String, Routine)>,
+    pub syntax_error: Option<String>,
+    pub runtime_error: Option<String>,
+    pub output: Option<String>,
+    pub lints: Option<String>,
+}
+
+/// Test file format
+/// Code to execute
+/// ---Routine File_Name:
+/// ---SyntaxError:
+/// ---RuntimeError:
+/// ---Output:
+/// ---Lints:
+pub fn test_file<'src>() -> impl Parser<'src, &'src str, TestFile, Extra<'src>> {
+    test_segment_string_routine()
+        .repeated()
+        .collect()
+        .then(test_segment_string_data("SyntaxError").or_not())
+        .then(test_segment_string_data("RuntimeError").or_not())
+        .then(test_segment_string_data("Output").or_not())
+        .then(test_segment_string_data("Lints").or_not())
+        .map(
+            |((((routine, syntax_error), runtime_error), output), lints)| TestFile {
+                routine,
+                syntax_error,
+                runtime_error,
+                output,
+                lints,
+            },
+        )
 }
 
 fn space_or_eol<'src>() -> impl Parser<'src, &'src str, (), Extra<'src>> {
