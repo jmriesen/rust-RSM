@@ -1,4 +1,4 @@
-test
+---Routine entry:
  w "$Test default is false",!
  w $Test d  w $Test
  .w $Test
@@ -11,10 +11,8 @@ test
  .i 0
  .w $Test
 
----
+---Output:
 $Test default is false
 0010
 Set $Test to true
 1101
----
-

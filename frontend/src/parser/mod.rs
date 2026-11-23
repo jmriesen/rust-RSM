@@ -1,3 +1,4 @@
+pub use chumsky::Parser;
 use chumsky::{IterParser, combinator::AndIs, prelude::*, primitive::Empty};
 use ir::{
     Expression::{self},
@@ -73,7 +74,7 @@ fn args_list<'src, T>(
 pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
     line_parser()
         // Stop before we get to metadata used for testing.
-        .and_is(just("---").not())
+        .and_is(just("\n---").not())
         .repeated()
         .collect::<Vec<_>>()
 }
@@ -81,13 +82,21 @@ pub fn routine<'src>() -> impl Parser<'src, &'src str, Routine, Extra<'src>> {
 pub fn test_segment_string_data<'src>(
     segment_name: &'static str,
 ) -> impl Parser<'src, &'src str, String, Extra<'src>> {
-    just("---")
+    just("\n---")
         .then(just(segment_name))
         .then(just(":\n"))
         // Stop before we get to the next segment.
         .ignore_then(
             any()
-                .and_is(just("\n---").not())
+                .and_is(
+                    choice((
+                        //Formatting comment
+                        end(),
+                        just("\n").then(end()).ignored(),
+                        just("\n---").ignored(),
+                    ))
+                    .not(),
+                )
                 .repeated()
                 .to_slice()
                 .map(String::from),
@@ -104,11 +113,13 @@ pub fn test_segment_string_routine<'src>()
                 .to_slice()
                 .map(String::from),
         )
+        .then_ignore(just(":"))
         .then_ignore(just("\n"))
         .then(routine())
     //Ignore the trailing metadata in the test files.
 }
 
+#[derive(Debug)]
 pub struct TestFile {
     pub routine: Vec<(String, Routine)>,
     pub syntax_error: Option<String>,
@@ -126,15 +137,15 @@ pub struct TestFile {
 /// ---Lints:
 pub fn test_file<'src>() -> impl Parser<'src, &'src str, TestFile, Extra<'src>> {
     test_segment_string_routine()
-        .repeated()
-        .collect()
         .then(test_segment_string_data("SyntaxError").or_not())
         .then(test_segment_string_data("RuntimeError").or_not())
         .then(test_segment_string_data("Output").or_not())
         .then(test_segment_string_data("Lints").or_not())
+        //Stupid ide may or may not insert a newline at the end of files.
+        .then_ignore(just("\n").or_not())
         .map(
             |((((routine, syntax_error), runtime_error), output), lints)| TestFile {
-                routine,
+                routine: vec![routine],
                 syntax_error,
                 runtime_error,
                 output,

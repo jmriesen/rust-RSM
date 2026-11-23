@@ -1,8 +1,6 @@
-tag w ""
+---Routine entry:
  i 1 w "will be printed"
  i 0 w "will NOT be printed"
 
----
+---Output:
 will be printed
----
-

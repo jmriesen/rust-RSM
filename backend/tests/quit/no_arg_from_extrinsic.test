@@ -1,8 +1,7 @@
+---Routine entry:
  Write $$Five
  q
 Five  q
 
----
-
----
+---RuntimeError:
 QUIT with an argument required

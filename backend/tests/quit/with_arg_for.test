@@ -1,5 +1,5 @@
+---Routine entry:
  for  q 5
----
 
----
+---RuntimeError:
 QUIT with an argument not allowed

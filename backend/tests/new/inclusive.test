@@ -1,4 +1,4 @@
-test
+---Routine entry:
  n i
  s i=1
  s j=1
@@ -9,9 +9,8 @@ test
  .s j=0
  .w i,j,!
  w i,j
----
+
+---Output:
 11
 00
 10
----
-

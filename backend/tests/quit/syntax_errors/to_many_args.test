@@ -1,5 +1,5 @@
-tag w ""
+---Routine entry:
  q 1,1
 
----
+---SyntaxError:
 Quit can only have zero or one argument

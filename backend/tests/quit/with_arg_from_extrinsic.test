@@ -1,8 +1,7 @@
+---Routine entry:
  Write $$Five
  q
 Five  q 5
 
----
+---Output:
 5
----
-

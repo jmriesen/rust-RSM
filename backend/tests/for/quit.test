@@ -1,13 +1,12 @@
-tag w ""
+---Routine entry:
  f i=1:1:20 w "foo",! q 
  f i=1:1:20 w "bar",! q:i=5
----
+
+---Output:
 foo
 bar
 bar
 bar
 bar
 bar
-
----
 

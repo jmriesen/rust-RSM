@@ -54,16 +54,20 @@ pub fn parse_routine(
     check_line_lengths(source_code).map_err(|x| vec![Rich::custom((0..0).into(), x)])?;
     routine().parse(source_code).into_result()
 }
+#[deprecated]
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn parse_routine_print_errors(
     source_code: &str,
 ) -> Result<Routine, Vec<Rich<'_, char, SimpleSpan, ParsingError>>> {
-    parse_routine(source_code).inspect_err(|errors| {
-        for error in errors {
-            let report = build_report(error);
-            report.print(Source::from(source_code)).unwrap();
-        }
-    })
+    parse_routine(source_code).inspect_err(|x| print_errors(x, source_code))
+}
+
+#[cfg(any(test, feature = "fuzzing"))]
+pub fn print_errors(errors: &[Rich<'_, char, SimpleSpan, ParsingError>], source_code: &str) {
+    for error in errors {
+        let report = build_report(error);
+        report.print(Source::from(source_code)).unwrap();
+    }
 }
 fn build_report<'a>(error: &Rich<'a, char, SimpleSpan, ParsingError>) -> Report<'a> {
     Report::build(ReportKind::Error, error.span().into_range())

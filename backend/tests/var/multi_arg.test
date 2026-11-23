@@ -1,8 +1,6 @@
-tag
+---Routine entry:
  s i=5,j=9
  w i,j
 
----
+---Output:
 59
----
-

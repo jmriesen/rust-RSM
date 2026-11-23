@@ -1,12 +1,10 @@
-tag w ""
+---Routine entry:
  s i="foo"
  w "i is ={",i,"}" 
  k i
  w !
  w "i is ={",i,"}" 
 
----
+---Output:
 i is ={foo}
 i is ={}
----
-

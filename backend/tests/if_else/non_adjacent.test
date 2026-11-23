@@ -1,4 +1,4 @@
-tag w ""
+---Routine entry:
  i 1 
  w "Else does not "
  e  w !,"will NOT be printed"
@@ -6,8 +6,6 @@ tag w ""
  w "need to immediately follow if."
  e  w !,"will be printed"
 
----
+---Output:
 Else does not need to immediately follow if.
 will be printed
----
-

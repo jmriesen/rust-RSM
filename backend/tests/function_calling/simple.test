@@ -1,4 +1,4 @@
-entry
+---Routine entry:
  d TagB
  q
 TagA
@@ -7,7 +7,6 @@ TagA
 TagB
  w "TagB"
  q
----
-TagB
----
 
+---Output:
+TagB

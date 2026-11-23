@@ -1,11 +1,9 @@
-tag w ""
+---Routine entry:
  if 1
  for foo=1:1:3 write "foo:",foo,! else  w "bar",!
 
----
+---Output:
 foo:1
 foo:2
 foo:3
-
----
 

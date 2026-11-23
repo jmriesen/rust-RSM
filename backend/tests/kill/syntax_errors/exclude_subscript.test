@@ -1,5 +1,5 @@
-tag w ""
+---Routine entry:
  k (i("a"))
 
----
+---SyntaxError:
 Expected local variables with no subscripts

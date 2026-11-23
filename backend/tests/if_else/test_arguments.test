@@ -1,4 +1,4 @@
-tag 
+---Routine entry:
  i 1 w "Single argument",!
  i 1,1 w "And logic",!
  i 1,0 w "Not or logic",!
@@ -8,10 +8,8 @@ tag
  i 0 
  i  w "False if last true",!
 
----
+---Output:
 Single argument
 And logic
 True if last true
-
----
 

@@ -1,3 +1,4 @@
+---Routine entry:
  ; Based off M[UMPS] By Example written by Ed de Moel
  Write $Data(Y),!
 
@@ -22,7 +23,7 @@
  Kill B(1,2) 
  Write $Data(B(1,2))
 
----
+---Output:
 0
 1
 1
@@ -30,5 +31,3 @@
 1 10 10
 11
 0
----
-

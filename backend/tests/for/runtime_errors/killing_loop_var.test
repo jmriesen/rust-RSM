@@ -1,7 +1,5 @@
-tag w ""
+---Routine entry:
  f i=1:1:5 k i
 
----
-
----
+---RuntimeError:
 Undefined Index variable

@@ -1,3 +1,4 @@
+---Routine entry:
  ; Check that string are left as values if given as a list,
  ; and converted into number if used as part of a range.
  f i="foo","bar":1:5 w i,"_"
@@ -28,7 +29,7 @@
  w i
  w !
 
----
+---Output:
 foo_0_1_2_3_4_5_
 5
 0 2 4 6 8 10 
@@ -36,6 +37,4 @@ foo_0_1_2_3_4_5_
 1 2 3 
 0
 -10
-
----
 

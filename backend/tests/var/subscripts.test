@@ -1,4 +1,4 @@
-tag
+---Routine entry:
  s i("foo")=1
  s i("bar")=2
  s i("foo","bar")=3
@@ -6,9 +6,7 @@ tag
  w "bar=",i("bar"),!
  w "foo_bar=",i("foo","bar")
 
----
+---Output:
 foo=1
 bar=2
 foo_bar=3
----
-
