@@ -455,28 +455,12 @@ mod test {
 
     use crate::{compile_routine, runtime::Job};
     use frontend::{
-        parse_routine_print_errors,
         parser::{Parser, test_file},
         print_errors,
     };
     use rstest::rstest;
 
-    fn run_code_check_output(source: &str, output: &str, error: &str) {
-        let routine = parse_routine_print_errors(source).unwrap();
-        let byte_code = compile_routine(routine);
-
-        let mut job = Job::new(&byte_code);
-        job.run();
-        assert_eq!(job.buffer, output);
-        // All values must be used if they were added
-        assert_eq!(job.stack.0, vec![]);
-        // We should exit all the do stacks
-        assert!(job.call_stack.is_empty());
-
-        let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
-        assert_eq!(error_message, error);
-    }
-    fn run_code_check_output2(content: &str) {
+    fn run_code_check_output(content: &str) {
         let (format, errors) = test_file().parse(&content).into_output_errors();
         print_errors(&errors, &content);
         let test_file = format.unwrap();
@@ -497,13 +481,13 @@ mod test {
     #[rstest]
     fn runtime_tests(#[files("tests/*/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        run_code_check_output2(&content)
+        run_code_check_output(&content)
     }
 
     #[rstest]
     fn runtime_errors(#[files("tests/*/runtime_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        run_code_check_output2(&content)
+        run_code_check_output(&content)
     }
 
     #[rstest]
