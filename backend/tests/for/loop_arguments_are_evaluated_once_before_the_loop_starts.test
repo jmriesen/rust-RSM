@@ -1,7 +1,5 @@
-tag w ""
+---Routine entry:
  s n=2 f i=0:n:8+n s n=4 w i," "
 
----
+---Output:
 0 2 4 6 8 10 
----
-

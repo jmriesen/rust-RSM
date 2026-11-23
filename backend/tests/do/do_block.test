@@ -1,14 +1,13 @@
-tag w ""
+---Routine entry:
  write "1",! d  write "4",!
  .write "2",! d  
  ..write "3",!
  write "5",!
----
+
+---Output:
 1
 2
 3
 4
 5
-
----
 

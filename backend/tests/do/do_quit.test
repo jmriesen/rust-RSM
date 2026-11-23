@@ -1,14 +1,13 @@
-tag w ""
+---Routine entry:
  for i=1:1:5 d  
  .w !,i 
  .q:'(i=3)
  .w " third iteration"
----
+
+---Output:
 
 1
 2
 3 third iteration
 4
 5
----
-

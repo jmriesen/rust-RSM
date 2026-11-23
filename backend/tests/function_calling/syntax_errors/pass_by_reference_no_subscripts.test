@@ -1,8 +1,10 @@
+---Routine entry:
 entry
  d foo(.var("sub"))
  q
 foo(x)
  w "pre-",x,"-",y,"-post"
  q
----
+
+---SyntaxError:
 Expected local variables with no subscripts

@@ -1,4 +1,4 @@
-tag w ""
+---Routine entry:
  s i="foo"
  s j="bar"
  w "i is ={",i,"}",! 
@@ -7,10 +7,8 @@ tag w ""
  w "i is ={",i,"}",! 
  w "j is ={",j,"}" 
 
----
+---Output:
 i is ={foo}
 j is ={bar}
 i is ={foo}
 j is ={}
----
-

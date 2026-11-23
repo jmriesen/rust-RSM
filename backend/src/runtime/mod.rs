@@ -454,74 +454,50 @@ mod test {
     };
 
     use crate::{compile_routine, runtime::Job};
-    use frontend::parse_routine_print_errors;
+    use frontend::{
+        parser::{Parser, test_file},
+        print_errors,
+    };
     use rstest::rstest;
 
-    fn run_code_check_output(source: &str, output: &str, error: &str) {
-        let routine = parse_routine_print_errors(source).unwrap();
-        let byte_code = compile_routine(routine);
+    fn run_code_check_output(content: &str) {
+        let (format, errors) = test_file().parse(&content).into_output_errors();
+        print_errors(&errors, &content);
+        let test_file = format.unwrap();
+        let byte_code = compile_routine(test_file.routine[0].1.clone());
 
         let mut job = Job::new(&byte_code);
         job.run();
-        assert_eq!(job.buffer, output);
+        assert_eq!(job.buffer, test_file.output.unwrap_or_default());
         // All values must be used if they were added
         assert_eq!(job.stack.0, vec![]);
         // We should exit all the do stacks
         assert!(job.call_stack.is_empty());
 
-        let error_message = job.error.map(|x| x.to_string()).unwrap_or(String::new());
-        assert_eq!(error_message, error);
+        let error_message = job.error.map(|x| x.to_string());
+        assert_eq!(error_message, test_file.runtime_error);
     }
 
     #[rstest]
     fn runtime_tests(#[files("tests/*/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        let [src, output, error] = content
-            // Remove trailing newline that is automatically added by my text editor.
-            .strip_suffix("\n")
-            .unwrap()
-            // src vs expected output separator
-            .split("\n---\n")
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        println!("Test Case:\nsrc:\n{}\nexpected:\n{}", src, output);
-        run_code_check_output(src, output, error);
+        run_code_check_output(&content)
     }
 
     #[rstest]
     fn runtime_errors(#[files("tests/*/runtime_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        let [src, output, error] = content
-            // Remove trailing newline that is automatically added by my text editor.
-            .strip_suffix("\n")
-            .unwrap()
-            // src vs expected output separator
-            .split("\n---\n")
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        println!("Test Case:\nsrc:\n{}", src,);
-        run_code_check_output(src, output, error);
+        run_code_check_output(&content)
     }
 
     #[rstest]
     fn syntax_errors(#[files("tests/*/syntax_errors/*.test")] file: PathBuf) {
         let content = fs::read_to_string(file).unwrap();
-        let [src, output] = content
-            // Remove trailing newline that is automatically added by my text editor.
-            .strip_suffix("\n")
-            .unwrap()
-            // src vs expected output separator
-            .split("\n---\n")
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        println!("Test Case:\nsrc:\n{}", src,);
-        let err = parse_routine_print_errors(src).unwrap_err();
+        let (format, errors) = test_file().parse(&content).into_output_errors();
+        print_errors(&errors, &content);
         assert_eq!(
-            err.iter().map(|x| x.to_string()).collect::<String>(),
-            output
+            errors.iter().map(|x| x.to_string()).collect::<String>(),
+            format.unwrap().syntax_error.unwrap()
         );
     }
 }

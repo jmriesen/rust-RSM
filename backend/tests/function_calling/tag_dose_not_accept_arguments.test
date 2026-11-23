@@ -1,4 +1,4 @@
-entry
+---Routine entry:
  d tag
  d tag()
  d tag("foo")
@@ -6,9 +6,10 @@ entry
 tag
  w "called",!
  q
----
+
+---RuntimeError:
+Line must have a formal list
+---Output:
 called
 called
 
----
-Line must have a formal list

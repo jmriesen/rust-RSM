@@ -1,8 +1,7 @@
+---Routine entry:
  do Five
  q
 Five  q 5
 
----
-
----
+---RuntimeError:
 QUIT with an argument not allowed

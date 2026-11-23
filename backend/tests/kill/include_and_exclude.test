@@ -1,4 +1,4 @@
-tag w ""
+---Routine entry:
  s i=1
  s j=2
  s j("a")=3
@@ -10,10 +10,8 @@ tag w ""
  w !,"_",j("a")
  w !,"_",j("b")
 
----
+---Output:
 _
 _2
 _
 _4
----
-

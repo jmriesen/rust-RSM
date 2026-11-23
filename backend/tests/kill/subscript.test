@@ -1,4 +1,4 @@
-tag w ""
+---Routine entry:
  s i="foo"
  s i("sub")="bar"
  w "root and sub exist",!
@@ -16,7 +16,7 @@ tag w ""
  w "i is ={",i,"}",! 
  w "i(sub) is ={",i("sub"),"}"
 
----
+---Output:
 root and sub exist
 i is ={foo}
 i(sub) is ={bar}
@@ -26,5 +26,3 @@ i(sub) is ={}
 kill root
 i is ={}
 i(sub) is ={}
----
-

@@ -1,10 +1,10 @@
+---Routine entry:
 tag
  w "foo",!     w "foo",!
        w "foo",!
----
-foo
-foo
-foo
 
----
+---Output:
+foo
+foo
+foo
 

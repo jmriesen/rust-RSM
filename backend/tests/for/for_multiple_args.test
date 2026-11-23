@@ -1,11 +1,11 @@
-tag w ""
+---Routine entry:
  f i=1:1:5,10:1:15 w i,!
  w "separator",!
  f i=1:1:5,10:1:15 w i,! q:i=3
  w "separator",!
  f i=1:1:5,10:1:15 w i,! q:i=13
 
----
+---Output:
 1
 2
 3
@@ -31,6 +31,4 @@ separator
 11
 12
 13
-
----
 

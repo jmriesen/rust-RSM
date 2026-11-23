@@ -1,7 +1,5 @@
-tag w ""
+---Routine entry:
  f i=1:1:2 f j=1:1:3 w "foo "
 
----
+---Output:
 foo foo foo foo foo foo 
----
-

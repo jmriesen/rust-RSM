@@ -1,3 +1,4 @@
+---Routine entry:
 tag 
 	w "A" ;Tab
  w "B" ;Space
@@ -5,7 +6,6 @@ tag
      w "D" ;Space + extra spaces
  d
      .     w "E" ;Space + extra spaces + line level + extra spaces
----
-ABCDE
----
 
+---Output:
+ABCDE

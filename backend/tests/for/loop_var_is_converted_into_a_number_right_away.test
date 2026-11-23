@@ -1,7 +1,5 @@
-tag w ""
+---Routine entry:
  f i="foo":1:5 w i,"_"
 
----
+---Output:
 0_1_2_3_4_5_
----
-

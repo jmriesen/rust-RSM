@@ -1,4 +1,4 @@
-tag
+---Routine entry:
  for j=1,4,3 write j,"," ;Runs once per term and exits
  write !
  for j=1:5 write j,"," q:j=21  ; Runs with increment until quit command
@@ -15,12 +15,10 @@ tag
  for j=-1:-1:0 write j,"," ;Never run if initial<end and increment is negative.
  write ",",j ; j was still set even though loop body never ran.
 
----
+---Output:
 1,4,3,
 1,6,11,16,21,
 1,6,11,16,21,
 1,6,11,16,
 5,4,3,2,1,0,
 Bounds Checks,20,-1
----
-

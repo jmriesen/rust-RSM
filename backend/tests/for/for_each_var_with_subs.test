@@ -1,10 +1,9 @@
-tag w ""
+---Routine entry:
  w "before loop",!
  f i("1")=1:1:5 w "foo "
  w !,"after loop"
----
+
+---Output:
 before loop
 foo foo foo foo foo 
 after loop
----
-
